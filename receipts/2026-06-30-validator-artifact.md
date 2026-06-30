@@ -9,7 +9,7 @@
 - Repository: https://github.com/chrono-vector/weaver-forge
 - Script: scripts/validate_receipts.py
 - Docs: README.md (Validate Receipts section)
-- Commit: 97605f1f672de3d801af32c468da196d8c6fc7cd
+- Commit: 76fb4b7b85692e2e55baf0857916826f3aa0fad7
 
 ## What this proves
 - Weaver Forge has a runnable first artifact that enforces receipt structure before claims accumulate
