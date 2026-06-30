@@ -7,6 +7,7 @@
 
 ## Evidence
 - Repository: https://github.com/chrono-vector/weaver-forge
+- Commit: 7b5f72590ce3e449d54587e9d09a1357fa1dc79d
 - Launch receipt correction commit: 7b5f72590ce3e449d54587e9d09a1357fa1dc79d
 - Launch baseline commit (referenced in launch receipt): 7dead8362732df7b1f211c0799e3fcfcad645ba2
 - Daily receipt file: receipts/2026-06-30-daily-receipt-001.md

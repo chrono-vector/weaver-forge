@@ -38,3 +38,13 @@ Learn → Build → Test → Commit → Receipt → Review → Improve
 This GitHub repository is the **official evidence layer** for Weaver Forge.
 
 **Build. Test. Commit. Receipt. Repeat.**
+
+## Validate Receipts
+
+Check that every file in `receipts/` includes the required sections and a `Commit:` line:
+
+```bash
+python scripts/validate_receipts.py
+```
+
+Exit code `0` means all receipts passed; `1` means at least one receipt is missing required fields.
