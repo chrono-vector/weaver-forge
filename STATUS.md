@@ -1,6 +1,6 @@
 # Weaver Forge Status
 
-Concise snapshot of project state as of 2026-07-01. Claims below are bounded by receipts in `receipts/` and artifacts in this repository.
+Concise snapshot of project state as of 2026-07-03. Claims below are bounded by receipts in `receipts/` and artifacts in this repository.
 
 ## Current Evidence Level
 
@@ -22,7 +22,7 @@ Concise snapshot of project state as of 2026-07-01. Claims below are bounded by 
 | Receipt Validator | ✅ `scripts/validate_receipts.py` |
 | Commit Existence Validation | ✅ Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions CI | ✅ `.github/workflows/validate-receipts.yml` — runs validator on push and PR |
-| Witness Review | ✅ `WITNESS_REVIEW.md` and `WITNESS_REVIEW_TEMPLATE.md` (owner-authored; not independent) |
+| Witness Review | ✅ `WITNESS_REVIEW.md` and expanded `WITNESS_REVIEW_TEMPLATE.md` (owner-authored; not independent) |
 
 ## Current Principles
 

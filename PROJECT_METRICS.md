@@ -1,6 +1,6 @@
 # Weaver Forge Project Metrics
 
-Factual snapshot of measurable project health as of 2026-07-01. Bounded by repository artifacts, local validation output, and public GitHub state.
+Factual snapshot of measurable project health as of 2026-07-03. Bounded by repository artifacts, local validation output, and public GitHub state.
 
 ## Repository
 
@@ -14,7 +14,7 @@ Factual snapshot of measurable project health as of 2026-07-01. Bounded by repos
 
 | Metric | Status | Evidence |
 |--------|--------|----------|
-| Total receipts | ✅ | 8 files in `receipts/` |
+| Total receipts | ✅ | 10 files in `receipts/` |
 | Receipt validator | ✅ | `scripts/validate_receipts.py` — all receipts PASS locally |
 | Commit existence validation | ✅ | Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions | ✅ | `.github/workflows/validate-receipts.yml` — 5 workflow runs on `main`, all passing |
