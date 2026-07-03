@@ -1,32 +1,79 @@
-# Witness Review
-
-## Artifact Reviewed
-(Link to receipt / PR / commit)
+# Witness Review Template
 
 ## Reviewer
-@yourhandle
 
-## Relationship to Author
-- [ ] Independent
-- [ ] Same project pod
-- [ ] Other:
+Name / handle:
+
+Date:
+
+Independent from author? Yes / No
+
+Relationship to project:
+
+## Repository
+
+Repository URL:
+
+Commit reviewed:
+
+Branch:
 
 ## Reproduction Steps
 
-## Result
-- [ ] Fully reproduced
-- [ ] Partially reproduced
-- [ ] Failed to reproduce
-- [ ] Could not attempt
+- Cloned the repository
+- Installed requirements
+- Ran:
+  `python scripts/validate_receipts.py`
+- Checked GitHub Actions
+- Reviewed STATUS.md
+- Reviewed PROJECT_METRICS.md
+- Reviewed REPRODUCE.md
 
-## Evidence
+## Results
+
+Validator result:
+
+GitHub Actions result:
+
+Receipts reviewed:
+
+Any failures:
 
 ## What this confirms
 
+State only what was directly reproduced or verified.
+
 ## What this does NOT confirm
 
-## Additional Feedback
+State what was not verified, including:
+
+- Production readiness
+- External audit
+- Long-term consistency
+- Correctness beyond current validator boundaries
+
+## Witness Conclusion
+
+Choose one:
+
+- Reproduced
+- Partially reproduced
+- Not reproduced
+
+## Notes
+
+Additional observations:
+
+## Signature
+
+Name / handle:
+
+Optional signature / fingerprint:
 
 ---
 
-**Reviewed on:** YYYY-MM-DD
+**Rules**
+
+- Do not claim authority beyond reproduced evidence.
+- Witness is attestation, not authority.
+- Contributor does not equal witness.
