@@ -16,6 +16,7 @@ Factual snapshot of measurable project health as of 2026-07-03. Bounded by repos
 |--------|--------|----------|
 | Total receipts | ✅ | 10 files in `receipts/` |
 | Receipt validator | ✅ | `scripts/validate_receipts.py` — all receipts PASS locally |
+| Receipt coverage checker | ✅ | `scripts/check_receipt_coverage.py` — inventory only; mapping not yet enforceable |
 | Commit existence validation | ✅ | Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions | ✅ | `.github/workflows/validate-receipts.yml` — 5 workflow runs on `main`, all passing |
 | Witness reviews | ✅ | `WITNESS_REVIEW.md`, `WITNESS_REVIEW_TEMPLATE.md`, `receipts/2026-06-30-first-witness-review.md` |
@@ -38,7 +39,17 @@ Factual snapshot of measurable project health as of 2026-07-03. Bounded by repos
 |-------|--------|
 | Validator | PASS |
 | GitHub Actions | PASS |
-| Receipt Coverage | Current receipts cover all documented project milestones to date |
+| Receipt Coverage | Inventory only — exact commit-to-receipt mapping is not yet enforceable |
+
+## Receipt Coverage Checker
+
+Inventory report for commits on `HEAD` and Markdown files under `receipts/`:
+
+```bash
+python scripts/check_receipt_coverage.py
+```
+
+Reports total commits, total receipt files, latest commit, latest receipt, and coverage status. Exit code `0` means the inventory ran successfully. It does not claim complete coverage; mapping remains not yet enforceable.
 
 ## Current Highest Priority
 

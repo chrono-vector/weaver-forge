@@ -20,6 +20,7 @@ Concise snapshot of project state as of 2026-07-03. Claims below are bounded by 
 | GitHub Repository | ✅ [chrono-vector/weaver-forge](https://github.com/chrono-vector/weaver-forge) |
 | Receipts | ✅ `receipts/` — daily build receipts with required sections and `Commit:` lines |
 | Receipt Validator | ✅ `scripts/validate_receipts.py` |
+| Receipt Coverage Checker | ✅ `scripts/check_receipt_coverage.py` — inventory only; mapping not yet enforceable |
 | Commit Existence Validation | ✅ Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions CI | ✅ `.github/workflows/validate-receipts.yml` — runs validator on push and PR |
 | Witness Review | ✅ `WITNESS_REVIEW.md` and expanded `WITNESS_REVIEW_TEMPLATE.md` (owner-authored; not independent) |
