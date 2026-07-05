@@ -1,6 +1,6 @@
 # Weaver Forge Project Metrics
 
-Factual snapshot of measurable project health as of 2026-07-03. Bounded by repository artifacts, local validation output, and public GitHub state.
+Factual snapshot of measurable project health as of 2026-07-05. Bounded by repository artifacts, local validation output, and public GitHub state.
 
 ## Repository
 
@@ -16,7 +16,8 @@ Factual snapshot of measurable project health as of 2026-07-03. Bounded by repos
 |--------|--------|----------|
 | Total receipts | ✅ | 10 files in `receipts/` |
 | Receipt validator | ✅ | `scripts/validate_receipts.py` — all receipts PASS locally |
-| Receipt coverage checker | ✅ | `scripts/check_receipt_coverage.py` — inventory only; mapping not yet enforceable |
+| Receipt coverage checker | ✅ | `scripts/check_receipt_coverage.py` — inventory and drift warnings; mapping not yet enforceable |
+| Commit binding validation | ✅ | Validator flags missing/malformed/unreachable `Commit:` hashes; coverage checker warns when HEAD outpaces receipt binding |
 | Commit existence validation | ✅ | Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions | ✅ | `.github/workflows/validate-receipts.yml` — 5 workflow runs on `main`, all passing |
 | Witness reviews | ✅ | `WITNESS_REVIEW.md`, `WITNESS_REVIEW_TEMPLATE.md`, `receipts/2026-06-30-first-witness-review.md` |
@@ -39,7 +40,7 @@ Factual snapshot of measurable project health as of 2026-07-03. Bounded by repos
 |-------|--------|
 | Validator | PASS |
 | GitHub Actions | PASS |
-| Receipt Coverage | Inventory only — exact commit-to-receipt mapping is not yet enforceable |
+| Receipt Coverage | Inventory and drift warnings — exact commit-to-receipt mapping is not yet enforceable |
 
 ## Receipt Coverage Checker
 
@@ -49,7 +50,7 @@ Inventory report for commits on `HEAD` and Markdown files under `receipts/`:
 python scripts/check_receipt_coverage.py
 ```
 
-Reports total commits, total receipt files, latest commit, latest receipt, and coverage status. Exit code `0` means the inventory ran successfully. It does not claim complete coverage; mapping remains not yet enforceable.
+Reports total commits, total receipt files, latest commit, latest receipt binding, and coverage status. Emits warnings for inventory drift and when HEAD is newer than the latest receipt-bound commit. Exit code `0` means the inventory ran successfully. It does not claim complete coverage or full traceability; mapping remains not yet enforceable.
 
 ## Current Highest Priority
 

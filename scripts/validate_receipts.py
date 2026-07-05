@@ -41,6 +41,14 @@ def extract_commit_hashes(text: str) -> list[str | None]:
     return hashes
 
 
+def binding_commit_hash(text: str) -> str | None:
+    """Return the first Commit: hash in the receipt (primary binding commit)."""
+    for commit_hash in extract_commit_hashes(text):
+        if commit_hash is not None:
+            return commit_hash
+    return None
+
+
 def commit_exists(commit_hash: str) -> bool:
     result = subprocess.run(
         ["git", "cat-file", "-e", f"{commit_hash}^{{commit}}"],
@@ -51,28 +59,50 @@ def commit_exists(commit_hash: str) -> bool:
     return result.returncode == 0
 
 
-def validate_receipt(path: Path) -> tuple[list[str], list[str]]:
-    """Return missing requirements and invalid commit hashes for a receipt file."""
-    missing: list[str] = []
-    invalid_commits: list[str] = []
+def resolve_commit_hash(commit_hash: str) -> str | None:
+    """Return the full commit hash when reachable locally, else None."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{commit_hash}^{{commit}}"],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def validate_receipt(path: Path) -> tuple[list[str], list[str], list[str], list[str]]:
+    """Return missing sections, missing commit fields, malformed hashes, unreachable hashes."""
+    missing_sections: list[str] = []
+    missing_commit_fields: list[str] = []
+    malformed_hashes: list[str] = []
+    unreachable_hashes: list[str] = []
     text = path.read_text(encoding="utf-8")
 
     headings = {f"## {match.group(1).strip()}" for match in HEADING_PATTERN.finditer(text)}
     for section in REQUIRED_SECTIONS:
         if section not in headings:
-            missing.append(section)
+            missing_sections.append(section)
 
-    commit_hashes = extract_commit_hashes(text)
-    if not commit_hashes:
-        missing.append("Commit: line")
+    commit_lines = list(COMMIT_LINE_PATTERN.finditer(text))
+    if not commit_lines:
+        missing_commit_fields.append("Commit: line")
     else:
-        for commit_hash in commit_hashes:
-            if commit_hash is None:
-                invalid_commits.append("(missing)")
-            elif not commit_exists(commit_hash):
-                invalid_commits.append(commit_hash)
+        for match in commit_lines:
+            value = match.group(1).strip()
+            if not value:
+                missing_commit_fields.append("(empty Commit: line)")
+                continue
+            token = value.split()[0]
+            if not HASH_PATTERN.fullmatch(token):
+                malformed_hashes.append(value)
+                continue
+            if not commit_exists(token):
+                unreachable_hashes.append(token)
 
-    return missing, invalid_commits
+    return missing_sections, missing_commit_fields, malformed_hashes, unreachable_hashes
 
 
 def main() -> int:
@@ -88,15 +118,27 @@ def main() -> int:
 
     all_passed = True
     for path in receipt_files:
-        missing, invalid_commits = validate_receipt(path)
-        if missing or invalid_commits:
+        missing_sections, missing_commit_fields, malformed_hashes, unreachable_hashes = (
+            validate_receipt(path)
+        )
+        issues = (
+            missing_sections
+            or missing_commit_fields
+            or malformed_hashes
+            or unreachable_hashes
+        )
+        if issues:
             all_passed = False
-            if missing:
-                fields = ", ".join(missing)
+            if missing_sections:
+                fields = ", ".join(missing_sections)
                 print(f"FAIL {path.name}: missing {fields}")
-            for commit_hash in invalid_commits:
-                print(f"FAIL {path.name}")
-                print(f"Invalid commit: {commit_hash}")
+            if missing_commit_fields:
+                fields = ", ".join(missing_commit_fields)
+                print(f"FAIL {path.name}: missing Commit field ({fields})")
+            for value in malformed_hashes:
+                print(f"FAIL {path.name}: malformed commit hash ({value})")
+            for commit_hash in unreachable_hashes:
+                print(f"FAIL {path.name}: commit not in git ({commit_hash})")
         else:
             print(f"PASS {path.name}")
 
