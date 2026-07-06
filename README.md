@@ -48,3 +48,7 @@ python scripts/validate_receipts.py
 ```
 
 Exit code `0` means all receipts passed; `1` means at least one receipt is missing required fields.
+
+## Independent reproduction
+
+See [REPRODUCE.md](REPRODUCE.md) for clone prerequisites, validation commands, GitHub Actions checks, and witness review steps.

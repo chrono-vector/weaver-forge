@@ -20,11 +20,13 @@ Branch:
 
 ## Reproduction Steps
 
-- Cloned the repository
-- Installed requirements
-- Ran:
+- Cloned the repository (full clone — not `--depth 1`; commit-existence checks need full history)
+- Confirmed Python 3.11+ available (stdlib only; no `pip install` required)
+- Ran from repository root:
   `python scripts/validate_receipts.py`
-- Checked GitHub Actions
+- Ran optional inventory:
+  `python scripts/check_receipt_coverage.py`
+- Checked GitHub Actions: https://github.com/chrono-vector/weaver-forge/actions (workflow **Validate Receipts** on `main`)
 - Reviewed STATUS.md
 - Reviewed PROJECT_METRICS.md
 - Reviewed REPRODUCE.md
