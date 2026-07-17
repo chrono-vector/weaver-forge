@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — clone/inspect only; build/run `NOT_STARTED` |
-| Run ID | `run-20260717-phase-b-source-pin` |
+| Reproduction status | **`PARTIAL`** — pin precheck + readiness only; cargo `NOT_STARTED`; env **`BLOCKED`** |
+| Run ID | Phase B pin; env readiness `run-20260717-env-readiness` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -43,6 +43,10 @@
 | 5 | clone root | `git log -1` / tag / submodule queries | 0 | `PASS` | metadata |
 | 6 | clone root | SHA-256 of key files via `Get-FileHash` | 0 | `PASS` | see evidence |
 | 7 | clone root | Static read of README, LICENSE, Cargo.toml, etc. | 0 | `PASS` | no cargo |
+| 8 | clone root | `git rev-parse HEAD`; `git status --short`; `git diff --exit-code`; submodule/describe | 0 | `PASS` | pin match; clean |
+| 9 | readiness host | version probes: git, rustc, cargo, rustup, cl, cmake, ninja, make, perl, pkg-config, python, node, npm | mixed | `PASS` (inventory) | most build tools unavailable |
+| 10 | readiness host | vswhere / VS+SDK path existence; env var presence | 0 | `PASS` (inventory) | MSVC/SDK not visible |
+| 11 | clone root | static Cargo.lock/Cargo.toml/build.rs review | 0 | `PASS` | no cargo network |
 
 ### Documented but **not** executed (official build/validate)
 
@@ -96,8 +100,10 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 
 | Block ID | Step | Blocker | Status |
 |----------|------|---------|--------|
-| BK-001 | cargo build/check/run | Phase B authorization | `BLOCKED` |
+| BK-001 | cargo build/check/run | Env not ready + not authorized for C2 | `BLOCKED` |
 | BK-002 | product authentication | Not authorized; no credentials | `BLOCKED` |
+| BK-003 | rustup/cargo/rustc | MISSING on host | `BLOCKED` |
+| BK-004 | DotSlash / protoc path | MISSING | `BLOCKED` |
 
 ## 8. Cleanup Procedure
 
@@ -116,6 +122,13 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | Tree | `evidence/source-inspection/TOP_LEVEL_TREE.txt` | C-005 |
 | Inspection narrative | `evidence/source-inspection/PRIMARY_SOURCE_INSPECTION.md` | C-001–C-011 |
 | Source refs | `evidence/source-inspection/OFFICIAL_SOURCE_REFERENCES.md` | C-002 |
+| Host toolchain inventory | `evidence/environment-readiness/HOST_TOOLCHAIN_INVENTORY.txt` | C-015 |
+| Early tool snapshot | `evidence/environment-readiness/HOST_TOOL_INVENTORY_EARLY_SNAPSHOT.txt` | C-015 |
+| C1 readiness narrative | `evidence/environment-readiness/PHASE_C1_READINESS_NARRATIVE.md` | C-015 |
+| Windows SDK/MSVC readiness | `evidence/environment-readiness/WINDOWS_BUILD_READINESS.md` | C-015 |
+| Pin precheck | `evidence/environment-readiness/PINNED_TARGET_PRECHECK.txt` | C-004, C-015 |
+| Dependency risk | `evidence/environment-readiness/DEPENDENCY_ACQUISITION_REVIEW.md` | C-015 |
+| Phase C2 plan (not run) | `evidence/environment-readiness/PHASE_C2_ISOLATED_BUILD_PLAN.md` | C-012 future |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -128,20 +141,21 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | `FAIL` | ☐ |
 | `NOT_APPLICABLE` | ☐ |
 
-Justification: Clone and primary-source identity inspection succeeded; official build/validation commands were not executed by design.
+Justification: Clone/pin and Phase C1 readiness inventory succeeded as documentation; cargo execution blocked by missing tools and plan authorization.
 
 ## 11. What This Reproduction Proves
 
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
+- Owner-side host lacks rustup/cargo/dotslash; build env readiness is `BLOCKED`.
 
 ## 12. What This Reproduction Does NOT Prove
 
 - Build or functional reproducibility
 - Independent witness verification
 - Security properties
-- That cargo commands succeed
-- Operational readiness
+- That cargo commands would succeed after tool install
+- Product operational readiness
 
 ## 13. Operator Attestation
 

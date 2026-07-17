@@ -1,0 +1,37 @@
+# Upstream requirement comparison (pinned tree vs host) — 2026-07-17
+
+required_rust_channel=1.92.0 (rust-toolchain.toml)
+required_components=rustfmt, clippy
+workspace_edition=2024 (Cargo.toml [workspace.package])
+workspace_license_field=Apache-2.0
+
+documented_commands_not_executed:
+  cargo run -p xai-grok-pager-bin
+  cargo build -p xai-grok-pager-bin --release
+  cargo check -p xai-grok-pager-bin
+  cargo clippy -p <crate>
+  cargo fmt --all
+  cargo install dotslash  (prereq install — not performed)
+
+platforms:
+  supported_build_hosts=macOS, Linux (README)
+  windows_source_builds=best-effort; not currently tested from this tree (README)
+  prebuilt_binaries=macOS, Linux, Windows via install scripts (not run)
+
+other_prereqs:
+  DotSlash=required before building (README)
+  protoc=bin/protoc via DotSlash or PATH/PROTOC (README)
+  native_C_toolchain=not explicitly named in README; strongly implied by lock native crates for Windows
+
+auth:
+  first_launch_browser_auth=documented (README) — separate from compile
+  product_auth_not_required_for_cargo_check=yes (logical separation)
+
+host_vs_required:
+  rust/rustup=MISSING
+  DotSlash=MISSING
+  MSVC/cl/Windows SDK=MISSING
+  git=OK
+  platform=Windows (best-effort only per upstream)
+
+phase_c2_readiness=BLOCKED

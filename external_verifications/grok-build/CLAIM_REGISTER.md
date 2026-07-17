@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Phase B identity/doc claims only |
-| Register status | Refined from primary sources; build/runtime results `NOT_STARTED` |
+| Current verification state | Phase C1 env readiness `BLOCKED`; build/runtime still not executed |
+| Register status | Identity/docs PASS; readiness claim BLOCKED; build/runtime NOT_STARTED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-17` |
+| Last updated | `2026-07-17` (C1) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -34,6 +34,7 @@
 | C-012 | Documented build succeeds at pin | `build_result` | `NOT_STARTED` |
 | C-013 | Documented validation succeeds at pin | `test_result` | `NOT_STARTED` |
 | C-014 | Independent witness reproduces pin + procedure | `independent_witness_result` | `NOT_STARTED` |
+| C-015 | Isolated build environment ready for documented cargo commands | `runtime_observation` | `BLOCKED` |
 
 ---
 
@@ -249,6 +250,23 @@
 | Limitations | Package author cannot satisfy |
 | What the result does not establish | (unevaluated) |
 
+### C-015 — Isolated build environment ready
+
+| Field | Value |
+|-------|-------|
+| Exact claim | An isolated build environment satisfying documented source-build prerequisites (Rust/rustup at toolchain pin, DotSlash, protoc resolution, suitable host, and on Windows a visible MSVC/Windows SDK when native crates require a C linker) is ready to attempt documented cargo commands at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` without product authentication. |
+| Source of claim | README Building from source; `rust-toolchain.toml`; static lock native-crate indicators; readiness procedure |
+| Evidence class | `runtime_observation` (host tool presence; not a project build result) |
+| Verification method | Inventory host tools; VS/SDK discovery; re-verify pin; compare to documented prereqs; static dependency risk review |
+| Acceptance criteria | rustup/cargo/rustc present; DotSlash on PATH; protoc resolvable; pin intact; isolation plan recorded; MSVC/SDK visible if building on Windows with native deps; preferably macOS/Linux per docs |
+| Expected output | Inventory showing required tools present |
+| Actual result | Pin OK (clean). **Missing:** rustc/cargo/rustup, DotSlash, protoc, MSVC (`cl`), Windows SDK, vswhere. Python/node present (not documented build prereqs). See `evidence/environment-readiness/` |
+| Status | `BLOCKED` |
+| Operator role | Owner-side |
+| Evidence pointers | `evidence/environment-readiness/*`; `ENVIRONMENT.md` |
+| Limitations | Readiness ≠ build success; tool install out of scope this phase |
+| What the result does not establish | That cargo would pass after installs; security; independent witness env; offline build |
+
 ---
 
 ## Aggregate Claim Status
@@ -256,14 +274,14 @@
 | Status | Count |
 |--------|------:|
 | `NOT_STARTED` | 3 |
-| `BLOCKED` | 0 |
+| `BLOCKED` | 1 |
 | `PASS` | 11 |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 14 |
+| **Total** | 15 |
 
-Note: Eleven `PASS` rows are **identity/documentation observations**, not build/runtime success.
+Note: Eleven `PASS` rows are **identity/documentation observations**, not build/runtime success. C-015 is readiness, not build.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -277,12 +295,13 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 ## What This Register Proves
 
 - Primary-source-backed identity and documentation claims were evaluated at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
-- Build/runtime claims remain explicitly unstarted.
+- Phase C1: isolated build-env readiness is **`BLOCKED`** on the inventoried host.
+- Build/runtime success claims remain unstarted.
 
 ## What This Register Does NOT Prove
 
 - Independent witness confirmation
-- Security or operational readiness
+- Security or product operational readiness
 - That documented cargo commands succeed
 
 ## Change Log
@@ -291,6 +310,7 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 |------|--------|--------|
 | 2026-07-17 | Skeleton register | Weaver Forge documentation package author |
 | 2026-07-17 | Phase B primary-source claims C-001–C-014 | Weaver Forge documentation package author |
+| 2026-07-17 | Phase C1 claim C-015 readiness `BLOCKED` | Weaver Forge documentation package author |
 
 ---
 

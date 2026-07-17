@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **Phase B recorded** |
+| Results status | **Pin + environment readiness recorded; env BLOCKED** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
 | Compilation date | `2026-07-17` |
-| Linked reproduction run ID | `run-20260717-phase-b-source-pin` |
+| Linked reproduction run ID | Phase B pin; C1 `run-20260717-phase-c1-env-readiness` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -24,6 +24,11 @@
 | Execution performed (build/run)? | **No** |
 | Clone/inspect authorized? | Yes |
 | Clone/inspect performed? | Yes |
+| Env readiness inventory authorized? | Yes (C1) |
+| Env readiness inventory performed? | Yes |
+| Build environment ready? | **No (`BLOCKED`)** |
+| Phase C2 readiness | **`BLOCKED`** |
+
 
 ## 2. Per-Claim Results
 
@@ -43,6 +48,7 @@
 | C-012 | Build succeeds | `NOT_STARTED` | — |
 | C-013 | Validation succeeds | `NOT_STARTED` | — |
 | C-014 | Independent witness | `NOT_STARTED` | — |
+| C-015 | Build env ready | `BLOCKED` | evidence/environment-readiness/ |
 
 ## 3. Build Results
 
@@ -52,6 +58,7 @@
 | Build command completed | `NOT_STARTED` | |
 | Build artifacts produced | `NOT_STARTED` | |
 | Build reproducibility (repeat run) | `NOT_STARTED` | |
+| Build-env readiness (tools present) | `BLOCKED` | missing rust, DotSlash, MSVC/SDK |
 
 ## 4. Test Results
 
@@ -88,8 +95,12 @@
 
 | Block ID | Description | Blocks | Status |
 |----------|-------------|--------|--------|
-| BK-001 | Build/run not authorized in Phase B | C-012, C-013; build/functional axes | `BLOCKED` for those axes |
+| BK-001 | Build/run not authorized / env not ready | C-012, C-013 | `BLOCKED` |
 | BK-002 | Independent witness unassigned | C-014 | open |
+| BK-003 | rustup/cargo/rustc/dotslash missing | C-015, C-012, C-013 | `BLOCKED` |
+| BK-004 | Windows best-effort host | future build claims | open risk |
+| BK-005 | MSVC / Windows SDK not visible | C-015, native link | `BLOCKED` |
+| BK-006 | First build likely needs network (no full vendor) | offline C2 | open |
 
 ## 9. Aggregate Counts
 
@@ -99,19 +110,19 @@
 | `PASS` | 11 |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
-| `BLOCKED` | 0 (claims); build steps blocked by plan |
+| `BLOCKED` | 1 (C-015) |
 | `NOT_APPLICABLE` | integrity sub-checks as above |
 
 ## 10. Owner-Side vs Independent Witness
 
 | Result class | Status | Notes |
 |--------------|--------|-------|
-| Owner-side reproduction results | `PARTIAL` | Clone/inspect only |
+| Owner-side reproduction results | `PARTIAL` | Clone/inspect + readiness inventory |
 | Independent witness results | `NOT_STARTED` | |
 
 | Field | Value |
 |-------|-------|
-| Reproduction class for **this** results file | **Owner-side reproduction** (source inspection) |
+| Reproduction class for **this** results file | **Owner-side reproduction** (inspection + readiness) |
 | Operator is uninvolved third party for package? | No (package author) |
 
 ## 11. Mandatory Evidence Boundaries
@@ -119,14 +130,11 @@
 ### 11.1 What was observed
 
 ```text
-- Public clone of https://github.com/xai-org/grok-build at full commit
-  98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce (subject: Synced from monorepo).
-- Official pages https://x.ai/news/grok-build-open-source and
-  https://x.ai/open-source linking to that repository and describing open source.
-- Root LICENSE Apache-2.0; workspace license Apache-2.0; Cargo edition 2024;
-  rust-toolchain 1.92.0; Cargo.lock present; key file SHA-256 values.
-- Documented cargo build/check/clippy/fmt command strings in README/open-source page.
-- No GitHub releases or tags; no submodules; clean working tree at pin.
+- Pin precheck PASS: HEAD 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce, clean, no submodules.
+- Host: Microsoft Windows 11 Home 10.0.26200; git/python/node present; rustc/cargo/rustup/cl/cmake/dotslash MISSING.
+- MSVC Build Tools and Windows SDK not visible; vswhere missing.
+- Cargo.lock present; ~1190 registry sources; git nucleo rev; native crates in lock.
+- Documented: Rust 1.92.0, DotSlash, Windows best-effort; auth separate from compile.
 ```
 
 ### 11.2 What was not observed
@@ -137,12 +145,14 @@
 - Authentication browser flow
 - Publisher-published SHA-256 for the git tree or signed tags
 - Independent witness attestation
+- A ready isolated Linux/macOS build environment with toolchains installed
 ```
 
 ### 11.3 What was not tested
 
 ```text
 - All build, lint, format, unit/integration tests
+- Toolchain installation procedures
 - Headless mode, tool-call dispatch, MCP, plugins at runtime
 - Install scripts and prebuilt binaries
 - Multi-OS source builds
@@ -153,17 +163,17 @@
 
 ```text
 - Build reproducibility, functional reproducibility
-- Security review or operational readiness
+- Security review or product operational readiness
 - Independent verification (E4)
+- That the build environment is ready (C-015 is BLOCKED)
 - Overall product PASS
-- That main remains at this commit forever
 ```
 
 ### 11.5 Reproduction class
 
 | Class | Selected |
 |-------|----------|
-| Owner-side reproduction | ☑ (clone/inspect) |
+| Owner-side reproduction | ☑ (clone/inspect + readiness inventory) |
 | Independent reproduction | ☐ |
 | Neither | ☐ |
 
@@ -171,12 +181,14 @@
 
 - Phase B identity pin and primary-source documentation claims as in the claim register.
 - Local integrity hashes for key files at the pin.
+- Phase C1: build-environment readiness is `BLOCKED` on the inventoried host.
 
 ## 13. What These Results Do NOT Prove
 
 - Build/functional success
 - Security or production readiness
 - Independent witness confirmation
+- That installing tools would make cargo succeed
 
 ## Change Log
 
@@ -184,6 +196,7 @@
 |------|--------|--------|
 | 2026-07-17 | Initial empty shell | Weaver Forge documentation package author |
 | 2026-07-17 | Phase B results | Weaver Forge documentation package author |
+| 2026-07-17 | Phase C1 readiness `BLOCKED` | Weaver Forge documentation package author |
 
 ---
 

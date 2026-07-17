@@ -9,7 +9,7 @@
 | Cargo package authors field | `"xAI"` (e.g. `xai-grok-pager-bin` crate) |
 | GitHub organization (repository owner path) | `xai-org` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **Phase B complete for identity pin; overall package still not fully verified** |
+| Current verification state | **Phase B pin held; Phase C1 build-env readiness BLOCKED; build not run** |
 | Identity status | **Pinned** — full commit recorded; live primary sources inspected |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |

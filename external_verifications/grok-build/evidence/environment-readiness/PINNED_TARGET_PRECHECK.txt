@@ -1,0 +1,33 @@
+# Pinned target precheck — Grok Build environment readiness
+# Date: 2026-07-17
+# No fetch/pull/modify of external clone. No install/build.
+
+path=C:\dev\external-verification-targets\grok-build
+expected_full_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+
+git remote -v:
+  origin  https://github.com/xai-org/grok-build.git (fetch)
+  origin  https://github.com/xai-org/grok-build.git (push)
+
+git rev-parse HEAD:
+  98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+
+PIN_MATCH=YES
+
+git status --short:
+  (empty — clean)
+
+git diff --exit-code:
+  exit_code=0
+
+git submodule status --recursive:
+  (empty — no submodules / no .gitmodules)
+
+git describe --tags --always --dirty:
+  98c3b24
+
+git status -sb:
+  ## main...origin/main
+
+DIRTY=False
+precheck_result=PASS

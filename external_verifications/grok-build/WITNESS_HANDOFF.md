@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Pin ready for identity re-check; build procedure still not witness-executable as a full product verification** |
+| Handoff status | **Pin ready for identity re-check; build env readiness BLOCKED on inventoried host; cargo not witness-executable yet** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-17` |
@@ -35,6 +35,7 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Results | `RESULTS.md` | Yes |
 | Verdict | `VERDICT.md` | Yes |
 | Evidence (Phase B) | `evidence/source-inspection/` | Yes |
+| Evidence (Phase C1 env readiness) | `evidence/environment-readiness/` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -73,13 +74,15 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 
 | Prerequisite | Required value / constraint | Status |
 |--------------|----------------------------|--------|
-| OS | Any with git for identity re-check; macOS/Linux preferred for future source build | documented |
+| OS | Any with git for identity re-check; **macOS/Linux preferred** for source build (Windows best-effort) | documented |
 | Git | Full clone capability | required |
-| Rust | channel **1.92.0** via rust-toolchain.toml | for build phase only |
-| DotSlash | on PATH before build | for build phase only |
+| Rust | channel **1.92.0** via rust-toolchain.toml / rustup | **required before cargo** |
+| DotSlash | on PATH before build | **required as documented** |
+| protoc | via bin/protoc DotSlash or PATH/PROTOC | required as documented |
 | Network | HTTPS to GitHub (clone); crates/DotSlash likely for build | |
 | Credentials | none for public clone | public-only preferred |
 | Cargo.lock | use tree as-is | present at pin |
+| Owner-side C1 note | Inventoried Windows host **lacks** rustup/cargo/dotslash — do not assume witness host matches | `BLOCKED` on that host |
 
 ---
 
@@ -140,8 +143,9 @@ Command set status: identity commands **frozen**; build commands **documented on
 | ID | Limitation | Status |
 |----|------------|--------|
 | KL-001 | No signed tags / publisher tree checksums | open |
-| KL-002 | Build not yet authorized for witness product verification | open |
+| KL-002 | Build not yet authorized; env readiness BLOCKED on C1 host | open |
 | KL-003 | Windows source builds best-effort per upstream docs | open |
+| KL-006 | rustup/cargo/dotslash missing on owner-side readiness host | open |
 | KL-004 | Auth may be required for interactive product use | open |
 | KL-005 | Owner-side results are not substitute for witness | open |
 
@@ -246,6 +250,7 @@ Independent verification; E4; build success; security; production readiness.
 |------|--------|--------|
 | 2026-07-17 | Shell | Weaver Forge documentation package author |
 | 2026-07-17 | Phase B pin + identity commands frozen | Weaver Forge documentation package author |
+| 2026-07-17 | Phase C1 env readiness BLOCKED noted | Weaver Forge documentation package author |
 
 ---
 

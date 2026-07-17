@@ -1,0 +1,102 @@
+# Host toolchain inventory (read-only) — Windows readiness host
+# Date: 2026-07-17
+# Missing tools recorded as unavailable; not treated as install instructions.
+
+OS:
+  Caption=Microsoft Windows 11 Home
+  Version=10.0.26200
+  BuildNumber=26200
+  OSArchitecture=64-bit
+  OSVersionString=Microsoft Windows NT 10.0.26200.0
+
+PowerShell:
+  PSVersion=5.1.26100.8875
+  PSEdition=Desktop
+
+git:
+  available=YES
+  path=C:\Program Files\Git\cmd\git.exe
+  output=git version 2.53.0.windows.3
+  exit=0
+
+rustc --version --verbose:
+  available=NO
+  exit=command_not_found
+
+cargo --version --verbose:
+  available=NO
+  exit=command_not_found
+
+rustup --version:
+  available=NO
+  exit=command_not_found
+
+rustup show / toolchain list / target list --installed:
+  available=NO (rustup missing)
+
+cl (MSVC):
+  available=NO
+  exit=command_not_found
+
+where.exe cl:
+  available=NO
+  exit=1
+
+cmake --version:
+  available=NO
+
+ninja --version:
+  available=NO
+
+make --version:
+  available=NO
+
+perl --version:
+  available=NO
+
+pkg-config --version:
+  available=NO
+
+python --version:
+  available=YES
+  output=Python 3.14.3
+  exit=0
+  note=not a documented Grok Build source-build prerequisite
+
+node --version:
+  available=YES
+  output=v24.14.1
+  exit=0
+  note=not a documented Grok Build source-build prerequisite
+
+npm --version:
+  available=YES
+  output=11.11.0
+  exit=0
+  note=not a documented Grok Build source-build prerequisite
+
+dotslash:
+  available=NO (checked separately; not on PATH)
+
+protoc on PATH:
+  available=NO
+
+docker:
+  available=YES Docker version 29.4.3 (optional isolation; not used this phase)
+
+env_var_names_set (values not dumped except presence):
+  INCLUDE=unset
+  LIB=unset
+  LIBPATH=unset
+  VCINSTALLDIR=unset
+  VSINSTALLDIR=unset
+  WindowsSdkDir=unset
+  WindowsSDKVersion=unset
+  VCToolsInstallDir=unset
+  VSCMD_ARG_TGT_ARCH=unset
+  RUSTUP_HOME=unset
+  CARGO_HOME=unset
+  PROTOC=unset
+  PATH=set (process/user/machine)
+
+no_tools_installed_or_updated_this_phase=true

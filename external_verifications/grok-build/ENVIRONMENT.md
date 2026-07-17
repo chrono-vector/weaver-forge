@@ -3,139 +3,103 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | **Inspection host recorded; build environment `NOT_STARTED`** |
+| Environment record status | **Readiness inspection complete; build env `BLOCKED`** |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Record date | `2026-07-17` |
-| Tied to reproduction run ID | Phase B clone/inspect only (`REPRODUCTION.md`) |
+| Record date | 2026-07-17 |
 | Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-
-This record describes the **owner-side inspection host** used for git clone and static file reads. It is **not** a frozen build environment for cargo.
+| Evidence | `evidence/environment-readiness/` (canonical Phase C1) |
+| Phase C2 readiness | **`BLOCKED`** |
 
 ---
 
-## 1. Host Platform (inspection)
+## 1. Host Platform
 
 | Field | Value |
 |-------|-------|
-| OS name | Windows |
-| OS version | Windows 10 (build not re-verified this phase; prior Weaver audits used build 26200) |
-| Architecture | x86_64 (host used for clone) |
-| Machine class | desktop / workstation |
+| OS | Microsoft Windows 11 Home |
+| Version / build | 10.0.26200 / Build 26200 (NT 10.0.26200.0) |
+| Architecture | 64-bit |
+| Documented build-host fit | Windows source builds **best-effort; not currently tested from this tree** (README at pin) |
 
 ## 2. Shell
 
 | Field | Value |
 |-------|-------|
-| Shell name | PowerShell |
-| Shell version | host default (not required for pin fidelity) |
+| Shell | Windows PowerShell 5.1.26100.8875 (Desktop) |
 
-## 3. CPU / GPU
+## 3. Toolchain inventory (read-only)
 
-| Field | Value |
-|-------|-------|
-| GPU status | `NOT_APPLICABLE` for Phase B identity work |
+See `evidence/environment-readiness/HOST_TOOLCHAIN_INVENTORY.txt`.
 
-## 4. Language and Runtime Versions
+| Tool | Available | Version / note |
+|------|-----------|----------------|
+| git | Yes | 2.53.0.windows.3 |
+| rustc | **No** | command not found |
+| cargo | **No** | command not found |
+| rustup | **No** | command not found |
+| cl (MSVC) | **No** | not found |
+| cmake / ninja / make / perl / pkg-config | **No** | not found |
+| python | Yes | 3.14.3 (not a documented build prereq) |
+| node / npm | Yes | v24.14.1 / 11.11.0 (not documented build prereqs) |
+| DotSlash | **No** | not on PATH |
+| protoc on PATH | **No** | |
+| Docker | Yes | 29.4.3 (unused) |
 
-| Runtime | Version command | Observed version | Status |
-|---------|-----------------|------------------|--------|
-| Git | `git --version` | present on PATH (clone succeeded) | recorded for clone only |
-| Rust / cargo | — | **not captured** (build not authorized) | `NOT_STARTED` |
-| DotSlash | — | **not installed/checked for build** | `NOT_STARTED` |
+## 4. Windows compiler / SDK
 
-## 5. Package-Manager Versions
+See `WINDOWS_BUILD_READINESS.md`.
 
-| Tool | Status |
-|------|--------|
-| cargo / rustup | `NOT_STARTED` (build phase) |
+| Check | Result |
+|-------|--------|
+| vswhere | Missing |
+| Visual Studio / Build Tools install dirs | Not present |
+| Windows Kits 10 | Not present |
+| VC/SDK env vars | Unset |
 
-## 6. Dependency-Lock Identity (target tree)
-
-| Field | Value |
-|-------|-------|
-| Lockfile path(s) | `Cargo.lock` at repo root (in external clone) |
-| Lockfile size | 353616 bytes |
-| Lockfile SHA-256 | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` |
-| Lockfile status | present at pin |
-| Install command (documented) | implicit via `cargo` build commands (not run) |
-| Deviation from lock? | N/A (no install) |
-
-## 7. Environment Variables
-
-| Variable | Set? | Notes |
-|----------|------|-------|
-| Product credentials / auth tokens | No | Auth not used; public clone only |
-| `PROTOC` | unknown / unused | build not run |
-
-## 8. Precision Mode
-
-| Status | `NOT_APPLICABLE` (Phase B) |
-
-## 9. Random Seed
-
-| Status | `NOT_APPLICABLE` (Phase B) |
-
-## 10. Network Requirements
+## 5. Target pin toolchain (docs)
 
 | Field | Value |
 |-------|-------|
-| Network required for Phase B? | Yes (git clone; HTTPS fetch of official pages) |
-| Endpoints used | github.com; x.ai; api.github.com |
-| Offline mode | Not used |
-| Network status during run | online |
+| rust-toolchain.toml channel | **1.92.0** |
+| Components | rustfmt, clippy |
+| Workspace edition | **2024** |
+| Lockfile | present |
 
-## 11. Credentials and Authentication Boundaries
-
-| Field | Value |
-|-------|-------|
-| Credentials required for public clone? | No |
-| Auth boundary this phase | **public-only** |
-| Credentials used? | **No** |
-| Product auth (browser login) | Documented for first launch; **not exercised** |
-
-## 12. Sandbox or Isolation Method
+## 6. Isolation
 
 | Field | Value |
 |-------|-------|
-| Isolation method | External directory outside Weaver Forge tree |
-| Working directory root | `C:\dev\external-verification-targets\grok-build` |
-| Privilege level | user |
-| Isolation status | recorded for clone path |
+| Source path | `C:\dev\external-verification-targets\grok-build` (unchanged this phase) |
+| Planned `CARGO_TARGET_DIR` | `C:\dev\external-verification-work\grok-build-98c3b24\target` (not created) |
+| VM/container prepared | No |
 
-## 13. Documented target prerequisites (for future build phase; not installed)
+## 7. Credentials / network
 
-From README at pin:
+| Field | Value |
+|-------|-------|
+| Product/API credentials used | **No** |
+| Network used for cargo/deps | **No** (static inspection only) |
+| Future first build network | Likely required (registry + git + DotSlash) |
 
-- Rust via `rust-toolchain.toml` channel **1.92.0**
-- DotSlash on PATH before build
-- protoc via `bin/protoc` / DotSlash or `$PROTOC`
-- macOS/Linux preferred; Windows best-effort
+## 8. Environment readiness verdict
 
-## 14. Environment Risks
+| Field | Value |
+|-------|-------|
+| Environment readiness | **`BLOCKED`** |
+| Rationale | Missing rustup/cargo/rustc, DotSlash, MSVC/Windows SDK; Windows best-effort host |
 
-| Risk ID | Description | Impact |
-|---------|-------------|--------|
-| ER-001 | Inspection host ≠ future build host | Build phase must re-record full toolchain |
-| ER-002 | Windows best-effort for source builds | May block or PARTIAL future Windows build claims |
-| ER-003 | Network/DotSlash needs for hermetic tools | Offline builds may fail |
+## 9. What this proves / does not prove
 
-## 15. What This Environment Record Proves
-
-- Clone/inspection was possible on this Windows PowerShell host without target credentials.
-
-## 16. What This Environment Record Does NOT Prove
-
-- That Rust/cargo/dotslash are installed or compatible
-- That a build would succeed here
-- Independent witness environment parity
+**Proves:** Current host inventory vs documented prereqs; pin still clean.
+**Does not prove:** Build success, functional behavior, security, independent witness.
 
 ## Change Log
 
-| Date | Change | Author |
-|------|--------|--------|
-| 2026-07-17 | Shell only | Weaver Forge documentation package author |
-| 2026-07-17 | Phase B inspection host + lockfile identity | Weaver Forge documentation package author |
+| Date | Change |
+|------|--------|
+| 2026-07-17 | Phase B / C1 notes |
+| 2026-07-17 | Full Windows readiness inventory (`BLOCKED`) |
 
 ---
 

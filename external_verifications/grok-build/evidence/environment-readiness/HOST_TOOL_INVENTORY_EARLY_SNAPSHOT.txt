@@ -1,0 +1,44 @@
+# Early C1 host tool inventory snapshot (key=value form)
+# Original path: evidence/build-environment-readiness/HOST_TOOL_INVENTORY.txt
+# Consolidated 2026-07-18 into evidence/environment-readiness/
+# Prefer HOST_TOOLCHAIN_INVENTORY.txt for the expanded later inventory.
+# Date: 2026-07-17 23:44:58 +09:00
+# No cargo build, install, or Grok Build execution performed.
+
+pinned_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+clone_path=C:\dev\external-verification-targets\grok-build
+pin_verify=git rev-parse HEAD (no fetch/pull) => 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+working_tree=clean (git status: nothing to commit)
+
+host_os=Microsoft Windows NT 10.0.26200.0
+host_os_caption_later_inventory=Microsoft Windows 11 Home
+powershell=5.1.26100.8875
+arch=x86_64 (assumed host)
+
+tool_git=FOUND C:\Program Files\Git\cmd\git.exe
+tool_git_version=git version 2.53.0.windows.3
+tool_rustc=MISSING
+tool_cargo=MISSING
+tool_rustup=MISSING
+tool_dotslash=MISSING
+tool_protoc_on_path=MISSING
+tool_python=FOUND Python 3.14.3 (not a Grok Build build prerequisite)
+tool_docker=FOUND Docker version 29.4.3, build 055a478 (available for future isolation; not used this phase)
+
+env_RUSTUP_HOME=(unset)
+env_CARGO_HOME=(unset)
+env_PROTOC=(unset)
+env_RUSTFLAGS=(unset)
+
+disk_free_bytes_C=134959181824
+disk_free_approx_GiB=125.7
+
+documented_rust_channel=1.92.0 (rust-toolchain.toml at pin)
+documented_components=rustfmt, clippy
+documented_dotslash=required before build (README)
+documented_protoc=bin/protoc via DotSlash or PATH/PROTOC (README)
+documented_platforms=macOS and Linux supported; Windows best-effort and not currently tested from this tree (README)
+bin_protoc_in_tree=present as DotSlash stub (1616 bytes); requires dotslash to fetch platform binary
+
+build_environment_ready=NO
+blockers=missing rustup/cargo/rustc; missing dotslash; Windows best-effort host; no dedicated isolated build container/VM prepared

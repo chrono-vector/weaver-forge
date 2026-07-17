@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Verdict status | **Phase B recorded** |
+| Verdict status | **Environment readiness BLOCKED; overall PARTIAL** |
 | Issued by | Weaver Forge documentation package author |
 | Role | Owner-side evaluator (not independent witness) |
 | Verdict date | `2026-07-17` |
@@ -25,12 +25,13 @@
 |------|---------|---------------------|-----------------------------------|
 | Source authenticity | `PASS` | Official x.ai pages + public `xai-org/grok-build` clone | Ongoing trust; code safety |
 | Artifact integrity | `PARTIAL` | Full commit + tree OID + local key-file SHA-256; **no** publisher checksums/signed tags | Supply-chain audit; binary integrity |
-| Build reproducibility | `NOT_STARTED` | No cargo build | Any compile success |
+| Build reproducibility | `NOT_STARTED` | No cargo build | Compile success |
 | Functional reproducibility | `NOT_STARTED` | No product execution | Runtime behavior |
-| Claim verification | `PARTIAL` | Doc/identity claims PASS; build/runtime/witness NOT_STARTED | Unregistered claims; runtime truth |
-| Security review | `NOT_STARTED` | Not in Phase B scope | Security assurance |
-| Independent-witness status | `NOT_STARTED` | No uninvolved witness | E4 |
-| Operational readiness | `NOT_STARTED` | No ops evaluation | Production approval |
+| Claim verification | `PARTIAL` | Docs PASS; C-015 env `BLOCKED`; build claims unstarted | Runtime truth |
+| Security review | `NOT_STARTED` | Out of scope | Security assurance |
+| Independent-witness status | `NOT_STARTED` | No witness | E4 |
+| Operational readiness | `NOT_STARTED` | Product ops not evaluated | Production approval |
+| **Environment readiness (separate)** | **`BLOCKED`** | Missing Rust, DotSlash, MSVC/SDK on Windows host | Future host readiness after installs |
 
 ---
 
@@ -44,12 +45,10 @@
 ### Overall justification
 
 ```text
-Phase B established a pinned public source identity and verified documentation-
-level claims from official primary sources. Artifact integrity is only PARTIAL
-because integrity rests on git commit/tree plus self-computed file hashes without
-publisher-published digests or signed tags. No build, functional test, security
-review, independent witness, or operational assessment was performed. Overall
-PASS is forbidden under Phase B rules and remaining open axes.
+Source authenticity PASS; artifact integrity PARTIAL. Environment readiness
+BLOCKED on the inventoried Windows host (no rustc/cargo/rustup, no DotSlash,
+no MSVC/Windows SDK). Build/functional/security/witness/ops remain NOT_STARTED.
+Claim verification PARTIAL. Overall PARTIAL (never PASS). Phase C2 not started.
 ```
 
 ---
@@ -60,6 +59,7 @@ PASS is forbidden under Phase B rules and remaining open axes.
 |----------|--------|
 | C-001–C-011 | `PASS` (identity/docs) |
 | C-012–C-014 | `NOT_STARTED` |
+| C-015 | `BLOCKED` (build env readiness) |
 
 ---
 
@@ -67,7 +67,7 @@ PASS is forbidden under Phase B rules and remaining open axes.
 
 | Question | Answer |
 |----------|--------|
-| Was owner-side reproduction performed? | **Yes** (clone/inspect only) |
+| Was owner-side reproduction performed? | **Yes** (clone/inspect + C1 readiness inventory) |
 | Was independent third-party witness performed? | **No** |
 | Does this verdict claim E4 for the target? | **No** |
 | Does this verdict claim E5 external audit? | **No** |
@@ -80,7 +80,8 @@ PASS is forbidden under Phase B rules and remaining open axes.
 |----|-------------------|----------|-----------|
 | L-001 | No signed tags / publisher tree checksums | medium | Yes for Phase B |
 | L-002 | Build untested | high for build claims | Yes — NOT_STARTED |
-| L-003 | Windows source-build best-effort per docs | medium | Pending future phase |
+| L-003 | Windows source-build best-effort per docs | medium | Confirmed risk in C1 |
+| L-006 | rustup/cargo/dotslash missing on readiness host | high | C-015 BLOCKED |
 | L-004 | Package author ≠ independent witness | high for E4 | Yes |
 | L-005 | Floating main after pin | medium | Pin freezes commit |
 
@@ -94,7 +95,7 @@ PASS is forbidden under Phase B rules and remaining open axes.
 | Cite pinned public source identity | Conditional | Quote commit + this package; not “fully verified” |
 | Depend on in production | **No** | |
 | Request independent witness | Not yet for full product | After build phase freezes executable procedure |
-| Next technical step | Yes | Isolated build-environment preparation |
+| Next technical step | Yes | Prepare isolated Linux/macOS env with rustup+DotSlash; re-inventory; then C2 cargo check if authorized |
 
 ---
 
@@ -103,27 +104,28 @@ PASS is forbidden under Phase B rules and remaining open axes.
 ### 7.1 What was observed
 
 ```text
-Public source pin 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce; Apache-2.0 LICENSE;
-official x.ai open-source pages + SpaceXAI brand string in tree docs; documented cargo commands; local hashes.
+Pin 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce intact; identity/docs Phase B facts;
+C1 host missing rustc/cargo/rustup/dotslash/protoc; Docker unused; env ready BLOCKED.
 ```
 
 ### 7.2 What was not observed
 
 ```text
-Build logs, test results, runtime behavior, signed release artifacts, witness record.
+Build logs, test results, runtime behavior, signed release artifacts, witness record,
+ready isolated toolchain environment.
 ```
 
 ### 7.3 What was not tested
 
 ```text
-cargo build/check/clippy/fmt/test; install scripts; authentication; headless runtime.
+cargo build/check/clippy/fmt/test; toolchain install; install scripts; authentication; headless runtime.
 ```
 
 ### 7.4 What is not claimed
 
 ```text
-Build/functional reproducibility; security review; operational readiness;
-independent verification; overall PASS.
+Build/functional reproducibility; security review; product operational readiness;
+build-environment ready (BLOCKED); independent verification; overall PASS.
 ```
 
 ### 7.5 Reproduction class
@@ -138,7 +140,8 @@ independent verification; overall PASS.
 
 ## 8. What This Verdict Proves
 
-- Phase B multi-axis state: source authenticity PASS; artifact integrity PARTIAL; overall **PARTIAL**.
+- Phase B multi-axis: source authenticity PASS; artifact integrity PARTIAL.
+- Phase C1: build-env readiness **BLOCKED**; overall remains **PARTIAL**.
 
 ## 9. What This Verdict Does NOT Prove
 
