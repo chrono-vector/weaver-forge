@@ -1,0 +1,107 @@
+# Top-level listing of clone at 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+# type name [size_bytes for files]
+dir  .cargo
+dir  .git
+dir  bin
+dir  crates
+dir  prod
+dir  third_party
+file .gitignore  32
+file Cargo.lock  353616
+file Cargo.toml  15983
+file clippy.toml  1703
+file CONTRIBUTING.md  707
+file LICENSE  11592
+file README.md  5897
+file rustfmt.toml  33
+file rust-toolchain.toml  642
+file SECURITY.md  173
+file SOURCE_REV  42
+file THIRD-PARTY-NOTICES  781418
+
+# workspace.package from root Cargo.toml (static inspection):
+edition = "2024"
+license = "Apache-2.0"
+rust-version: not declared in [workspace.package]
+rust-toolchain.toml channel = "1.92.0" (components: rustfmt, clippy)
+
+# workspace members (from root Cargo.toml members array):
+crates/build/xai-proto-build
+crates/codegen/ptyctl
+crates/codegen/ptyctl-cli
+crates/codegen/xai-acp-lib
+crates/codegen/xai-agent-lifecycle
+crates/codegen/xai-chat-state
+crates/codegen/xai-codebase-graph
+crates/codegen/xai-crash-handler
+crates/codegen/xai-fast-worktree
+crates/codegen/xai-file-utils
+crates/codegen/xai-fsnotify
+crates/codegen/xai-gix-status
+crates/codegen/xai-grok-agent
+crates/codegen/xai-grok-announcements
+crates/codegen/xai-grok-auth
+crates/codegen/xai-grok-config
+crates/codegen/xai-grok-config-types
+crates/codegen/xai-grok-env
+crates/codegen/xai-grok-hooks
+crates/codegen/xai-grok-http
+crates/codegen/xai-grok-markdown
+crates/codegen/xai-grok-markdown-core
+crates/codegen/xai-grok-mcp
+crates/codegen/xai-grok-memory
+crates/codegen/xai-grok-mermaid
+crates/codegen/xai-grok-models
+crates/codegen/xai-grok-pager
+crates/codegen/xai-grok-pager-bin
+crates/codegen/xai-grok-pager-minimal
+crates/codegen/xai-grok-pager-pty-harness
+crates/codegen/xai-grok-pager-render
+crates/codegen/xai-grok-paths
+crates/codegen/xai-grok-plugin-marketplace
+crates/codegen/xai-grok-sampler
+crates/codegen/xai-grok-sampling-types
+crates/codegen/xai-grok-sandbox
+crates/codegen/xai-grok-secrets
+crates/codegen/xai-grok-shared
+crates/codegen/xai-grok-shell
+crates/codegen/xai-grok-shell-base
+crates/codegen/xai-grok-shell-session-support
+crates/codegen/xai-grok-subagent-resolution
+crates/codegen/xai-grok-telemetry
+crates/codegen/xai-grok-test-support
+crates/codegen/xai-grok-tools
+crates/codegen/xai-grok-tools-api
+crates/codegen/xai-grok-update
+crates/codegen/xai-grok-version
+crates/codegen/xai-grok-voice
+crates/codegen/xai-grok-workspace
+crates/codegen/xai-grok-workspace-client
+crates/codegen/xai-grok-workspace-types
+crates/codegen/xai-hooks-plugins-types
+crates/codegen/xai-hunk-tracker
+crates/codegen/xai-mixpanel
+crates/codegen/xai-prompt-queue
+crates/codegen/xai-ratatui-inline
+crates/codegen/xai-ratatui-textarea
+crates/codegen/xai-sqlite-journal
+crates/codegen/xai-system-power
+crates/codegen/xai-token-estimation
+crates/codegen/xai-tracing-macros
+crates/codegen/xai-tty-utils
+crates/common/xai-circuit-breaker
+crates/common/xai-computer-hub-core
+crates/common/xai-computer-hub-mcp-adapter
+crates/common/xai-computer-hub-sdk
+crates/common/xai-grok-compaction
+crates/common/xai-interjection-core
+crates/common/xai-test-utils
+crates/common/xai-tool-protocol
+crates/common/xai-tool-runtime
+crates/common/xai-tool-types
+crates/common/xai-tracing
+prod/mc/cli-chat-proxy-types
+third_party/dagre_rust
+third_party/graphlib_rust
+third_party/mermaid-to-svg
+third_party/ordered_hashmap

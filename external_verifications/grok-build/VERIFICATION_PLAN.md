@@ -4,190 +4,157 @@
 |-------|-------|
 | Target slug | `grok-build` |
 | Project | **Grok Build** |
-| Claimed publisher | **xAI** |
+| Brand string (primary sources) | **SpaceXAI** (README/LICENSE/CONTRIBUTING/x.ai pages — not equated to org) |
+| GitHub organization path | `xai-org` |
+| Cargo authors field (sample) | `"xAI"` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **`NOT_STARTED`** |
-| Plan status | Specification complete for documentation-only package; execution `NOT_STARTED` |
+| Current verification state | **Phase B: identity pinned; build/run not started** |
+| Plan status | Phase B authorized and executed (read-only); build phase not authorized |
 | Package created | `2026-07-17` |
-| Plan version / date | 2026-07-17 (documentation intake + boundary fields) |
+| Plan version / date | 2026-07-17 Phase B pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Operator / author | Weaver Forge documentation package author |
-| Operator role | Owner-side planner (not independent witness) |
+| Operator role | Owner-side planner/inspector (not independent witness) |
 | Independent witness status | `NOT_STARTED` |
-| Weaver evidence level (target) | **E1 (specification only)** — package templates filled; no execution, no E2/E3/E4 claimed |
+| Weaver evidence level (target) | **E2 partial** — local read-only acquisition and identity pin; not E3 claim-complete; not E4 |
 
-**Intake note:** Source identity details beyond the claimed URL, license, commit, build requirements, publisher product claims, and expected outputs remain subject to **primary-source inspection and pinning**. No external code execution. No independent verification claimed.
+Pinned full commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
+Clone path: `C:\dev\external-verification-targets\grok-build`
+Evidence: `evidence/source-inspection/`
 
 ---
 
 ## 1. Purpose
 
-Establish a Weaver Forge–compatible, receipt-ready verification package for the **official xAI Grok Build repository**, so that future owner-side reproduction and independent third-party witness review can proceed without inventing identity facts, collapsing evidence classes, or confusing documentation with verification.
-
-This plan deliberately authorizes **documentation only** in the current task. No clone, build, install, execute, or modify step is authorized until a later plan revision explicitly enables it.
+Freeze an immutable public source identity for Grok Build from official primary sources, without building, installing, or running the software, so later isolated build phases have a receipt-ready pin.
 
 ## 2. Target Summary
 
 | Field | Value |
 |-------|-------|
-| Artifact type | repository (software / developer tooling — product details not yet evidenced here) |
+| Artifact type | public git repository (Rust workspace / coding agent harness and TUI) |
 | Canonical name | Grok Build |
-| Canonical publisher | xAI (as indicated by GitHub org path `xai-org`; not independently re-verified in this documentation-only pass) |
+| Brand presentation | SpaceXAI (as stated in primary sources; see SOURCE_IDENTITY layers) |
+| Repository org path | `xai-org` |
 | Canonical URL | https://github.com/xai-org/grok-build |
-| Intended verification depth | Full package **structure** now; identity/build/functional/claim/security execution later when authorized |
+| Intended verification depth this phase | identity + documented claims inventory only |
 
 ## 3. Scope
 
-### In scope (this documentation-only revision)
+### In scope (Phase B — completed)
 
-- [x] Create verification package structure under `external_verifications/grok-build/`
-- [x] Record planned canonical URL and publisher path as **stated targets** (not as verified facts beyond URL text)
-- [x] Define claim register skeleton and evidence classes
-- [x] Define environment, reproduction, results, verdict, and witness handoff shells
-- [x] State authorization boundaries (no execution)
-- [x] Distinguish owner-side reproduction from independent witness / E4
+- [x] Official primary source inspection (GitHub, x.ai news, x.ai open-source)
+- [x] Full read-only clone outside Weaver Forge
+- [x] Full commit pin and key file SHA-256 recording
+- [x] License path and SPDX identification
+- [x] Static extraction of documented build/validation commands
+- [x] Claim register refinement from primary sources
+- [x] Evidence directory under the package (metadata only; no full repo copy)
 
 ### Out of scope (this revision)
 
-- Cloning, fetching, or browsing the live repository beyond facts already stated in this package
-- Building, installing, or executing Grok Build
-- Computing or inventing commit IDs, tags, file hashes, sizes, or signatures
-- Recording fabricated test results or expected outputs
-- Security review or penetration testing
-- Production or operational readiness certification
-- Claiming independent verification or E4/E5 for Grok Build
-- Changing Weaver Forge runtime validators, receipts, tests, or governance rules
-- Completing Weaver Forge's own E4 (separate from this external package)
+- Build, install dependencies, run Grok Build, execute its tests
+- Authentication to product/services described in official docs
+- Security review, functional reproducibility, operational readiness
+- Independent witness / E4
+- Modifying generic Weaver Forge templates, validators, or runtime
+- Copying the full external tree into Weaver Forge
 
 ## 4. Evidence Chain Checklist
 
 | Chain link | Status | Notes / evidence pointer |
 |------------|--------|--------------------------|
-| Source | `NOT_STARTED` | Canonical URL designated; live publisher confirmation not performed in this pass |
-| Artifact | `NOT_STARTED` | No artifact acquired |
-| Identity and Version | `NOT_STARTED` | No tag/branch/full commit ID recorded (unknown; not invented) |
-| Hash or Immutable Reference | `NOT_STARTED` | No hash computed or copied from publisher |
-| Claim | `NOT_STARTED` | Register skeleton only; no claim results |
-| Test | `NOT_STARTED` | Execution not authorized |
-| Reproduction | `NOT_STARTED` | Execution not authorized |
-| Evidence | `NOT_STARTED` | No run logs |
-| Receipt | `NOT_STARTED` | No external-target verification receipt for a completed run |
-| Verdict | `NOT_STARTED` | All axes remain `NOT_STARTED` in `VERDICT.md` |
-| Independent Witness | `NOT_STARTED` | Handoff shell only; no witness assigned |
+| Source | `PASS` | Official pages + public GitHub org/repo |
+| Artifact | `PASS` | Full clone at documented path |
+| Identity and Version | `PASS` | Full commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Hash or Immutable Reference | `PARTIAL` | Commit + tree OID + local file SHA-256; no publisher checksums/signed tags |
+| Claim | `PARTIAL` | Identity/doc claims observed; build/runtime claims `NOT_STARTED` |
+| Test | `NOT_STARTED` | Not authorized |
+| Reproduction | `PARTIAL` | Clone/inspect only; not build reproduction |
+| Evidence | `PASS` | `evidence/source-inspection/` |
+| Receipt | `NOT_STARTED` | No Weaver receipt filed in this task |
+| Verdict | `PARTIAL` | Multi-axis; overall not PASS |
+| Independent Witness | `NOT_STARTED` | |
 
 ## 5. Roles and Independence
 
 | Role | Name / handle | Independent from target authors? | Independent from this package author? |
 |------|---------------|----------------------------------|----------------------------------------|
-| Package author | Weaver Forge documentation package author | Unknown / not claimed | N/A |
-| Owner-side reproducer | *unassigned* | — | — |
+| Package author / inspector | Weaver Forge documentation package author | Yes relative to target authors (external inspector) | N/A |
+| Owner-side reproducer (build) | *unassigned* | — | — |
 | Independent witness | *unassigned* | Required: Yes | Required: Yes |
 
-**Rule:** Owner-side reproduction ≠ independent third-party witness verification.
-
-**Rule:** Contributor ≠ Witness. Do not self-witness.
-
-**Rule:** This package does not satisfy E4 for Grok Build or for Weaver Forge.
+**Rule:** Owner-side inspection ≠ independent third-party witness.
 
 ## 6. Package Files
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `SOURCE_IDENTITY.md` | Publisher, URL, version, hash, license | Shell filled; identity verification `NOT_STARTED` |
-| `CLAIM_REGISTER.md` | Claims and acceptance criteria | Skeleton claims registered; results `NOT_STARTED` |
-| `ENVIRONMENT.md` | Machine and runtime identity | `NOT_STARTED` (no run) |
-| `REPRODUCTION.md` | Commands, exits, logs | `NOT_STARTED` (not authorized) |
-| `RESULTS.md` | Observed outcomes | `NOT_STARTED` |
-| `VERDICT.md` | Multi-axis conservative verdict | All axes `NOT_STARTED` |
-| `WITNESS_HANDOFF.md` | Independent witness package | Handoff shell; witness `NOT_STARTED` |
+| File | Status |
+|------|--------|
+| `SOURCE_IDENTITY.md` | Updated — pin complete |
+| `CLAIM_REGISTER.md` | Updated — primary-source claims |
+| `ENVIRONMENT.md` | Inspection host notes only; build env `NOT_STARTED` |
+| `REPRODUCTION.md` | Clone steps recorded; build steps documented not run |
+| `RESULTS.md` | Phase B results |
+| `VERDICT.md` | Multi-axis; overall `PARTIAL` |
+| `WITNESS_HANDOFF.md` | Pin filled; still not executable for build witness |
 
-## 7. Planned Procedure (High Level)
+## 7. Planned Procedure
 
-**Phase A — Documentation only (this revision)**
-
-1. Designate canonical URL: https://github.com/xai-org/grok-build
-2. Create full package file set with explicit `NOT_STARTED` / `BLOCKED` statuses
-3. Register only claims that do not require invented product facts
-4. Block all execution steps until authorized
-
-**Phase B — Identity freeze (future; not authorized now)**
-
-1. Acquire public metadata and repository at a pinned full commit ID
-2. Record license, tags, hashes, and integrity references from observed sources only
-3. Expand claim register from official documentation **as quoted**
-
-**Phase C — Owner-side reproduction (future; not authorized now)**
-
-1. Capture environment identity
-2. Follow official procedure only; preserve logs and exit codes
-3. Fill results and conservative multi-axis verdict
-4. File Weaver Forge receipts for work performed (still not E4)
-
-**Phase D — Independent witness (future; not authorized now)**
-
-1. Complete `WITNESS_HANDOFF.md` with frozen pin and exact commands
-2. Uninvolved third party executes and attests
-3. Only then consider independent-witness axis and E4-class claims for this target
+**Phase A** — documentation shell (done earlier).
+**Phase B** — this revision: primary-source inspection + commit pin.
+**Phase C (next, not authorized here)** — isolated build-environment preparation, then documented `cargo` commands if separately authorized.
+**Phase D** — independent witness after executable frozen procedure exists.
 
 ## 8. Blocking Conditions
 
 | Blocker ID | Description | Status | Resolution path |
 |------------|-------------|--------|-----------------|
-| B-001 | Execution (clone/build/install/run) not authorized in this documentation-only task | `BLOCKED` | Explicit plan revision authorizing acquisition and reproduction |
-| B-002 | Full commit ID / tag / hash unknown; must not be invented | `BLOCKED` | Record from live repository or official release after authorized fetch |
-| B-003 | Official procedure and expected outputs not yet extracted from target docs | `BLOCKED` | Phase B identity and docs review |
-| B-004 | Independent witness unassigned | `BLOCKED` | Recruit uninvolved third party after owner-side package is executable |
-| B-005 | License and signing details unknown | `BLOCKED` | Observe from acquired tree or release assets |
+| B-001 | Execution (build/install/run) not authorized in Phase B | `BLOCKED` for build axes | Future plan revision |
+| B-002 | Full commit unknown | **resolved** | Pin recorded |
+| B-003 | Official procedure text unknown | **resolved** for documented commands (not executed) | README / open-source page |
+| B-004 | Independent witness unassigned | `BLOCKED` | Recruit after build phase package ready |
+| B-005 | License unknown | **resolved** | Apache-2.0 at `LICENSE` |
 
 ## 9. Authorization Boundaries
 
-| Action | Authorized in this plan? | Notes |
-|--------|--------------------------|-------|
-| Fetch public metadata / docs only | **No** (this revision is package authoring only; no live target inspection claimed) | Future revision may enable read-only public fetch |
-| Clone repository | **No** | Blocked by task constraints |
-| Build | **No** | |
-| Install dependencies | **No** | |
-| Execute tests or binaries | **No** | |
-| Use credentials / paid APIs | **No** | Prefer public verification later |
-| Modify target source | **No** | Default forbidden |
-| Network beyond documented needs | **No** | |
-| Create Weaver Forge documentation package | **Yes** | This work only |
+| Action | Authorized Phase B? | Performed? |
+|--------|---------------------|------------|
+| Fetch public metadata / docs | Yes | Yes |
+| Clone repository (read-only) | Yes | Yes |
+| Build | **No** | No |
+| Install dependencies | **No** | No |
+| Execute tests or binaries | **No** | No |
+| Use credentials / paid APIs | **No** | No |
+| Modify target source | **No** | No |
+| Update Weaver Forge package docs | Yes | Yes |
 
-## 10. Success Criteria for This Plan Document
+## 10. Success Criteria for Phase B
 
-This plan document is complete when:
+- [x] Official sources inspected and listed
+- [x] Full clone outside Weaver Forge
+- [x] Full 40-char commit pin
+- [x] License path and name recorded
+- [x] Key file hashes recorded
+- [x] No build/run claimed
+- [x] Verdict axes respect Phase B limits
 
-- [x] Target and scope are explicit
-- [x] Out-of-scope items are listed
-- [x] Evidence chain checklist is present (statuses may remain `NOT_STARTED`)
-- [x] Roles and independence rules are stated
-- [x] Authorization boundaries are explicit
-- [x] Non-claims section is filled
+## 11. What This Plan Proves (Phase B)
 
-Completing this plan does **not** complete verification.
-
-## 11. What This Plan Proves
-
-- Weaver Forge has a documentation-only verification package structure for the designated Grok Build URL.
-- Scope, blockers, and non-claims for this target are explicit.
-- No independent or owner-side execution is implied by package creation.
+- Identity pin and source inspection procedure for Grok Build under Weaver Forge package rules.
 
 ## 12. What This Plan Does NOT Prove
 
-- Independent verification of Grok Build
-- Source authenticity or artifact integrity of the live repository
 - Build or functional reproducibility
-- Truth of any xAI or Grok Build product claims
-- Security review completion
+- Security review
+- Independent verification
 - Operational readiness
-- Weaver Forge E4/E5 for this repository or for Grok Build
-- Any commit ID, hash, test result, or runtime behavior
-- That https://github.com/xai-org/grok-build was fetched or inspected in this pass
+- Truth of untested product behavior claims
 
 ## 13. Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
-| 2026-07-17 | Initial documentation-only plan; execution blocked | Weaver Forge documentation package author |
+| 2026-07-17 | Initial documentation-only plan | Weaver Forge documentation package author |
+| 2026-07-17 | Phase B primary-source pin | Weaver Forge documentation package author |
 
 ---
 

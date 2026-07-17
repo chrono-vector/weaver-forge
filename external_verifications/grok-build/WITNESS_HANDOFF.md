@@ -3,33 +3,23 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | `NOT_STARTED` (shell only; **not executable**) |
+| Handoff status | **Pin ready for identity re-check; build procedure still not witness-executable as a full product verification** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-17` |
-| Verification-plan version / date | `external_verifications/grok-build/VERIFICATION_PLAN.md` as of 2026-07-17 |
+| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase B 2026-07-17 |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 
-**Intake only.** Project: Grok Build. Claimed publisher: xAI. Claimed canonical repository: https://github.com/xai-org/grok-build. Verification state: **`NOT_STARTED`**. No execution. No independent verification claimed.
-
-Preparing this handoff does **not** complete independent verification.
+Pinned commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
 
 ---
 
 ## 1. Independence Requirements
 
-The witness must:
+Witness must have no authorship on reviewed target commits, no authorship on owner-side package claims being attested, must not be the owner-side reproducer for the witnessed run, and must claim only direct observations.
 
-- Have **no authorship** on the external target's commits or releases under review
-- Have **no authorship** on this verification package's substantive claims being attested
-- Not be the same person/operator as the owner-side reproducer for the run they are witnessing
-- Record an explicit independence declaration (section 10)
-- Claim only what they directly observed
-
-**Contributor ≠ Witness.**
-**Owner-side reproduction ≠ Independent witness.**
-**This handoff ≠ E4 completion.**
+**Contributor ≠ Witness. Owner-side ≠ Independent witness. This handoff ≠ E4 completion.**
 
 ---
 
@@ -37,14 +27,15 @@ The witness must:
 
 | Item | Path / URL | Present? |
 |------|------------|----------|
-| Verification plan | `VERIFICATION_PLAN.md` | Yes (documentation-only scope) |
-| Source identity | `SOURCE_IDENTITY.md` | Yes (intake URL only; pin missing) |
-| Claim register | `CLAIM_REGISTER.md` | Yes (skeleton) |
-| Environment record | `ENVIRONMENT.md` | Yes (`NOT_STARTED`) |
-| Reproduction procedure | `REPRODUCTION.md` | Yes (`NOT_STARTED`; not executable) |
-| Results (owner-side, if any) | `RESULTS.md` | Yes (empty / blocked) |
-| Current verdict (owner-side) | `VERDICT.md` | Yes (overall `NOT_STARTED`) |
-| Official target documentation | https://github.com/xai-org/grok-build | Designated; not extracted here |
+| Verification plan | `VERIFICATION_PLAN.md` | Yes |
+| Source identity | `SOURCE_IDENTITY.md` | Yes |
+| Claim register | `CLAIM_REGISTER.md` | Yes |
+| Environment | `ENVIRONMENT.md` | Yes |
+| Reproduction | `REPRODUCTION.md` | Yes |
+| Results | `RESULTS.md` | Yes |
+| Verdict | `VERDICT.md` | Yes |
+| Evidence (Phase B) | `evidence/source-inspection/` | Yes |
+| Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
 
@@ -52,14 +43,14 @@ The witness must:
 
 | Field | Value |
 |-------|-------|
-| Canonical repository or release URL | https://github.com/xai-org/grok-build |
-| Source-control owner | `xai-org` (claimed path segment; not live-verified in this pass) |
-| Branch (if any) | *unknown — subject to primary-source inspection* |
-| Tag (if any) | *unknown — subject to primary-source inspection* |
-| **Full commit ID** (40-char if git) | *unknown — not invented; subject to pinning* |
-| Docs revision used for procedure | *unknown — not extracted* |
-| Pin freeze date | *not set* |
-| Pin status | `NOT_STARTED` / `BLOCKED` for witness execution |
+| Canonical repository URL | https://github.com/xai-org/grok-build |
+| Source-control owner | `xai-org` |
+| Branch | `main` (pin is commit, not floating tip) |
+| Tag | none |
+| **Full commit ID** | **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`** |
+| Docs revision used | same commit README + https://x.ai/open-source (fetched 2026-07-17) |
+| Pin freeze date | 2026-07-17 |
+| Pin status | **frozen** for this package revision |
 
 ---
 
@@ -67,14 +58,14 @@ The witness must:
 
 | Field | Value |
 |-------|-------|
-| Artifact type | *unknown — not acquired* |
-| Artifact filename (if file) | |
-| Size (bytes) | |
-| Hash algorithm | |
-| **Artifact hash value** | *unknown — not invented* |
-| Hash source | unknown |
-| Signature (if any) | unknown |
-| Hash status | `NOT_STARTED` / `BLOCKED` |
+| Artifact type | git commit / tree |
+| Hash algorithm | git commit SHA-1 ID; git tree OID; SHA-256 of key files |
+| Full commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Tree OID | `b40a1962cb8061b85c2354850ab4d5707f48414b` |
+| Key file SHA-256 list | `evidence/source-inspection/FILE_HASHES_SHA256.txt` |
+| Hash source | self-computed after acquire; publisher digests not found |
+| Signature | none observed |
+| Hash status | recorded (`PARTIAL` integrity — no publisher checksum match) |
 
 ---
 
@@ -82,108 +73,88 @@ The witness must:
 
 | Prerequisite | Required value / constraint | Status |
 |--------------|----------------------------|--------|
-| OS | *unknown — subject to primary-source docs* | `NOT_STARTED` |
-| Shell | *unknown* | `NOT_STARTED` |
-| CPU / GPU | *unknown* | `NOT_STARTED` |
-| Language / runtime | *unknown — build requirements not yet inspected* | `NOT_STARTED` |
-| Package managers | *unknown* | `NOT_STARTED` |
-| Dependency lock identity | *unknown* | `NOT_STARTED` |
-| Network | likely required for clone; not executed | `NOT_STARTED` |
-| Credentials / auth boundary | public-only preferred when possible | `NOT_STARTED` |
-| Sandbox / isolation | *to be chosen at execution* | `NOT_STARTED` |
-| Precision mode / seeds | *unknown* | `NOT_STARTED` |
-
-```text
-# Prerequisite check commands: not frozen (no primary-source procedure yet)
-```
+| OS | Any with git for identity re-check; macOS/Linux preferred for future source build | documented |
+| Git | Full clone capability | required |
+| Rust | channel **1.92.0** via rust-toolchain.toml | for build phase only |
+| DotSlash | on PATH before build | for build phase only |
+| Network | HTTPS to GitHub (clone); crates/DotSlash likely for build | |
+| Credentials | none for public clone | public-only preferred |
+| Cargo.lock | use tree as-is | present at pin |
 
 ---
 
 ## 6. Exact Verification Commands
 
-| Step | Working directory | Exact command | Purpose | Linked claim IDs |
-|------|-------------------|---------------|---------|------------------|
-| 1 | *future* | *not frozen* | | |
-| 2 | | *not frozen* | | |
+### 6.1 Identity re-check (executable now)
 
 ```text
-# NOT READY — do not invent expected procedure from secondary knowledge.
-# After primary-source inspection and commit pinning, freeze commands here, e.g.:
-# git clone https://github.com/xai-org/grok-build.git
-# cd grok-build
-# git checkout <FULL_COMMIT_ID>
-# git rev-parse HEAD
-# <official build/test commands quoted from frozen docs only>
+git clone https://github.com/xai-org/grok-build.git grok-build
+cd grok-build
+git checkout 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+git rev-parse HEAD
+# expect: 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+git status
+# expect: clean (detached HEAD OK)
 ```
 
-Command set status: `NOT_STARTED` / execution `BLOCKED`
+Optional hash recompute for `README.md`, `LICENSE`, `Cargo.toml`, `Cargo.lock` vs `FILE_HASHES_SHA256.txt`.
+
+### 6.2 Build/validate (documented; **not** Phase B witness scope until authorized)
+
+```text
+cargo run -p xai-grok-pager-bin
+cargo check -p xai-grok-pager-bin
+cargo clippy -p <crate>
+cargo fmt --all
+```
+
+Command set status: identity commands **frozen**; build commands **documented only** / execution `NOT_STARTED`.
 
 ---
 
 ## 7. Expected Machine-Readable Outputs
 
-```text
-Expected outputs: unknown — not yet documented from primary sources. Status: NOT_STARTED
-```
-
-| Step / claim | Output channel | Expected pattern or value | Machine-readable form | Source of expectation |
-|--------------|----------------|---------------------------|----------------------|------------------------|
-| *none* | | | | not invented |
+| Step | Expected | Source |
+|------|----------|--------|
+| `git rev-parse HEAD` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` | this pin |
+| SHA-256 README.md | `1bb63fa93716ab25796f43eeb22871a60c0ca59b3bc41872f22e33bf68d6e64a` | FILE_HASHES |
+| SHA-256 LICENSE | `f481edaaea56bb9fadac0191287f3b243a4bf63114a707a2b2a267fbfea598d5` | FILE_HASHES |
+| SHA-256 Cargo.toml | `6eaaed53c43fb4ae42d50378bacbfdda614c3a385a02ee41d9077c30010b7ae8` | FILE_HASHES |
+| SHA-256 Cargo.lock | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` | FILE_HASHES |
+| cargo * | **unknown — not yet measured** | NOT_STARTED |
 
 ---
 
 ## 8. Tolerances
 
-| Check | Metric | Tolerance / acceptance band | Notes |
-|-------|--------|-----------------------------|-------|
-| Exit codes | per step | *not defined — procedure unknown* | `NOT_STARTED` |
-| Timing | wall clock | `NOT_APPLICABLE` until claimed | |
-| Numeric outputs | | `NOT_APPLICABLE` until claimed | |
-| Log noise | warnings | unknown | |
-| Nondeterminism | seeds | unknown | |
-
-Default: **zero invented tolerance**.
+| Check | Tolerance |
+|-------|-----------|
+| Commit ID | exact match |
+| File SHA-256 | exact match |
+| cargo results | not defined until build phase |
 
 ---
 
 ## 9. Known Limitations
 
-| ID | Limitation | Impact on witness | Status |
-|----|------------|-------------------|--------|
-| KL-001 | No full commit pin | Witness cannot freeze review target | open |
-| KL-002 | No artifact hash | Integrity axis cannot pass | open |
-| KL-003 | No official command list from primary sources | Commands cannot be exact | open |
-| KL-004 | No expected machine-readable outputs | Cannot score PASS honestly | open |
-| KL-005 | Execution not authorized in documentation-only phase | Handoff not executable | open |
-| KL-006 | Independent witness unassigned | E4-class claim impossible | open |
+| ID | Limitation | Status |
+|----|------------|--------|
+| KL-001 | No signed tags / publisher tree checksums | open |
+| KL-002 | Build not yet authorized for witness product verification | open |
+| KL-003 | Windows source builds best-effort per upstream docs | open |
+| KL-004 | Auth may be required for interactive product use | open |
+| KL-005 | Owner-side results are not substitute for witness | open |
 
 ---
 
 ## 10. Independence Declaration
 
-### 10.1 Requirements (pre-run)
-
-| Check | Yes / No |
-|-------|----------|
-| No authorship on reviewed target commits/releases under review | *unassigned* |
-| No authorship on owner-side package claims being attested | *unassigned* |
-| Not the owner-side reproducer for this run | *unassigned* |
-| Will claim only direct observations | *unassigned* |
-
-### 10.2 Declaration text (post-run)
-
-```text
-I am uninvolved in the authorship of the reviewed artifact and of the owner-side
-verification package claims I am attesting. I claim only what I directly observed.
-I used the pinned source reference and artifact hash recorded in this handoff
-(or I recorded BLOCKED if pins were missing).
-```
-
 | Field | Value |
 |-------|-------|
 | Witness name / handle | *unassigned* |
-| Date | |
-| Declaration accepted as true? | *not applicable — no witness run* |
+| Declaration | not completed |
+
+Template text remains for future witness (see template). Declaration status: `NOT_STARTED`.
 
 ---
 
@@ -191,44 +162,27 @@ I used the pinned source reference and artifact hash recorded in this handoff
 
 | Field | Value |
 |-------|-------|
-| Submission channel | *not set* — recommend PR updating `external_verifications/grok-build/` or agreed witness path |
-| Target path or PR convention | `external_verifications/grok-build/` (completed handoff + evidence) |
-| Required artifacts to attach | completed handoff, environment record, command transcripts, exit codes |
-| Naming convention | keep package filenames; optional dated witness appendix |
-| Reviewer / receiver | *not set* |
-| Confidentiality / redaction rules | redact secrets; preserve exit codes and non-secret logs |
+| Submission channel | PR updating `external_verifications/grok-build/` or agreed path |
+| Required artifacts | completed handoff, environment, transcripts, exit codes, hash recompute |
+| Redaction | no secrets |
 
-### Submission checklist
+### Submission checklist (identity-only witness)
 
-- [ ] Pinned source reference recorded (section 3) — **currently incomplete**
-- [ ] Artifact hash recorded or `NOT_APPLICABLE` justified (section 4) — **incomplete**
-- [ ] Environment prerequisites captured (section 5) — **incomplete**
-- [ ] Exact commands and actual outputs preserved — **incomplete**
-- [ ] Expected vs actual compared within tolerances (sections 7–8) — **incomplete**
-- [ ] Known limitations acknowledged (section 9) — documented
-- [ ] Independence declaration completed (section 10) — **incomplete**
-- [ ] Per-claim statuses filled (section 12) — **incomplete**
-- [ ] Evidence boundaries completed (section 13)
-- [ ] Conclusion selected (section 14) — `NOT_STARTED`
+- [x] Pinned source reference recorded
+- [x] Artifact hash / key hashes recorded
+- [ ] Witness independence declaration completed
+- [ ] Witness re-ran identity commands
+- [ ] Build axes (if in scope) still separate
 
 ---
 
 ## 12. Witness Results
 
-| Claim ID or step | Observed result | Status | Evidence pointer |
-|------------------|-----------------|--------|------------------|
-| *none yet* | | `NOT_STARTED` | |
+| Claim ID or step | Status |
+|------------------|--------|
+| *none — witness not run* | `NOT_STARTED` |
 
-| Axis | Witness verdict |
-|------|-----------------|
-| Source authenticity | `NOT_STARTED` |
-| Artifact integrity | `NOT_STARTED` |
-| Build reproducibility | `NOT_STARTED` |
-| Functional reproducibility | `NOT_STARTED` |
-| Claim verification | `NOT_STARTED` |
-| Security review | `NOT_STARTED` |
-| Independent-witness status | `NOT_STARTED` |
-| Operational readiness | `NOT_STARTED` |
+All axes under witness column: `NOT_STARTED`.
 
 ---
 
@@ -237,38 +191,34 @@ I used the pinned source reference and artifact hash recorded in this handoff
 ### 13.1 What was observed
 
 ```text
-Nothing. No independent witness has executed this package.
+Nothing by an independent witness. Owner-side Phase B only.
 ```
 
 ### 13.2 What was not observed
 
 ```text
-All Grok Build primary-source facts, pins, hashes, builds, tests, and runtime behavior.
+Independent re-clone attestation; independent hash recompute by third party.
 ```
 
 ### 13.3 What was not tested
 
 ```text
-Entire witness procedure. Handoff not executable.
+Full witness procedure; all build/runtime tests.
 ```
 
 ### 13.4 What is not claimed
 
 ```text
-- Production readiness
-- External audit (E5)
-- Independent verification of Grok Build
-- Owner-side reproduction success
-- Weaver Forge E4 completion
+Independent verification; E4; build success; security; production readiness.
 ```
 
 ### 13.5 Reproduction class
 
 | Class | Selected |
 |-------|----------|
-| Independent reproduction (uninvolved third-party witness) | ☐ |
-| Owner-side reproduction | ☐ |
-| Neither / blocked | ☑ |
+| Independent reproduction | ☐ |
+| Owner-side reproduction | ☐ (witness section) |
+| Neither / blocked | ☑ (no witness run) |
 
 ---
 
@@ -283,47 +233,19 @@ Entire witness procedure. Handoff not executable.
 | Not reproduced (`FAIL`) | ☐ |
 | `NOT_APPLICABLE` | ☐ |
 
-### What the witness confirms
-
-```text
-Nothing. No independent witness has executed this package.
-```
-
-### What the witness does NOT confirm
-
-```text
-- Production readiness
-- External audit (E5)
-- Correctness beyond executed checks
-- Owner-side results not re-run by the witness
-- Any claim outside witness scope
-- That Grok Build has been independently verified
-- That Weaver Forge E4 is complete
-```
-
 ---
 
-## 15. What This Handoff Proves
+## 15–16. Handoff proves / does not prove
 
-- That a witness handoff shell exists for Grok Build with required field structure.
-- That the package author acknowledges the handoff is **not** currently executable.
-- Nothing about target correctness.
-
-## 16. What This Handoff Does NOT Prove
-
-- That independent verification occurred
-- That E4 is complete for Grok Build
-- That owner-side results are correct (none exist)
-- Security or operational readiness
-- Authority beyond attestation
-- Any commit, hash, build, or test fact about Grok Build
+**Proves:** pin and identity re-check procedure are written for a future witness.
+**Does not prove:** that independent verification occurred, E4, build success, or security.
 
 ## Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
-| 2026-07-17 | Initial handoff shell; not executable; no witness | Weaver Forge documentation package author |
-| 2026-07-17 | Expanded pin, hash, prerequisites, commands, outputs, tolerances, submission | Weaver Forge documentation package author |
+| 2026-07-17 | Shell | Weaver Forge documentation package author |
+| 2026-07-17 | Phase B pin + identity commands frozen | Weaver Forge documentation package author |
 
 ---
 

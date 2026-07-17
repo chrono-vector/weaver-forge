@@ -1,0 +1,34 @@
+# Pinned source metadata — Grok Build Phase B (read-only)
+# Generated: 2026-07-17 local inspection
+# Weaver package: external_verifications/grok-build/
+
+clone_command=git clone https://github.com/xai-org/grok-build.git C:\dev\external-verification-targets\grok-build
+clone_start_local=2026-07-17 23:20:33 +09:00
+clone_end_local=2026-07-17 23:20:56 +09:00
+clone_destination=C:\dev\external-verification-targets\grok-build
+clone_type=full (default git clone; not --depth 1; not ZIP)
+origin_fetch_url=https://github.com/xai-org/grok-build.git
+origin_push_url=https://github.com/xai-org/grok-build.git
+default_branch=main
+HEAD_full_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+HEAD_short_commit=98c3b24
+commit_date_iso=2026-07-17T14:19:50+01:00
+commit_subject=Synced from monorepo
+commit_author=grokkybara[bot] <304785771+grokkybara[bot]@users.noreply.github.com>
+tree_oid=b40a1962cb8061b85c2354850ab4d5707f48414b
+SOURCE_REV_monorepo_sha=124d85bc5dc6e7805560215fcc6d5413944920e1
+tags_pointing_at_HEAD=(none)
+all_local_tags=(none)
+github_releases_published=0
+github_tags_via_api=0
+submodules=(none; no .gitmodules)
+git_status=On branch main; up to date with origin/main; nothing to commit, working tree clean
+working_tree_clean=yes
+commit_count_on_HEAD=3
+history_oneline:
+  98c3b24 Synced from monorepo
+  8adf901 Synced from monorepo
+  c68e39f Publish harness and TUI open-source
+signed_tags=(none observed)
+publisher_published_checksums_for_git_tree=(none observed in this inspection)
+GPG_signature_verification_of_HEAD=(no signature trailer observed in git log --show-signature for HEAD)

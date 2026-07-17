@@ -3,169 +3,139 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | `NOT_STARTED` |
+| Environment record status | **Inspection host recorded; build environment `NOT_STARTED`** |
 | Recorded by | Weaver Forge documentation package author |
-| Role | Owner-side planner (not independent witness) |
+| Role | Owner-side inspector (not independent witness) |
 | Record date | `2026-07-17` |
-| Tied to reproduction run ID | *none — no reproduction authorized* |
+| Tied to reproduction run ID | Phase B clone/inspect only (`REPRODUCTION.md`) |
+| Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
-Capture environment **before** or **at the start of** reproduction. Do not backfill invented values.
-
-**This file is a shell only.** No verification run has been performed. Host details of the package author's machine are **not** claimed as a Grok Build reproduction environment.
+This record describes the **owner-side inspection host** used for git clone and static file reads. It is **not** a frozen build environment for cargo.
 
 ---
 
-## 1. Host Platform
+## 1. Host Platform (inspection)
 
 | Field | Value |
 |-------|-------|
-| OS name | *not recorded for a Grok Build run* |
-| OS version | |
-| OS build / kernel | |
-| Architecture | |
-| Hostname (optional / redacted) | |
-| Machine class | |
-
-Status: `NOT_STARTED`
+| OS name | Windows |
+| OS version | Windows 10 (build not re-verified this phase; prior Weaver audits used build 26200) |
+| Architecture | x86_64 (host used for clone) |
+| Machine class | desktop / workstation |
 
 ## 2. Shell
 
 | Field | Value |
 |-------|-------|
-| Shell name | |
-| Shell version | |
-| Login vs non-login notes | |
-
-Status: `NOT_STARTED`
+| Shell name | PowerShell |
+| Shell version | host default (not required for pin fidelity) |
 
 ## 3. CPU / GPU
 
 | Field | Value |
 |-------|-------|
-| CPU model | |
-| CPU cores / threads | |
-| CPU flags relevant to target (if any) | |
-| GPU model | |
-| GPU driver / CUDA / ROCm (if any) | |
-| GPU status | `NOT_STARTED` |
+| GPU status | `NOT_APPLICABLE` for Phase B identity work |
 
 ## 4. Language and Runtime Versions
 
 | Runtime | Version command | Observed version | Status |
 |---------|-----------------|------------------|--------|
-| *to be filled from official Grok Build requirements when known* | | | `NOT_STARTED` |
+| Git | `git --version` | present on PATH (clone succeeded) | recorded for clone only |
+| Rust / cargo | — | **not captured** (build not authorized) | `NOT_STARTED` |
+| DotSlash | — | **not installed/checked for build** | `NOT_STARTED` |
 
 ## 5. Package-Manager Versions
 
-| Tool | Version command | Observed version | Status |
-|------|-----------------|------------------|--------|
-| | | | `NOT_STARTED` |
+| Tool | Status |
+|------|--------|
+| cargo / rustup | `NOT_STARTED` (build phase) |
 
-## 6. Dependency-Lock Identity
+## 6. Dependency-Lock Identity (target tree)
 
 | Field | Value |
 |-------|-------|
-| Lockfile path(s) | *unknown — target not acquired* |
-| Lockfile hash (algorithm + value) | *not invented* |
-| Lockfile status | `NOT_STARTED` |
-| Install command (documented) | *unknown* |
-| Install command (actually used) | *none* |
-| Deviation from lock? | N/A |
+| Lockfile path(s) | `Cargo.lock` at repo root (in external clone) |
+| Lockfile size | 353616 bytes |
+| Lockfile SHA-256 | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` |
+| Lockfile status | present at pin |
+| Install command (documented) | implicit via `cargo` build commands (not run) |
+| Deviation from lock? | N/A (no install) |
 
 ## 7. Environment Variables
 
-| Variable | Set? | Value or redaction policy | Required by target docs? |
-|----------|------|---------------------------|--------------------------|
-| *none recorded* | | | Unknown |
+| Variable | Set? | Notes |
+|----------|------|-------|
+| Product credentials / auth tokens | No | Auth not used; public clone only |
+| `PROTOC` | unknown / unused | build not run |
 
 ## 8. Precision Mode
 
-| Field | Value |
-|-------|-------|
-| Floating-point mode / flags | |
-| Mixed precision settings | |
-| Determinism flags | |
-| Status | `NOT_STARTED` / may become `NOT_APPLICABLE` after docs review |
+| Status | `NOT_APPLICABLE` (Phase B) |
 
 ## 9. Random Seed
 
-| Field | Value |
-|-------|-------|
-| Seed required by procedure? | Unknown |
-| Seed value(s) | |
-| Seed source | `NOT_APPLICABLE` until procedure known |
-| Status | `NOT_STARTED` |
+| Status | `NOT_APPLICABLE` (Phase B) |
 
 ## 10. Network Requirements
 
 | Field | Value |
 |-------|-------|
-| Network required? | Likely yes for clone (planned); not executed |
-| Endpoints needed | `https://github.com/xai-org/grok-build` (planned) |
-| Offline mode possible? | Unknown |
-| Proxy / firewall constraints | |
-| Network status during run | `NOT_STARTED` (no run) |
+| Network required for Phase B? | Yes (git clone; HTTPS fetch of official pages) |
+| Endpoints used | github.com; x.ai; api.github.com |
+| Offline mode | Not used |
+| Network status during run | online |
 
 ## 11. Credentials and Authentication Boundaries
 
 | Field | Value |
 |-------|-------|
-| Credentials required? | Unknown (prefer public clone when authorized) |
-| Credential types | none planned for public read |
-| Where credentials are stored | N/A |
-| Auth boundary | public-only preferred |
-| Credentials used in this run? | **No** (no run) |
-| Status | `NOT_STARTED` |
+| Credentials required for public clone? | No |
+| Auth boundary this phase | **public-only** |
+| Credentials used? | **No** |
+| Product auth (browser login) | Documented for first launch; **not exercised** |
 
 ## 12. Sandbox or Isolation Method
 
 | Field | Value |
 |-------|-------|
-| Isolation method | *to be chosen at execution time* |
-| Image or base environment ID | |
-| Working directory root | |
-| Privilege level | |
-| Isolation status | `NOT_STARTED` |
+| Isolation method | External directory outside Weaver Forge tree |
+| Working directory root | `C:\dev\external-verification-targets\grok-build` |
+| Privilege level | user |
+| Isolation status | recorded for clone path |
 
-## 13. Toolchain Snapshot Commands
+## 13. Documented target prerequisites (for future build phase; not installed)
 
-```text
-# Not executed. Placeholders for a future authorized run only:
-# git --version
-# <language runtime> --version
-# <package manager> --version
-```
+From README at pin:
 
-| Command | Exit code | Output preserved at | Status |
-|---------|-----------|---------------------|--------|
-| | | | `NOT_STARTED` |
+- Rust via `rust-toolchain.toml` channel **1.92.0**
+- DotSlash on PATH before build
+- protoc via `bin/protoc` / DotSlash or `$PROTOC`
+- macOS/Linux preferred; Windows best-effort
 
 ## 14. Environment Risks
 
-| Risk ID | Description | Impact on reproducibility |
-|---------|-------------|---------------------------|
-| ER-001 | Requirements unknown until official docs observed | Cannot prepare matching environment yet |
-| ER-002 | No isolation plan frozen | Future runs may differ silently |
-| ER-003 | Execution currently unauthorized | Environment identity cannot advance past `NOT_STARTED` |
+| Risk ID | Description | Impact |
+|---------|-------------|--------|
+| ER-001 | Inspection host ≠ future build host | Build phase must re-record full toolchain |
+| ER-002 | Windows best-effort for source builds | May block or PARTIAL future Windows build claims |
+| ER-003 | Network/DotSlash needs for hermetic tools | Offline builds may fail |
 
 ## 15. What This Environment Record Proves
 
-- That environment capture is required before a credible reproduction and has not yet been performed for Grok Build under this package.
+- Clone/inspection was possible on this Windows PowerShell host without target credentials.
 
 ## 16. What This Environment Record Does NOT Prove
 
-- Any fact about a machine that ran Grok Build
-- Correctness of the target
-- Completeness of hidden dependencies
-- That another machine will match a future environment
-- Independent witness confirmation
-- Security of any host
+- That Rust/cargo/dotslash are installed or compatible
+- That a build would succeed here
+- Independent witness environment parity
 
 ## Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
-| 2026-07-17 | Initial environment shell; no run | Weaver Forge documentation package author |
+| 2026-07-17 | Shell only | Weaver Forge documentation package author |
+| 2026-07-17 | Phase B inspection host + lockfile identity | Weaver Forge documentation package author |
 
 ---
 

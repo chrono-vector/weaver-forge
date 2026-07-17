@@ -1,0 +1,16 @@
+# SHA-256 of key identity files at commit 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+# Algorithm: SHA-256 (Get-FileHash). Hash is lowercase hex.
+# Format: <sha256>  <bytes>  <path>
+# Computed on local clone only; not compared to publisher-published digests (none found).
+1bb63fa93716ab25796f43eeb22871a60c0ca59b3bc41872f22e33bf68d6e64a  5897  README.md
+f481edaaea56bb9fadac0191287f3b243a4bf63114a707a2b2a267fbfea598d5  11592  LICENSE
+6eaaed53c43fb4ae42d50378bacbfdda614c3a385a02ee41d9077c30010b7ae8  15983  Cargo.toml
+1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421  353616  Cargo.lock
+f44ef0475329a00f3005dae3e07e696fe94b7511a8cb61305e9475fe7ad39d21  42  SOURCE_REV
+dcd03e3fdd6fe74e5bbed8fbe750fc204f7565a41cc558095db669692accdd18  642  rust-toolchain.toml
+1699133256292b0a4646426fb43317412689d01c259b45bcd212dea6cd105f82  707  CONTRIBUTING.md
+95aadd7eabda87b0faaf797c0bfb103845c692344d738797743711f291ac6c4c  173  SECURITY.md
+c0fe9bbc9b35e1c7f5062f61235c0c6cac17fa307556a5e928d0029320894849  781418  THIRD-PARTY-NOTICES
+
+git_tree_oid  b40a1962cb8061b85c2354850ab4d5707f48414b
+git_commit    98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
