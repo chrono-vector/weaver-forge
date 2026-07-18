@@ -1,0 +1,96 @@
+Weaver Forge Phase C2A — Docker host inventory (read-only)
+Date: 2026-07-18
+Operator role: Owner-side inspector (not independent witness)
+Pinned Grok Build commit: 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+Scope: readiness / identity only — no cargo, no Grok Build compile, no image build
+
+================================================================================
+1. Docker client
+================================================================================
+Client binary path: C:\Program Files\Docker\Docker\resources\bin\docker.exe
+Client Version:     29.4.3
+API version:        1.54
+Go version:         go1.26.2
+Git commit:         055a478
+Built:              Wed May 6 17:10:36 2026
+OS/Arch (client):   windows/amd64
+Default context:    desktop-linux
+
+docker --version (no elevation):
+  Docker version 29.4.3, build 055a478
+  Exit: 0
+
+docker compose version:
+  Docker Compose version v5.1.4
+
+docker buildx version:
+  github.com/docker/buildx v0.33.0-desktop.1 7f91f038ac14cbf5c4b2a6b76470860814424da1
+
+Process elevated (Administrator): False
+Client CLI commands work without elevation: YES (version/help-class commands)
+
+================================================================================
+2. Docker context
+================================================================================
+docker context show:
+  desktop-linux
+
+docker context ls (summary; no secrets):
+  NAME              DESCRIPTION                               DOCKER ENDPOINT                             ERROR
+  default           Current DOCKER_HOST based configuration   npipe:////./pipe/docker_engine
+  desktop-linux *   Docker Desktop                            npipe:////./pipe/dockerDesktopLinuxEngine
+
+Active context: desktop-linux (Linux containers via Docker Desktop)
+
+================================================================================
+3. Docker daemon / engine
+================================================================================
+Server object from `docker version --format json`:
+  "Server": null
+
+Error observed on engine-dependent commands:
+  failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine;
+  check if the path is correct and if the daemon is running:
+  open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.
+
+Windows service:
+  Name:      com.docker.service
+  Status:    Stopped
+  StartType: Manual
+
+Docker Desktop UI processes (Docker Desktop / com.docker*):
+  None observed running
+
+docker info (server section):
+  Unavailable (daemon not running)
+
+docker images:
+  Unavailable (daemon not running)
+
+Daemon access available this phase: NO
+Linux container mode (intended by context): YES (desktop-linux) — not exercised
+Windows container mode: not active context
+Engine version: UNKNOWN (daemon stopped)
+Engine architecture: UNKNOWN until daemon start (host is amd64; Desktop Linux engine typically matches host)
+Storage driver: UNKNOWN until daemon start
+CPUs / Total Memory reported to Docker: UNKNOWN until daemon start
+Security options (seccomp/apparmor/etc.): UNKNOWN until daemon start
+
+================================================================================
+4. What was not observed
+================================================================================
+- No successful docker pull
+- No local image list / image ID verification
+- No container create/run
+- No registry authentication tokens recorded
+- No full host environment dump
+- No usernames, credentials, or home-directory contents
+
+================================================================================
+5. Inventory conclusion
+================================================================================
+Docker Desktop client 29.4.3 is installed and usable without elevation for
+client-only commands. Active context is desktop-linux. The Docker Engine
+daemon (com.docker.service / dockerDesktopLinuxEngine named pipe) is STOPPED.
+Engine-dependent readiness (pull, run, info fields) is therefore incomplete
+until the operator starts Docker Desktop.

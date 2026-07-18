@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — pin precheck + readiness only; cargo `NOT_STARTED`; env **`BLOCKED`** |
-| Run ID | Phase B pin; env readiness `run-20260717-env-readiness` |
+| Reproduction status | **`PARTIAL`** — pin + Windows readiness + Docker/image pin; cargo `NOT_STARTED` |
+| Run ID | Phase B pin; C1 `run-20260717-env-readiness`; C2A `run-20260718-docker-readiness` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -47,6 +47,11 @@
 | 9 | readiness host | version probes: git, rustc, cargo, rustup, cl, cmake, ninja, make, perl, pkg-config, python, node, npm | mixed | `PASS` (inventory) | most build tools unavailable |
 | 10 | readiness host | vswhere / VS+SDK path existence; env var presence | 0 | `PASS` (inventory) | MSVC/SDK not visible |
 | 11 | clone root | static Cargo.lock/Cargo.toml/build.rs review | 0 | `PASS` | no cargo network |
+| 12 | clone root | C2A pin recheck: `git rev-parse HEAD`; `git status --short`; `git diff --exit-code`; `git remote -v` | 0 | `PASS` | HEAD pin match; clean |
+| 13 | readiness host | `docker version`; `docker context ls/show`; `docker info` (daemon fail); service status | mixed | `PASS` (inventory) | client 29.4.3; daemon stopped |
+| 14 | readiness host | `wsl --status`; `wsl --version`; `wsl -l -v` | 0 | `PASS` (inventory) | WSL2 present; distros stopped |
+| 15 | network (registry) | Docker Hub + registry v2 manifest/config for `library/rust:1.92.0` | 0 | `PASS` | digest pin; **no docker pull** |
+| 16 | pinned tree | static native dep / DotSlash / protoc / isolation plan authoring | 0 | `PASS` | plans only |
 
 ### Documented but **not** executed (official build/validate)
 
@@ -100,10 +105,11 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 
 | Block ID | Step | Blocker | Status |
 |----------|------|---------|--------|
-| BK-001 | cargo build/check/run | Env not ready + not authorized for C2 | `BLOCKED` |
+| BK-001 | cargo build/check/run | Not authorized for C2B execution in C2A; Windows tools missing | `BLOCKED` |
 | BK-002 | product authentication | Not authorized; no credentials | `BLOCKED` |
-| BK-003 | rustup/cargo/rustc | MISSING on host | `BLOCKED` |
-| BK-004 | DotSlash / protoc path | MISSING | `BLOCKED` |
+| BK-003 | rustup/cargo/rustc on Windows host | MISSING on host | `BLOCKED` |
+| BK-004 | DotSlash / protoc path on host | MISSING on host | `BLOCKED` |
+| BK-005 | docker pull / container run | Docker daemon stopped | open (C2B-1) |
 
 ## 8. Cleanup Procedure
 
@@ -129,6 +135,14 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | Pin precheck | `evidence/environment-readiness/PINNED_TARGET_PRECHECK.txt` | C-004, C-015 |
 | Dependency risk | `evidence/environment-readiness/DEPENDENCY_ACQUISITION_REVIEW.md` | C-015 |
 | Phase C2 plan (not run) | `evidence/environment-readiness/PHASE_C2_ISOLATED_BUILD_PLAN.md` | C-012 future |
+| Docker host inventory | `evidence/docker-readiness/DOCKER_HOST_INVENTORY.txt` | C-016 |
+| WSL backend | `evidence/docker-readiness/WSL_BACKEND_STATUS.txt` | C-016 |
+| Image selection | `evidence/docker-readiness/CONTAINER_IMAGE_SELECTION.md` | C-016 |
+| Pinned image metadata | `evidence/docker-readiness/PINNED_IMAGE_METADATA.txt` | C-016 |
+| Linux native deps plan | `evidence/docker-readiness/LINUX_NATIVE_DEPENDENCY_PLAN.md` | C-016 |
+| DotSlash/protoc plan | `evidence/docker-readiness/DOTSLASH_PROTOC_PLAN.md` | C-016 |
+| Isolation policy | `evidence/docker-readiness/DOCKER_ISOLATION_POLICY.md` | C-016 |
+| Phase C2B plan (not run) | `evidence/docker-readiness/PHASE_C2B_CONTAINER_BUILD_PLAN.md` | C-016, C-012 future |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -141,13 +155,14 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | `FAIL` | ☐ |
 | `NOT_APPLICABLE` | ☐ |
 
-Justification: Clone/pin and Phase C1 readiness inventory succeeded as documentation; cargo execution blocked by missing tools and plan authorization.
+Justification: Clone/pin, Windows readiness, and Docker/image-pin inventories succeeded as documentation; cargo execution not started; Windows path still tool-blocked; container path planned with digest pin.
 
 ## 11. What This Reproduction Proves
 
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
-- Owner-side host lacks rustup/cargo/dotslash; build env readiness is `BLOCKED`.
+- Docker client/WSL presence and official `rust:1.92.0` linux/amd64 **platform manifest** digest pin via registry metadata.
+- Windows host readiness (**C-015**) remains `BLOCKED`; Docker/Linux path (**C-016**) is `PARTIAL` / C2B `READY_WITH_LIMITATIONS`.
 
 ## 12. What This Reproduction Does NOT Prove
 

@@ -1,0 +1,92 @@
+Weaver Forge Phase C2A — Pinned container image metadata
+Date: 2026-07-18
+Method: Docker Hub API + Docker Registry HTTP API v2 (manifest + config blob)
+Local docker pull: NOT PERFORMED (daemon unavailable)
+Local image ID verification: NOT PERFORMED
+
+================================================================================
+DIGEST TERMINOLOGY (do not confuse)
+================================================================================
+1) Multi-arch INDEX digest (OCI image index / manifest list for tag 1.92.0)
+   sha256:f58923369ba295ae1f60bc49d03f2c955a5c93a0b7d49acfb2b2a65bebaf350d
+   - Points at an index listing many platforms.
+   - Pulling by this digest can resolve multi-arch selection; this package
+     prefers the explicit linux/amd64 platform digest below for this host.
+
+2) linux/amd64 PLATFORM MANIFEST digest (IMMUTABLE PULL/RUN PIN)
+   sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+   - This is a pullable image manifest digest for the intended artifact.
+   - USE THIS for: docker pull / docker run  ...@sha256:6ca5ad23...
+
+3) Image CONFIG BLOB digest (NOT a pull reference)
+   sha256:45dfd6a3b0ca04ba914df344b1f01d32092a33c56b067f88d738e4707b8dbec7
+   - Identifies the image configuration JSON blob only.
+   - DO NOT use as docker pull/run @digest. Not interchangeable with (1) or (2).
+
+Method of establishment: registry/Hub metadata only (no local docker pull).
+
+================================================================================
+SELECTED IMAGE
+================================================================================
+Registry:              docker.io
+Repository:            library/rust
+Human tag:             1.92.0
+Canonical pull ref:    docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+                       ^^^ platform manifest digest (2), NOT config blob (3)
+Alternate tag@digest:  rust:1.92.0@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+Multi-arch index digest (1):
+  sha256:f58923369ba295ae1f60bc49d03f2c955a5c93a0b7d49acfb2b2a65bebaf350d
+
+linux/amd64 platform manifest digest (2) — IMMUTABLE PIN for this host:
+  sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+Image config blob digest (3) — metadata only, not pullable as image:
+  sha256:45dfd6a3b0ca04ba914df344b1f01d32092a33c56b067f88d738e4707b8dbec7
+
+Architecture:          amd64
+OS:                    linux
+Created (config):      2026-01-13T06:12:13.194813512Z
+Layer count:           5
+Layers compressed sum: 591904291 bytes
+Hub full_size field:   591904291
+Hub tag last_updated:  2026-01-22T03:44:44.9198Z
+linux/amd64 last_pushed (Hub): 2026-01-13T09:44:28.431335271Z
+Hub tag_status:        active
+
+OCI config PATH (sanitized):
+  /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+OCI label:
+  org.opencontainers.image.source=https://github.com/rust-lang/docker-rust
+Default Cmd:           bash
+Default User:          (empty / root in image metadata)
+
+Local Image ID:        NOT AVAILABLE (not pulled)
+Local digest verify:   NOT AVAILABLE (not pulled)
+
+================================================================================
+COMPARISON TAGS (metadata only; not pulled)
+================================================================================
+rust:1.92.0-bookworm index:
+  sha256:e90e846de4124376164ddfbaab4b0774c7bdeef5e738866295e5a90a34a307a2
+rust:1.92.0-slim index:
+  sha256:bf3368a992915f128293ac76917ab6e561e4dda883273c8f5c9f6f8ea37a378e
+rust:1.92.0-slim-bookworm index:
+  sha256:f1f73538ebe623fd3673a35aff3df358ae1084c64c55646516e5b17b321b6c9b
+
+================================================================================
+PULL POLICY FOR PHASE C2B
+================================================================================
+1. Start Docker Desktop / ensure daemon responds to `docker info`.
+2. Pull ONLY:
+     docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+3. Record `docker image inspect` Id, RepoDigests, Architecture, Os, Size, Created.
+4. Confirm RepoDigests / Id path matches the recorded platform digest.
+5. Do not pull additional candidate images for comparison.
+
+================================================================================
+NOT RECORDED (policy)
+================================================================================
+- Registry auth tokens
+- Full environment variables beyond PATH/RUST-related labels already noted
+- Host usernames

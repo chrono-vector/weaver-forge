@@ -1,0 +1,46 @@
+Weaver Forge Phase C2A — WSL backend status (read-only)
+Date: 2026-07-18
+Note: Some wsl CLI strings render with locale mojibake in this capture environment;
+numeric versions and distribution table are authoritative.
+
+================================================================================
+1. wsl --status (decoded intent)
+================================================================================
+Default distribution: Ubuntu
+Default version:      2
+
+================================================================================
+2. wsl --version
+================================================================================
+WSL version:        2.6.3.0
+Kernel version:     6.6.87.2-1
+WSLg version:       1.0.71
+MSRDC version:      1.2.6353
+Direct3D version:   1.611.1-81528511
+DXCore version:     10.0.26100.1-240331-1435.ge-release
+Windows version:    10.0.26200.8875
+
+================================================================================
+3. wsl -l -v
+================================================================================
+  NAME              STATE           VERSION
+* Ubuntu            Stopped         2
+  docker-desktop    Stopped         2
+
+================================================================================
+4. Interpretation for Docker Desktop Linux backend
+================================================================================
+- WSL2 is installed and default version is 2.
+- Default user distro: Ubuntu (Stopped).
+- Docker Desktop backend distro: docker-desktop (Stopped).
+- WSL2 backend availability: INSTALLED; not currently running.
+- Starting Docker Desktop is expected to start docker-desktop (and related)
+  WSL2 components; this phase did NOT start WSL distros or Docker Desktop.
+
+================================================================================
+5. What was not done
+================================================================================
+- Did not start Ubuntu or docker-desktop
+- Did not enter WSL shells
+- Did not install packages inside WSL
+- Did not modify WSL configuration

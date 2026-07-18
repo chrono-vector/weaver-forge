@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Phase C1 env readiness `BLOCKED`; build/runtime still not executed |
-| Register status | Identity/docs PASS; readiness claim BLOCKED; build/runtime NOT_STARTED |
+| Current verification state | Windows env BLOCKED; Docker/Linux PARTIAL; build/runtime not executed |
+| Register status | Identity/docs PASS; C-015 Windows BLOCKED; C-016 Docker/Linux PARTIAL; build/runtime NOT_STARTED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-17` (C1) |
+| Last updated | `2026-07-18` (C2A) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -34,7 +34,8 @@
 | C-012 | Documented build succeeds at pin | `build_result` | `NOT_STARTED` |
 | C-013 | Documented validation succeeds at pin | `test_result` | `NOT_STARTED` |
 | C-014 | Independent witness reproduces pin + procedure | `independent_witness_result` | `NOT_STARTED` |
-| C-015 | Isolated build environment ready for documented cargo commands | `runtime_observation` | `BLOCKED` |
+| C-015 | Windows host build-environment readiness for documented cargo commands | `runtime_observation` | `BLOCKED` |
+| C-016 | Docker/Linux isolated build-environment readiness (image pin + C2B plan) | `runtime_observation` | `PARTIAL` |
 
 ---
 
@@ -250,22 +251,42 @@
 | Limitations | Package author cannot satisfy |
 | What the result does not establish | (unevaluated) |
 
-### C-015 — Isolated build environment ready
+### C-015 — Windows host build-environment readiness
 
 | Field | Value |
 |-------|-------|
-| Exact claim | An isolated build environment satisfying documented source-build prerequisites (Rust/rustup at toolchain pin, DotSlash, protoc resolution, suitable host, and on Windows a visible MSVC/Windows SDK when native crates require a C linker) is ready to attempt documented cargo commands at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` without product authentication. |
-| Source of claim | README Building from source; `rust-toolchain.toml`; static lock native-crate indicators; readiness procedure |
+| Exact claim | The **inventoried Windows host** satisfies documented source-build prerequisites (Rust/rustup at channel 1.92.0, DotSlash on PATH, protoc resolution, and a visible MSVC/Windows SDK / C linker when native crates require one) and is ready to attempt documented cargo commands at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` without product authentication. |
+| Source of claim | README Building from source (Windows best-effort); `rust-toolchain.toml`; Phase C1 host inventory |
 | Evidence class | `runtime_observation` (host tool presence; not a project build result) |
-| Verification method | Inventory host tools; VS/SDK discovery; re-verify pin; compare to documented prereqs; static dependency risk review |
-| Acceptance criteria | rustup/cargo/rustc present; DotSlash on PATH; protoc resolvable; pin intact; isolation plan recorded; MSVC/SDK visible if building on Windows with native deps; preferably macOS/Linux per docs |
-| Expected output | Inventory showing required tools present |
-| Actual result | Pin OK (clean). **Missing:** rustc/cargo/rustup, DotSlash, protoc, MSVC (`cl`), Windows SDK, vswhere. Python/node present (not documented build prereqs). See `evidence/environment-readiness/` |
-| Status | `BLOCKED` |
+| Verification method | Inventory host tools; VS/SDK discovery; re-verify pin; compare to documented prereqs (Phase C1; unchanged) |
+| Acceptance criteria | On this Windows host: rustup/cargo/rustc present; DotSlash on PATH; protoc resolvable; MSVC/SDK visible if native link required; pin intact |
+| Expected output | Inventory showing required Windows host tools present |
+| Actual result | Pin OK (clean). **Missing on Windows host:** rustc/cargo/rustup, DotSlash, protoc, MSVC (`cl`), Windows SDK, vswhere. Historical C1 evidence under `evidence/environment-readiness/` is authoritative and was **not** rewritten. |
+| Status | **`BLOCKED`** |
 | Operator role | Owner-side |
-| Evidence pointers | `evidence/environment-readiness/*`; `ENVIRONMENT.md` |
-| Limitations | Readiness ≠ build success; tool install out of scope this phase |
-| What the result does not establish | That cargo would pass after installs; security; independent witness env; offline build |
+| Evidence pointers | `evidence/environment-readiness/*` (C1); `ENVIRONMENT.md` (Windows sections) |
+| Limitations | Windows readiness ≠ Docker/Linux path (see **C-016**); readiness ≠ build success |
+| What the result does not establish | Container path readiness (C-016); that cargo would pass after installs; security; independent witness |
+
+**Scope note (C2A audit):** C-015 is the **Windows host** readiness claim established in Phase C1. It must remain **`BLOCKED`**. Docker/Linux isolation is tracked separately as **C-016**.
+
+### C-016 — Docker/Linux isolated build-environment readiness
+
+| Field | Value |
+|-------|-------|
+| Exact claim | A **Docker Desktop Linux** isolated path (WSL2 backend, official pinned base image, native package plan, DotSlash/protoc plan, isolation policy) is ready enough to authorize Phase C2B container bootstrap toward documented cargo commands at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` without product authentication. |
+| Source of claim | README (macOS/Linux supported build hosts); Phase C2A Docker inventory + image pin |
+| Evidence class | `runtime_observation` (daemon/client/image identity; not a project build result) |
+| Verification method | Docker/WSL status; registry metadata digest pin for `library/rust:1.92.0` linux/amd64; static plans; no container compile |
+| Acceptance criteria for `PASS` | Daemon available; pinned linux/amd64 image pulled and digest-verified locally; bootstrap path documented; isolation policy recorded |
+| Current phase bar | C2A records inventory + immutable image pin + C2B plan without pull/run |
+| Expected output | Docker readiness evidence + pinned pull reference |
+| Actual result | Client 29.4.3; context `desktop-linux`; daemon **stopped**; WSL2 installed (`Ubuntu`/`docker-desktop` Stopped). Image pin via registry only: platform manifest `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` (**not** locally pulled). C2B plan written. No packages/DotSlash/cargo/container execution. |
+| Status | **`PARTIAL`** (Phase C2B procedure readiness: **`READY_WITH_LIMITATIONS`**) |
+| Operator role | Owner-side |
+| Evidence pointers | `evidence/docker-readiness/*`; `ENVIRONMENT.md` (Docker sections); `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md` |
+| Limitations | Daemon not proven; local image absent; isolation planning ≠ security audit; readiness ≠ build success |
+| What the result does not establish | Windows host readiness (C-015); cargo success; functional/security/witness axes |
 
 ---
 
@@ -274,14 +295,14 @@
 | Status | Count |
 |--------|------:|
 | `NOT_STARTED` | 3 |
-| `BLOCKED` | 1 |
+| `BLOCKED` | 1 (C-015) |
 | `PASS` | 11 |
-| `PARTIAL` | 0 |
+| `PARTIAL` | 1 (C-016) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 15 |
+| **Total** | 16 |
 
-Note: Eleven `PASS` rows are **identity/documentation observations**, not build/runtime success. C-015 is readiness, not build.
+Note: Eleven `PASS` rows are **identity/documentation observations**, not build/runtime success. C-015/C-016 are readiness, not build.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -295,7 +316,8 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 ## What This Register Proves
 
 - Primary-source-backed identity and documentation claims were evaluated at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
-- Phase C1: isolated build-env readiness is **`BLOCKED`** on the inventoried host.
+- **C-015** Windows host build-env readiness remains **`BLOCKED`** (Phase C1 evidence preserved).
+- **C-016** Docker/Linux isolated readiness is **`PARTIAL`** (digest pin + plans; daemon not running; image not pulled).
 - Build/runtime success claims remain unstarted.
 
 ## What This Register Does NOT Prove
@@ -311,6 +333,8 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 | 2026-07-17 | Skeleton register | Weaver Forge documentation package author |
 | 2026-07-17 | Phase B primary-source claims C-001–C-014 | Weaver Forge documentation package author |
 | 2026-07-17 | Phase C1 claim C-015 readiness `BLOCKED` | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2A briefly set C-015 to PARTIAL (over-broad) | Weaver Forge documentation package author |
+| 2026-07-18 | Pre-commit audit: C-015 restored to Windows-only `BLOCKED`; added C-016 Docker/Linux `PARTIAL` | Weaver Forge documentation package author |
 
 ---
 

@@ -8,25 +8,30 @@
 | GitHub organization path | `xai-org` |
 | Cargo authors field (sample) | `"xAI"` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **Environment readiness BLOCKED on Windows host; cargo still not run** |
-| Plan status | Phase B pin held; readiness inspection done; Phase C2 **not authorized** (BLOCKED) |
+| Current verification state | **Windows env BLOCKED (C-015); Docker/Linux PARTIAL (C-016); cargo still not run** |
+| Plan status | Phase B pin held; C1 Windows readiness done; **C2A Docker readiness + image pin done**; Phase C2B plan defined, **not executed** |
 | Package created | `2026-07-17` |
-| Plan version / date | 2026-07-17 Phase C1; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Plan version / date | 2026-07-18 Phase C2A (+ pre-commit audit); pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Operator / author | Weaver Forge documentation package author |
 | Operator role | Owner-side planner/inspector (not independent witness) |
 | Independent witness status | `NOT_STARTED` |
-| Weaver evidence level (target) | **E2 partial** — pin + readiness inventory; build still unstarted |
+| Weaver evidence level (target) | **E2 partial** — pin + readiness inventory + container pin; build still unstarted |
 
 Pinned full commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
+
 Clone path: `C:\dev\external-verification-targets\grok-build`
-Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
+
+Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evidence/docker-readiness/`
 
 ---
 
 ## 1. Purpose
 
 **Phase B:** Freeze immutable public source identity without building.
-**Phase C1:** Review isolated build-environment readiness against documented prerequisites at that pin, without installing toolchains or running cargo against Grok Build.
+
+**Phase C1:** Review Windows host build-environment readiness without installing toolchains or running cargo.
+
+**Phase C2A:** Determine Docker Desktop/WSL Linux backend readiness; select and digest-pin a Linux base image; define Phase C2B procedure **without compiling**.
 
 ## 2. Target Summary
 
@@ -37,36 +42,48 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
 | Brand presentation | SpaceXAI (as stated in primary sources; see SOURCE_IDENTITY layers) |
 | Repository org path | `xai-org` |
 | Canonical URL | https://github.com/xai-org/grok-build |
-| Intended verification depth this phase | identity pin + **build-env readiness only** |
+| Intended verification depth this phase | identity pin + env readiness + **Docker/Linux image pin** (no build) |
 
 ## 3. Scope
 
 ### In scope (Phase B — completed)
 
-- [x] Official primary source inspection (GitHub, x.ai news, x.ai open-source)
+- [x] Official primary source inspection
 - [x] Full read-only clone outside Weaver Forge
 - [x] Full commit pin and key file SHA-256 recording
 - [x] License path and SPDX identification
 - [x] Static extraction of documented build/validation commands
 - [x] Claim register refinement from primary sources
 
-### In scope (environment readiness — completed)
+### In scope (Phase C1 — completed)
+
+- [x] Windows host toolchain inventory
+- [x] Static dependency acquisition risk review
+- [x] Phase C2 host-oriented plan (not executed)
+- [x] Evidence under `evidence/environment-readiness/`
+
+### In scope (Phase C2A — this revision)
 
 - [x] Re-verify pin without fetch/pull/modify
-- [x] Full host toolchain inventory (including MSVC/SDK discovery)
-- [x] Static dependency acquisition risk review (no cargo network)
-- [x] Phase C2 isolated build plan (defined, not executed)
-- [x] Evidence under `evidence/environment-readiness/`
-- [x] Evidence directory under the package (metadata only; no full repo copy)
+- [x] Docker client/daemon/context inventory
+- [x] WSL backend status
+- [x] Evaluate image strategies A/B/C; select official `rust:1.92.0`
+- [x] Resolve immutable linux/amd64 **platform manifest** digest via registry metadata (no local pull — daemon down)
+- [x] Native package plan, DotSlash/protoc plan, isolation policy, C2B command plan
+- [x] Evidence under `evidence/docker-readiness/`
+- [x] Completion note `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md`
+- [x] Pre-commit audit: split C-015 (Windows) vs C-016 (Docker/Linux)
 
-### Out of scope (Phase C1)
+### Out of scope (Phase C2A)
 
-- Installing rustup, cargo, DotSlash, or protoc
-- `cargo build` / `check` / `test` / `run` against Grok Build
-- Running Grok Build binary or authentication flows
-- Security review, functional reproducibility, product operational readiness
+- Compiling Grok Build; any `cargo build/check/test/run` against the target
+- Installing host software; starting containers for compile
+- Building a custom image
+- Authenticating with xAI / product APIs
+- Modifying pinned Grok Build source; git fetch/pull of new commits
+- Security audit (isolation planning is not security review)
 - Independent witness / E4
-- Declaring build environment ready when tools are missing
+- Committing Weaver Forge changes
 
 ## 4. Evidence Chain Checklist
 
@@ -76,12 +93,12 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
 | Artifact | `PASS` | Full clone at documented path |
 | Identity and Version | `PASS` | Full commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Hash or Immutable Reference | `PARTIAL` | Commit + tree OID + local file SHA-256; no publisher checksums/signed tags |
-| Claim | `PARTIAL` | Identity/doc claims observed; build/runtime claims `NOT_STARTED` |
+| Claim | `PARTIAL` | Identity/doc PASS; C-015 Windows BLOCKED; C-016 Docker PARTIAL; build NOT_STARTED |
 | Test | `NOT_STARTED` | Not authorized |
-| Reproduction | `PARTIAL` | Clone/inspect + readiness inventory; not build |
-| Evidence | `PASS` | source-inspection + environment-readiness |
+| Reproduction | `PARTIAL` | Clone/inspect + readiness + Docker pin; not build |
+| Evidence | `PASS` | source-inspection + environment-readiness + docker-readiness |
 | Receipt | `NOT_STARTED` | |
-| Verdict | `PARTIAL` | Overall not PASS; build env BLOCKED |
+| Verdict | `PARTIAL` | Overall not PASS |
 | Independent Witness | `NOT_STARTED` | |
 
 ## 5. Roles and Independence
@@ -92,69 +109,83 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
 | Owner-side reproducer (build) | *unassigned* | — | — |
 | Independent witness | *unassigned* | Required: Yes | Required: Yes |
 
-**Rule:** Owner-side inspection ≠ independent third-party witness.
+**Rule:** Owner-side inspection is not independent third-party witness.
 
 ## 6. Package Files
 
 | File | Status |
 |------|--------|
-| `SOURCE_IDENTITY.md` | Updated — pin complete |
-| `CLAIM_REGISTER.md` | Updated — primary-source claims |
-| `ENVIRONMENT.md` | Inspection host notes only; build env `NOT_STARTED` |
-| `REPRODUCTION.md` | Clone steps recorded; build steps documented not run |
-| `RESULTS.md` | Phase B results |
+| `SOURCE_IDENTITY.md` | Pin complete (unchanged this phase unless factual fix) |
+| `CLAIM_REGISTER.md` | C-015 Windows `BLOCKED`; C-016 Docker/Linux `PARTIAL` |
+| `ENVIRONMENT.md` | Windows BLOCKED + Docker PARTIAL |
+| `REPRODUCTION.md` | C2A inspection steps |
+| `RESULTS.md` | C2A results |
 | `VERDICT.md` | Multi-axis; overall `PARTIAL` |
-| `WITNESS_HANDOFF.md` | Pin filled; still not executable for build witness |
+| `WITNESS_HANDOFF.md` | Docker pin pointers |
+| `evidence/docker-readiness/*` | Created C2A |
 
 ## 7. Planned Procedure
 
-**Phase A** — documentation shell (done earlier).
+**Phase A** — documentation shell (done).
+
 **Phase B** — primary-source inspection + commit pin (done).
-**Environment readiness** — Windows host **`BLOCKED`** (this revision).
-**Phase C2** — plan only: `evidence/environment-readiness/PHASE_C2_ISOLATED_BUILD_PLAN.md`; not authorized until readiness leaves BLOCKED.
+
+**Phase C1** — Windows host readiness **`BLOCKED`** (done; claim **C-015**).
+
+**Phase C2A** — Docker/Linux readiness + image pin (this revision; claim **C-016** **PARTIAL** / C2B **READY_WITH_LIMITATIONS**).
+
+**Phase C2B** — container bootstrap → dep acquisition → `cargo check -p xai-grok-pager-bin` per `PHASE_C2B_CONTAINER_BUILD_PLAN.md` (**not authorized to execute in C2A**).
+
+**Phase C2B-4** — optional release build only after C2B-3 review.
+
 **Phase D** — independent witness after executable frozen procedure exists.
 
 ## 8. Blocking Conditions
 
 | Blocker ID | Description | Status | Resolution path |
 |------------|-------------|--------|-----------------|
-| B-001 | Cargo execution not authorized until env ready | `BLOCKED` | Phase C2 after readiness PASS |
+| B-001 | Cargo execution not authorized until env path ready | open for build | C2B after daemon start + C2B-1 |
 | B-002 | Full commit unknown | **resolved** | Pin recorded |
-| B-003 | Official procedure text unknown | **resolved** (documented; not executed) | README |
+| B-003 | Official procedure text unknown | **resolved** | README |
 | B-004 | Independent witness unassigned | open | After executable procedure |
 | B-005 | License unknown | **resolved** | Apache-2.0 |
-| B-006 | rustup/cargo/rustc missing on readiness host | `BLOCKED` | Install in isolated env; re-inventory |
-| B-007 | DotSlash missing | `BLOCKED` | Install DotSlash; re-inventory |
-| B-008 | Windows host vs supported macOS/Linux builds | open risk | Prefer Linux/macOS isolation |
-| B-009 | No dedicated VM/container prepared | open | Optional Docker/VM prep |
+| B-006 | rustup/cargo/rustc missing on Windows host | `BLOCKED` (C-015) | Prefer Linux container C2B |
+| B-007 | DotSlash missing on host | open on host; planned in container | C2B-1 |
+| B-008 | Windows host vs supported macOS/Linux builds | open risk | Prefer Linux isolation |
+| B-009 | No container image prepared | **resolved as pin** | Platform manifest digest recorded; pull in C2B-1 |
+| B-010 | Docker daemon stopped | open | Start Docker Desktop before C2B |
 
 ## 9. Authorization Boundaries
 
-| Action | Authorized Phase B? | Performed? |
-|--------|---------------------|------------|
-| Fetch public metadata / docs | Yes | Yes |
-| Clone repository (read-only) | Yes | Yes |
-| Build | **No** (C1) | No |
-| Install build toolchains | **No** (C1 — inventory only) | No |
-| Install project deps / cargo fetch | **No** | No |
-| Execute tests or binaries | **No** | No |
+| Action | Authorized C2A? | Performed? |
+|--------|-----------------|------------|
+| Re-verify pin (no fetch) | Yes | Yes |
+| Docker/WSL status commands | Yes | Yes |
+| Registry metadata / digest resolve | Yes | Yes |
+| Pull selected base image only if daemon available | Yes (authorized) | **No** (daemon unavailable) |
+| Build custom image | **No** | No |
+| cargo / compile Grok Build | **No** | No |
+| Install host software | **No** | No |
 | Use credentials / paid APIs | **No** | No |
 | Modify target source | **No** | No |
 | Update Weaver Forge package docs | Yes | Yes |
+| Commit | **No** | No |
 
-## 10. Success Criteria for Phase B
+## 10. Success Criteria for Phase C2A
 
-- [x] Official sources inspected and listed
-- [x] Full clone outside Weaver Forge
-- [x] Full 40-char commit pin
-- [x] License path and name recorded
-- [x] Key file hashes recorded
-- [x] No build/run claimed
-- [x] Verdict axes respect Phase B limits
+- [x] Pin precheck PASS
+- [x] Docker/WSL inventory recorded
+- [x] Image strategy selected with rationale
+- [x] Immutable linux/amd64 platform manifest digest recorded (registry path)
+- [x] Native + DotSlash/protoc + isolation + C2B plans written
+- [x] Package docs + completion note updated
+- [x] C-015 vs C-016 claim split clarified
+- [x] No compile / no source mutation / no commit
 
-## 11. What This Plan Proves (Phase B)
+## 11. What This Plan Proves (through C2A)
 
-- Identity pin and source inspection procedure for Grok Build under Weaver Forge package rules.
+- Identity pin and readiness inventories (Windows + Docker).
+- A reproducible Linux image reference by **platform manifest** digest for future isolated compile attempts.
 
 ## 12. What This Plan Does NOT Prove
 
@@ -162,6 +193,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
 - Security review
 - Independent verification
 - Operational readiness
+- That Docker daemon will successfully pull/run on first start
 - Truth of untested product behavior claims
 
 ## 13. Change Log
@@ -172,6 +204,8 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`
 | 2026-07-17 | Phase B primary-source pin | Weaver Forge documentation package author |
 | 2026-07-17 | Phase C1 build-env readiness (`BLOCKED`) | Weaver Forge documentation package author |
 | 2026-07-17 | Expanded Windows readiness + C2 plan; still BLOCKED | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2A Docker/Linux readiness + image pin | Weaver Forge documentation package author |
+| 2026-07-18 | Pre-commit audit: C-015 Windows-only; C-016 Docker/Linux; encoding fix | Weaver Forge documentation package author |
 
 ---
 
