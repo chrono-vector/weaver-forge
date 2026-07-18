@@ -8,20 +8,20 @@
 | GitHub organization path | `xai-org` |
 | Cargo authors field (sample) | `"xAI"` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **Windows env BLOCKED (C-015); Docker/Linux PARTIAL (C-016); cargo still not run** |
-| Plan status | Phase B pin held; C1 Windows readiness done; **C2A Docker readiness + image pin done**; Phase C2B plan defined, **not executed** |
+| Current verification state | **Windows BLOCKED (C-015); Docker image+toolchain PASS (C-016); Grok cargo still not run** |
+| Plan status | Phase B–C2A done; **C2B-1 pull+toolchain done**; C2B-2/C2B-3 not started |
 | Package created | `2026-07-17` |
-| Plan version / date | 2026-07-18 Phase C2A (+ pre-commit audit); pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Plan version / date | 2026-07-18 Phase C2B-1; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Operator / author | Weaver Forge documentation package author |
 | Operator role | Owner-side planner/inspector (not independent witness) |
 | Independent witness status | `NOT_STARTED` |
-| Weaver evidence level (target) | **E2 partial** — pin + readiness inventory + container pin; build still unstarted |
+| Weaver evidence level (target) | **E2 partial** — pin + readiness + pulled image/toolchain; build still unstarted |
 
 Pinned full commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
 
 Clone path: `C:\dev\external-verification-targets\grok-build`
 
-Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evidence/docker-readiness/`
+Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evidence/docker-readiness/`; `evidence/container-toolchain/`
 
 ---
 
@@ -33,6 +33,8 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 
 **Phase C2A:** Determine Docker Desktop/WSL Linux backend readiness; select and digest-pin a Linux base image; define Phase C2B procedure **without compiling**.
 
+**Phase C2B-1:** Pull pinned image; verify RepoDigest; verify direct rustc/cargo 1.92.0 (**no** Grok Build mount or cargo against the tree).
+
 ## 2. Target Summary
 
 | Field | Value |
@@ -42,7 +44,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | Brand presentation | SpaceXAI (as stated in primary sources; see SOURCE_IDENTITY layers) |
 | Repository org path | `xai-org` |
 | Canonical URL | https://github.com/xai-org/grok-build |
-| Intended verification depth this phase | identity pin + env readiness + **Docker/Linux image pin** (no build) |
+| Intended verification depth this phase | identity pin + env readiness + **pulled image/toolchain** (no Grok Build compile) |
 
 ## 3. Scope
 
@@ -74,7 +76,17 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 - [x] Completion note `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md`
 - [x] Pre-commit audit: split C-015 (Windows) vs C-016 (Docker/Linux)
 
-### Out of scope (Phase C2A)
+### In scope (Phase C2B-1 — completed)
+
+- [x] Docker engine available (server 29.4.3; linux/amd64 WSL2)
+- [x] Pull pinned platform-manifest image; verify RepoDigest
+- [x] Local image inspect (OS/arch/created/RUST_VERSION)
+- [x] Direct rustc/cargo 1.92.0 verification
+- [x] Record login-shell PATH anomaly (`bash -lc`)
+- [x] Evidence under `evidence/container-toolchain/`
+- [x] Completion note `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md`
+
+### Out of scope (Phase C2A / C2B-1)
 
 - Compiling Grok Build; any `cargo build/check/test/run` against the target
 - Installing host software; starting containers for compile
@@ -93,7 +105,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | Artifact | `PASS` | Full clone at documented path |
 | Identity and Version | `PASS` | Full commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Hash or Immutable Reference | `PARTIAL` | Commit + tree OID + local file SHA-256; no publisher checksums/signed tags |
-| Claim | `PARTIAL` | Identity/doc PASS; C-015 Windows BLOCKED; C-016 Docker PARTIAL; build NOT_STARTED |
+| Claim | `PARTIAL` | Identity/doc PASS; C-015 BLOCKED; C-016 PASS (image/toolchain only); build NOT_STARTED |
 | Test | `NOT_STARTED` | Not authorized |
 | Reproduction | `PARTIAL` | Clone/inspect + readiness + Docker pin; not build |
 | Evidence | `PASS` | source-inspection + environment-readiness + docker-readiness |
@@ -116,13 +128,14 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | File | Status |
 |------|--------|
 | `SOURCE_IDENTITY.md` | Pin complete (unchanged this phase unless factual fix) |
-| `CLAIM_REGISTER.md` | C-015 Windows `BLOCKED`; C-016 Docker/Linux `PARTIAL` |
-| `ENVIRONMENT.md` | Windows BLOCKED + Docker PARTIAL |
-| `REPRODUCTION.md` | C2A inspection steps |
-| `RESULTS.md` | C2A results |
+| `CLAIM_REGISTER.md` | C-015 `BLOCKED`; C-016 `PASS` (image/toolchain) |
+| `ENVIRONMENT.md` | Windows BLOCKED + Docker image/toolchain PASS |
+| `REPRODUCTION.md` | Through C2B-1 |
+| `RESULTS.md` | Through C2B-1 |
 | `VERDICT.md` | Multi-axis; overall `PARTIAL` |
-| `WITNESS_HANDOFF.md` | Docker pin pointers |
-| `evidence/docker-readiness/*` | Created C2A |
+| `WITNESS_HANDOFF.md` | Image pin + C2B-1 notes |
+| `evidence/docker-readiness/*` | C2A |
+| `evidence/container-toolchain/*` | C2B-1 |
 
 ## 7. Planned Procedure
 
@@ -132,9 +145,11 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 
 **Phase C1** — Windows host readiness **`BLOCKED`** (done; claim **C-015**).
 
-**Phase C2A** — Docker/Linux readiness + image pin (this revision; claim **C-016** **PARTIAL** / C2B **READY_WITH_LIMITATIONS**).
+**Phase C2A** — Docker/Linux readiness + image pin (done).
 
-**Phase C2B** — container bootstrap → dep acquisition → `cargo check -p xai-grok-pager-bin` per `PHASE_C2B_CONTAINER_BUILD_PLAN.md` (**not authorized to execute in C2A**).
+**Phase C2B-1** — pull + rustc/cargo verify (done; claim **C-016** image/toolchain **PASS**).
+
+**Phase C2B-2 / C2B-3** — packages/DotSlash + deps → `cargo check -p xai-grok-pager-bin` (**not started**).
 
 **Phase C2B-4** — optional release build only after C2B-3 review.
 
@@ -153,7 +168,8 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | B-007 | DotSlash missing on host | open on host; planned in container | C2B-1 |
 | B-008 | Windows host vs supported macOS/Linux builds | open risk | Prefer Linux isolation |
 | B-009 | No container image prepared | **resolved as pin** | Platform manifest digest recorded; pull in C2B-1 |
-| B-010 | Docker daemon stopped | open | Start Docker Desktop before C2B |
+| B-010 | Docker daemon stopped | **resolved** (C2B-1) | Engine available |
+| B-011 | DotSlash / packages / Grok cargo not done | open | C2B-2 / C2B-3 |
 
 ## 9. Authorization Boundaries
 
@@ -206,6 +222,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | 2026-07-17 | Expanded Windows readiness + C2 plan; still BLOCKED | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2A Docker/Linux readiness + image pin | Weaver Forge documentation package author |
 | 2026-07-18 | Pre-commit audit: C-015 Windows-only; C-016 Docker/Linux; encoding fix | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-1 image pull + toolchain verification | Weaver Forge documentation package author |
 
 ---
 

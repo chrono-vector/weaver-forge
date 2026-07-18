@@ -1,0 +1,20 @@
+Weaver Forge Phase C2B-1 — rustc version (inside pinned image)
+Date recorded: 2026-07-18
+Image: docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+Invocation note: Direct execution of rustc succeeded. See LOGIN_SHELL_PATH_ANOMALY.md
+  for bash -lc PATH failure (not a rustc failure).
+
+================================================================================
+OBSERVED OUTPUT (summary fields)
+================================================================================
+rustc 1.92.0 (ded5c06cf 2025-12-08)
+host: x86_64-unknown-linux-gnu
+LLVM version: 21.1.3
+
+Matches project pin rust-toolchain.toml channel: 1.92.0
+
+================================================================================
+NOT EXECUTED
+================================================================================
+- rustc against Grok Build sources
+- Any compile of xai-grok-pager-bin or workspace members

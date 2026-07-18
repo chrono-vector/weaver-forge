@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — pin + Windows readiness + Docker/image pin; cargo `NOT_STARTED` |
-| Run ID | Phase B pin; C1 `run-20260717-env-readiness`; C2A `run-20260718-docker-readiness` |
+| Reproduction status | **`PARTIAL`** — pin + readiness + C2B-1 image/toolchain; Grok cargo `NOT_STARTED` |
+| Run ID | Phase B; C1; C2A; C2B-1 `run-20260718-container-toolchain` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -52,6 +52,11 @@
 | 14 | readiness host | `wsl --status`; `wsl --version`; `wsl -l -v` | 0 | `PASS` (inventory) | WSL2 present; distros stopped |
 | 15 | network (registry) | Docker Hub + registry v2 manifest/config for `library/rust:1.92.0` | 0 | `PASS` | digest pin; **no docker pull** |
 | 16 | pinned tree | static native dep / DotSlash / protoc / isolation plan authoring | 0 | `PASS` | plans only |
+| 17 | readiness host | C2B-1: Docker engine available (server 29.4.3, linux/amd64 WSL2) | 0 | `PASS` | observed |
+| 18 | readiness host | `docker pull` pinned platform-manifest image | 0 | `PASS` | RepoDigest match |
+| 19 | container | image inspect (OS/arch/created/RUST_VERSION) | 0 | `PASS` | linux/amd64; 1.92.0 |
+| 20 | container | direct `rustc` / `cargo` version | 0 | `PASS` | 1.92.0 / 1.92.0 |
+| 21 | container | `bash -lc` rustc | non-zero | `PASS` (anomaly log) | PATH only; not toolchain fail |
 
 ### Documented but **not** executed (official build/validate)
 
@@ -109,7 +114,8 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | BK-002 | product authentication | Not authorized; no credentials | `BLOCKED` |
 | BK-003 | rustup/cargo/rustc on Windows host | MISSING on host | `BLOCKED` |
 | BK-004 | DotSlash / protoc path on host | MISSING on host | `BLOCKED` |
-| BK-005 | docker pull / container run | Docker daemon stopped | open (C2B-1) |
+| BK-005 | docker pull / toolchain probe | C2B-1 | **resolved** |
+| BK-006 | cargo against Grok Build / DotSlash / packages | Not in C2B-1 scope | open (C2B-2+) |
 
 ## 8. Cleanup Procedure
 
@@ -142,7 +148,13 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | Linux native deps plan | `evidence/docker-readiness/LINUX_NATIVE_DEPENDENCY_PLAN.md` | C-016 |
 | DotSlash/protoc plan | `evidence/docker-readiness/DOTSLASH_PROTOC_PLAN.md` | C-016 |
 | Isolation policy | `evidence/docker-readiness/DOCKER_ISOLATION_POLICY.md` | C-016 |
-| Phase C2B plan (not run) | `evidence/docker-readiness/PHASE_C2B_CONTAINER_BUILD_PLAN.md` | C-016, C-012 future |
+| Phase C2B plan | `evidence/docker-readiness/PHASE_C2B_CONTAINER_BUILD_PLAN.md` | C-016, C-012 future |
+| Docker engine runtime | `evidence/container-toolchain/DOCKER_ENGINE_RUNTIME.txt` | C-016 |
+| Pull result | `evidence/container-toolchain/PINNED_IMAGE_PULL_RESULT.txt` | C-016 |
+| Local inspect | `evidence/container-toolchain/LOCAL_IMAGE_INSPECTION.txt` | C-016 |
+| rustc / cargo versions | `evidence/container-toolchain/RUSTC_VERSION_OUTPUT.txt`; `CARGO_VERSION_OUTPUT.txt` | C-016 |
+| PATH anomaly | `evidence/container-toolchain/LOGIN_SHELL_PATH_ANOMALY.md` | C-016 |
+| C2B-1 summary | `evidence/container-toolchain/PHASE_C2B1_SUMMARY.md` | C-016 |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -155,14 +167,14 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | `FAIL` | ☐ |
 | `NOT_APPLICABLE` | ☐ |
 
-Justification: Clone/pin, Windows readiness, and Docker/image-pin inventories succeeded as documentation; cargo execution not started; Windows path still tool-blocked; container path planned with digest pin.
+Justification: Clone/pin and readiness inventories complete; C2B-1 pull and rustc/cargo 1.92.0 verified; Grok Build cargo still not run; Windows host still BLOCKED.
 
 ## 11. What This Reproduction Proves
 
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
-- Docker client/WSL presence and official `rust:1.92.0` linux/amd64 **platform manifest** digest pin via registry metadata.
-- Windows host readiness (**C-015**) remains `BLOCKED`; Docker/Linux path (**C-016**) is `PARTIAL` / C2B `READY_WITH_LIMITATIONS`.
+- Pinned image pulled locally with matching RepoDigest; direct rustc/cargo 1.92.0 in container.
+- Windows host readiness (**C-015**) remains `BLOCKED`; Docker/Linux **image+toolchain** (**C-016**) is `PASS` (not full build readiness).
 
 ## 12. What This Reproduction Does NOT Prove
 

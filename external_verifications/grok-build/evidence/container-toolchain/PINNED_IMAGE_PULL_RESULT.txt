@@ -1,0 +1,33 @@
+Weaver Forge Phase C2B-1 — Pinned image pull result
+Date recorded: 2026-07-18
+Source pin (tree not modified; not mounted): 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+
+================================================================================
+PULL REFERENCE
+================================================================================
+Canonical pull ref (linux/amd64 platform manifest digest):
+  docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+Digest class: linux/amd64 PLATFORM MANIFEST (pullable)
+NOT used as pull ref: multi-arch index sha256:f58923369ba295ae1f60bc49d03f2c955a5c93a0b7d49acfb2b2a65bebaf350d
+NOT used as pull ref: config blob sha256:45dfd6a3b0ca04ba914df344b1f01d32092a33c56b067f88d738e4707b8dbec7
+
+================================================================================
+RESULT
+================================================================================
+Pull status:                 SUCCEEDED
+RepoDigest match to pin:     YES
+  Observed RepoDigest includes:
+  sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+Local image present after pull: YES
+Custom image built:             NO
+
+================================================================================
+BOUNDARIES
+================================================================================
+- No Grok Build source mounted
+- No apt/package install
+- No DotSlash install
+- No cargo against Grok Build
+- No authentication

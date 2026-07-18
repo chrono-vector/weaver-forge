@@ -3,15 +3,17 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | **Windows host BLOCKED; Docker/Linux readiness PARTIAL (daemon stopped; image pin via registry)** |
+| Environment record status | **Windows host BLOCKED; Docker/Linux image+toolchain PASS (C2B-1); build still not run** |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Record date | 2026-07-18 (C2A); prior C1 2026-07-17 |
+| Record date | 2026-07-18 (C2B-1); prior C2A/C1 2026-07-17–18 |
 | Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Evidence (Windows C1) | `evidence/environment-readiness/` |
 | Evidence (Docker C2A) | `evidence/docker-readiness/` |
+| Evidence (Container toolchain C2B-1) | `evidence/container-toolchain/` |
 | Phase C2 (Windows native) | **`BLOCKED`** |
-| Phase C2B (Linux container) | **`READY_WITH_LIMITATIONS`** (plan+image pin; daemon start + pull deferred) |
+| Phase C2B-1 (image + toolchain) | **`PASS`** |
+| Phase C2B (full isolated build) | **Not complete** — C2B-2/C2B-3 remain |
 
 ---
 
@@ -33,26 +35,26 @@
 
 ## 3. Toolchain inventory (Windows host, read-only)
 
-See `evidence/environment-readiness/HOST_TOOLCHAIN_INVENTORY.txt`.
+See `evidence/environment-readiness/HOST_TOOLCHAIN_INVENTORY.txt` (C1; unchanged).
 
 | Tool | Available | Version / note |
 |------|-----------|----------------|
 | git | Yes | 2.53.0.windows.3 |
-| rustc | **No** | command not found |
-| cargo | **No** | command not found |
+| rustc | **No** | command not found on Windows host |
+| cargo | **No** | command not found on Windows host |
 | rustup | **No** | command not found |
 | cl (MSVC) | **No** | not found |
 | cmake / ninja / make / perl / pkg-config | **No** | not found |
 | python | Yes | 3.14.3 (not a documented build prereq) |
 | node / npm | Yes | v24.14.1 / 11.11.0 (not documented build prereqs) |
-| DotSlash | **No** | not on PATH |
+| DotSlash | **No** | not on host PATH |
 | protoc on PATH | **No** | |
 | Docker client | Yes | **29.4.3** |
-| Docker daemon | **No** | `com.docker.service` Stopped; pipe missing |
+| Docker daemon (C2B-1) | **Yes** | server **29.4.3**; was stopped during C2A |
 
 ## 4. Windows compiler / SDK
 
-See `WINDOWS_BUILD_READINESS.md`.
+See `WINDOWS_BUILD_READINESS.md` (C1).
 
 | Check | Result |
 |-------|--------|
@@ -61,41 +63,43 @@ See `WINDOWS_BUILD_READINESS.md`.
 | Windows Kits 10 | Not present |
 | VC/SDK env vars | Unset |
 
-## 5. Docker / WSL (Phase C2A)
-
-See `evidence/docker-readiness/DOCKER_HOST_INVENTORY.txt`, `WSL_BACKEND_STATUS.txt`.
+## 5. Docker / WSL (C2A + C2B-1)
 
 | Field | Value |
 |-------|-------|
-| Docker client | 29.4.3 (windows/amd64) |
-| Docker server/engine | **Unavailable** (daemon stopped) |
-| Active context | `desktop-linux` |
-| Container mode (intended) | Linux |
-| Compose | v5.1.4 |
-| buildx | v0.33.0-desktop.1 |
-| WSL | 2.6.3.0; kernel 6.6.87.2-1 |
-| Default WSL distro | Ubuntu (Stopped, WSL2) |
-| docker-desktop distro | Stopped, WSL2 |
-| Docker CPUs/memory/storage driver/security options | **Unknown** until daemon start |
-| Client works without elevation | Yes (client-only commands) |
+| Docker client | 29.4.3 |
+| Docker server (C2B-1) | **29.4.3** |
+| Backend | **linux/amd64 on WSL2** |
+| Active context (C2A) | `desktop-linux` |
+| Image pull | **Succeeded** for pinned platform manifest |
 
-## 6. Pinned Linux container image (C2A)
-
-See `CONTAINER_IMAGE_SELECTION.md`, `PINNED_IMAGE_METADATA.txt`.
+## 6. Pinned Linux container image
 
 | Field | Value |
 |-------|-------|
-| Registry / repo | `docker.io` / `library/rust` |
-| Tag (reference) | `1.92.0` |
-| **linux/amd64 platform manifest pin (pull/run)** | `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
-| Multi-arch index digest | `sha256:f58923369ba295ae1f60bc49d03f2c955a5c93a0b7d49acfb2b2a65bebaf350d` |
-| Config blob digest (metadata only; not pullable) | `sha256:45dfd6a3b0ca04ba914df344b1f01d32092a33c56b067f88d738e4707b8dbec7` |
-| OS/Arch | linux/amd64 |
-| Created (config) | 2026-01-13T06:12:13Z |
-| Local pull | **Not performed** |
-| Custom image | **Not built** |
+| Pull/run pin | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
+| Digest class | linux/amd64 **platform manifest** |
+| RepoDigest match | **Yes** |
+| OS / Arch | linux / amd64 |
+| Created | 2026-01-13T06:12:13.194813512Z |
+| Config RUST_VERSION | 1.92.0 |
+| Local pull (C2B-1) | **Yes** |
+| Custom image | **No** |
 
-## 7. Target pin toolchain (docs)
+## 7. Toolchain inside pinned image (C2B-1)
+
+| Field | Value |
+|-------|-------|
+| rustc (direct) | 1.92.0 (ded5c06cf 2025-12-08) |
+| cargo (direct) | 1.92.0 (344c4567c 2025-10-21) |
+| Host triple | x86_64-unknown-linux-gnu |
+| LLVM | 21.1.3 |
+| Container OS (cargo) | Debian 13.0.0 |
+| `bash -lc` rustc | **command not found** (PATH anomaly only; see `LOGIN_SHELL_PATH_ANOMALY.md`) |
+| DotSlash in image | **Not installed this phase** |
+| Grok Build source mounted | **No** |
+
+## 8. Target pin toolchain (docs)
 
 | Field | Value |
 |-------|-------|
@@ -104,42 +108,33 @@ See `CONTAINER_IMAGE_SELECTION.md`, `PINNED_IMAGE_METADATA.txt`.
 | Workspace edition | **2024** |
 | Lockfile | present |
 
-## 8. Isolation
+## 9. Isolation
 
 | Field | Value |
 |-------|-------|
-| Source path | `C:\dev\external-verification-targets\grok-build` (unchanged this phase) |
-| Planned work root | `C:\dev\external-verification-work\grok-build-98c3b24\` (not populated with build outputs) |
-| Planned `CARGO_TARGET_DIR` | `...\grok-build-98c3b24\target` (outside source) |
-| VM/container prepared | **Image identity pinned**; daemon not running; no container launched for compile |
+| Source path | `C:\dev\external-verification-targets\grok-build` |
+| Mounted into container this phase | **No** |
+| Planned work root | `C:\dev\external-verification-work\grok-build-98c3b24\` |
 | Isolation policy | `evidence/docker-readiness/DOCKER_ISOLATION_POLICY.md` |
 
-## 9. Credentials / network
+## 10. Credentials / network
 
 | Field | Value |
 |-------|-------|
 | Product/API credentials used | **No** |
-| Network used for cargo/deps | **No** |
-| Network used for registry metadata | **Yes** (Docker Hub / registry v2 API for digests only) |
-| Future first build network | Required (registry + git + DotSlash + possibly apt) |
+| Network for image pull | **Yes** (C2B-1 pull) |
+| Network for cargo/deps of Grok Build | **No** |
 
-## 10. Environment readiness verdicts
+## 11. Environment readiness verdicts
 
 | Axis / path | Verdict |
 |-------------|---------|
 | Windows host build readiness | **`BLOCKED`** |
-| Docker/Linux build readiness | **`PARTIAL`** |
-| Phase C2B readiness | **`READY_WITH_LIMITATIONS`** |
+| Docker/Linux **image + toolchain** readiness | **`PASS`** |
+| Full C2B isolated build (packages, DotSlash, cargo check) | **Not started / incomplete** |
+| Phase C2B-1 | **`PASS`** |
 
-**Rationale (Docker/Linux PARTIAL):** Client, WSL2 backend install, and official `rust:1.92.0` digest pin are established; engine daemon is stopped so pull/run/resource fields and local image verify remain incomplete.
-
-**Rationale (C2B READY_WITH_LIMITATIONS):** Copy-pasteable C2B plan exists with immutable image digest; operator must start Docker Desktop, pull the pin, and execute C2B-1+ under isolation policy. Not fully READY because daemon was not available to prove pull/run on this host during C2A.
-
-## 11. What this proves / does not prove
-
-**Proves:** Host Docker/WSL inventory; selected official image digests via registry metadata; static native/DotSlash plans; isolation and C2B procedure text.
-
-**Does not prove:** Build success, functional behavior, security audit, independent witness, daemon-backed resource numbers, local image presence.
+**Does not prove:** Grok Build compile success; DotSlash/protoc; functional or security readiness.
 
 ## Change Log
 
@@ -147,7 +142,8 @@ See `CONTAINER_IMAGE_SELECTION.md`, `PINNED_IMAGE_METADATA.txt`.
 |------|--------|
 | 2026-07-17 | Phase B / C1 notes |
 | 2026-07-17 | Full Windows readiness inventory (`BLOCKED`) |
-| 2026-07-18 | Phase C2A Docker/Linux readiness + image pin (`PARTIAL` / C2B `READY_WITH_LIMITATIONS`) |
+| 2026-07-18 | Phase C2A Docker/Linux pin (`PARTIAL`) |
+| 2026-07-18 | Phase C2B-1 pull + rustc/cargo verify (image/toolchain **PASS**) |
 
 ---
 

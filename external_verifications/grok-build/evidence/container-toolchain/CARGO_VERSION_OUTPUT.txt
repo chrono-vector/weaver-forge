@@ -1,0 +1,21 @@
+Weaver Forge Phase C2B-1 — cargo version (inside pinned image)
+Date recorded: 2026-07-18
+Image: docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+Invocation note: Direct execution of cargo succeeded. See LOGIN_SHELL_PATH_ANOMALY.md
+  for bash -lc PATH failure (not a cargo failure).
+
+================================================================================
+OBSERVED OUTPUT (summary fields)
+================================================================================
+cargo 1.92.0 (344c4567c 2025-10-21)
+host: x86_64-unknown-linux-gnu
+OS reported by cargo: Debian 13.0.0
+
+Matches project pin rust-toolchain.toml channel: 1.92.0
+
+================================================================================
+NOT EXECUTED
+================================================================================
+- cargo check / build / test / run / fetch against Grok Build
+- cargo install (including DotSlash)
+- Dependency acquisition for the Grok Build workspace

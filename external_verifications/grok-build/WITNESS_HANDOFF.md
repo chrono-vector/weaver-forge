@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Pin ready; Windows env BLOCKED; Docker/Linux PARTIAL with image digest pin; cargo not witness-executable yet** |
+| Handoff status | **Pin ready; Windows BLOCKED; Docker image+toolchain PASS (C2B-1); Grok cargo not witness-executable yet** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-18` |
-| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2A 2026-07-18 |
+| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-1 2026-07-18 |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 
@@ -37,7 +37,9 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Evidence (Phase B) | `evidence/source-inspection/` | Yes |
 | Evidence (Phase C1 env readiness) | `evidence/environment-readiness/` | Yes |
 | Evidence (Phase C2A Docker readiness) | `evidence/docker-readiness/` | Yes |
+| Evidence (Phase C2B-1 container toolchain) | `evidence/container-toolchain/` | Yes |
 | C2A completion note | `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md` | Yes |
+| C2B-1 completion note | `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -80,13 +82,14 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Git | Full clone capability | required |
 | Rust | channel **1.92.0** via rust-toolchain.toml / rustup | **required before cargo** |
 | DotSlash | on PATH before build | **required as documented** |
-| Preferred isolated path (owner-side C2B) | Docker Desktop Linux + pinned `rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` | planned; daemon must be running |
-| protoc | via bin/protoc DotSlash or PATH/PROTOC | required as documented |
+| Preferred isolated path (owner-side C2B) | Docker Desktop Linux + pinned `rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` | **pulled C2B-1**; rustc/cargo 1.92.0 verified direct |
+| protoc | via bin/protoc DotSlash or PATH/PROTOC | required as documented; **not installed C2B-1** |
 | Network | HTTPS to GitHub (clone); crates/DotSlash likely for build | |
 | Credentials | none for public clone | public-only preferred |
 | Cargo.lock | use tree as-is | present at pin |
 | Owner-side C1 note | Inventoried Windows host **lacks** rustup/cargo/dotslash — do not assume witness host matches | Windows path `BLOCKED` |
-| Owner-side C2A note | Docker client present; daemon stopped; image digest pinned; C2B plan defined | Docker path `PARTIAL` |
+| Owner-side C2A note | Image digest pinned via registry | historical |
+| Owner-side C2B-1 note | Pull + RepoDigest match; rustc/cargo 1.92.0; avoid bare `bash -lc` without PATH | image/toolchain `PASS` |
 
 ---
 
@@ -117,16 +120,16 @@ cargo fmt --all
 
 Command set status: identity commands **frozen**; build commands **documented only** / execution `NOT_STARTED`.
 
-### 6.3 Container path (owner-side C2B plan; **not** executed in C2A)
+### 6.3 Container path (owner-side)
 
-See `evidence/docker-readiness/PHASE_C2B_CONTAINER_BUILD_PLAN.md`.
+**C2B-1 done (owner-side):** pull pin; verify RepoDigest; direct rustc/cargo 1.92.0. See `evidence/container-toolchain/`.
 
 ```text
 docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
-# then isolated cargo check -p xai-grok-pager-bin with RO source mount
+# prefer direct rustc/cargo or export PATH — bare bash -lc may miss cargo bin
 ```
 
-Status: procedure **defined**; execution `NOT_STARTED`.
+**C2B-2/C2B-3 not started:** RO source mount; packages/DotSlash; `cargo check -p xai-grok-pager-bin` per `PHASE_C2B_CONTAINER_BUILD_PLAN.md`.
 
 ---
 
@@ -158,10 +161,12 @@ Status: procedure **defined**; execution `NOT_STARTED`.
 | ID | Limitation | Status |
 |----|------------|--------|
 | KL-001 | No signed tags / publisher tree checksums | open |
-| KL-002 | Build not yet authorized; Windows env BLOCKED; Docker PARTIAL | open |
+| KL-002 | Grok Build cargo not run; Windows BLOCKED; image/toolchain PASS only | open |
 | KL-003 | Windows source builds best-effort per upstream docs | open |
 | KL-006 | rustup/cargo/dotslash missing on owner-side Windows host | open |
-| KL-007 | Docker daemon stopped during C2A; local image not pulled | open |
+| KL-007 | C2A daemon stopped — resolved for C2B-1 pull | closed for C2B-1 |
+| KL-008 | Login-shell PATH may omit rustc; use direct or export PATH | open |
+| KL-009 | DotSlash/packages/deps not yet in container workflow | open |
 | KL-004 | Auth may be required for interactive product use | open |
 | KL-005 | Owner-side results are not substitute for witness | open |
 

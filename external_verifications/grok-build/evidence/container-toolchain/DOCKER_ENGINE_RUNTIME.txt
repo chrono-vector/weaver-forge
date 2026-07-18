@@ -1,0 +1,27 @@
+Weaver Forge Phase C2B-1 — Docker engine runtime observation
+Date recorded: 2026-07-18
+Phase scope: pinned image pull + toolchain verification only
+Operator role: Owner-side recorder (not independent witness)
+Source pin (not mounted this phase): 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+
+================================================================================
+OBSERVED ENGINE
+================================================================================
+Docker Desktop server version: 29.4.3
+Backend:                       Linux containers
+Platform:                      linux/amd64
+Host integration:              WSL2
+
+Notes:
+- Daemon was available for pull and short-lived container tool probes.
+- No secrets, registry tokens, or full environment dumps recorded here.
+- No Grok Build source mount in this phase.
+
+================================================================================
+NOT OBSERVED / NOT CLAIMED
+================================================================================
+- Host package installation inside the image
+- DotSlash installation
+- cargo against Grok Build workspace
+- Dependency acquisition
+- Product authentication

@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows env BLOCKED; Docker/Linux PARTIAL; build/runtime not executed |
-| Register status | Identity/docs PASS; C-015 Windows BLOCKED; C-016 Docker/Linux PARTIAL; build/runtime NOT_STARTED |
+| Current verification state | Windows BLOCKED; Docker/Linux image+toolchain PASS (C2B-1); build/runtime not executed |
+| Register status | Identity/docs PASS; C-015 BLOCKED; C-016 PASS (image/toolchain only); build NOT_STARTED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-18` (C2A) |
+| Last updated | `2026-07-18` (C2B-1) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -35,7 +35,7 @@
 | C-013 | Documented validation succeeds at pin | `test_result` | `NOT_STARTED` |
 | C-014 | Independent witness reproduces pin + procedure | `independent_witness_result` | `NOT_STARTED` |
 | C-015 | Windows host build-environment readiness for documented cargo commands | `runtime_observation` | `BLOCKED` |
-| C-016 | Docker/Linux isolated build-environment readiness (image pin + C2B plan) | `runtime_observation` | `PARTIAL` |
+| C-016 | Docker/Linux isolated image + toolchain readiness (pinned pull + rustc/cargo) | `runtime_observation` | `PASS` |
 
 ---
 
@@ -270,23 +270,22 @@
 
 **Scope note (C2A audit):** C-015 is the **Windows host** readiness claim established in Phase C1. It must remain **`BLOCKED`**. Docker/Linux isolation is tracked separately as **C-016**.
 
-### C-016 — Docker/Linux isolated build-environment readiness
+### C-016 — Docker/Linux isolated image + toolchain readiness
 
 | Field | Value |
 |-------|-------|
-| Exact claim | A **Docker Desktop Linux** isolated path (WSL2 backend, official pinned base image, native package plan, DotSlash/protoc plan, isolation policy) is ready enough to authorize Phase C2B container bootstrap toward documented cargo commands at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` without product authentication. |
-| Source of claim | README (macOS/Linux supported build hosts); Phase C2A Docker inventory + image pin |
-| Evidence class | `runtime_observation` (daemon/client/image identity; not a project build result) |
-| Verification method | Docker/WSL status; registry metadata digest pin for `library/rust:1.92.0` linux/amd64; static plans; no container compile |
-| Acceptance criteria for `PASS` | Daemon available; pinned linux/amd64 image pulled and digest-verified locally; bootstrap path documented; isolation policy recorded |
-| Current phase bar | C2A records inventory + immutable image pin + C2B plan without pull/run |
-| Expected output | Docker readiness evidence + pinned pull reference |
-| Actual result | Client 29.4.3; context `desktop-linux`; daemon **stopped**; WSL2 installed (`Ubuntu`/`docker-desktop` Stopped). Image pin via registry only: platform manifest `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` (**not** locally pulled). C2B plan written. No packages/DotSlash/cargo/container execution. |
-| Status | **`PARTIAL`** (Phase C2B procedure readiness: **`READY_WITH_LIMITATIONS`**) |
+| Exact claim | A **Docker Desktop Linux** path can pull and run the **pinned** official `rust` image (`library/rust` linux/amd64 platform manifest `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e`) such that **direct** `rustc`/`cargo` report channel **1.92.0**, matching `rust-toolchain.toml` at commit `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`, without product authentication. |
+| Source of claim | README (macOS/Linux supported hosts); `rust-toolchain.toml`; Phase C2A pin; Phase C2B-1 pull |
+| Evidence class | `runtime_observation` (daemon + image identity + tool versions; **not** a Grok Build build result) |
+| Verification method | Docker engine available; `docker pull` of platform-manifest pin; RepoDigest match; local inspect; direct rustc/cargo --version in container |
+| Acceptance criteria for this claim's `PASS` | Daemon up; pin pulled; RepoDigest matches; rustc and cargo 1.92.0 observed via direct invocation |
+| Expected output | Pull + version evidence under `evidence/container-toolchain/` |
+| Actual result | Server **29.4.3**, linux/amd64 WSL2; pull **succeeded**; RepoDigest **matched** pin; OS linux, arch amd64, created 2026-01-13T06:12:13.194813512Z, RUST_VERSION 1.92.0; rustc 1.92.0 / cargo 1.92.0 (direct). `bash -lc` → `rustc: command not found` (**PATH anomaly only**). **No** source mount, DotSlash, packages, or cargo against Grok Build. |
+| Status | **`PASS`** (scope: **image + toolchain only**) |
 | Operator role | Owner-side |
-| Evidence pointers | `evidence/docker-readiness/*`; `ENVIRONMENT.md` (Docker sections); `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md` |
-| Limitations | Daemon not proven; local image absent; isolation planning ≠ security audit; readiness ≠ build success |
-| What the result does not establish | Windows host readiness (C-015); cargo success; functional/security/witness axes |
+| Evidence pointers | `evidence/container-toolchain/*`; `evidence/docker-readiness/*` (C2A pin); `ENVIRONMENT.md`; `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md` |
+| Limitations | PASS does **not** include DotSlash, native packages, dependency fetch, or `cargo check` on Grok Build; login-shell PATH requires care in future recipes; isolation planning ≠ security audit |
+| What the result does not establish | Windows readiness (C-015); C-012/C-013 build/validation success; functional/security/witness axes |
 
 ---
 
@@ -296,13 +295,13 @@
 |--------|------:|
 | `NOT_STARTED` | 3 |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 11 |
-| `PARTIAL` | 1 (C-016) |
+| `PASS` | 12 (11 identity/docs + C-016 image/toolchain) |
+| `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
 | **Total** | 16 |
 
-Note: Eleven `PASS` rows are **identity/documentation observations**, not build/runtime success. C-015/C-016 are readiness, not build.
+Note: Eleven of twelve `PASS` rows are identity/documentation or **image/toolchain readiness** only — **not** Grok Build compile success. C-015 remains Windows readiness.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -315,16 +314,16 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 
 ## What This Register Proves
 
-- Primary-source-backed identity and documentation claims were evaluated at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
-- **C-015** Windows host build-env readiness remains **`BLOCKED`** (Phase C1 evidence preserved).
-- **C-016** Docker/Linux isolated readiness is **`PARTIAL`** (digest pin + plans; daemon not running; image not pulled).
+- Primary-source-backed identity and documentation claims at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
+- **C-015** Windows host readiness remains **`BLOCKED`**.
+- **C-016** Docker/Linux **image + toolchain** readiness is **`PASS`** after C2B-1 pull and rustc/cargo 1.92.0 verification.
 - Build/runtime success claims remain unstarted.
 
 ## What This Register Does NOT Prove
 
 - Independent witness confirmation
 - Security or product operational readiness
-- That documented cargo commands succeed
+- That documented cargo commands against Grok Build succeed
 
 ## Change Log
 
@@ -334,7 +333,8 @@ Note: Eleven `PASS` rows are **identity/documentation observations**, not build/
 | 2026-07-17 | Phase B primary-source claims C-001–C-014 | Weaver Forge documentation package author |
 | 2026-07-17 | Phase C1 claim C-015 readiness `BLOCKED` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2A briefly set C-015 to PARTIAL (over-broad) | Weaver Forge documentation package author |
-| 2026-07-18 | Pre-commit audit: C-015 restored to Windows-only `BLOCKED`; added C-016 Docker/Linux `PARTIAL` | Weaver Forge documentation package author |
+| 2026-07-18 | Pre-commit audit: C-015 Windows `BLOCKED`; C-016 Docker/Linux `PARTIAL` | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-1: C-016 → `PASS` (image+toolchain only) | Weaver Forge documentation package author |
 
 ---
 
