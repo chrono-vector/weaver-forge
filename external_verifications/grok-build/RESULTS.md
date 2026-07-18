@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **Windows BLOCKED; image/toolchain PASS; bootstrap PASS (C2B-2); Grok cargo NOT_STARTED** |
+| Results status | **cargo check PASS (C2B-3); overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-18` (C2B-2); prior C2B-1/C2A/C1/B |
-| Linked reproduction run ID | …; C2B-1 toolchain; C2B-2 `run-20260718-container-bootstrap` |
+| Compilation date | `2026-07-18` (C2B-3) |
+| Linked reproduction run ID | C2B-3 `run-20260718-cargo-check` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -20,8 +20,8 @@
 | Source identity reference | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Environment reference | `ENVIRONMENT.md` |
 | Reproduction reference | `REPRODUCTION.md` |
-| Execution authorized (build/run)? | **No** |
-| Execution performed (build/run)? | **No** |
+| Execution authorized (build/run)? | **Yes — only `cargo check -p xai-grok-pager-bin`** |
+| Execution performed (build/run)? | **check only** (no build/run/test) |
 | Clone/inspect authorized? | Yes |
 | Clone/inspect performed? | Yes |
 | Env readiness inventory authorized? | Yes (C1 + C2A + C2B-1) |
@@ -32,7 +32,7 @@
 | Phase C2 (Windows native) readiness | **`BLOCKED`** |
 | Phase C2B-1 (pull + rustc/cargo) | **`PASS`** |
 | Phase C2B-2 (packages/DotSlash/protoc) | **`PASS`** |
-| Phase C2B-3 (cargo check) | **`READY_WITH_LIMITATIONS`** — **not executed** |
+| Phase C2B-3 (cargo check) | **`PASS`** (exit 0; 70m 07s) |
 
 ## 2. Per-Claim Results
 
@@ -49,8 +49,9 @@
 | C-009 | Validation commands documented | `PASS` | text only |
 | C-010 | Platform statements | `PASS` | README |
 | C-011 | Auth documented | `PASS` | README |
-| C-012 | Build succeeds | `NOT_STARTED` | — |
-| C-013 | Validation succeeds | `NOT_STARTED` | — |
+| C-012 | Build succeeds (release/full) | `NOT_STARTED` | — |
+| C-013 | Validation `cargo check -p xai-grok-pager-bin` | `PASS` | evidence/cargo-check/ |
+| C-017 | Container bootstrap | `PASS` | evidence/container-bootstrap/ |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
 | C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
@@ -60,20 +61,20 @@
 
 | Check | Status | Evidence |
 |-------|--------|----------|
-| Dependencies installed as documented | `NOT_STARTED` | |
-| Build command completed | `NOT_STARTED` | |
-| Build artifacts produced | `NOT_STARTED` | |
-| Build reproducibility (repeat run) | `NOT_STARTED` | |
-| Windows build-env readiness | `BLOCKED` | missing rust, DotSlash, MSVC/SDK |
-| Docker/Linux image+toolchain readiness | `PASS` | pull+RepoDigest+rustc/cargo 1.92.0 |
-| DotSlash / packages / protoc bootstrap | `PASS` | C2B-2 |
-| Grok Build cargo check | `NOT_STARTED` | C2B-3 |
+| Dependencies acquired (check run) | `PASS` | network crates.io; lock unchanged |
+| `cargo check -p xai-grok-pager-bin` | `PASS` | exit 0; 70m 07s |
+| Release/full build | `NOT_STARTED` | |
+| Build reproducibility (repeat) | `NOT_STARTED` | single run only → axis PARTIAL |
+| Windows build-env readiness | `BLOCKED` | |
+| Docker image+toolchain | `PASS` | |
+| Bootstrap | `PASS` | |
 
 ## 4. Test Results
 
 | Suite / check | Status | Log path |
 |---------------|--------|----------|
-| cargo check / clippy / fmt / tests | `NOT_STARTED` | |
+| cargo check -p xai-grok-pager-bin | `PASS` | evidence/cargo-check/ |
+| cargo build/test/clippy/fmt | `NOT_STARTED` | |
 
 ## 5. Runtime / Functional Observations
 
@@ -124,8 +125,8 @@
 
 | Status | Claims |
 |--------|-------:|
-| `NOT_STARTED` | 3 |
-| `PASS` | 13 (incl. C-016, C-017) |
+| `NOT_STARTED` | 2 |
+| `PASS` | 14 (incl. C-013, C-016, C-017) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |
@@ -217,6 +218,7 @@
 | 2026-07-18 | Phase C2A Docker readiness results |
 | 2026-07-18 | Phase C2B-1 pull + toolchain verification |
 | 2026-07-18 | Phase C2B-2 container bootstrap |
+| 2026-07-18 | Phase C2B-3 cargo check exit 0 |
 
 ---
 

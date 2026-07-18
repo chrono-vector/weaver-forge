@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Pin ready; Windows BLOCKED; image/toolchain+bootstrap PASS; Grok cargo not run** |
+| Handoff status | **Pin ready; owner-side cargo check PASS; witness still NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-18` |
-| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-2 2026-07-18 |
+| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-3 2026-07-18 |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 
@@ -39,9 +39,8 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Evidence (Phase C2A Docker readiness) | `evidence/docker-readiness/` | Yes |
 | Evidence (Phase C2B-1 container toolchain) | `evidence/container-toolchain/` | Yes |
 | Evidence (Phase C2B-2 container bootstrap) | `evidence/container-bootstrap/` | Yes |
-| C2A completion note | `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md` | Yes |
-| C2B-1 completion note | `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md` | Yes |
-| C2B-2 completion note | `docs/GROK_BUILD_CONTAINER_BOOTSTRAP_COMPLETION_NOTE.md` | Yes |
+| Evidence (Phase C2B-3 cargo check) | `evidence/cargo-check/` | Yes |
+| C2B-3 completion note | `docs/GROK_BUILD_NARROW_CARGO_CHECK_COMPLETION_NOTE.md` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -134,7 +133,7 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2B-2 done:** packages + DotSlash 0.5.7 + protoc 29.3 (see `evidence/container-bootstrap/`).
 
-**C2B-3 not started:** `cargo check -p xai-grok-pager-bin` with LF-safe DotSlash/protoc and isolation mounts.
+**C2B-3 done (owner-side):** `cargo check -p xai-grok-pager-bin` exit 0 in ~70m. Witness may re-run same isolation recipe for independent attestation.
 
 ---
 

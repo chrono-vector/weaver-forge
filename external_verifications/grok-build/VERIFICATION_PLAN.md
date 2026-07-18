@@ -8,10 +8,10 @@
 | GitHub organization path | `xai-org` |
 | Cargo authors field (sample) | `"xAI"` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **Windows BLOCKED; C-016/C-017 PASS; Grok cargo still not run** |
-| Plan status | Through **C2B-2 bootstrap**; C2B-3 not started (`READY_WITH_LIMITATIONS`) |
+| Current verification state | **Windows BLOCKED; C-013 cargo check PASS; overall PARTIAL** |
+| Plan status | Through **C2B-3** narrow cargo check |
 | Package created | `2026-07-17` |
-| Plan version / date | 2026-07-18 Phase C2B-2; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Plan version / date | 2026-07-18 Phase C2B-3; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Operator / author | Weaver Forge documentation package author |
 | Operator role | Owner-side planner/inspector (not independent witness) |
 | Independent witness status | `NOT_STARTED` |
@@ -21,7 +21,7 @@ Pinned full commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
 
 Clone path: `C:\dev\external-verification-targets\grok-build`
 
-Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evidence/docker-readiness/`; `evidence/container-toolchain/`; `evidence/container-bootstrap/`
+Evidence: `…/source-inspection/`; `…/environment-readiness/`; `…/docker-readiness/`; `…/container-toolchain/`; `…/container-bootstrap/`; `…/cargo-check/`
 
 ---
 
@@ -164,7 +164,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 
 **Phase C2B-2** — packages/DotSlash/protoc (done; **C-017 PASS**).
 
-**Phase C2B-3** — `cargo check -p xai-grok-pager-bin` (**READY_WITH_LIMITATIONS**; not started).
+**Phase C2B-3** — `cargo check -p xai-grok-pager-bin` (**done; exit 0**).
 
 **Phase C2B-4** — optional release build only after C2B-3 review.
 
@@ -185,7 +185,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | B-009 | No container image prepared | **resolved as pin** | Platform manifest digest recorded; pull in C2B-1 |
 | B-010 | Docker daemon stopped | **resolved** (C2B-1) | Engine available |
 | B-011 | DotSlash / packages | **resolved** (C2B-2) | — |
-| B-012 | Grok cargo check not done | open | C2B-3 |
+| B-012 | Grok cargo check not done | **resolved** (C2B-3 exit 0) | — |
 | B-013 | CRLF DotSlash shebang on Windows mount | open | LF-safe recipe for C2B-3 |
 
 ## 9. Authorization Boundaries
@@ -241,6 +241,7 @@ Evidence: `evidence/source-inspection/`; `evidence/environment-readiness/`; `evi
 | 2026-07-18 | Pre-commit audit: C-015 Windows-only; C-016 Docker/Linux; encoding fix | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-1 image pull + toolchain verification | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-2 container bootstrap | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-3 cargo check exit 0 | Weaver Forge documentation package author |
 
 ---
 

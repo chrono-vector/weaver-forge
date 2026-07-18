@@ -1,0 +1,9 @@
+EXTERNAL_WORK_ROOT=C:\dev\external-verification-work\grok-build-98c3b24\
+cargo-target_bytes=5260310538 (~4.90 GiB)
+cargo-home_bytes=779543568 (~743 MiB)
+dotslash-cache_bytes=13033306 (~12.4 MiB)
+cargo-target top-level: debug/, release/ (release from prior DotSlash install), .rustc_info.json
+cargo-home top-level: bin/, git/, registry/, .crates.toml, caches
+container_removed=yes (--rm)
+caches_retained=yes under work root
+source_tree_outputs=none (RO mount; RO_MOUNT_OK)

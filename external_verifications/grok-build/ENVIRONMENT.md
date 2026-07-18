@@ -3,20 +3,21 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | **Windows BLOCKED; image/toolchain PASS; bootstrap PASS (C2B-2); Grok cargo not run** |
+| Environment record status | **Windows BLOCKED; bootstrap PASS; cargo check PASS (C2B-3)** |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Record date | 2026-07-18 (C2B-2); prior C2B-1/C2A/C1 |
+| Record date | 2026-07-18 (C2B-3) |
 | Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Evidence (Windows C1) | `evidence/environment-readiness/` |
 | Evidence (Docker C2A) | `evidence/docker-readiness/` |
 | Evidence (Container toolchain C2B-1) | `evidence/container-toolchain/` |
 | Evidence (Container bootstrap C2B-2) | `evidence/container-bootstrap/` |
+| Evidence (Cargo check C2B-3) | `evidence/cargo-check/` |
 | Work root | `C:\dev\external-verification-work\grok-build-98c3b24\` |
 | Phase C2 (Windows native) | **`BLOCKED`** |
 | Phase C2B-1 (image + toolchain) | **`PASS`** |
-| Phase C2B-2 (bootstrap) | **`PASS`** (CRLF DotSlash limitation documented) |
-| Phase C2B-3 (cargo check) | **`READY_WITH_LIMITATIONS`** — not executed |
+| Phase C2B-2 (bootstrap) | **`PASS`** |
+| Phase C2B-3 (cargo check) | **`PASS`** (exit 0; ~70m) |
 
 ---
 
@@ -103,7 +104,8 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | protoc (C2B-2) | **libprotoc 29.3** via DotSlash (LF-safe wrapper) |
 | Native packages (C2B-2 container) | ca-certificates, git, perl (present); build-essential, pkg-config, cmake, curl installed/upgraded |
 | Grok Build source mounted (C2B-2) | **Yes, read-only** |
-| Grok Build cargo | **Not run** |
+| Grok Build cargo check (C2B-3) | **`cargo check -p xai-grok-pager-bin` exit 0** |
+| Grok Build cargo build/run/test | **Not run** |
 
 ## 8. Target pin toolchain (docs)
 
@@ -138,11 +140,11 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | Windows host build readiness | **`BLOCKED`** |
 | Docker/Linux **image + toolchain** readiness | **`PASS`** |
 | Container **bootstrap** readiness | **`PASS`** |
-| Phase C2B-3 cargo check | **Not executed** (`READY_WITH_LIMITATIONS`) |
+| Phase C2B-3 cargo check | **`PASS`** (exit 0) |
 | Phase C2B-1 | **`PASS`** |
 | Phase C2B-2 | **`PASS`** |
 
-**Does not prove:** Grok Build compile success; functional or security readiness.
+**Does not prove:** release build; functional/security readiness; independent witness.
 
 ## Change Log
 
@@ -153,6 +155,7 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | 2026-07-18 | Phase C2A Docker/Linux pin (`PARTIAL`) |
 | 2026-07-18 | Phase C2B-1 pull + rustc/cargo verify (image/toolchain **PASS**) |
 | 2026-07-18 | Phase C2B-2 packages + DotSlash 0.5.7 + protoc 29.3 (bootstrap **PASS**) |
+| 2026-07-18 | Phase C2B-3 `cargo check -p xai-grok-pager-bin` exit 0 |
 
 ---
 

@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — through C2B-2 bootstrap; Grok cargo `NOT_STARTED` |
-| Run ID | …; C2B-1; C2B-2 `run-20260718-container-bootstrap` |
+| Reproduction status | **`PARTIAL`** — through C2B-3 cargo check PASS; no product run |
+| Run ID | C2B-3 `run-20260718-cargo-check` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -62,19 +62,19 @@
 | 24 | container | protoc first via RO `bin/protoc` | 127 | `FAIL` then mitigated | CRLF shebang |
 | 25 | container | protoc via LF DotSlash wrapper | 0 | `PASS` | libprotoc 29.3 |
 | 26 | host | C2B-2 source integrity after | 0 | `PASS` | unchanged |
+| 27 | host | C2B-3 precheck pin/hashes/image | 0 | `PASS` | |
+| 28 | container | C2B-3 bootstrap + `cargo check -p xai-grok-pager-bin` | **0** | `PASS` | 70m 07s Finished |
+| 29 | host | C2B-3 post integrity | 0 | `PASS` | lock/hashes clean |
 
-### Documented but **not** executed (official build/validate)
+### Documented but **not** executed
 
 ```text
-cargo install dotslash
 cargo run -p xai-grok-pager-bin
 cargo build -p xai-grok-pager-bin --release
-cargo check -p xai-grok-pager-bin
-cargo clippy -p <crate>
-cargo fmt --all
+cargo clippy / cargo fmt / cargo test
 ```
 
-Status: `NOT_STARTED` / blocked by Phase B authorization.
+Status: still `NOT_STARTED` (out of C2B-3 scope).
 
 ### Raw command log (summary)
 
@@ -161,6 +161,7 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | PATH anomaly | `evidence/container-toolchain/LOGIN_SHELL_PATH_ANOMALY.md` | C-016 |
 | C2B-1 summary | `evidence/container-toolchain/PHASE_C2B1_SUMMARY.md` | C-016 |
 | C2B-2 docker command / apt / DotSlash / protoc / integrity | `evidence/container-bootstrap/*` | C-017 |
+| C2B-3 cargo check logs | `evidence/cargo-check/*` | C-013 |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -180,7 +181,7 @@ Justification: Clone/pin and readiness inventories complete; C2B-1 pull and rust
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
 - Pinned image pulled locally with matching RepoDigest; direct rustc/cargo 1.92.0 in container.
-- Windows (**C-015**) `BLOCKED`; image+toolchain (**C-016**) `PASS`; bootstrap (**C-017**) `PASS`; Grok cargo still not run.
+- Windows (**C-015**) `BLOCKED`; C-016/C-017 `PASS`; **C-013** narrow cargo check `PASS` (exit 0).
 
 ## 12. What This Reproduction Does NOT Prove
 

@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; image/toolchain PASS; container bootstrap PASS (C2B-2); Grok cargo not run |
-| Register status | C-015 BLOCKED; C-016 PASS; C-017 PASS (bootstrap); C-012–C-014 NOT_STARTED |
+| Current verification state | Windows BLOCKED; bootstrap PASS; **cargo check PASS** (C2B-3); build/runtime limited |
+| Register status | C-013 PASS (narrow check); C-012 NOT_STARTED; C-015 BLOCKED; C-016/C-017 PASS |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-18` (C2B-2) |
+| Last updated | `2026-07-18` (C2B-3) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -32,7 +32,7 @@
 | C-010 | Platforms: macOS/Linux supported; Windows best-effort for source builds | `publisher_statement` | `PASS` (doc observation only) |
 | C-011 | Authentication required on first launch (documented) | `publisher_statement` | `PASS` (doc observation only) |
 | C-012 | Documented build succeeds at pin | `build_result` | `NOT_STARTED` |
-| C-013 | Documented validation succeeds at pin | `test_result` | `NOT_STARTED` |
+| C-013 | Documented validation succeeds at pin (`cargo check -p xai-grok-pager-bin`) | `test_result` | `PASS` |
 | C-014 | Independent witness reproduces pin + procedure | `independent_witness_result` | `NOT_STARTED` |
 | C-015 | Windows host build-environment readiness for documented cargo commands | `runtime_observation` | `BLOCKED` |
 | C-016 | Docker/Linux isolated image + toolchain readiness (pinned pull + rustc/cargo) | `runtime_observation` | `PASS` |
@@ -228,15 +228,15 @@
 
 | Field | Value |
 |-------|-------|
-| Exact claim | At pinned commit, `cargo check -p xai-grok-pager-bin` (and related documented checks if in scope) succeed. |
+| Exact claim | At pinned commit, `cargo check -p xai-grok-pager-bin` succeeds. |
 | Source of claim | README / open-source page |
-| Evidence class | `test_result` |
-| Verification method | Isolated env execution with logs |
-| Expected output | unknown until run |
-| Actual result | `NOT_STARTED` |
-| Status | `NOT_STARTED` |
-| Limitations | Phase B forbids execution |
-| What the result does not establish | (unevaluated) |
+| Evidence class | `test_result` / build validation observation |
+| Verification method | Isolated Docker Linux container; RO source; recorded logs |
+| Expected output | Exit code 0; Finished summary |
+| Actual result | Exit **0**; `Finished dev profile ... in 70m 07s`; 0 warning lines; Cargo.lock unchanged. Evidence: `evidence/cargo-check/`. |
+| Status | **`PASS`** (scope: **only** this command; owner-side) |
+| Limitations | Not `cargo build --release`; not tests; not runtime; not independent witness; first-run network used |
+| What the result does not establish | Full build reproducibility; functional product behavior; C-012 release build |
 
 ### C-014 — Independent witness
 
@@ -310,15 +310,15 @@
 
 | Status | Count |
 |--------|------:|
-| `NOT_STARTED` | 3 |
+| `NOT_STARTED` | 2 (C-012, C-014) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 13 (11 identity/docs + C-016 + C-017) |
+| `PASS` | 14 (11 identity/docs + C-013 check + C-016 + C-017) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
 | **Total** | 17 |
 
-Note: Identity/docs + image/toolchain + bootstrap PASS rows are **not** Grok Build compile success. C-015 remains Windows readiness.
+Note: C-013 PASS is a **narrow** cargo check only. C-012 (full build) remains NOT_STARTED. C-015 Windows BLOCKED.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -334,8 +334,9 @@ Note: Identity/docs + image/toolchain + bootstrap PASS rows are **not** Grok Bui
 - Identity/docs at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - **C-015** Windows host readiness **`BLOCKED`**.
 - **C-016** image+toolchain **`PASS`**.
-- **C-017** container bootstrap **`PASS`** (DotSlash 0.5.7; protoc 29.3; packages).
-- Build/runtime success claims remain unstarted.
+- **C-017** container bootstrap **`PASS`**.
+- **C-013** narrow `cargo check -p xai-grok-pager-bin` **`PASS`** (C2B-3).
+- C-012 full/release build and functional claims remain open/unstarted.
 
 ## What This Register Does NOT Prove
 
@@ -354,6 +355,7 @@ Note: Identity/docs + image/toolchain + bootstrap PASS rows are **not** Grok Bui
 | 2026-07-18 | Pre-commit audit: C-015 Windows `BLOCKED`; C-016 Docker/Linux `PARTIAL` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-1: C-016 → `PASS` (image+toolchain only) | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-2: C-017 container bootstrap `PASS` | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-3: C-013 cargo check `PASS` | Weaver Forge documentation package author |
 
 ---
 
