@@ -3,21 +3,22 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | **Windows BLOCKED; bootstrap PASS; cargo check PASS (C2B-3)** |
+| Environment record status | **Windows BLOCKED; check+build PASS (C2B-3/4 incremental); overall PARTIAL** |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Record date | 2026-07-18 (C2B-3) |
+| Record date | 2026-07-18 (C2B-4) |
 | Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Evidence (Windows C1) | `evidence/environment-readiness/` |
 | Evidence (Docker C2A) | `evidence/docker-readiness/` |
 | Evidence (Container toolchain C2B-1) | `evidence/container-toolchain/` |
 | Evidence (Container bootstrap C2B-2) | `evidence/container-bootstrap/` |
 | Evidence (Cargo check C2B-3) | `evidence/cargo-check/` |
+| Evidence (Cargo build C2B-4) | `evidence/cargo-build/` |
 | Work root | `C:\dev\external-verification-work\grok-build-98c3b24\` |
 | Phase C2 (Windows native) | **`BLOCKED`** |
-| Phase C2B-1 (image + toolchain) | **`PASS`** |
-| Phase C2B-2 (bootstrap) | **`PASS`** |
-| Phase C2B-3 (cargo check) | **`PASS`** (exit 0; ~70m) |
+| Phase C2B-1–2 | **`PASS`** |
+| Phase C2B-3 (cargo check) | **`PASS`** |
+| Phase C2B-4 (cargo build) | **`PASS`** (incremental; exit 0; ~43m) |
 
 ---
 
@@ -104,8 +105,10 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | protoc (C2B-2) | **libprotoc 29.3** via DotSlash (LF-safe wrapper) |
 | Native packages (C2B-2 container) | ca-certificates, git, perl (present); build-essential, pkg-config, cmake, curl installed/upgraded |
 | Grok Build source mounted (C2B-2) | **Yes, read-only** |
-| Grok Build cargo check (C2B-3) | **`cargo check -p xai-grok-pager-bin` exit 0** |
-| Grok Build cargo build/run/test | **Not run** |
+| Grok Build cargo check (C2B-3) | exit 0 |
+| Grok Build cargo build (C2B-4) | **`cargo build -p xai-grok-pager-bin` exit 0**; binary `xai-grok-pager` under external target |
+| Grok Build binary executed | **No** |
+| cargo run/test | **Not run** |
 
 ## 8. Target pin toolchain (docs)
 
@@ -140,22 +143,16 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | Windows host build readiness | **`BLOCKED`** |
 | Docker/Linux **image + toolchain** readiness | **`PASS`** |
 | Container **bootstrap** readiness | **`PASS`** |
-| Phase C2B-3 cargo check | **`PASS`** (exit 0) |
-| Phase C2B-1 | **`PASS`** |
-| Phase C2B-2 | **`PASS`** |
+| Phase C2B-3/4 | **`PASS`** (check + incremental build) |
+| Phase C2B-1–2 | **`PASS`** |
 
-**Does not prove:** release build; functional/security readiness; independent witness.
+**Does not prove:** clean-room/bit-reproducible build; product run; security; witness.
 
 ## Change Log
 
 | Date | Change |
 |------|--------|
-| 2026-07-17 | Phase B / C1 notes |
-| 2026-07-17 | Full Windows readiness inventory (`BLOCKED`) |
-| 2026-07-18 | Phase C2A Docker/Linux pin (`PARTIAL`) |
-| 2026-07-18 | Phase C2B-1 pull + rustc/cargo verify (image/toolchain **PASS**) |
-| 2026-07-18 | Phase C2B-2 packages + DotSlash 0.5.7 + protoc 29.3 (bootstrap **PASS**) |
-| 2026-07-18 | Phase C2B-3 `cargo check -p xai-grok-pager-bin` exit 0 |
+| 2026-07-18 | Through C2B-4 narrow `cargo build` exit 0 (incremental) |
 
 ---
 

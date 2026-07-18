@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **cargo check PASS (C2B-3); overall PARTIAL** |
+| Results status | **cargo check+build PASS (C2B-3/4); overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-18` (C2B-3) |
-| Linked reproduction run ID | C2B-3 `run-20260718-cargo-check` |
+| Compilation date | `2026-07-18` (C2B-4) |
+| Linked reproduction run ID | C2B-4 `run-20260718-cargo-build` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -20,8 +20,8 @@
 | Source identity reference | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Environment reference | `ENVIRONMENT.md` |
 | Reproduction reference | `REPRODUCTION.md` |
-| Execution authorized (build/run)? | **Yes — only `cargo check -p xai-grok-pager-bin`** |
-| Execution performed (build/run)? | **check only** (no build/run/test) |
+| Execution authorized (build/run)? | check then build only (no run/test) |
+| Execution performed | **check + build**; binary **not** run |
 | Clone/inspect authorized? | Yes |
 | Clone/inspect performed? | Yes |
 | Env readiness inventory authorized? | Yes (C1 + C2A + C2B-1) |
@@ -32,7 +32,8 @@
 | Phase C2 (Windows native) readiness | **`BLOCKED`** |
 | Phase C2B-1 (pull + rustc/cargo) | **`PASS`** |
 | Phase C2B-2 (packages/DotSlash/protoc) | **`PASS`** |
-| Phase C2B-3 (cargo check) | **`PASS`** (exit 0; 70m 07s) |
+| Phase C2B-3 (cargo check) | **`PASS`** |
+| Phase C2B-4 (cargo build) | **`PASS`** (exit 0; 43m 18s; incremental) |
 
 ## 2. Per-Claim Results
 
@@ -49,9 +50,10 @@
 | C-009 | Validation commands documented | `PASS` | text only |
 | C-010 | Platform statements | `PASS` | README |
 | C-011 | Auth documented | `PASS` | README |
-| C-012 | Build succeeds (release/full) | `NOT_STARTED` | — |
-| C-013 | Validation `cargo check -p xai-grok-pager-bin` | `PASS` | evidence/cargo-check/ |
+| C-012 | Broad/release build claims | `NOT_STARTED` | — |
+| C-013 | Validation cargo check | `PASS` | evidence/cargo-check/ |
 | C-017 | Container bootstrap | `PASS` | evidence/container-bootstrap/ |
+| C-018 | Narrow cargo build | `PASS` | evidence/cargo-build/ |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
 | C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
@@ -62,9 +64,10 @@
 | Check | Status | Evidence |
 |-------|--------|----------|
 | Dependencies acquired (check run) | `PASS` | network crates.io; lock unchanged |
-| `cargo check -p xai-grok-pager-bin` | `PASS` | exit 0; 70m 07s |
-| Release/full build | `NOT_STARTED` | |
-| Build reproducibility (repeat) | `NOT_STARTED` | single run only → axis PARTIAL |
+| `cargo check -p xai-grok-pager-bin` | `PASS` | C2B-3 |
+| `cargo build -p xai-grok-pager-bin` | `PASS` | C2B-4 incremental; artifact hash recorded |
+| Release (`--release`) / full workspace | `NOT_STARTED` | |
+| Build reproducibility (clean-room/bit-identical) | `NOT_STARTED` / axis **PARTIAL** | |
 | Windows build-env readiness | `BLOCKED` | |
 | Docker image+toolchain | `PASS` | |
 | Bootstrap | `PASS` | |
@@ -74,7 +77,8 @@
 | Suite / check | Status | Log path |
 |---------------|--------|----------|
 | cargo check -p xai-grok-pager-bin | `PASS` | evidence/cargo-check/ |
-| cargo build/test/clippy/fmt | `NOT_STARTED` | |
+| cargo build -p xai-grok-pager-bin | `PASS` | evidence/cargo-build/ |
+| cargo test/run/clippy/fmt | `NOT_STARTED` | |
 
 ## 5. Runtime / Functional Observations
 
@@ -126,7 +130,7 @@
 | Status | Claims |
 |--------|-------:|
 | `NOT_STARTED` | 2 |
-| `PASS` | 14 (incl. C-013, C-016, C-017) |
+| `PASS` | 15 (incl. C-013, C-016–C-018) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |
@@ -219,6 +223,7 @@
 | 2026-07-18 | Phase C2B-1 pull + toolchain verification |
 | 2026-07-18 | Phase C2B-2 container bootstrap |
 | 2026-07-18 | Phase C2B-3 cargo check exit 0 |
+| 2026-07-18 | Phase C2B-4 cargo build exit 0 (incremental) |
 
 ---
 

@@ -1,0 +1,30 @@
+=== artifact probe ===
+EXPECTED_BIN_NAME=xai-grok-pager (from Cargo.toml [[bin]] / default-run)
+FOUND=/work/cargo-target/debug/xai-grok-pager
+-rwxr-xr-x 2 root root 600647920 Jul 18 06:47 /work/cargo-target/debug/xai-grok-pager
+/work/cargo-target/debug/xai-grok-pager: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=29e028f32f8573ecc505d459d7d8a8e0341a361f, with debug_info, not stripped
+1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b  /work/cargo-target/debug/xai-grok-pager
+SIZE_BYTES=600647920
+=== debug dir listing (selected) ===
+-rwxr-xr-x 2 root root 600647920 Jul 18 06:47 /work/cargo-target/debug/xai-grok-pager
+-rw-r--r-- 1 root root    109238 Jul 18 06:47 /work/cargo-target/debug/xai-grok-pager.d
+-rw-r--r-- 2 root root     49608 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.05to9tw8vb7dzhqsv5nqh0a6n.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      5048 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.07whyz9gcd2w9mxqqy1vty3y1.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     25984 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0itgefqlgb489zrvqbb6czgi1.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      9216 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0jweg8p8ilx71wnym5bo9wniv.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      7504 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0q9zdwsu6d7whzy3l19px470j.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     10512 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0s02954112eyuj4sh5y299nyx.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      3496 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0w37qjb9wi2bopq2rebxdmkkj.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      4208 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.0zbm8lke15hv9dndwijistmfj.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root   1658112 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1a0scfp0wp8r6wwy5o4y7vx4a.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root    166304 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1b7lluph27sz6x7hos4hqdk8r.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     11608 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1fpzfmzbp20qbaj20qxkd10wu.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      9192 Jul 18 06:44 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1i8msomb28m2zwpoe9mwfgzoo.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     44384 Jul 18 06:44 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1kxan008i4jwllksavysg6ou7.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      3000 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1kygl9b8mmd1qnrjc18m2l1kt.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      7648 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1tk5tr4hu4w9skdend7jnme93.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root       208 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.1yugm34o47u4ini3dv2drsem4.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     80296 Jul 18 06:44 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.23p62za0355z8gpntjkcab0gr.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root     84704 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.25r0ic77pgiekrxrwmllyfa8z.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root      9088 Jul 18 06:44 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.26z1saka8qj8naggc35473tle.1ba887z.rcgu.dwo
+-rw-r--r-- 2 root root       208 Jul 18 06:43 /work/cargo-target/debug/deps/xai_grok_pager-1380989ea9eafacc.2h8q7ktpq4dlm2y22lm354ijb.1ba887z.rcgu.dwo

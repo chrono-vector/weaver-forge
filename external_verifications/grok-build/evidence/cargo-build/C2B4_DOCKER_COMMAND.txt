@@ -1,0 +1,16 @@
+docker run --rm
+  --name grok-c2b4-cargo-build
+  -v C:\dev\external-verification-targets\grok-build:/src:ro
+  -v C:\dev\external-verification-work\grok-build-98c3b24\cargo-home:/work/cargo-home
+  -v C:\dev\external-verification-work\grok-build-98c3b24\cargo-target:/work/cargo-target
+  -v C:\dev\external-verification-work\grok-build-98c3b24\dotslash-cache:/work/dotslash-cache
+  -v C:\dev\external-verification-work\grok-build-98c3b24\logs:/work/logs
+  -v C:\dev\external-verification-work\grok-build-98c3b24\container-state:/work/container-state
+  -e CARGO_HOME=/work/cargo-home
+  -e CARGO_TARGET_DIR=/work/cargo-target
+  -e DOTSLASH_CACHE=/work/dotslash-cache
+  -e PATH=/work/cargo-home/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  -w /src
+  --network=bridge
+  docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+  bash /work/container-state/c2b4-cargo-build.sh

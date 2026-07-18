@@ -1,0 +1,6 @@
+sha256:1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+path_in_container=/work/cargo-target/debug/xai-grok-pager
+path_on_host=C:\dev\external-verification-work\grok-build-98c3b24\cargo-target\debug\xai-grok-pager
+size_bytes=600647920
+algorithm=SHA-256
+note=owner-side local incremental build; not official release; not bit-reproducible claim

@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — through C2B-3 cargo check PASS; no product run |
-| Run ID | C2B-3 `run-20260718-cargo-check` |
+| Reproduction status | **`PARTIAL`** — check+build PASS; no product run |
+| Run ID | C2B-4 `run-20260718-cargo-build` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -65,6 +65,8 @@
 | 27 | host | C2B-3 precheck pin/hashes/image | 0 | `PASS` | |
 | 28 | container | C2B-3 bootstrap + `cargo check -p xai-grok-pager-bin` | **0** | `PASS` | 70m 07s Finished |
 | 29 | host | C2B-3 post integrity | 0 | `PASS` | lock/hashes clean |
+| 30 | container | C2B-4 `cargo build -p xai-grok-pager-bin` | **0** | `PASS` | 43m 18s; binary produced |
+| 31 | host | C2B-4 post integrity + artifact hash | 0 | `PASS` | binary not executed |
 
 ### Documented but **not** executed
 
@@ -74,7 +76,7 @@ cargo build -p xai-grok-pager-bin --release
 cargo clippy / cargo fmt / cargo test
 ```
 
-Status: still `NOT_STARTED` (out of C2B-3 scope).
+Status: still `NOT_STARTED`.
 
 ### Raw command log (summary)
 
@@ -162,6 +164,7 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | C2B-1 summary | `evidence/container-toolchain/PHASE_C2B1_SUMMARY.md` | C-016 |
 | C2B-2 docker command / apt / DotSlash / protoc / integrity | `evidence/container-bootstrap/*` | C-017 |
 | C2B-3 cargo check logs | `evidence/cargo-check/*` | C-013 |
+| C2B-4 cargo build logs + artifact metadata | `evidence/cargo-build/*` | C-018 |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -181,7 +184,7 @@ Justification: Clone/pin and readiness inventories complete; C2B-1 pull and rust
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
 - Pinned image pulled locally with matching RepoDigest; direct rustc/cargo 1.92.0 in container.
-- Windows (**C-015**) `BLOCKED`; C-016/C-017 `PASS`; **C-013** narrow cargo check `PASS` (exit 0).
+- C-013 check + C-018 build `PASS` (incremental); binary not run; Windows C-015 `BLOCKED`.
 
 ## 12. What This Reproduction Does NOT Prove
 

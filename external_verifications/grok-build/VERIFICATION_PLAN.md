@@ -8,10 +8,10 @@
 | GitHub organization path | `xai-org` |
 | Cargo authors field (sample) | `"xAI"` |
 | Claimed canonical repository | **https://github.com/xai-org/grok-build** |
-| Current verification state | **Windows BLOCKED; C-013 cargo check PASS; overall PARTIAL** |
-| Plan status | Through **C2B-3** narrow cargo check |
+| Current verification state | **Windows BLOCKED; C-013/C-018 PASS; overall PARTIAL** |
+| Plan status | Through **C2B-4** narrow cargo build (incremental) |
 | Package created | `2026-07-17` |
-| Plan version / date | 2026-07-18 Phase C2B-3; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Plan version / date | 2026-07-18 Phase C2B-4; pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Operator / author | Weaver Forge documentation package author |
 | Operator role | Owner-side planner/inspector (not independent witness) |
 | Independent witness status | `NOT_STARTED` |
@@ -21,7 +21,7 @@ Pinned full commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
 
 Clone path: `C:\dev\external-verification-targets\grok-build`
 
-Evidence: `…/source-inspection/`; `…/environment-readiness/`; `…/docker-readiness/`; `…/container-toolchain/`; `…/container-bootstrap/`; `…/cargo-check/`
+Evidence: source-inspection; environment-readiness; docker-readiness; container-toolchain; container-bootstrap; cargo-check; **cargo-build**
 
 ---
 
@@ -164,7 +164,9 @@ Evidence: `…/source-inspection/`; `…/environment-readiness/`; `…/docker-re
 
 **Phase C2B-2** — packages/DotSlash/protoc (done; **C-017 PASS**).
 
-**Phase C2B-3** — `cargo check -p xai-grok-pager-bin` (**done; exit 0**).
+**Phase C2B-3** — cargo check (**done; exit 0**).
+
+**Phase C2B-4** — `cargo build -p xai-grok-pager-bin` (**done; exit 0**; incremental).
 
 **Phase C2B-4** — optional release build only after C2B-3 review.
 
@@ -242,6 +244,7 @@ Evidence: `…/source-inspection/`; `…/environment-readiness/`; `…/docker-re
 | 2026-07-18 | Phase C2B-1 image pull + toolchain verification | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-2 container bootstrap | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-3 cargo check exit 0 | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-4 cargo build exit 0 (incremental) | Weaver Forge documentation package author |
 
 ---
 

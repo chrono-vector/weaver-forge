@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; bootstrap PASS; **cargo check PASS** (C2B-3); build/runtime limited |
-| Register status | C-013 PASS (narrow check); C-012 NOT_STARTED; C-015 BLOCKED; C-016/C-017 PASS |
+| Current verification state | Windows BLOCKED; C-013 check PASS; C-018 narrow build PASS; overall PARTIAL |
+| Register status | C-013/C-018 PASS (narrow); C-012 full/release open; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-18` (C2B-3) |
+| Last updated | `2026-07-18` (C2B-4) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -37,6 +37,7 @@
 | C-015 | Windows host build-environment readiness for documented cargo commands | `runtime_observation` | `BLOCKED` |
 | C-016 | Docker/Linux isolated image + toolchain readiness (pinned pull + rustc/cargo) | `runtime_observation` | `PASS` |
 | C-017 | Isolated container bootstrap: native packages + DotSlash + protoc | `runtime_observation` | `PASS` |
+| C-018 | Narrow isolated `cargo build -p xai-grok-pager-bin` produces binary | `build_result` | `PASS` |
 
 ---
 
@@ -288,6 +289,19 @@
 | Limitations | PASS does **not** include DotSlash, native packages, dependency fetch, or `cargo check` on Grok Build; login-shell PATH requires care; isolation planning ≠ security audit |
 | What the result does not establish | Windows readiness (C-015); bootstrap (C-017); C-012/C-013; functional/security/witness axes |
 
+### C-018 — Narrow isolated cargo build of xai-grok-pager-bin
+
+| Field | Value |
+|-------|-------|
+| Exact claim | In the recorded isolated Docker Linux environment (pinned image, RO source at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`, retained external caches), the command `cargo build -p xai-grok-pager-bin` (dev profile) completes with exit 0 and produces the `xai-grok-pager` binary under the external target directory. |
+| Source of claim | README build command family; Phase C2B-4 execution |
+| Evidence class | `build_result` |
+| Verification method | Disposable container; RO mount; logs; artifact hash |
+| Actual result | Exit **0**; Finished in **43m 18s**; artifact `xai-grok-pager` 600647920 bytes; SHA-256 `1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b`; not executed. Classification: owner-side **incremental** (not clean-room). |
+| Status | **`PASS`** (scope: this crate + command + environment only) |
+| Limitations | Not workspace-wide; not `--release`; not bit-reproducible; not official release; not functional/auth/security/witness |
+| Evidence | `evidence/cargo-build/*` |
+
 ### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
 
 | Field | Value |
@@ -310,15 +324,15 @@
 
 | Status | Count |
 |--------|------:|
-| `NOT_STARTED` | 2 (C-012, C-014) |
+| `NOT_STARTED` | 2 (C-012 full/release, C-014) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 14 (11 identity/docs + C-013 check + C-016 + C-017) |
+| `PASS` | 15 (11 docs + C-013 + C-016 + C-017 + C-018) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 17 |
+| **Total** | 18 |
 
-Note: C-013 PASS is a **narrow** cargo check only. C-012 (full build) remains NOT_STARTED. C-015 Windows BLOCKED.
+Note: C-013/C-018 are **narrow** owner-side check/build only. C-012 remains for broader build claims. C-015 Windows BLOCKED.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -335,8 +349,9 @@ Note: C-013 PASS is a **narrow** cargo check only. C-012 (full build) remains NO
 - **C-015** Windows host readiness **`BLOCKED`**.
 - **C-016** image+toolchain **`PASS`**.
 - **C-017** container bootstrap **`PASS`**.
-- **C-013** narrow `cargo check -p xai-grok-pager-bin` **`PASS`** (C2B-3).
-- C-012 full/release build and functional claims remain open/unstarted.
+- **C-013** narrow cargo check **`PASS`**.
+- **C-018** narrow cargo build **`PASS`** (incremental; artifact hash recorded; not executed).
+- C-012 full/release and functional claims remain open/unstarted.
 
 ## What This Register Does NOT Prove
 
@@ -356,6 +371,7 @@ Note: C-013 PASS is a **narrow** cargo check only. C-012 (full build) remains NO
 | 2026-07-18 | Phase C2B-1: C-016 → `PASS` (image+toolchain only) | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-2: C-017 container bootstrap `PASS` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-3: C-013 cargo check `PASS` | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-4: C-018 cargo build `PASS` (incremental) | Weaver Forge documentation package author |
 
 ---
 

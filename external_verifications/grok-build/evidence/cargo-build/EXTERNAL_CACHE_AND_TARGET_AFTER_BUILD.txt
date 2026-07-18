@@ -1,0 +1,12 @@
+BEFORE (precheck):
+  cargo-home_bytes=779543568
+  cargo-target_bytes=5260310538
+  dotslash-cache_bytes=13033306
+AFTER:
+  cargo-home_bytes=779543568 (unchanged)
+  cargo-target/debug_bytes=14991381975 (~14.0 GiB)
+  dotslash-cache_bytes=13033306 (unchanged)
+container_removed=yes (--rm)
+caches_retained=yes under work root
+binary_left_in_external_target_only=yes
+not_copied_into_weaver_forge=yes
