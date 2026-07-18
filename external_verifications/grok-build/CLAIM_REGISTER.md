@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; Docker/Linux image+toolchain PASS (C2B-1); build/runtime not executed |
-| Register status | Identity/docs PASS; C-015 BLOCKED; C-016 PASS (image/toolchain only); build NOT_STARTED |
+| Current verification state | Windows BLOCKED; image/toolchain PASS; container bootstrap PASS (C2B-2); Grok cargo not run |
+| Register status | C-015 BLOCKED; C-016 PASS; C-017 PASS (bootstrap); C-012–C-014 NOT_STARTED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-18` (C2B-1) |
+| Last updated | `2026-07-18` (C2B-2) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -36,6 +36,7 @@
 | C-014 | Independent witness reproduces pin + procedure | `independent_witness_result` | `NOT_STARTED` |
 | C-015 | Windows host build-environment readiness for documented cargo commands | `runtime_observation` | `BLOCKED` |
 | C-016 | Docker/Linux isolated image + toolchain readiness (pinned pull + rustc/cargo) | `runtime_observation` | `PASS` |
+| C-017 | Isolated container bootstrap: native packages + DotSlash + protoc | `runtime_observation` | `PASS` |
 
 ---
 
@@ -284,8 +285,24 @@
 | Status | **`PASS`** (scope: **image + toolchain only**) |
 | Operator role | Owner-side |
 | Evidence pointers | `evidence/container-toolchain/*`; `evidence/docker-readiness/*` (C2A pin); `ENVIRONMENT.md`; `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md` |
-| Limitations | PASS does **not** include DotSlash, native packages, dependency fetch, or `cargo check` on Grok Build; login-shell PATH requires care in future recipes; isolation planning ≠ security audit |
-| What the result does not establish | Windows readiness (C-015); C-012/C-013 build/validation success; functional/security/witness axes |
+| Limitations | PASS does **not** include DotSlash, native packages, dependency fetch, or `cargo check` on Grok Build; login-shell PATH requires care; isolation planning ≠ security audit |
+| What the result does not establish | Windows readiness (C-015); bootstrap (C-017); C-012/C-013; functional/security/witness axes |
+
+### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
+
+| Field | Value |
+|-------|-------|
+| Exact claim | In a disposable container from the **pinned** image, with Grok Build source **read-only** and isolated work volumes, the documented **native** prerequisites can be installed, **DotSlash** can be installed at a recorded version, and **protoc** can be resolved via the in-tree DotSlash `bin/protoc` path (or an LF-safe equivalent of that hermetic path) to a version consistent with the pin’s provider entry (**protoc 29.3**), without running cargo check/build against Grok Build or using product authentication. |
+| Source of claim | README Building from source; `bin/protoc`; Phase C2A plans; Phase C2B-2 execution |
+| Evidence class | `runtime_observation` |
+| Verification method | apt install; `cargo install dotslash --version 0.5.7 --locked`; DotSlash fetch/version of protoc; tool version probes; source integrity before/after |
+| Acceptance criteria | Packages install exit 0; DotSlash version recorded; protoc version obtained via hermetic path; source pin clean after |
+| Actual result | Packages OK. DotSlash **0.5.7** (checksum `981dcd6a72ea3aa94e09589be223e179d65827d9e3722968c81bf5f5e4609ddb`). Direct RO `bin/protoc` failed (CRLF shebang); **LF-normalized work copy** + DotSlash → **libprotoc 29.3**, digest match. Source integrity PASS. **No** Grok cargo check/deps. |
+| Status | **`PASS`** (limitation: Windows CRLF shebang on `bin/protoc` requires LF-safe invocation for C2B-3) |
+| Operator role | Owner-side |
+| Evidence pointers | `evidence/container-bootstrap/*`; `docs/GROK_BUILD_CONTAINER_BOOTSTRAP_COMPLETION_NOTE.md` |
+| Limitations | Not a compile success claim; CRLF hygiene for DotSlash files on Windows mounts; security not audited |
+| What the result does not establish | C-012/C-013; functional correctness; offline build without caches |
 
 ---
 
@@ -295,13 +312,13 @@
 |--------|------:|
 | `NOT_STARTED` | 3 |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 12 (11 identity/docs + C-016 image/toolchain) |
+| `PASS` | 13 (11 identity/docs + C-016 + C-017) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 16 |
+| **Total** | 17 |
 
-Note: Eleven of twelve `PASS` rows are identity/documentation or **image/toolchain readiness** only — **not** Grok Build compile success. C-015 remains Windows readiness.
+Note: Identity/docs + image/toolchain + bootstrap PASS rows are **not** Grok Build compile success. C-015 remains Windows readiness.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -314,9 +331,10 @@ Note: Eleven of twelve `PASS` rows are identity/documentation or **image/toolcha
 
 ## What This Register Proves
 
-- Primary-source-backed identity and documentation claims at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
-- **C-015** Windows host readiness remains **`BLOCKED`**.
-- **C-016** Docker/Linux **image + toolchain** readiness is **`PASS`** after C2B-1 pull and rustc/cargo 1.92.0 verification.
+- Identity/docs at pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
+- **C-015** Windows host readiness **`BLOCKED`**.
+- **C-016** image+toolchain **`PASS`**.
+- **C-017** container bootstrap **`PASS`** (DotSlash 0.5.7; protoc 29.3; packages).
 - Build/runtime success claims remain unstarted.
 
 ## What This Register Does NOT Prove
@@ -335,6 +353,7 @@ Note: Eleven of twelve `PASS` rows are identity/documentation or **image/toolcha
 | 2026-07-18 | Phase C2A briefly set C-015 to PARTIAL (over-broad) | Weaver Forge documentation package author |
 | 2026-07-18 | Pre-commit audit: C-015 Windows `BLOCKED`; C-016 Docker/Linux `PARTIAL` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-1: C-016 → `PASS` (image+toolchain only) | Weaver Forge documentation package author |
+| 2026-07-18 | Phase C2B-2: C-017 container bootstrap `PASS` | Weaver Forge documentation package author |
 
 ---
 

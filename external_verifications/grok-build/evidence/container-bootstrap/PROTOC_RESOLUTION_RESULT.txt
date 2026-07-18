@@ -1,0 +1,40 @@
+=== FIRST PROBE (bootstrap; failed shebang/CR) ===
+=== protoc via /src/bin/protoc (DotSlash) ===
+-rwxrwxrwx 1 root root 1616 Jul 17 14:20 /src/bin/protoc
+#!/usr/bin/env dotslash
+
+{
+    "name": "protoc",
+    "platforms": {
+env: 'dotslash\r': No such file or directory
+env: use -[v]S to pass options in shebang lines
+PROTOC_EXIT=127
+
+=== RETRY (LF-normalized writable wrapper; SUCCESS) ===
+=== protoc re-probe (LF-normalized writable wrapper) ===
+dotslash=/work/cargo-home/bin/dotslash
+DotSlash 0.5.7
+SRC_SHEBANG_BYTES= 23 21 2f 75 73 72 2f 62 69 6e 2f 65 6e 76 20 64
+COPY_SHEBANG_BYTES= 23 21 2f 75 73 72 2f 62 69 6e 2f 65 6e 76 20 64
+=== dotslash -- parse ===
+{"name":"protoc","platforms":{"linux-aarch64":{"arg0":"underlying-executable","digest":"6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8d0e1ab32","format":"zip","hash":"sha256","path":"bin/protoc","providers":[{"url":"https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-aarch_64.zip"}],"size":3256816},"linux-x86_64":{"arg0":"underlying-executable","digest":"3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a","format":"zip","hash":"sha256","path":"bin/protoc","providers":[{"url":"https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip"}],"size":3288836},"macos-aarch64":{"arg0":"underlying-executable","digest":"2b8a3403cd097f95f3ba656e14b76c732b6b26d7f183330b11e36ef2bc028765","format":"zip","hash":"sha256","path":"bin/protoc","providers":[{"url":"https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-aarch_64.zip"}],"size":2290929}}}
+PARSE_EXIT=0
+=== dotslash -- fetch ===
+/work/dotslash-cache/09/a3ff481f59a34e6c8038d6d926191500e7627f/bin/protoc
+FETCH_EXIT=0
+=== protoc --version via wrapper ===
+libprotoc 29.3
+PROTOC_VERSION_EXIT=0
+=== protoc --version via: dotslash wrapper --version ===
+libprotoc 29.3
+DOTSLASH_PROTOC_EXIT=0
+=== direct fetched binary --version ===
+libprotoc 29.3
+=== expected linux-x86_64 fields from tree (RO) ===
+10:            "digest": "2b8a3403cd097f95f3ba656e14b76c732b6b26d7f183330b11e36ef2bc028765",
+15:                    "url": "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-aarch_64.zip"
+19:        "linux-x86_64": {
+23:            "digest": "3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a",
+28:                    "url": "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip"
+36:            "digest": "6427349140e01f06e049e707a58709a4f221ae73ab9a0425bc4a00c8d0e1ab32",
+41:                    "url": "https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-aarch_64.zip"

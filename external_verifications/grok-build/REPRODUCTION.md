@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Reproduction status | **`PARTIAL`** — pin + readiness + C2B-1 image/toolchain; Grok cargo `NOT_STARTED` |
-| Run ID | Phase B; C1; C2A; C2B-1 `run-20260718-container-toolchain` |
+| Reproduction status | **`PARTIAL`** — through C2B-2 bootstrap; Grok cargo `NOT_STARTED` |
+| Run ID | …; C2B-1; C2B-2 `run-20260718-container-bootstrap` |
 | Operator | Weaver Forge documentation package author |
 | Role | **Owner-side reproduction** (source inspection) |
 | Independence statement | Operator is external to the target project's authors; **not** an independent witness for Weaver Forge package claims (package author) |
@@ -57,6 +57,11 @@
 | 19 | container | image inspect (OS/arch/created/RUST_VERSION) | 0 | `PASS` | linux/amd64; 1.92.0 |
 | 20 | container | direct `rustc` / `cargo` version | 0 | `PASS` | 1.92.0 / 1.92.0 |
 | 21 | container | `bash -lc` rustc | non-zero | `PASS` (anomaly log) | PATH only; not toolchain fail |
+| 22 | host | C2B-2 source integrity before | 0 | `PASS` | pin + Phase B hashes |
+| 23 | container | disposable bootstrap: apt + DotSlash 0.5.7 + tool probes | 0 | `PASS` | docker run exit 0 |
+| 24 | container | protoc first via RO `bin/protoc` | 127 | `FAIL` then mitigated | CRLF shebang |
+| 25 | container | protoc via LF DotSlash wrapper | 0 | `PASS` | libprotoc 29.3 |
+| 26 | host | C2B-2 source integrity after | 0 | `PASS` | unchanged |
 
 ### Documented but **not** executed (official build/validate)
 
@@ -155,6 +160,7 @@ Full structured fields: `evidence/source-inspection/PINNED_SOURCE_METADATA.txt`.
 | rustc / cargo versions | `evidence/container-toolchain/RUSTC_VERSION_OUTPUT.txt`; `CARGO_VERSION_OUTPUT.txt` | C-016 |
 | PATH anomaly | `evidence/container-toolchain/LOGIN_SHELL_PATH_ANOMALY.md` | C-016 |
 | C2B-1 summary | `evidence/container-toolchain/PHASE_C2B1_SUMMARY.md` | C-016 |
+| C2B-2 docker command / apt / DotSlash / protoc / integrity | `evidence/container-bootstrap/*` | C-017 |
 
 ## 10. Reproduction Outcome (This Run)
 
@@ -174,7 +180,7 @@ Justification: Clone/pin and readiness inventories complete; C2B-1 pull and rust
 - Public full clone and commit pin at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`.
 - Static reading of license, workspace, and documented commands at that pin.
 - Pinned image pulled locally with matching RepoDigest; direct rustc/cargo 1.92.0 in container.
-- Windows host readiness (**C-015**) remains `BLOCKED`; Docker/Linux **image+toolchain** (**C-016**) is `PASS` (not full build readiness).
+- Windows (**C-015**) `BLOCKED`; image+toolchain (**C-016**) `PASS`; bootstrap (**C-017**) `PASS`; Grok cargo still not run.
 
 ## 12. What This Reproduction Does NOT Prove
 

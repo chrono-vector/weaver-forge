@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **Pin + Windows BLOCKED + Docker image/toolchain PASS (C2B-1); cargo NOT_STARTED** |
+| Results status | **Windows BLOCKED; image/toolchain PASS; bootstrap PASS (C2B-2); Grok cargo NOT_STARTED** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-18` (C2B-1); prior C2A/C1/B `2026-07-17`–`2026-07-18` |
-| Linked reproduction run ID | Phase B pin; C1; C2A; C2B-1 `run-20260718-container-toolchain` |
+| Compilation date | `2026-07-18` (C2B-2); prior C2B-1/C2A/C1/B |
+| Linked reproduction run ID | …; C2B-1 toolchain; C2B-2 `run-20260718-container-bootstrap` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -27,10 +27,12 @@
 | Env readiness inventory authorized? | Yes (C1 + C2A + C2B-1) |
 | Env readiness inventory performed? | Yes |
 | Windows build environment ready? | **No (`BLOCKED`)** |
-| Docker/Linux image+toolchain readiness | **`PASS`** (C2B-1 only) |
+| Docker/Linux image+toolchain readiness | **`PASS`** (C2B-1) |
+| Container bootstrap readiness | **`PASS`** (C2B-2) |
 | Phase C2 (Windows native) readiness | **`BLOCKED`** |
 | Phase C2B-1 (pull + rustc/cargo) | **`PASS`** |
-| Phase C2B full (deps + cargo check) | **Incomplete** (C2B-2/C2B-3 not started) |
+| Phase C2B-2 (packages/DotSlash/protoc) | **`PASS`** |
+| Phase C2B-3 (cargo check) | **`READY_WITH_LIMITATIONS`** — **not executed** |
 
 ## 2. Per-Claim Results
 
@@ -51,7 +53,8 @@
 | C-013 | Validation succeeds | `NOT_STARTED` | — |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
-| C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/; image/toolchain only |
+| C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
+| C-017 | Container bootstrap packages/DotSlash/protoc | `PASS` | evidence/container-bootstrap/ |
 
 ## 3. Build Results
 
@@ -63,7 +66,8 @@
 | Build reproducibility (repeat run) | `NOT_STARTED` | |
 | Windows build-env readiness | `BLOCKED` | missing rust, DotSlash, MSVC/SDK |
 | Docker/Linux image+toolchain readiness | `PASS` | pull+RepoDigest+rustc/cargo 1.92.0 |
-| DotSlash / packages / Grok cargo | `NOT_STARTED` | C2B-2/C2B-3 |
+| DotSlash / packages / protoc bootstrap | `PASS` | C2B-2 |
+| Grok Build cargo check | `NOT_STARTED` | C2B-3 |
 
 ## 4. Test Results
 
@@ -98,7 +102,8 @@
 | A-002 | medium | No publisher tree checksums or signed tags | open |
 | A-003 | medium | Windows source builds documented best-effort | open for future build phase |
 | A-004 | low | Docker daemon was stopped during C2A | resolved for C2B-1 (daemon available) |
-| A-005 | low | `bash -lc` → `rustc: command not found`; direct rustc OK | open (PATH hygiene for recipes) |
+| A-005 | low | `bash -lc` → `rustc: command not found`; direct rustc OK | open (PATH hygiene) |
+| A-006 | medium | Windows CRLF on `bin/protoc` shebang breaks Linux DotSlash until LF-safe copy | mitigated for C2B-3 recipes |
 
 ## 8. Blockers
 
@@ -111,14 +116,16 @@
 | BK-005 | MSVC / Windows SDK not visible | Windows native link | `BLOCKED` |
 | BK-006 | First build likely needs network (no full vendor) | offline C2 | open |
 | BK-007 | Docker daemon stopped; image not pulled | C2B-1 | **resolved** (C2B-1) |
-| BK-008 | DotSlash / native packages / deps not yet in container path | C2B-2 | open |
+| BK-008 | DotSlash / native packages not yet in container path | C2B-2 | **resolved** (C2B-2) |
+| BK-009 | Grok Build cargo check not run | C2B-3 | open |
+| BK-010 | CRLF DotSlash shebang on Windows mount | C2B-3 recipes | open (mitigation known) |
 
 ## 9. Aggregate Counts
 
 | Status | Claims |
 |--------|-------:|
 | `NOT_STARTED` | 3 |
-| `PASS` | 12 (incl. C-016 image/toolchain) |
+| `PASS` | 13 (incl. C-016, C-017) |
 | `PARTIAL` | 0 |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |
@@ -145,7 +152,8 @@
 - Windows host still missing rustc/cargo/DotSlash/MSVC (C-015 BLOCKED).
 - C2B-1: Docker server 29.4.3 linux/amd64 WSL2; pull of pinned platform manifest succeeded; RepoDigest match.
 - rustc 1.92.0 / cargo 1.92.0 direct in image; bash -lc rustc not found (PATH only).
-- No Grok Build source mount; no DotSlash/packages; no cargo against Grok Build; no auth.
+- C2B-2: RO source mount; apt packages; DotSlash 0.5.7; protoc 29.3 (LF-safe DotSlash path); source integrity PASS.
+- No cargo check/build against Grok Build; no product auth.
 ```
 
 ### 11.2 What was not observed
@@ -208,6 +216,7 @@
 | 2026-07-17 | Phase B + C1 results |
 | 2026-07-18 | Phase C2A Docker readiness results |
 | 2026-07-18 | Phase C2B-1 pull + toolchain verification |
+| 2026-07-18 | Phase C2B-2 container bootstrap |
 
 ---
 

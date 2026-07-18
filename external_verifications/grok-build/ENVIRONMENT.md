@@ -3,17 +3,20 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Environment record status | **Windows host BLOCKED; Docker/Linux image+toolchain PASS (C2B-1); build still not run** |
+| Environment record status | **Windows BLOCKED; image/toolchain PASS; bootstrap PASS (C2B-2); Grok cargo not run** |
 | Recorded by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Record date | 2026-07-18 (C2B-1); prior C2A/C1 2026-07-17–18 |
+| Record date | 2026-07-18 (C2B-2); prior C2B-1/C2A/C1 |
 | Pinned target commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Evidence (Windows C1) | `evidence/environment-readiness/` |
 | Evidence (Docker C2A) | `evidence/docker-readiness/` |
 | Evidence (Container toolchain C2B-1) | `evidence/container-toolchain/` |
+| Evidence (Container bootstrap C2B-2) | `evidence/container-bootstrap/` |
+| Work root | `C:\dev\external-verification-work\grok-build-98c3b24\` |
 | Phase C2 (Windows native) | **`BLOCKED`** |
 | Phase C2B-1 (image + toolchain) | **`PASS`** |
-| Phase C2B (full isolated build) | **Not complete** — C2B-2/C2B-3 remain |
+| Phase C2B-2 (bootstrap) | **`PASS`** (CRLF DotSlash limitation documented) |
+| Phase C2B-3 (cargo check) | **`READY_WITH_LIMITATIONS`** — not executed |
 
 ---
 
@@ -96,8 +99,11 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | LLVM | 21.1.3 |
 | Container OS (cargo) | Debian 13.0.0 |
 | `bash -lc` rustc | **command not found** (PATH anomaly only; see `LOGIN_SHELL_PATH_ANOMALY.md`) |
-| DotSlash in image | **Not installed this phase** |
-| Grok Build source mounted | **No** |
+| DotSlash (C2B-2, CARGO_HOME) | **0.5.7** at `/work/cargo-home/bin/dotslash` |
+| protoc (C2B-2) | **libprotoc 29.3** via DotSlash (LF-safe wrapper) |
+| Native packages (C2B-2 container) | ca-certificates, git, perl (present); build-essential, pkg-config, cmake, curl installed/upgraded |
+| Grok Build source mounted (C2B-2) | **Yes, read-only** |
+| Grok Build cargo | **Not run** |
 
 ## 8. Target pin toolchain (docs)
 
@@ -131,10 +137,12 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 |-------------|---------|
 | Windows host build readiness | **`BLOCKED`** |
 | Docker/Linux **image + toolchain** readiness | **`PASS`** |
-| Full C2B isolated build (packages, DotSlash, cargo check) | **Not started / incomplete** |
+| Container **bootstrap** readiness | **`PASS`** |
+| Phase C2B-3 cargo check | **Not executed** (`READY_WITH_LIMITATIONS`) |
 | Phase C2B-1 | **`PASS`** |
+| Phase C2B-2 | **`PASS`** |
 
-**Does not prove:** Grok Build compile success; DotSlash/protoc; functional or security readiness.
+**Does not prove:** Grok Build compile success; functional or security readiness.
 
 ## Change Log
 
@@ -144,6 +152,7 @@ See `WINDOWS_BUILD_READINESS.md` (C1).
 | 2026-07-17 | Full Windows readiness inventory (`BLOCKED`) |
 | 2026-07-18 | Phase C2A Docker/Linux pin (`PARTIAL`) |
 | 2026-07-18 | Phase C2B-1 pull + rustc/cargo verify (image/toolchain **PASS**) |
+| 2026-07-18 | Phase C2B-2 packages + DotSlash 0.5.7 + protoc 29.3 (bootstrap **PASS**) |
 
 ---
 

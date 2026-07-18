@@ -1,0 +1,31 @@
+Weaver Forge Phase C2B-2 — isolated work directory layout
+Date: 2026-07-18
+Work root: C:\dev\external-verification-work\grok-build-98c3b24\
+Source (RO mount only; not copied): C:\dev\external-verification-targets\grok-build
+
+================================================================================
+DIRECTORIES CREATED (host)
+================================================================================
+logs\                 container stdout/stderr summaries and exit codes
+cargo-home\           CARGO_HOME (DotSlash binary + cargo install registry for DotSlash only)
+cargo-target\         CARGO_TARGET_DIR (DotSlash install build artifacts only)
+dotslash-cache\       DOTSLASH_CACHE (fetched protoc zip/binary cache)
+container-state\      bootstrap scripts; LF-normalized protoc-wrapper copy (NOT source)
+
+================================================================================
+NOT PRESENT / NOT DONE
+================================================================================
+- No copy of Grok Build source into work root
+- No Grok Build cargo target outputs (no cargo check/build of project)
+- No credentials or secrets stored under work root
+- Package evidence deliberately omits full cargo-home registry contents
+
+================================================================================
+MOUNT MAP (container)
+================================================================================
+C:\dev\external-verification-targets\grok-build  -> /src:ro
+...\cargo-home       -> /work/cargo-home
+...\cargo-target     -> /work/cargo-target
+...\dotslash-cache   -> /work/dotslash-cache
+...\logs             -> /work/logs
+...\container-state  -> /work/container-state

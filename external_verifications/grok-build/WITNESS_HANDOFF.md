@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Pin ready; Windows BLOCKED; Docker image+toolchain PASS (C2B-1); Grok cargo not witness-executable yet** |
+| Handoff status | **Pin ready; Windows BLOCKED; image/toolchain+bootstrap PASS; Grok cargo not run** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-18` |
-| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-1 2026-07-18 |
+| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-2 2026-07-18 |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 
@@ -38,8 +38,10 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Evidence (Phase C1 env readiness) | `evidence/environment-readiness/` | Yes |
 | Evidence (Phase C2A Docker readiness) | `evidence/docker-readiness/` | Yes |
 | Evidence (Phase C2B-1 container toolchain) | `evidence/container-toolchain/` | Yes |
+| Evidence (Phase C2B-2 container bootstrap) | `evidence/container-bootstrap/` | Yes |
 | C2A completion note | `docs/GROK_BUILD_DOCKER_BUILD_READINESS_COMPLETION_NOTE.md` | Yes |
 | C2B-1 completion note | `docs/GROK_BUILD_CONTAINER_TOOLCHAIN_VERIFICATION_COMPLETION_NOTE.md` | Yes |
+| C2B-2 completion note | `docs/GROK_BUILD_CONTAINER_BOOTSTRAP_COMPLETION_NOTE.md` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -90,6 +92,7 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Owner-side C1 note | Inventoried Windows host **lacks** rustup/cargo/dotslash — do not assume witness host matches | Windows path `BLOCKED` |
 | Owner-side C2A note | Image digest pinned via registry | historical |
 | Owner-side C2B-1 note | Pull + RepoDigest match; rustc/cargo 1.92.0; avoid bare `bash -lc` without PATH | image/toolchain `PASS` |
+| Owner-side C2B-2 note | packages; DotSlash 0.5.7; protoc 29.3; use LF-safe DotSlash for `bin/protoc` on Windows mounts | bootstrap `PASS` |
 
 ---
 
@@ -129,7 +132,9 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 # prefer direct rustc/cargo or export PATH — bare bash -lc may miss cargo bin
 ```
 
-**C2B-2/C2B-3 not started:** RO source mount; packages/DotSlash; `cargo check -p xai-grok-pager-bin` per `PHASE_C2B_CONTAINER_BUILD_PLAN.md`.
+**C2B-2 done:** packages + DotSlash 0.5.7 + protoc 29.3 (see `evidence/container-bootstrap/`).
+
+**C2B-3 not started:** `cargo check -p xai-grok-pager-bin` with LF-safe DotSlash/protoc and isolation mounts.
 
 ---
 
@@ -166,7 +171,8 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 | KL-006 | rustup/cargo/dotslash missing on owner-side Windows host | open |
 | KL-007 | C2A daemon stopped — resolved for C2B-1 pull | closed for C2B-1 |
 | KL-008 | Login-shell PATH may omit rustc; use direct or export PATH | open |
-| KL-009 | DotSlash/packages/deps not yet in container workflow | open |
+| KL-009 | DotSlash/packages bootstrap done; Grok deps/cargo check not | open (C2B-3) |
+| KL-011 | CRLF shebang on Windows-mounted DotSlash files | open (mitigation: LF copy / PROTOC) |
 | KL-004 | Auth may be required for interactive product use | open |
 | KL-005 | Owner-side results are not substitute for witness | open |
 
