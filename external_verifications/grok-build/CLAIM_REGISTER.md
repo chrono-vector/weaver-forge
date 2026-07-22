@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; C-013/C-018 PASS; C-019 static startup PARTIAL; overall PARTIAL |
-| Register status | C-013/C-018 PASS (narrow); C-019 PARTIAL; C-012 full/release open; C-015 BLOCKED |
+| Current verification state | Windows BLOCKED; C-013/C-018/C-020 PASS; C-019 PARTIAL; overall PARTIAL |
+| Register status | C-013/C-018/C-020 PASS (narrow); C-019 PARTIAL; C-012/C-014 open; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-22` (C2C-1) |
+| Last updated | `2026-07-22` (C2D-1) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -39,6 +39,7 @@
 | C-017 | Isolated container bootstrap: native packages + DotSlash + protoc | `runtime_observation` | `PASS` |
 | C-018 | Narrow isolated `cargo build -p xai-grok-pager-bin` produces binary | `build_result` | `PASS` |
 | C-019 | Static startup boundary for help/version flags on built binary | `runtime_observation` | `PARTIAL` |
+| C-020 | Clean non-incremental second narrow rebuild succeeds at pin | `build_result` | `PASS` |
 
 ---
 
@@ -318,6 +319,20 @@
 | Limitations | Draft observational success is not protocol PASS; not filesystem-side-effect-free; no syscall-level network proof; not functional/auth/security/witness |
 | What the result does not establish | Functional readiness; production readiness; safe pre-init CLI boundary; that version/help is free of side effects |
 
+### C-020 — Clean non-incremental narrow rebuild
+
+| Field | Value |
+|-------|-------|
+| Exact claim | At pin `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` in the pinned Rust image, a second owner-side `cargo build -p xai-grok-pager-bin --locked` with a **new empty** `CARGO_TARGET_DIR` and **`CARGO_INCREMENTAL=0`** completes with exit 0 and produces `xai-grok-pager` without modifying source or Cargo.lock. |
+| Source of claim | Phase C2D-1 clean rebuild verification |
+| Evidence class | `build_result` |
+| Verification method | Disposable Docker; RO source; empty phase-specific target; CARGO_INCREMENTAL=0; logs; artifact hash vs C2B-4 |
+| Actual result | Exit **0**; Finished **85m 21s**; artifact 600515304 bytes; SHA-256 `eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad`. Filename/arch match prior artifact; **SHA/size differ** from C2B-4. Bit-identical: **NOT OBSERVED**. Product not executed. |
+| Status | **`PASS`** (owner-side clean rebuild only; does **not** require hash identity) |
+| Limitations | Reused cargo-home/dotslash caches; network bridge available; `-j 2` used; not offline-from-empty-registry; not bit-identical; not independent witness; not release profile |
+| Evidence | `evidence/clean-rebuild/*`; `docs/GROK_BUILD_CLEAN_REBUILD_COMPLETION_NOTE.md` |
+| What the result does not establish | Universal bit-for-bit reproducibility; functional/security/witness/production readiness |
+
 ### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
 
 | Field | Value |
@@ -342,19 +357,19 @@
 |--------|------:|
 | `NOT_STARTED` | 2 (C-012 full/release, C-014) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 15 (11 docs + C-013 + C-016 + C-017 + C-018) |
+| `PASS` | 16 (11 docs + C-013 + C-016 + C-017 + C-018 + C-020) |
 | `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 19 |
+| **Total** | 20 |
 
-Note: C-013/C-018 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL (no exec). C-012 remains for broader build claims. C-015 Windows BLOCKED.
+Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL. C-012 remains for broader build claims. C-015 Windows BLOCKED.
 
 ## Claims Explicitly Not Registered as Proven
 
 | Deferred / excluded | Reason |
 |---------------------|--------|
-| Build reproducibility | Not executed |
+| Build reproducibility (witness / bit-identical) | Owner-side clean rebuild only; hashes differ; no witness |
 | Functional tool-call correctness | Not executed |
 | Security properties | Out of scope |
 | Prebuilt binary integrity | Install scripts not run; no checksum verification this phase |
@@ -368,6 +383,7 @@ Note: C-013/C-018 are **narrow** owner-side check/build only. C-019 is static st
 - **C-013** narrow cargo check **`PASS`**.
 - **C-018** narrow cargo build **`PASS`** (incremental; artifact hash recorded; not executed in C2B-4).
 - **C-019** static startup boundary **`PARTIAL`**: draft version/help observed non-conformantly; pre-init boundary not established; final gated execution withheld.
+- **C-020** clean non-incremental rebuild **`PASS`** (bit-identical **not** observed).
 - C-012 full/release and functional claims remain open/unstarted.
 
 ## What This Register Does NOT Prove
@@ -391,6 +407,7 @@ Note: C-013/C-018 are **narrow** owner-side check/build only. C-019 is static st
 | 2026-07-18 | Phase C2B-4: C-018 cargo build `PASS` (incremental) | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2C-1: C-019 static startup `PARTIAL` (exec withheld) | Weaver Forge documentation package author |
 | 2026-07-22 | C2C-1 docs correction: whole-session draft disclosure; C-019 remains PARTIAL | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2D-1: C-020 clean non-incremental rebuild `PASS` (not bit-identical) | Weaver Forge documentation package author |
 
 ---
 

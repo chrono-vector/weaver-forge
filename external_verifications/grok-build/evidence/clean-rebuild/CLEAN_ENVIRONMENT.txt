@@ -1,0 +1,21 @@
+C2D1_START=2026-07-22T04:16:07Z
+CARGO_HOME=/work/cargo-home
+CARGO_TARGET_DIR=/work/cargo-target-c2d1
+CARGO_INCREMENTAL=0
+RUSTUP_HOME=/work/rustup-home
+TARGET_ENTRY_COUNT_BEFORE=0
+total 4
+drwxrwxrwx 1 root root 4096 Jul 22 04:03 .
+drwxr-xr-x 9 root root 4096 Jul 22 04:16 ..
+rustc 1.92.0 (ded5c06cf 2025-12-08)
+cargo 1.92.0 (344c4567c 2025-10-21)
+1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421  /src/Cargo.lock
+
+# Host annotations
+previous_c2b4_target_mounted=false
+c2d1_target_host=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target
+cargo_incremental=0
+cargo_target_dir=/work/cargo-target-c2d1
+image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+resolved_image=Id=sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e RepoDigests=["rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"]
+jobs=-j 2 disclosed

@@ -1,0 +1,34 @@
+ARTIFACT_COMPARISON.txt — C2D-1 vs C2B-4
+
+previous_path=C:\dev\external-verification-work\grok-build-98c3b24\cargo-target\debug\xai-grok-pager
+previous_filename=xai-grok-pager
+previous_size_bytes=600647920
+previous_sha256=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+previous_build_id_sha1=29e028f32f8573ecc505d459d7d8a8e0341a361f
+previous_class=C2B-4 owner-side incremental build (CARGO_TARGET reused; not CARGO_INCREMENTAL=0)
+
+new_path=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target\debug\xai-grok-pager
+new_filename=xai-grok-pager
+new_size_bytes=600515304
+new_sha256=eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad
+new_build_id_sha1=989dd4bee3b9523fc82343293cbf0d3b0ad6fe89
+new_class=C2D-1 clean non-incremental; empty target; CARGO_INCREMENTAL=0; --locked; -j 2
+
+filename_match=yes
+architecture_match=yes (ELF x86-64 pie)
+file_format_match=yes (ELF 64-bit LSB pie, dynamically linked, debug_info not stripped)
+dynamic_deps_match=yes (libz, libgcc_s, libm, libc, ld-linux)
+size_match=no (600647920 vs 600515304; delta=-132616 bytes)
+sha256_match=no
+build_id_match=no
+
+bit_identical_status=BIT_IDENTICAL_NOT_OBSERVED
+
+classification_note=
+  OWNER-SIDE BUILD REPRODUCED, BIT-IDENTICAL RESULT NOT ESTABLISHED
+  Successful second owner-side clean rebuild does not require hash identity for CLEAN REBUILD PASS.
+  Likely nondeterministic inputs (not proven root-cause here): Build ID, debug paths/timestamps,
+  environment paths, parallel codegen layout (-j 2 vs prior default jobs), incremental vs clean
+  compilation differences. No diffoscope / large byte dump performed.
+
+do_not_claim=universal bit-for-bit reproducibility across all environments

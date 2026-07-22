@@ -1,0 +1,29 @@
+TARGET_PRECHECK.txt — STEP 2
+recorded_at=2026-07-22T13:03:24+09:00
+source_path=C:\dev\external-verification-targets\grok-build
+source_head=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+expected_source_head=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+source_head_match=True
+source_working_tree_porcelain:
+
+source_clean=True
+cargo_lock_sha256=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+expected_cargo_lock_sha256=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+cargo_lock_match=True
+previous_artifact_path=C:\dev\external-verification-work\grok-build-98c3b24\cargo-target\debug\xai-grok-pager
+previous_artifact_exists=True
+previous_artifact_size=600647920
+expected_previous_size=600647920
+previous_artifact_sha256=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+expected_previous_sha256=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+previous_sha_match=True
+pinned_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+docker_available=True
+docker_version=Client=29.4.3 Server=29.4.3
+resolved_image_inspect=Id=sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e RepoDigests=["rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"]
+new_work_root=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild
+new_cargo_target_dir=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target
+reuse_cargo_home_for_deps=C:\dev\external-verification-work\grok-build-98c3b24\cargo-home
+reuse_dotslash_cache=C:\dev\external-verification-work\grok-build-98c3b24\dotslash-cache
+previous_cargo_target_NOT_mounted=true
+target_precheck_gate=PASS

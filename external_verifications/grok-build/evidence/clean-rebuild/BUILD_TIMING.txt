@@ -1,0 +1,12 @@
+BUILD_TIMING.txt — C2D-1
+BUILD_START=2026-07-22T04:20:54Z
+BUILD_END=2026-07-22T05:43:07Z
+cargo_internal_elapsed=85m 21s
+host_wall_clock_approx=01:27:12 (docker process wait)
+CARGO_BUILD_EXIT=0
+profile=dev (default; no --release)
+CARGO_INCREMENTAL=0
+jobs=-j 2 (disclosed; used to reduce Docker/WSL crash risk after earlier OOMs)
+finished_line=Finished `dev` profile [unoptimized + debuginfo] target(s) in 85m 21s
+warning_count=0
+compiling_lines=1000

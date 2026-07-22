@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **check+build PASS; static startup PARTIAL (C2C-1 whole-session); overall PARTIAL** |
+| Results status | **check+build PASS; clean rebuild PASS (C2D-1); static startup PARTIAL; overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-22` (C2C-1 corrected) |
-| Linked reproduction run ID | C2C-1 `run-20260722-startup-boundary` (whole-session disclosure) |
+| Compilation date | `2026-07-22` (C2D-1) |
+| Linked reproduction run ID | C2D-1 `run-20260722-clean-rebuild` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -35,6 +35,7 @@
 | Phase C2B-2 (packages/DotSlash/protoc) | **`PASS`** |
 | Phase C2B-3 (cargo check) | **`PASS`** |
 | Phase C2B-4 (cargo build) | **`PASS`** (exit 0; 43m 18s; incremental) |
+| Phase C2D-1 (clean non-incremental rebuild) | **`PASS`** (exit 0; 85m 21s; BIT_IDENTICAL_NOT_OBSERVED) |
 
 ## 2. Per-Claim Results
 
@@ -56,6 +57,7 @@
 | C-017 | Container bootstrap | `PASS` | evidence/container-bootstrap/ |
 | C-018 | Narrow cargo build | `PASS` | evidence/cargo-build/ |
 | C-019 | Static startup boundary (help/version) | `PARTIAL` | evidence/startup-boundary/ |
+| C-020 | Clean non-incremental narrow rebuild | `PASS` | evidence/clean-rebuild/ |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
 | C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
@@ -68,8 +70,10 @@
 | Dependencies acquired (check run) | `PASS` | network crates.io; lock unchanged |
 | `cargo check -p xai-grok-pager-bin` | `PASS` | C2B-3 |
 | `cargo build -p xai-grok-pager-bin` | `PASS` | C2B-4 incremental; artifact hash recorded |
+| Clean rebuild `cargo build -p xai-grok-pager-bin --locked` + `CARGO_INCREMENTAL=0` | `PASS` | C2D-1; new empty target; 85m 21s |
+| Bit-identical C2B-4 vs C2D-1 | **NOT_OBSERVED** | sizes/hashes differ |
 | Release (`--release`) / full workspace | `NOT_STARTED` | |
-| Build reproducibility (clean-room/bit-identical) | `NOT_STARTED` / axis **PARTIAL** | |
+| Build reproducibility (clean-room/bit-identical/witness) | axis **PARTIAL** | owner-side clean rebuild PASS; not bit-identical; no witness |
 | Windows build-env readiness | `BLOCKED` | |
 | Docker image+toolchain | `PASS` | |
 | Bootstrap | `PASS` | |
@@ -135,7 +139,7 @@
 | Status | Claims |
 |--------|-------:|
 | `NOT_STARTED` | 2 |
-| `PASS` | 15 (incl. C-013, C-016–C-018) |
+| `PASS` | 16 (incl. C-013, C-016–C-018, C-020) |
 | `PARTIAL` | 1 (C-019 static startup) |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |
@@ -225,6 +229,7 @@
 | 2026-07-18 | Phase C2B-4 cargo build exit 0 (incremental) |
 | 2026-07-22 | Phase C2C-1 static startup PARTIAL (execution withheld; safety gate) |
 | 2026-07-22 | C2C-1 whole-session disclosure correction (draft six invocations recorded) |
+| 2026-07-22 | Phase C2D-1 clean non-incremental rebuild PASS (bit-identical not observed) |
 
 ---
 

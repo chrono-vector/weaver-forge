@@ -1,0 +1,13 @@
+NEW_ARTIFACT.txt — C2D-1
+path_host=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target\debug\xai-grok-pager
+path_container=/work/cargo-target-c2d1/debug/xai-grok-pager
+filename=xai-grok-pager
+size_bytes=600515304
+sha256=eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad
+file=ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked
+interpreter=/lib64/ld-linux-x86-64.so.2
+BuildID_sha1=989dd4bee3b9523fc82343293cbf0d3b0ad6fe89
+debug_info=with debug_info, not stripped
+dynamic_deps=linux-vdso.so.1; libz.so.1; libgcc_s.so.1; libm.so.6; libc.so.6; ld-linux-x86-64.so.2
+executed=NO
+product_args_used=none

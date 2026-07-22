@@ -1,0 +1,13 @@
+PRECHECK.txt — Weaver STEP 1
+recorded_at=2026-07-22T13:03:24+09:00
+current_directory=C:\dev\weaver-forge
+branch=main
+head=673e393f9349af1d04485b7c17d69ea9cc839060
+origin_main=673e393f9349af1d04485b7c17d69ea9cc839060
+expected_head_prefix=673e393
+head_prefix_match=True
+origin_main_synchronized=True
+working_tree_clean=True
+staged_files=(none)
+unstaged_files=(none)
+precheck_gate=PASS

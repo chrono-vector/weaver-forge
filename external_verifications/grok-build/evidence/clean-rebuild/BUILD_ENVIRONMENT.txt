@@ -1,0 +1,9 @@
+BUILD_START=2026-07-22T04:20:54Z
+CMD=cargo build -p xai-grok-pager-bin --locked -j 2
+CARGO_INCREMENTAL=0
+CARGO_TARGET_DIR=/work/cargo-target-c2d1
+TARGET_ENTRY_COUNT_BEFORE_BUILD=0
+NETWORK=bridge disclosed
+SKIP_SEPARATE_FETCH=yes (use CARGO_HOME registry; missing deps fetch during build)
+BUILD_END=2026-07-22T05:43:07Z
+CARGO_BUILD_EXIT=0

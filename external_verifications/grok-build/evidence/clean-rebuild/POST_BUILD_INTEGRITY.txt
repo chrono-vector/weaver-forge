@@ -1,0 +1,13 @@
+POST_BUILD_INTEGRITY.txt — C2D-1
+source_head=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+source_head_unchanged=yes
+source_working_tree_clean=yes (verified via git status --porcelain empty)
+cargo_lock_sha256=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+cargo_lock_unchanged=yes
+previous_artifact_sha256_after=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+previous_artifact_unchanged=yes
+new_artifact_preserved_separately=yes
+  path=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target\debug\xai-grok-pager
+product_execution_this_phase=NO
+source_modified=no
+weaver_changes=documentation/evidence only

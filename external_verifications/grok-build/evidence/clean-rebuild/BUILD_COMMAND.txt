@@ -1,0 +1,14 @@
+BUILD_COMMAND.txt — C2D-1 successful run
+exact_cargo_command=cargo build -p xai-grok-pager-bin --locked -j 2
+CARGO_INCREMENTAL=0
+CARGO_TARGET_DIR=/work/cargo-target-c2d1
+CARGO_HOME=/work/cargo-home
+DOTSLASH_CACHE=/work/dotslash-cache
+RUSTUP_HOME=/work/rustup-home
+HOME=/work/c2d1-home
+network=bridge
+image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+docker_host_command:
+run --rm --name grok-c2d1-clean-rebuild --network=bridge --security-opt no-new-privileges --cpus 2 -v C:\dev\external-verification-targets\grok-build:/src:ro -v C:\dev\external-verification-work\grok-build-98c3b24\cargo-home:/work/cargo-home -v C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target:/work/cargo-target-c2d1 -v C:\dev\external-verification-work\grok-build-98c3b24\dotslash-cache:/work/dotslash-cache -v C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\logs:/work/logs -v C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\container-state:/work/container-state -v C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\home:/work/c2d1-home -v C:\dev\external-verification-work\grok-build-98c3b24\rustup-home:/work/rustup-home -e CARGO_HOME=/work/cargo-home -e CARGO_TARGET_DIR=/work/cargo-target-c2d1 -e CARGO_INCREMENTAL=0 -e DOTSLASH_CACHE=/work/dotslash-cache -e RUSTUP_HOME=/work/rustup-home -e HOME=/work/c2d1-home -e PATH=/work/cargo-home/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -w /src docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e bash /work/container-state/c2d1-clean-rebuild.sh
+
+notes=prior Stage A / first single-container attempts crashed Docker (exit 125); this command is the successful run

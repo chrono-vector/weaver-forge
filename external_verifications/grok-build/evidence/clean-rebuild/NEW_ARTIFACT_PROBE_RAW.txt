@@ -1,0 +1,42 @@
+=== artifact probe NO EXECUTION ===
+FOUND=/work/cargo-target-c2d1/debug/xai-grok-pager
+-rwxr-xr-x 2 root root 600515304 Jul 22 05:43 /work/cargo-target-c2d1/debug/xai-grok-pager
+/work/cargo-target-c2d1/debug/xai-grok-pager: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=989dd4bee3b9523fc82343293cbf0d3b0ad6fe89, with debug_info, not stripped
+eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad  /work/cargo-target-c2d1/debug/xai-grok-pager
+SIZE_BYTES=600515304
+
+Displaying notes found in: .note.ABI-tag
+  Owner                Data size 	Description
+  GNU                  0x00000010	NT_GNU_ABI_TAG (ABI version tag)
+    OS: Linux, ABI: 3.2.0
+
+Displaying notes found in: .note.gnu.build-id
+  Owner                Data size 	Description
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: 989dd4bee3b9523fc82343293cbf0d3b0ad6fe89
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Version:                           0x1
+  Entry point address:               0x47f8400
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          600512360 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         12
+  Size of section headers:           64 (bytes)
+  Number of section headers:         46
+  Section header string table index: 44
+	linux-vdso.so.1 (0x00007fff33bc9000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x000071a55d69c000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000071a55d66f000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000071a55d57f000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000071a55d38a000)
+	/lib64/ld-linux-x86-64.so.2 (0x000071a56d51e000)

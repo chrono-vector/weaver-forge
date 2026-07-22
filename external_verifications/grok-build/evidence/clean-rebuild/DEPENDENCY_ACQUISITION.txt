@@ -1,0 +1,14 @@
+DEPENDENCY_ACQUISITION.txt — C2D-1
+method=reused prior C2B cargo-home registry/git caches under
+  C:\dev\external-verification-work\grok-build-98c3b24\cargo-home
+dotslash_cache_reused=C:\dev\external-verification-work\grok-build-98c3b24\dotslash-cache
+separate_cargo_fetch_stage=attempted earlier; Docker engine crashed mid-fetch (exit 125 unexpected EOF)
+successful_build_path=single container with network=bridge; no separate fetch command;
+  cargo build used CARGO_HOME registry; any missing crates fetched during build
+network_during_successful_build=bridge (disclosed; NOT network-none)
+compiled_target_from_c2b4=NOT mounted; new empty CARGO_TARGET_DIR only
+bootstrap_reused=apt packages + DotSlash 0.5.7 (already present) + LF-safe protoc wrapper (prior verified recipe)
+rustup_home_persistent=C:\dev\external-verification-work\grok-build-98c3b24\rustup-home
+  (avoids re-downloading toolchain components into empty disposable HOME each run)
+note_prior_crashes=two Docker daemon crashes during Stage A / first single-container attempt
+  while downloading crates / early bootstrap; successful attempt used -j 2 and persistent RUSTUP_HOME
