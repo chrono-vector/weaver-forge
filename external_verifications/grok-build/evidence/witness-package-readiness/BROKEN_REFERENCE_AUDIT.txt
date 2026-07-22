@@ -1,0 +1,5 @@
+BROKEN_REFERENCE_AUDIT.txt — C2E-1
+superseded_for_witness_commands:
+  REPRODUCTION.md owner path sequences — mark as owner history; point Witness to witness-package/README.md
+  WITNESS_HANDOFF.md previously lacked pointer to full runbook — updated this phase
+no_competing_second_runbook_created=single canonical witness-package/

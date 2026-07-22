@@ -1,0 +1,9 @@
+READINESS_GAPS.txt — C2E-1
+remaining_non_fatal_limitations:
+  1. apt package versions not digest-pinned
+  2. offline-from-empty-cache not established
+  3. remote public availability of this package revision not re-verified by web fetch (local git remote only)
+  4. long-build resource minima are recommended/observed, not lab-measured absolute floors
+  5. Windows-native path remains BLOCKED
+  6. Historical owner docs still contain owner paths (labelled historical)
+fatal_blockers_for_start=none identified after package creation

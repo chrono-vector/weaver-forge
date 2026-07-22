@@ -1,0 +1,3 @@
+# ENVIRONMENT.txt — Independent Witness evidence template
+# Fill with Witness observations. Do not copy owner evidence.
+# Redact secrets. Do not execute the product binary.

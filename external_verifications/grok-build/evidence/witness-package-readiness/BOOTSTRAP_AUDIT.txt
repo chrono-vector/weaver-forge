@@ -1,0 +1,18 @@
+BOOTSTRAP_AUDIT.txt — C2E-1
+mandatory:
+  pinned rust image digest
+  rust 1.92.0 class toolchain
+  network for dependency acquisition (unless pre-populated own cache with disclosure)
+  DotSlash (owner pin 0.5.7)
+  protoc via DotSlash hermetic path (29.3 observed)
+  apt build packages (versions NOT pinned)
+optional_or_convenience:
+  cargo fetch before build
+  persistent RUSTUP_HOME
+  CARGO_HOME reuse WITHIN witness-owned dirs only
+owner_cache_optimizations_not_to_copy:
+  owner cargo-home, cargo-target, dotslash-cache contents
+limitations:
+  apt package versions unpinned
+  offline reproduction not established
+  DotSlash checksum recorded historically; witness should still pin --version 0.5.7

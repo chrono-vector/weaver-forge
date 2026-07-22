@@ -29,8 +29,10 @@
 
 | Field | Value |
 |-------|-------|
-| Repository / artifact root | `C:\dev\external-verification-targets\grok-build` |
+| Repository / artifact root | `C:\dev\external-verification-targets\grok-build` (**owner-side historical path**) |
 | Weaver package path | `external_verifications/grok-build/` (Weaver Forge repo) |
+
+> **Witness note (C2E-1):** This file is an **owner-side historical reproduction log**. Independent Witnesses must follow **`witness-package/README.md`** and **`WITNESS_RUNBOOK.md`** only. Do not treat owner `C:\dev\...` paths as Witness requirements.
 
 ## 3. Command Sequence (executed)
 

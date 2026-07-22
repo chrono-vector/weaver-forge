@@ -1,0 +1,4 @@
+EVIDENCE_TEMPLATE_AUDIT.txt — C2E-1
+templates_present=yes under witness-package/templates/
+manifest_lists_required_outputs=yes
+raw_stdout_stderr_instructed_as_filenames_not_empty_templates=yes

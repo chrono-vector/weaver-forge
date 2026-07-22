@@ -3,13 +3,14 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side check+build+clean-rebuild+variance PASS; static startup PARTIAL; witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package READY WITH LIMITATIONS; Independent Witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-22` |
-| Verification-plan version / date | Phase C2D-2 2026-07-22 |
+| Verification-plan version / date | Phase C2E-1 2026-07-22 |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
+| **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
 
 Pinned commit: **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`**
 
@@ -48,6 +49,9 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | C2C-1 completion note | `docs/GROK_BUILD_STARTUP_BOUNDARY_COMPLETION_NOTE.md` | Yes |
 | C2D-1 completion note | `docs/GROK_BUILD_CLEAN_REBUILD_COMPLETION_NOTE.md` | Yes |
 | C2D-2 completion note | `docs/GROK_BUILD_ARTIFACT_VARIANCE_ANALYSIS_COMPLETION_NOTE.md` | Yes |
+| **Witness package (canonical)** | **`witness-package/README.md` + runbook** | **Yes (C2E-1)** |
+| Witness readiness evidence | `evidence/witness-package-readiness/` | Yes |
+| C2E-1 completion note | `docs/GROK_BUILD_WITNESS_PACKAGE_READINESS_AUDIT_COMPLETION_NOTE.md` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -146,7 +150,9 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2D-1 done (owner-side):** clean non-incremental `cargo build -p xai-grok-pager-bin --locked` with empty target and `CARGO_INCREMENTAL=0`; exit 0 in 85m 21s; new artifact SHA-256 `eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad` (**differs** from C2B-4). **CLEAN REBUILD PASS**; **BIT_IDENTICAL_NOT_OBSERVED**. Product **not** executed. Evidence: `evidence/clean-rebuild/`.
 
-**C2D-2 done (owner-side):** static variance analysis of C2B-4 vs C2D-1 artifacts (no execution, no `ldd`, no rebuild). 15 identical / 30 differing sections; **`.text` differs**; GNU Build IDs differ (identifier of distinct linked outputs, not a root cause); embedded paths `/work/cargo-target` vs `/work/cargo-target-c2d1` (supported likely metadata contributor). Executable/relocation differences documented without isolating incremental-vs-clean as sole cause. **ARTIFACT VARIANCE ANALYSIS PASS**; root-cause confidence **LIKELY** (partial; unique full cause not established). Evidence: `evidence/artifact-variance/`. Witness may re-run isolation recipes independently (preferably clean caches if claiming clean-room).
+**C2D-2 done (owner-side):** static variance analysis of C2B-4 vs C2D-1 artifacts (no execution, no `ldd`, no rebuild). 15 identical / 30 differing sections; **`.text` differs**; GNU Build IDs differ (identifier of distinct linked outputs, not a root cause); embedded paths `/work/cargo-target` vs `/work/cargo-target-c2d1` (supported likely metadata contributor). Executable/relocation differences documented without isolating incremental-vs-clean as sole cause. **ARTIFACT VARIANCE ANALYSIS PASS**; root-cause confidence **LIKELY** (partial; unique full cause not established). Evidence: `evidence/artifact-variance/`.
+
+**C2E-1 done (owner-side package audit):** Independent Witness package prepared at `witness-package/` (public entry points, fixed identities, portable runbook, templates, classification, submission, redaction). Classification **WITNESS PACKAGE READY WITH LIMITATIONS**. **Independent Witness remains `NOT_STARTED`.** A new Witness must follow **`witness-package/README.md`** and **`WITNESS_RUNBOOK.md`** only — not owner `C:\dev\...` evidence paths.
 
 ---
 

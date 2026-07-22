@@ -1,0 +1,4 @@
+CLASSIFICATION_AUDIT.txt — C2E-1
+PASS_PARTIAL_FAIL_INDETERMINATE=defined in WITNESS_CLASSIFICATION.md
+bit_identical_not_required_for_pass=yes
+different_sha_not_fail_by_itself=yes

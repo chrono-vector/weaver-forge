@@ -1,0 +1,11 @@
+PORTABILITY_AUDIT.txt — C2E-1
+owner_paths_found_in_historical_materials:
+  C:\dev\weaver-forge
+  C:\dev\external-verification-targets\grok-build
+  C:\dev\external-verification-work\grok-build-98c3b24
+  /work/cargo-target
+  /work/cargo-target-c2d1
+classification:
+  historical evidence = evidence-only (acceptable)
+  Witness runbook uses $SRC_DIR $WORK_DIR $CARGO_TARGET_W placeholders only
+witness_command_requirement_of_owner_paths=no (after corrections)

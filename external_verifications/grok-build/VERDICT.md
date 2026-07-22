@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Verdict status | **Narrow build/check/clean-rebuild PASS; variance analysis PASS; static startup PARTIAL; overall PARTIAL** |
+| Verdict status | **Owner-side build axes PASS; Witness package READY WITH LIMITATIONS; Independent Witness NOT_STARTED; overall PARTIAL** |
 | Issued by | Weaver Forge documentation package author |
 | Role | Owner-side evaluator (not independent witness) |
-| Verdict date | `2026-07-22` (C2D-2) |
+| Verdict date | `2026-07-22` (C2E-1) |
 | Source pin | **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`** |
 
 ---
@@ -16,16 +16,17 @@
 | Axis | Verdict | Notes |
 |------|---------|-------|
 | Source authenticity | `PASS` | |
-| Artifact integrity | `PARTIAL` | Two owner-side hashes; no publisher digests |
+| Artifact integrity | `PARTIAL` | Local hashes; two owner binaries differ |
 | Owner-side narrow rebuild | `PASS` | C2D-1 |
-| Build reproducibility | **`PARTIAL`** | Clean rebuild OK; not bit-identical; path metadata a supported partial contributor; unique full cause not established; no witness |
+| Build reproducibility | **`PARTIAL`** | Owner clean rebuild OK; not bit-identical; **no independent witness run yet** |
 | Functional | `NOT_STARTED` | |
 | Security | `NOT_STARTED` | |
-| Independent witness | `NOT_STARTED` | |
+| Independent witness | **`NOT_STARTED`** | Package readiness ≠ reproduction |
+| Witness package readiness | **READY WITH LIMITATIONS** | C2E-1 / C-022 |
 | Operational readiness | `NOT_STARTED` | |
 | Windows readiness | `BLOCKED` | |
-| Static startup boundary | `PARTIAL` | C2C-1 |
-| Artifact variance analysis | **`PASS`** | C2D-2 static only |
+| Static startup | `PARTIAL` | |
+| Artifact variance analysis | `PASS` | |
 | **Overall** | **`PARTIAL`** | |
 
 ## Claim rollup
@@ -35,22 +36,17 @@
 | C-001–C-011 | PASS (docs) |
 | C-012 | NOT_STARTED |
 | C-013 | PASS |
-| C-014 | NOT_STARTED |
+| C-014 | **NOT_STARTED** (Independent Witness) |
 | C-015 | BLOCKED |
 | C-016–C-018 | PASS |
 | C-019 | PARTIAL |
-| C-020 | PASS (clean rebuild) |
-| C-021 | **PASS** (variance analysis completed; ROOT_CAUSE_LIKELY = partial contribution only) |
+| C-020–C-021 | PASS |
+| C-022 | **PASS** (Witness **package readiness** only) |
 
-## Artifacts
+## Where a Witness starts
 
-| Build | Size | SHA-256 | `.text` |
-|-------|-----:|---------|---------|
-| C2B-4 | 600647920 | `1efcd864…` | differs from C2D-1 |
-| C2D-1 | 600515304 | `eebdbe81…` | differs from C2B-4 |
-
-Embedded paths: `/work/cargo-target/...` (old) vs `/work/cargo-target-c2d1/...` (new). Product not executed in C2D-2.
+`external_verifications/grok-build/witness-package/README.md`
 
 ---
 
-**Witness is attestation, not authority.**
+**Witness is attestation, not authority. Package readiness is not Independent Witness PASS.**

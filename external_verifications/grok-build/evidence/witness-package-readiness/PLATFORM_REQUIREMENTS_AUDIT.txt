@@ -1,0 +1,9 @@
+PLATFORM_REQUIREMENTS_AUDIT.txt — C2E-1
+recommended_host=Linux or Windows+Docker Linux containers
+docker_required=yes for documented route
+arch_expectation=linux/amd64 container (owner-observed)
+disk=substantial multi-GB; recommend tens of GB free (not a measured hard minimum)
+RAM=recommend >=8-16 GiB practical (owner multi-GB containers)
+duration=well over one hour possible (owner clean rebuild cargo ~85m)
+network=required for image/apt/deps/DotSlash; offline-from-empty-cache NOT established
+windows_native=BLOCKED

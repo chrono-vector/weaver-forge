@@ -1,0 +1,4 @@
+SECURITY_AND_PRIVACY_AUDIT.txt — C2E-1
+redaction_guidance=present
+forbidden_secrets_listed=yes
+must_keep_commit_digest_command_exit_hash_visible=yes

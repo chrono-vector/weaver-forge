@@ -1,0 +1,8 @@
+PUBLIC_ENTRY_POINT_AUDIT.txt — C2E-1
+local_git_remote_origin=https://github.com/chrono-vector/weaver-forge.git
+weaver_public_url_documented_in_package=https://github.com/chrono-vector/weaver-forge
+grok_build_source_url=https://github.com/xai-org/grok-build
+witness_package_path=external_verifications/grok-build/witness-package/
+third_party_would_know_to_clone_weaver_first=yes (after this package; README states entry)
+all_required_witness_files_are_repo_relative=yes (created this phase)
+remote_availability_not_web_verified=yes (local config + docs only; no web browse)

@@ -1,0 +1,12 @@
+FIXED_IDENTITY_AUDIT.txt — C2E-1
+source_url=https://github.com/xai-org/grok-build  CONSISTENT in SOURCE_IDENTITY / WITNESS_HANDOFF / new runbook
+source_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce  FULL (not abbreviated) in Witness package
+image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e  FULL in Witness package
+rust=1.92.0  documented
+package=xai-grok-pager-bin  documented
+command=cargo build -p xai-grok-pager-bin --locked  documented
+CARGO_INCREMENTAL=0  documented
+empty_CARGO_TARGET_DIR  documented
+Cargo.lock expected_sha256=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421  documented
+owner_path_dependence_in_witness_commands=none after package creation
+historical_owner_evidence_still_contains_C_drive_paths=yes (acceptable as evidence-only)

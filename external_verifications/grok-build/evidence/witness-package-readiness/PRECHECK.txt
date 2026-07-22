@@ -1,0 +1,11 @@
+PRECHECK.txt — C2E-1
+current_directory=C:\dev\weaver-forge
+branch=main
+head=994fbdc093b70ec367096301261fba04147a44d4
+origin_main=994fbdc093b70ec367096301261fba04147a44d4
+head_exact_match=True
+origin_main_synchronized=True
+working_tree_clean=True
+staged_at_start=none
+unstaged_at_start=none
+precheck_gate=PASS

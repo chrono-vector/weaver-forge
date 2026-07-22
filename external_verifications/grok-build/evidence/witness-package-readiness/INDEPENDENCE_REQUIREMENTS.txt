@@ -1,0 +1,13 @@
+INDEPENDENCE_REQUIREMENTS.txt — C2E-1
+required:
+  independent person
+  independent host/VM/cloud
+  fresh public source clone
+  empty new CARGO_TARGET_DIR
+  CARGO_INCREMENTAL=0
+  no owner target/binary/volume/cache as input
+  no product credentials
+allowed:
+  public image by digest
+  public crates.io/git downloads
+  witness-created dependency cache (disclosed; no compiled pin targets)

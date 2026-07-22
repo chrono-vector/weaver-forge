@@ -1,0 +1,21 @@
+EXISTING_MATERIAL_INVENTORY.txt — C2E-1
+present:
+  WITNESS_HANDOFF.md (owner handoff; Independent Witness NOT_STARTED)
+  REPRODUCTION.md (owner-side historical log; contains C:\dev paths)
+  ENVIRONMENT.md (owner-side)
+  RESULTS.md VERDICT.md CLAIM_REGISTER.md SOURCE_IDENTITY.md VERIFICATION_PLAN.md
+  evidence/* (owner-side: source-inspection through artifact-variance)
+  docs/GROK_BUILD_*_COMPLETION_NOTE.md (owner completion notes)
+  templates/external_artifact_verification/* (generic templates, not Grok-specific Witness runbook)
+missing_before_audit:
+  external_verifications/grok-build/witness-package/ (did not exist)
+  external_verifications/grok-build/README.md (package-level README)
+  dedicated Witness evidence templates for narrow rebuild
+  precise PASS/PARTIAL/FAIL rules for Independent Narrow Rebuild
+  submission branch/directory conventions for Grok Build
+conflicts_or_risks:
+  REPRODUCTION.md and historical evidence document owner paths and multi-phase history
+  WITNESS_HANDOFF section 6.2 still lists cargo run as "documented" without clear Witness prohibition context
+  No single canonical runbook prior to this phase
+classification_of_owner_materials:
+  evidence and completion notes = historical owner-side records (not Witness evidence)

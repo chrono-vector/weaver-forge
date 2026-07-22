@@ -1,0 +1,3 @@
+COMMAND_SAFETY_AUDIT.txt — C2E-1
+authorized: git, docker pull/inspect/run, apt bootstrap, cargo install dotslash 0.5.7, cargo fetch/build narrow locked, static sha256/file/readelf/objdump
+prohibited: product execution including --version --help -h, bare TUI, login, agent, prompts, OAuth, models, update, ldd, full workspace, release unless separate auth, source/lock edits

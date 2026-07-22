@@ -1,0 +1,10 @@
+POST_AUDIT_INTEGRITY.txt — C2E-1
+target_source_not_modified=yes (no cargo/docker against target this phase)
+cargo_lock_not_modified=yes
+owner_artifacts_not_touched=yes
+product_execution=no
+docker=no
+cargo=no
+build=no
+static_analysis_of_binaries=no
+weaver_changes=docs templates audit evidence indexes only
