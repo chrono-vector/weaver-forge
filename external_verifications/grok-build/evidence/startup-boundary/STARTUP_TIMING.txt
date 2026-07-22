@@ -1,0 +1,17 @@
+STARTUP_TIMING.txt — whole session
+
+========================================================================
+DRAFT ATTEMPT (EXECUTED, NON-CONFORMANT)
+========================================================================
+label=SUMMARY from session record (draft logs discarded)
+host_docker_wall_approx=~18.7s for six probes + bookkeeping (approximate; not re-measured)
+per-probe elapsed (approximate, draft): each version/help probe ~0.8–1.5s
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+status=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+start_timestamp=N/A
+end_timestamp=N/A
+elapsed_time=N/A
+static_inspection_container_only=file/readelf/ldd (did not exec product CLI)

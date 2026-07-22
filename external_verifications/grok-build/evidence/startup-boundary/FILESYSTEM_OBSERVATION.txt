@@ -1,0 +1,27 @@
+FILESYSTEM_OBSERVATION.txt — whole-session filesystem notes
+
+========================================================================
+DRAFT ATTEMPT
+========================================================================
+product_executed=YES (six CLI invocations; non-conformant)
+disposable_HOME=/work/c2c1-home
+writes_observed=YES under disposable $HOME/.grok including:
+  - user-guide documentation material under .grok/docs/user-guide/
+  - active_sessions-related state
+filesystem_side_effect_free_startup=FAIL
+source_tree_modified=no (target pin source not written by product CLI path as recorded)
+binary_artifact_hash_after_draft=unchanged at recorded C2B-4 SHA-256 (integrity checks)
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+product_executed=NO
+filesystem_before_after_for_product_cli=N/A (binary not run under final gate)
+static_inspection_only=file/readelf/ldd tools against RO artifact mount; not product CLI
+
+========================================================================
+CONCLUSION
+========================================================================
+No claim of filesystem-side-effect-free CLI startup is permitted.
+Draft observations prove the opposite under disposable HOME.
+Final gate did not re-run the product and does not erase draft side-effect findings.

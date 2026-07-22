@@ -1,0 +1,28 @@
+PROTOCOL_DEVIATION.txt — C2C-1 protocol conformance
+phase=C2C-1 static startup boundary
+status=FAIL (protocol conformance)
+
+========================================================================
+AUTHORIZATION (final gated procedure design)
+========================================================================
+- At most ONE product binary invocation was authorized, and only if the source-level
+  safety gate passed.
+- Permitted arguments only: --version, then --help, then -h (first demonstrably safe).
+- No bare launch; no login/agent/update/models; no Windows-host execution; no rebuild.
+
+========================================================================
+DEVIATION (draft attempt)
+========================================================================
+- Six product invocations occurred during the earlier draft attempt (see WHOLE_SESSION_HISTORY.txt).
+- That exceeds the one-invocation authorization.
+- The draft invocations are therefore NON-CONFORMANT and not protocol-authorized startup proof.
+- Draft isolation (network none; disposable HOME) does not cure the protocol count violation.
+
+========================================================================
+AFTER SAFETY ANALYSIS
+========================================================================
+- Source inspection established CLI parse after application init.
+- Final gated procedure: product binary NOT EXECUTED — SAFETY GATE NOT SATISFIED.
+- No further product execution was performed after the safety analysis (this correction is docs-only).
+
+protocol_conformance_classification=FAIL

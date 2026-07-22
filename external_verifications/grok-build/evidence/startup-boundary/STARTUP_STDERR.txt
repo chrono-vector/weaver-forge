@@ -1,0 +1,14 @@
+STARTUP_STDERR.txt — whole-session stderr record
+
+========================================================================
+DRAFT ATTEMPT (EXECUTED, NON-CONFORMANT)
+========================================================================
+label=SUMMARY from session record
+version/help-family probes: stderr empty / no product error lines recorded for the six draft exits 0
+note=full draft stderr files were discarded with evidence/safe-startup/; not re-fabricated
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+status=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+stderr_from_product=none (product binary not started under final gate)

@@ -1,0 +1,27 @@
+NETWORK_ISOLATION.txt — whole-session network notes
+
+========================================================================
+DRAFT ATTEMPT
+========================================================================
+product_executed=YES (six CLI invocations; non-conformant)
+docker_network_mode=none (--network=none)
+external_network_access=STRUCTURALLY DISABLED for the draft container
+classification=PASS WITH STRUCTURAL LIMITS
+syscall_level_observation=NOT PERFORMED / not retained
+therefore:
+  - may claim external network access was structurally disabled during draft
+  - must NOT claim that no network syscall was attempted by the product
+  - must NOT claim product networking behavior is fully characterized
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+product_executed=NO
+network_claims_for_product_process=N/A (product binary not started)
+static_inspection_container=used --network none for tool-only inspect (not product CLI)
+
+========================================================================
+SOURCE NOTE (FINAL GATE)
+========================================================================
+main() calls sentry::init before CLI parse; network behavior of that path under network=none
+was not measured with syscall tracing in the final gated procedure (product not re-executed).

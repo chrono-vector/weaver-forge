@@ -1,0 +1,36 @@
+EXECUTION_COMMAND.txt — C2C-1 product execution record (whole session)
+
+========================================================================
+A) DRAFT ATTEMPT — EXECUTED, NON-CONFORMANT
+========================================================================
+status=EXECUTED, NON-CONFORMANT
+authorization=not protocol-authorized as final C2C-1 gated run (six invocations > max one)
+environment=Docker; --network=none; HOME=/work/c2c1-home; C2B-4 artifact
+exact_commands=
+  /work/cargo-target/debug/xai-grok-pager --version
+  /work/cargo-target/debug/xai-grok-pager -V
+  /work/cargo-target/debug/xai-grok-pager version
+  /work/cargo-target/debug/xai-grok-pager version --json
+  /work/cargo-target/debug/xai-grok-pager --help
+  /work/cargo-target/debug/xai-grok-pager -h
+see_also=DRAFT_EXECUTION_OBSERVATIONS.txt; PROTOCOL_DEVIATION.txt; WHOLE_SESSION_HISTORY.txt
+
+========================================================================
+B) FINAL GATED ATTEMPT — NOT EXECUTED
+========================================================================
+status=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+selected_argument=NONE
+reason=Source-level analysis shows main() performs memory_trace start, validate_requirements,
+sentry::init, extract_user_guide_docs, crash-handler/active_sessions bookkeeping, and tokio
+runtime creation BEFORE PagerArgs::parse_and_apply_cwd(). Therefore --version, --help, and -h
+are not demonstrably safe under the mandatory pre-initialization principle.
+container_invocation_for_product_cli=NOT PERFORMED
+exact_binary_command=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+see_also=CLI_SAFETY_GATE.txt
+
+========================================================================
+C) THIS DOCUMENTATION CORRECTION
+========================================================================
+product_executed_during_correction=NO
+docker_run_during_correction=NO
+cargo_run_during_correction=NO

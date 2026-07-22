@@ -1,0 +1,65 @@
+DRAFT_EXECUTION_OBSERVATIONS.txt — retrospective draft attempt record
+source_of_record=confirmed whole-session session/operations history (draft evidence discarded)
+draft_protocol_status=NON-CONFORMANT (six invocations; max one authorized)
+classification_draft_cli_observational_result=PASS
+classification_external_network_isolation=PASS WITH STRUCTURAL LIMITS
+classification_product_authentication=NOT REQUESTED / NOT REQUIRED FOR OBSERVED VERSION-HELP RESPONSES
+classification_filesystem_side_effect_free_startup=FAIL
+
+========================================================================
+ISOLATION (DRAFT)
+========================================================================
+container_network=disabled (--network=none)
+disposable_HOME=/work/c2c1-home
+host_home_mounted=no
+product_credentials=none
+artifact=C2B-4 xai-grok-pager under /work/cargo-target/debug/xai-grok-pager
+image_pin=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+========================================================================
+EXACT PRODUCT COMMANDS (DRAFT)
+========================================================================
+1. /work/cargo-target/debug/xai-grok-pager --version
+2. /work/cargo-target/debug/xai-grok-pager -V
+3. /work/cargo-target/debug/xai-grok-pager version
+4. /work/cargo-target/debug/xai-grok-pager version --json
+5. /work/cargo-target/debug/xai-grok-pager --help
+6. /work/cargo-target/debug/xai-grok-pager -h
+
+========================================================================
+OBSERVED RESULTS (KNOWN)
+========================================================================
+exit_behavior:
+  all six version/help-family commands exited 0 (draft observational PASS for those surfaces)
+
+version_family_stdout (exact known line):
+  grok 0.2.102 (98c3b24)
+
+version --json stdout (exact known line):
+  {"currentVersion":"0.2.102 (98c3b24)","channel":"unknown"}
+
+help_family:
+  exit 0
+  help identified the application as "Grok Build TUI"
+  help stdout size observed ~6011 bytes in draft (verbatim full help text not re-preserved here;
+  label=SUMMARY not full dump)
+
+not_run_in_draft:
+  bare no-argument TUI
+  login / logout
+  agent / -p / headless product prompts
+  update / models / setup / tests / release workflow
+
+filesystem_side_effects (draft):
+  writes under disposable $HOME/.grok including:
+  - user-guide documentation extraction under .grok/docs/user-guide/
+  - active_sessions-related state files
+  therefore: filesystem-side-effect-free startup = FAIL
+
+========================================================================
+OBSERVATION LIMITATIONS
+========================================================================
+- Draft raw evidence directory evidence/safe-startup/ was discarded; this file is retrospective.
+- No syscall-level network trace was retained; external network was structurally disabled only.
+- Draft isolation success does not establish a safe pre-initialization CLI boundary.
+- Draft multi-invocation run is not protocol-conformant C2C-1 PASS.

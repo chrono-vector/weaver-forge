@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; C-013 check PASS; C-018 narrow build PASS; overall PARTIAL |
-| Register status | C-013/C-018 PASS (narrow); C-012 full/release open; C-015 BLOCKED |
+| Current verification state | Windows BLOCKED; C-013/C-018 PASS; C-019 static startup PARTIAL; overall PARTIAL |
+| Register status | C-013/C-018 PASS (narrow); C-019 PARTIAL; C-012 full/release open; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-18` (C2B-4) |
+| Last updated | `2026-07-22` (C2C-1) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -38,6 +38,7 @@
 | C-016 | Docker/Linux isolated image + toolchain readiness (pinned pull + rustc/cargo) | `runtime_observation` | `PASS` |
 | C-017 | Isolated container bootstrap: native packages + DotSlash + protoc | `runtime_observation` | `PASS` |
 | C-018 | Narrow isolated `cargo build -p xai-grok-pager-bin` produces binary | `build_result` | `PASS` |
+| C-019 | Static startup boundary for help/version flags on built binary | `runtime_observation` | `PARTIAL` |
 
 ---
 
@@ -302,6 +303,21 @@
 | Limitations | Not workspace-wide; not `--release`; not bit-reproducible; not official release; not functional/auth/security/witness |
 | Evidence | `evidence/cargo-build/*` |
 
+### C-019 — Static startup boundary (help / version)
+
+| Field | Value |
+|-------|-------|
+| Exact claim | The C2B-4 binary answers a permitted static CLI flag (`--version` preferred, else `--help`/`-h`) at a pure CLI boundary without prior application init (config, telemetry, filesystem side effects, network init), under a protocol-conformant at-most-one gated invocation. |
+| Source of claim | Phase C2C-1 static startup boundary procedure |
+| Evidence class | `runtime_observation` + `source_code_observation` |
+| Verification method | Source-level CLI safety gate before any authorized execution; at most one product invocation only if gate passes; whole-session disclosure of any draft runs |
+| Actual result | **Whole session (canonical history B):** (1) Non-conformant **draft** attempt executed six version/help-family commands under Docker `--network=none` + disposable HOME; all exited 0; version `grok 0.2.102 (98c3b24)`; writes under `$HOME/.grok`. Protocol conformance **FAIL** (six > one). (2) Final gated procedure: static ELF inspection; safety gate **FAIL** because CLI parse occurs only after init; product **not** re-executed. Safe pre-initialization CLI boundary **NOT ESTABLISHED**. Classification: **STATIC STARTUP PARTIAL**. |
+| Status | **`PARTIAL`** (not PASS) |
+| Operator role | Owner-side |
+| Evidence pointers | `evidence/startup-boundary/*` (incl. WHOLE_SESSION_HISTORY.txt, PROTOCOL_DEVIATION.txt, DRAFT_EXECUTION_OBSERVATIONS.txt); `docs/GROK_BUILD_STARTUP_BOUNDARY_COMPLETION_NOTE.md` |
+| Limitations | Draft observational success is not protocol PASS; not filesystem-side-effect-free; no syscall-level network proof; not functional/auth/security/witness |
+| What the result does not establish | Functional readiness; production readiness; safe pre-init CLI boundary; that version/help is free of side effects |
+
 ### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
 
 | Field | Value |
@@ -327,12 +343,12 @@
 | `NOT_STARTED` | 2 (C-012 full/release, C-014) |
 | `BLOCKED` | 1 (C-015) |
 | `PASS` | 15 (11 docs + C-013 + C-016 + C-017 + C-018) |
-| `PARTIAL` | 0 |
+| `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 18 |
+| **Total** | 19 |
 
-Note: C-013/C-018 are **narrow** owner-side check/build only. C-012 remains for broader build claims. C-015 Windows BLOCKED.
+Note: C-013/C-018 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL (no exec). C-012 remains for broader build claims. C-015 Windows BLOCKED.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -350,7 +366,8 @@ Note: C-013/C-018 are **narrow** owner-side check/build only. C-012 remains for 
 - **C-016** image+toolchain **`PASS`**.
 - **C-017** container bootstrap **`PASS`**.
 - **C-013** narrow cargo check **`PASS`**.
-- **C-018** narrow cargo build **`PASS`** (incremental; artifact hash recorded; not executed).
+- **C-018** narrow cargo build **`PASS`** (incremental; artifact hash recorded; not executed in C2B-4).
+- **C-019** static startup boundary **`PARTIAL`**: draft version/help observed non-conformantly; pre-init boundary not established; final gated execution withheld.
 - C-012 full/release and functional claims remain open/unstarted.
 
 ## What This Register Does NOT Prove
@@ -372,6 +389,8 @@ Note: C-013/C-018 are **narrow** owner-side check/build only. C-012 remains for 
 | 2026-07-18 | Phase C2B-2: C-017 container bootstrap `PASS` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-3: C-013 cargo check `PASS` | Weaver Forge documentation package author |
 | 2026-07-18 | Phase C2B-4: C-018 cargo build `PASS` (incremental) | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2C-1: C-019 static startup `PARTIAL` (exec withheld) | Weaver Forge documentation package author |
+| 2026-07-22 | C2C-1 docs correction: whole-session draft disclosure; C-019 remains PARTIAL | Weaver Forge documentation package author |
 
 ---
 

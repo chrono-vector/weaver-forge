@@ -1,0 +1,20 @@
+STARTUP_EXIT_CODE.txt — whole-session exit codes
+
+========================================================================
+DRAFT ATTEMPT (EXECUTED, NON-CONFORMANT)
+========================================================================
+--version          exit=0
+-V                 exit=0
+version            exit=0
+version --json     exit=0
+--help             exit=0
+-h                 exit=0
+draft_cli_observational_result=PASS
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+status=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+exit_code=N/A
+timeout_status=N/A
+termination_signal=N/A

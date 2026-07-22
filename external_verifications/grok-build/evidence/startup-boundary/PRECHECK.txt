@@ -1,0 +1,22 @@
+PRECHECK.txt — Weaver Forge STEP 1
+recorded_at=2026-07-22T12:26:46+09:00
+current_directory=C:\dev\weaver-forge
+branch=main
+head=73b60ddfb9835251cfe062f37bf43ed53b7b3745
+origin_main=73b60ddfb9835251cfe062f37bf43ed53b7b3745
+expected_head=73b60ddfb9835251cfe062f37bf43ed53b7b3745
+branch_is_main=True
+head_exact_match=True
+origin_main_synchronized=True
+working_tree_clean=True
+status_sb:
+## main...origin/main
+
+staged_files:
+
+unstaged_files:
+
+porcelain:
+
+note_prior_session=Prior uncommitted draft C2C-1 package updates and evidence/safe-startup were discarded to restore expected clean baseline before this phase.
+precheck_gate=PASS

@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side check+build PASS; witness NOT_STARTED** |
+| Handoff status | **Owner-side check+build PASS; static startup PARTIAL (whole-session); witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
-| Prepared date | `2026-07-18` |
-| Verification-plan version / date | `VERIFICATION_PLAN.md` Phase C2B-4 2026-07-18 |
+| Prepared date | `2026-07-22` |
+| Verification-plan version / date | Phase C2C-1 2026-07-22 (corrected whole-session disclosure) |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 
@@ -41,7 +41,9 @@ Witness must have no authorship on reviewed target commits, no authorship on own
 | Evidence (Phase C2B-2 container bootstrap) | `evidence/container-bootstrap/` | Yes |
 | Evidence (Phase C2B-3 cargo check) | `evidence/cargo-check/` | Yes |
 | Evidence (Phase C2B-4 cargo build) | `evidence/cargo-build/` | Yes |
+| Evidence (Phase C2C-1 startup boundary) | `evidence/startup-boundary/` | Yes |
 | C2B-4 completion note | `docs/GROK_BUILD_NARROW_CARGO_BUILD_COMPLETION_NOTE.md` | Yes |
+| C2C-1 completion note | `docs/GROK_BUILD_STARTUP_BOUNDARY_COMPLETION_NOTE.md` | Yes |
 | Official target | https://github.com/xai-org/grok-build | Yes |
 
 ---
@@ -134,7 +136,9 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2B-2 done:** packages + DotSlash 0.5.7 + protoc 29.3 (see `evidence/container-bootstrap/`).
 
-**C2B-3/C2B-4 done (owner-side):** check + incremental build exit 0; artifact hash in `evidence/cargo-build/`. Binary not executed. Witness may re-run isolation recipes independently (preferably clean caches if claiming clean-room).
+**C2B-3/C2B-4 done (owner-side):** check + incremental build exit 0; artifact hash in `evidence/cargo-build/`.
+
+**C2C-1 done (owner-side; whole-session):** non-conformant draft ran six version/help product commands (exit 0; disposable HOME side effects); draft evidence discarded. Final gated procedure: static inspect + safety gate FAIL (parse after init); product **not** re-executed. Classification **STATIC STARTUP PARTIAL**; C-019 **PARTIAL**. Canonical evidence: `evidence/startup-boundary/` only (no `evidence/safe-startup/`). Witness may re-run isolation recipes independently (preferably clean caches if claiming clean-room).
 
 ---
 

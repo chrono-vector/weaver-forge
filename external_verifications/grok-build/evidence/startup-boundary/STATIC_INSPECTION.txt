@@ -1,0 +1,138 @@
+=== date ===
+2026-07-22T03:27:30Z
+=== ls -la ===
+-rwxr-xr-x 2 root root 600647920 Jul 18 06:47 /artifact/xai-grok-pager
+=== sha256sum ===
+1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b  /artifact/xai-grok-pager
+=== file ===
+/artifact/xai-grok-pager: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=29e028f32f8573ecc505d459d7d8a8e0341a361f, with debug_info, not stripped
+=== readelf -h (ELF header) ===
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Version:                           0x1
+  Entry point address:               0x47fae40
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          600644976 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         12
+  Size of section headers:           64 (bytes)
+  Number of section headers:         46
+  Section header string table index: 44
+=== readelf -l (program headers) ===
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x47fae40
+There are 12 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  PHDR           0x0000000000000040 0x0000000000000040 0x0000000000000040
+                 0x00000000000002a0 0x00000000000002a0  R      0x8
+  INTERP         0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x000000000000001c 0x000000000000001c  R      0x1
+      [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+  LOAD           0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x00000000047f9e24 0x00000000047f9e24  R      0x1000
+  LOAD           0x00000000047f9e40 0x00000000047fae40 0x00000000047fae40
+                 0x000000000a64b4f0 0x000000000a64b4f0  R E    0x1000
+  LOAD           0x000000000ee45330 0x000000000ee47330 0x000000000ee47330
+                 0x0000000000daa768 0x0000000000daacd0  RW     0x1000
+  LOAD           0x000000000fbefa98 0x000000000fbf2a98 0x000000000fbf2a98
+                 0x000000000003bb48 0x00000000002613a0  RW     0x1000
+  TLS            0x000000000ee45330 0x000000000ee47330 0x000000000ee47330
+                 0x0000000000000c29 0x00000000000013a8  R      0x8
+  DYNAMIC        0x000000000f61ba90 0x000000000f61da90 0x000000000f61da90
+                 0x00000000000001f0 0x00000000000001f0  RW     0x8
+  GNU_RELRO      0x000000000ee45330 0x000000000ee47330 0x000000000ee47330
+                 0x0000000000daa768 0x0000000000daacd0  R      0x1
+  GNU_EH_FRAME   0x0000000002a97fc4 0x0000000002a97fc4 0x0000000002a97fc4
+                 0x000000000070b3fc 0x000000000070b3fc  R      0x4
+  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000000000 0x0000000000000000  RW     0x0
+  NOTE           0x00000000000002fc 0x00000000000002fc 0x00000000000002fc
+                 0x0000000000000044 0x0000000000000044  R      0x4
+
+ Section to Segment mapping:
+  Segment Sections...
+   00
+   01     .interp
+   02     .interp .note.ABI-tag .note.gnu.build-id .dynsym .gnu.version .gnu.version_r .gnu.hash .dynstr .rela.dyn .rela.plt .rodata .debug_gdb_scripts .gcc_except_table .eh_frame_hdr .eh_frame
+   03     .text .init .fini .plt
+   04     .tdata .fini_array .init_array .data.rel.ro .dynamic .got .got.plt .relro_padding
+   05     .tm_clone_table .data .bss
+   06     .tdata .tbss
+   07     .dynamic
+   08     .tdata .fini_array .init_array .data.rel.ro .dynamic .got .got.plt .relro_padding
+   09     .eh_frame_hdr
+   10
+   11     .note.ABI-tag .note.gnu.build-id
+=== interpreter (readelf -l INTERP) ===
+      [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+=== ldd ===
+	linux-vdso.so.1 (0x00007fffe78f5000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x0000771595521000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007715954f4000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x0000771595404000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000077159520f000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007715a539e000)
+=== dynamic section (readelf -d summary) ===
+
+Dynamic section at offset 0xf61ba90 contains 31 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0x3ae8
+ 0x0000000000000008 (RELASZ)             27428784 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffff9 (RELACOUNT)          1142602
+ 0x0000000000000017 (JMPREL)             0x1a2c298
+ 0x0000000000000002 (PLTRELSZ)           4344 (bytes)
+ 0x0000000000000003 (PLTGOT)             0xfbf14d8
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x340
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x29e0
+ 0x000000000000000a (STRSZ)              4359 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x2990
+ 0x0000000000000019 (INIT_ARRAY)         0xee47f78
+ 0x000000000000001b (INIT_ARRAYSZ)       40 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0xee47f60
+ 0x000000000000001c (FINI_ARRAYSZ)       24 (bytes)
+ 0x000000000000000c (INIT)               0xee457ac
+ 0x000000000000000d (FINI)               0xee457c4
+ 0x000000006ffffff0 (VERSYM)             0x2488
+ 0x000000006ffffffe (VERNEED)            0x2750
+ 0x000000006fffffff (VERNEEDNUM)         4
+ 0x0000000000000000 (NULL)               0x0
+=== symbols/debug presence ===
+  [ 4] .dynsym           DYNSYM           0000000000000340  00000340
+  [12] .debug_gdb_s[...] PROGBITS         0000000002a92478  02a92478
+  [33] .debug_abbrev     PROGBITS         0000000000000000  0fc2b6a3
+  [34] .debug_info       PROGBITS         0000000000000000  0fd56f3d
+  [35] .debug_aranges    PROGBITS         0000000000000000  10718b00
+  [36] .debug_ranges     PROGBITS         0000000000000000  11cd7d60
+  [37] .debug_str        PROGBITS         0000000000000000  13803bf0
+  [38] .debug_addr       PROGBITS         0000000000000000  13f0a014
+  [39] .debug_line       PROGBITS         0000000000000000  15089ff4
+  [40] .debug_macro      PROGBITS         0000000000000000  1c49a09a
+  [41] .debug_loc        PROGBITS         0000000000000000  1c4e6c81
+  [42] .debug_frame      PROGBITS         0000000000000000  1c4e6d40
+  [43] .symtab           SYMTAB           0000000000000000  1c4e6d70
+=== note: binary was NOT executed ===
+STATIC_INSPECTION_ONLY=1

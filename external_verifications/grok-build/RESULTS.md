@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **cargo check+build PASS (C2B-3/4); overall PARTIAL** |
+| Results status | **check+build PASS; static startup PARTIAL (C2C-1 whole-session); overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-18` (C2B-4) |
-| Linked reproduction run ID | C2B-4 `run-20260718-cargo-build` |
+| Compilation date | `2026-07-22` (C2C-1 corrected) |
+| Linked reproduction run ID | C2C-1 `run-20260722-startup-boundary` (whole-session disclosure) |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
@@ -20,8 +20,9 @@
 | Source identity reference | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Environment reference | `ENVIRONMENT.md` |
 | Reproduction reference | `REPRODUCTION.md` |
-| Execution authorized (build/run)? | check then build only (no run/test) |
-| Execution performed | **check + build**; binary **not** run |
+| Execution authorized (build/run)? | check + build; C2C-1 product exec only if safety gate passes (≤1 invocation) |
+| Execution performed | **check + build**; C2C-1: **draft** six version/help invocations (non-conformant); **final gate** product not re-executed |
+| Phase C2C-1 static startup | **`PARTIAL`** (draft observations + final safety gate withhold; protocol FAIL) |
 | Clone/inspect authorized? | Yes |
 | Clone/inspect performed? | Yes |
 | Env readiness inventory authorized? | Yes (C1 + C2A + C2B-1) |
@@ -54,6 +55,7 @@
 | C-013 | Validation cargo check | `PASS` | evidence/cargo-check/ |
 | C-017 | Container bootstrap | `PASS` | evidence/container-bootstrap/ |
 | C-018 | Narrow cargo build | `PASS` | evidence/cargo-build/ |
+| C-019 | Static startup boundary (help/version) | `PARTIAL` | evidence/startup-boundary/ |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
 | C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
@@ -84,7 +86,10 @@
 
 | Observation ID | Status | Notes |
 |----------------|--------|-------|
-| O-001 product run | `NOT_STARTED` | No binary execution |
+| O-001 product TUI / auth / agent | `NOT_STARTED` | Not run |
+| O-002 draft version/help (non-conformant) | observational **PASS**; protocol **FAIL** | six cmds; `grok 0.2.102 (98c3b24)`; `$HOME/.grok` writes |
+| O-003 final gated product CLI | **NOT EXECUTED** | SAFETY GATE NOT SATISFIED |
+| O-004 safe pre-init CLI boundary | **NOT ESTABLISHED** | parse after init |
 
 ## 6. Integrity and Identity Results
 
@@ -131,7 +136,7 @@
 |--------|-------:|
 | `NOT_STARTED` | 2 |
 | `PASS` | 15 (incl. C-013, C-016–C-018) |
-| `PARTIAL` | 0 |
+| `PARTIAL` | 1 (C-019 static startup) |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |
 | `NOT_APPLICABLE` | integrity sub-checks as above |
@@ -153,45 +158,39 @@
 ### 11.1 What was observed
 
 ```text
-- Pin 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce intact; external tree clean.
-- Windows host still missing rustc/cargo/DotSlash/MSVC (C-015 BLOCKED).
-- C2B-1: Docker server 29.4.3 linux/amd64 WSL2; pull of pinned platform manifest succeeded; RepoDigest match.
-- rustc 1.92.0 / cargo 1.92.0 direct in image; bash -lc rustc not found (PATH only).
-- C2B-2: RO source mount; apt packages; DotSlash 0.5.7; protoc 29.3 (LF-safe DotSlash path); source integrity PASS.
-- No cargo check/build against Grok Build; no product auth.
+- Pin 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce intact; C2B-3/4 check+build PASS (prior).
+- C2C-1 draft (non-conformant): six version/help product commands under --network=none + disposable HOME;
+  exit 0; version grok 0.2.102 (98c3b24); writes under $HOME/.grok.
+- C2C-1 final gate: parse after init; product NOT re-executed; STATIC STARTUP PARTIAL.
+- Draft evidence/safe-startup discarded; canonical evidence only under evidence/startup-boundary/.
 ```
 
 ### 11.2 What was not observed
 
 ```text
-- Successful or failed cargo build/check/test output for Grok Build
-- Running grok / xai-grok-pager binary behavior
-- Authentication browser flow
-- Publisher-published SHA-256 for the git tree or signed tags
+- Protocol-conformant single gated help/version after pre-init safety PASS
+- Filesystem-side-effect-free startup
+- Syscall-level proof of no network activity
+- TUI bare launch; login/OAuth; agent; models; update; product API auth
 - Independent witness attestation
-- DotSlash install; native package install; dependency acquisition
 ```
 
 ### 11.3 What was not tested
 
 ```text
-- cargo check/build/test/run against Grok Build
-- DotSlash / protoc hermetic path
-- Full native dependency package set
-- Headless mode, tool-call dispatch, MCP, plugins at runtime
-- Install scripts and prebuilt binaries
-- Security properties
+- Normal TUI startup; login/OAuth; agent/prompts/models; update; API connectivity
+- Functional correctness; service/production readiness; security
+- cargo test/run/clippy/fmt; --release rebuild
+- Windows native readiness
 ```
 
 ### 11.4 What is not claimed
 
 ```text
-- Build reproducibility, functional reproducibility
-- Security review or product operational readiness
-- Independent verification (E4)
-- That cargo will succeed after packages/DotSlash/deps (C2B-2/C2B-3)
-- That Windows host is ready (C-015 is BLOCKED)
-- That full isolated build path is complete (only image+toolchain PASS)
+- C-019 PASS or static startup PASS
+- Protocol-conformant C2C-1 product execution
+- Filesystem-side-effect-free CLI startup
+- Functional / security / production / witness readiness
 - Overall product PASS
 ```
 
@@ -224,6 +223,8 @@
 | 2026-07-18 | Phase C2B-2 container bootstrap |
 | 2026-07-18 | Phase C2B-3 cargo check exit 0 |
 | 2026-07-18 | Phase C2B-4 cargo build exit 0 (incremental) |
+| 2026-07-22 | Phase C2C-1 static startup PARTIAL (execution withheld; safety gate) |
+| 2026-07-22 | C2C-1 whole-session disclosure correction (draft six invocations recorded) |
 
 ---
 

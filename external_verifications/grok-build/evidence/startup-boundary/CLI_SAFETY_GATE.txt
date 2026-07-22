@@ -1,0 +1,106 @@
+CLI_SAFETY_GATE.txt — STEP 4 source-level CLI safety analysis
+pin=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+binary_crate=crates/codegen/xai-grok-pager-bin
+cli_crate=crates/codegen/xai-grok-pager
+entry_point=crates/codegen/xai-grok-pager-bin/src/main.rs :: main()
+parser=PagerArgs (clap derive Parser) in crates/codegen/xai-grok-pager/src/app/cli.rs
+parse_call_site=async_main() -> PagerArgs::parse_and_apply_cwd() -> Self::parse_from(...)
+
+========================================================================
+STARTUP ORDER (from main() — BEFORE any CLI parse)
+========================================================================
+Source: xai-grok-pager-bin/src/main.rs approximately lines 1593–1668
+
+1. xai_grok_pager_minimal::install()
+2. jemalloc hooks (unix feature)
+3. mermaid_worker::maybe_run_render_subprocess()  [may exit early for render subprocess]
+4. memory_trace::start(grok_home.join("memtrace"))  → FILE-WRITING PATH
+5. raise_fd_limit()
+6. xai_grok_config::validate_requirements()  → CONFIG / requirements.toml loading
+   - validation.rs: validates user requirements.toml under grok home; system dir; macOS MDM
+7. xai_grok_telemetry::sentry::init(...)  → TELEMETRY / ERROR-REPORTING INIT
+   (may involve network if not disabled; not proven offline-only from this call alone)
+8. docs::extract_user_guide_docs(grok_home)  → WRITES many files under ~/.grok/docs/user-guide/
+9. crash_handler install paths; may read/write under ~/.grok/crash
+10. active_sessions::collect_crashed()
+11. tokio multi-thread runtime build (enable_all)
+12. run_and_shutdown(runtime, async_main(), ...)
+13. ONLY THEN: async_main installs rustls provider and calls PagerArgs::parse_and_apply_cwd()
+
+CONCLUSION ON ORDER:
+CLI argument parsing does NOT occur before application initialization.
+Configuration validation, telemetry init, and filesystem writes occur BEFORE --version/--help/-h are processed.
+
+========================================================================
+ARGUMENT ANALYSIS
+========================================================================
+
+### --version
+implemented: YES
+where:
+  - cli.rs: PagerArgs.version field with action = ArgAction::Version
+  - long = "version"; short -v / short_alias -V
+  - clap exits during parse_from with version string (version_with_channel())
+parser_exits_immediately_at_parse: YES (clap ArgAction::Version)
+normal_startup_already_occurred_before_parse: YES (see order above)
+configuration_read_first: YES (validate_requirements before parse)
+authentication_initialized_first: NOT product OAuth login, BUT sentry/telemetry init runs first
+network_code_initialized_first: POSSIBLE (sentry::init before parse; not proven absent)
+files_may_be_created_first: YES (memory_trace; extract_user_guide_docs; crash paths)
+safe_under_phase_restrictions: NO
+reason: cannot establish parse-before-init, terminate-before-config, terminate-before-file-writes,
+        terminate-before-telemetry, or no-side-effects. Mandatory safety principle fails.
+
+### --help
+implemented: YES (clap built-in help for PagerArgs)
+where: clap derive on PagerArgs; help_template customized in cli.rs
+parser_exits_immediately_at_parse: YES (clap help exit during parse)
+normal_startup_already_occurred_before_parse: YES
+configuration_read_first: YES
+authentication_initialized_first: telemetry init before parse
+network_code_initialized_first: POSSIBLE (sentry)
+files_may_be_created_first: YES
+safe_under_phase_restrictions: NO
+reason: same pre-parse initialization path as --version.
+
+### -h
+implemented: YES (clap short help; also listed in generated help as -h, --help)
+where: clap default short help for Parser
+parser_exits_immediately_at_parse: YES
+normal_startup_already_occurred_before_parse: YES
+configuration_read_first: YES
+authentication_initialized_first: telemetry init before parse
+network_code_initialized_first: POSSIBLE (sentry)
+files_may_be_created_first: YES
+safe_under_phase_restrictions: NO
+reason: same pre-parse initialization path as --version / --help.
+
+========================================================================
+SELECTION
+========================================================================
+preference_order: --version, then --help, then -h
+selected_argument: NONE
+gate_result: FAIL — SAFETY GATE NOT SATISFIED
+execution_authorized: NO
+classification_direction: STATIC STARTUP PARTIAL
+
+No permitted argument is demonstrably safe under the mandatory principle:
+"Do not execute the binary merely because --version, --help, or -h appears harmless."
+All three share the same pre-parse startup path that loads requirements, initializes Sentry,
+starts memory tracing, and extracts docs to disk before clap handles the flag.
+
+========================================================================
+WHOLE-SESSION RELATIONSHIP (documentation correction)
+========================================================================
+safe_pre_initialization_cli_boundary=NOT ESTABLISHED
+final_gated_execution=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+
+Earlier in the same session, a NON-CONFORMANT draft attempt executed six version/help-family
+commands before this gate was applied (see WHOLE_SESSION_HISTORY.txt,
+DRAFT_EXECUTION_OBSERVATIONS.txt, PROTOCOL_DEVIATION.txt). Those draft runs:
+- are NOT protocol-authorized gated execution
+- do NOT establish a safe pre-initialization boundary
+- do NOT override this gate FAIL
+- are disclosed so the package does not claim "never executed in the whole session"
+
+final_gated_product_command=NOT EXECUTED — SAFETY GATE NOT SATISFIED

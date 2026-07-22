@@ -1,0 +1,22 @@
+STARTUP_STDOUT.txt — whole-session stdout record
+
+========================================================================
+DRAFT ATTEMPT (EXECUTED, NON-CONFORMANT) — known outputs
+========================================================================
+label=EXACT (known preserved lines from session record)
+
+version-family commands (--version, -V, version):
+  grok 0.2.102 (98c3b24)
+
+version --json:
+  {"currentVersion":"0.2.102 (98c3b24)","channel":"unknown"}
+
+label=SUMMARY (not a full verbatim dump of discarded draft logs)
+help-family (--help, -h):
+  exit 0; identifies application as "Grok Build TUI"; ~6011 bytes observed in draft
+
+========================================================================
+FINAL GATED ATTEMPT
+========================================================================
+status=NOT EXECUTED — SAFETY GATE NOT SATISFIED
+stdout_from_product=none (product binary not started under final gate)
