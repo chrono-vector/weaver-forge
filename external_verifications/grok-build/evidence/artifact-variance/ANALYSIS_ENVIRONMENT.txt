@@ -1,0 +1,16 @@
+ANALYSIS_ENVIRONMENT.txt — C2D-2 STEP 3
+image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+network=none (primary successful analysis runs)
+package_install=no (binutils/file/python3 present in image)
+artifacts_mounted=read-only
+host_home_mounted=no
+credentials=no
+docker_socket=no
+source_mount=no
+product_executed=no
+ldd_used=no
+cargo_run=no
+rebuild=no
+analysis_work_dir=C:\dev\external-verification-work\grok-build-98c3b24\c2d2-variance-analysis\
+section_hash_method=read section headers via readelf -W -S; hash file ranges by offset/size (no objcopy full dumps of huge sections; avoids OOM)
+notes=earlier attempt dumping full sections via objcopy crashed Docker (unexpected EOF); range-hash method completed successfully

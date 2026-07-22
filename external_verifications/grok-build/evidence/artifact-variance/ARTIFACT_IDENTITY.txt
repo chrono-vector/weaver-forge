@@ -1,0 +1,23 @@
+ARTIFACT_IDENTITY.txt — C2D-2 STEP 2
+
+OLD (C2B-4):
+path=C:\dev\external-verification-work\grok-build-98c3b24\cargo-target\debug\xai-grok-pager
+resolved_from=evidence/cargo-build recorded path + exact SHA match
+filename=xai-grok-pager
+size_bytes=600647920
+sha256=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+size_match_expected=yes
+sha_match_expected=yes
+BuildID_sha1=29e028f32f8573ecc505d459d7d8a8e0341a361f
+
+NEW (C2D-1):
+path=C:\dev\external-verification-work\grok-build-98c3b24\c2d1-clean-rebuild\cargo-target\debug\xai-grok-pager
+filename=xai-grok-pager
+size_bytes=600515304
+sha256=eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad
+size_match_expected=yes
+sha_match_expected=yes
+BuildID_sha1=989dd4bee3b9523fc82343293cbf0d3b0ad6fe89
+
+distinct_paths=yes
+identity_gate=PASS

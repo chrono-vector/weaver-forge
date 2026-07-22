@@ -1,0 +1,18 @@
+old_size=600647920
+new_size=600515304
+size_delta=-132616
+identical_files=no
+common_prefix_bytes=24
+common_suffix_bytes=29
+first_diff_offsets_count_recorded=50
+first_diff_offsets=24,25,40,41,42,208,209,216,217,240,241,248,249,256,257,264,265,266,272,273,274,296,297,304,305,312,313,320,321,328,329,352,353,354,360,361,368,369,376,384,408,409,416,417,424,425,464,465,472,473
+offset=24 old=0x40 new=0x00
+offset=25 old=0xae new=0x84
+offset=40 old=0x70 new=0x68
+offset=41 old=0x1d new=0x17
+offset=42 old=0xcd new=0xcb
+offset=208 old=0x24 new=0xfc
+offset=209 old=0x9e new=0x73
+offset=216 old=0x24 new=0xfc
+offset=217 old=0x9e new=0x73
+offset=240 old=0x40 new=0x00

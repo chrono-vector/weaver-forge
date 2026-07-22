@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; C-013/C-018/C-020 PASS; C-019 PARTIAL; overall PARTIAL |
-| Register status | C-013/C-018/C-020 PASS (narrow); C-019 PARTIAL; C-012/C-014 open; C-015 BLOCKED |
+| Current verification state | Windows BLOCKED; C-013/C-018/C-020/C-021 PASS; C-019 PARTIAL; overall PARTIAL |
+| Register status | C-013/C-018/C-020/C-021 PASS; C-019 PARTIAL; C-012/C-014 open; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-22` (C2D-1) |
+| Last updated | `2026-07-22` (C2D-2) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -40,6 +40,7 @@
 | C-018 | Narrow isolated `cargo build -p xai-grok-pager-bin` produces binary | `build_result` | `PASS` |
 | C-019 | Static startup boundary for help/version flags on built binary | `runtime_observation` | `PARTIAL` |
 | C-020 | Clean non-incremental second narrow rebuild succeeds at pin | `build_result` | `PASS` |
+| C-021 | Static variance between C2B-4 and C2D-1 artifacts is analyzed without product execution | `source_code_observation` | `PASS` |
 
 ---
 
@@ -333,6 +334,20 @@
 | Evidence | `evidence/clean-rebuild/*`; `docs/GROK_BUILD_CLEAN_REBUILD_COMPLETION_NOTE.md` |
 | What the result does not establish | Universal bit-for-bit reproducibility; functional/security/witness/production readiness |
 
+### C-021 — Static artifact variance analysis (C2B-4 vs C2D-1)
+
+| Field | Value |
+|-------|-------|
+| Exact claim | Static comparison of the authenticated C2B-4 and C2D-1 artifacts was completed. Thirty of forty-five ELF sections differed, including `.text` and relocation-related sections. Distinct embedded target paths and widespread metadata variance were identified as supported contributors, but a unique root cause for all differing bytes was not established. This claim does not establish bit-identical reproducibility or functional equivalence. |
+| Source of claim | Phase C2D-2 procedure |
+| Evidence class | `source_code_observation` (static binary inspection) |
+| Verification method | Docker network-none; RO mounts; readelf/objdump/nm/strings; section range hashing |
+| Actual result | Identity PASS. 45 sections: **15 identical**, **30 differing**. `.text` differs (size+hash). GNU Build IDs differ (observed identifier of distinct linked outputs, not a standalone root cause). NEEDED match. Paths show old `/work/cargo-target/...` vs new `/work/cargo-target-c2d1/...` (supported likely contributor to some metadata variance). Executable/relocation differences documented across two build contexts without isolating incremental-vs-clean as the sole cause. Root-cause confidence **LIKELY** (partial; not unique/complete). Classification **ARTIFACT VARIANCE ANALYSIS PASS**. |
+| Status | **`PASS`** (analysis completeness; not a bit-identical or functional claim) |
+| Limitations | No disassembly of full `.text`; no DWARF semantic normalization; filtered strings only; Docker OOM avoided by range hashing |
+| Evidence | `evidence/artifact-variance/*`; `docs/GROK_BUILD_ARTIFACT_VARIANCE_ANALYSIS_COMPLETION_NOTE.md` |
+| What the result does not establish | Functional equivalence; executable-code equivalence; unique root cause for all bytes; that path normalization alone yields bit-identity; independent witness |
+
 ### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
 
 | Field | Value |
@@ -357,11 +372,11 @@
 |--------|------:|
 | `NOT_STARTED` | 2 (C-012 full/release, C-014) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 16 (11 docs + C-013 + C-016 + C-017 + C-018 + C-020) |
+| `PASS` | 17 (11 docs + C-013 + C-016 + C-017 + C-018 + C-020 + C-021) |
 | `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 20 |
+| **Total** | 21 |
 
 Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL. C-012 remains for broader build claims. C-015 Windows BLOCKED.
 
@@ -384,6 +399,7 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 - **C-018** narrow cargo build **`PASS`** (incremental; artifact hash recorded; not executed in C2B-4).
 - **C-019** static startup boundary **`PARTIAL`**: draft version/help observed non-conformantly; pre-init boundary not established; final gated execution withheld.
 - **C-020** clean non-incremental rebuild **`PASS`** (bit-identical **not** observed).
+- **C-021** static artifact variance analysis **`PASS`** (`.text` differs; path metadata supported contributor; Build ID difference is identifier not cause; unique full root cause not established).
 - C-012 full/release and functional claims remain open/unstarted.
 
 ## What This Register Does NOT Prove
@@ -408,6 +424,8 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 | 2026-07-22 | Phase C2C-1: C-019 static startup `PARTIAL` (exec withheld) | Weaver Forge documentation package author |
 | 2026-07-22 | C2C-1 docs correction: whole-session draft disclosure; C-019 remains PARTIAL | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2D-1: C-020 clean non-incremental rebuild `PASS` (not bit-identical) | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2D-2: C-021 artifact variance analysis `PASS` | Weaver Forge documentation package author |
+| 2026-07-22 | C2D-2 wording precision: Build ID not a root cause; `.text` not attributed to incremental-vs-clean alone | Weaver Forge documentation package author |
 
 ---
 

@@ -1,0 +1,12 @@
+ANALYSIS_START=2026-07-22T06:35:45Z
+NETWORK_AT_RUNTIME=none_or_unreachable
+=== tool versions ===
+GNU readelf (GNU Binutils for Debian) 2.44
+GNU objdump (GNU Binutils for Debian) 2.44
+GNU objcopy (GNU Binutils for Debian) 2.44
+GNU nm (GNU Binutils for Debian) 2.44
+GNU strings (GNU Binutils for Debian) 2.44
+file-5.46
+Python 3.13.5
+sha256sum (GNU coreutils) 9.7
+ANALYSIS_END=2026-07-22T06:40:09Z

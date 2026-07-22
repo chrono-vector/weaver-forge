@@ -1,0 +1,109 @@
+===== OLD dynamic =====
+
+Dynamic section at offset 0xf61ba90 contains 31 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0x3ae8
+ 0x0000000000000008 (RELASZ)             27428784 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffff9 (RELACOUNT)          1142602
+ 0x0000000000000017 (JMPREL)             0x1a2c298
+ 0x0000000000000002 (PLTRELSZ)           4344 (bytes)
+ 0x0000000000000003 (PLTGOT)             0xfbf14d8
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x340
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x29e0
+ 0x000000000000000a (STRSZ)              4359 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x2990
+ 0x0000000000000019 (INIT_ARRAY)         0xee47f78
+ 0x000000000000001b (INIT_ARRAYSZ)       40 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0xee47f60
+ 0x000000000000001c (FINI_ARRAYSZ)       24 (bytes)
+ 0x000000000000000c (INIT)               0xee457ac
+ 0x000000000000000d (FINI)               0xee457c4
+ 0x000000006ffffff0 (VERSYM)             0x2488
+ 0x000000006ffffffe (VERNEED)            0x2750
+ 0x000000006fffffff (VERNEEDNUM)         4
+ 0x0000000000000000 (NULL)               0x0
+===== NEW dynamic =====
+
+Dynamic section at offset 0xf61faf0 contains 31 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0x3ae8
+ 0x0000000000000008 (RELASZ)             27424704 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffff9 (RELACOUNT)          1142432
+ 0x0000000000000017 (JMPREL)             0x1a2b2a8
+ 0x0000000000000002 (PLTRELSZ)           4344 (bytes)
+ 0x0000000000000003 (PLTGOT)             0xfbf5c78
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x340
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x29e0
+ 0x000000000000000a (STRSZ)              4359 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x2990
+ 0x0000000000000019 (INIT_ARRAY)         0xee4e6d8
+ 0x000000000000001b (INIT_ARRAYSZ)       40 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0xee4e6c0
+ 0x000000000000001c (FINI_ARRAYSZ)       24 (bytes)
+ 0x000000000000000c (INIT)               0xee4bf0c
+ 0x000000000000000d (FINI)               0xee4bf24
+ 0x000000006ffffff0 (VERSYM)             0x2488
+ 0x000000006ffffffe (VERNEED)            0x2750
+ 0x000000006fffffff (VERNEEDNUM)         4
+ 0x0000000000000000 (NULL)               0x0
+===== OLD NEEDED =====
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+===== NEW NEEDED =====
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]
+===== OLD RPATH/RUNPATH =====
+===== NEW RPATH/RUNPATH =====
+===== OLD objdump -p dynamic subset =====
+
+
+
+Dynamic Section:
+  NEEDED               libz.so.1
+  NEEDED               libgcc_s.so.1
+  NEEDED               libm.so.6
+  NEEDED               libc.so.6
+  NEEDED               ld-linux-x86-64.so.2
+
+Version References:
+
+===== NEW objdump -p dynamic subset =====
+
+
+
+Dynamic Section:
+  NEEDED               libz.so.1
+  NEEDED               libgcc_s.so.1
+  NEEDED               libm.so.6
+  NEEDED               libc.so.6
+  NEEDED               ld-linux-x86-64.so.2
+
+Version References:

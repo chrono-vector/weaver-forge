@@ -1,0 +1,25 @@
+===== OLD notes =====
+
+Displaying notes found in: .note.ABI-tag
+  Owner                Data size 	Description
+  GNU                  0x00000010	NT_GNU_ABI_TAG (ABI version tag)
+    OS: Linux, ABI: 3.2.0
+
+Displaying notes found in: .note.gnu.build-id
+  Owner                Data size 	Description
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: 29e028f32f8573ecc505d459d7d8a8e0341a361f
+===== NEW notes =====
+
+Displaying notes found in: .note.ABI-tag
+  Owner                Data size 	Description
+  GNU                  0x00000010	NT_GNU_ABI_TAG (ABI version tag)
+    OS: Linux, ABI: 3.2.0
+
+Displaying notes found in: .note.gnu.build-id
+  Owner                Data size 	Description
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: 989dd4bee3b9523fc82343293cbf0d3b0ad6fe89
+===== OLD build-id section dump sha =====
+c07ec3402bd325f8bea8e203c75cf015e58eaf9fc081dc28508917b16492adb1  /tmp/bid.old
+bf14621b724b21ce1b9db2bb01d680444d42985ef146c3d020d5cc793226cb49  /tmp/bid.new

@@ -1,0 +1,15 @@
+POST_ANALYSIS_INTEGRITY.txt — C2D-2 STEP 12
+old_sha256_after=1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b
+old_sha256_unchanged=yes
+new_sha256_after=eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad
+new_sha256_unchanged=yes
+old_size_unchanged=yes (600647920)
+new_size_unchanged=yes (600515304)
+source_head=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+source_tree_clean=yes
+cargo_lock_unchanged=yes
+product_execution=no
+cargo_command=no
+rebuild=no
+artifacts_modified=no (read-only mounts; analysis hashes only)
+weaver_changes=evidence/documentation only

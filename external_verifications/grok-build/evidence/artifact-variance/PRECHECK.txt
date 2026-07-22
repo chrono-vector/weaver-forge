@@ -1,0 +1,13 @@
+PRECHECK.txt — C2D-2 Weaver STEP 1
+recorded_at=2026-07-22
+current_directory=C:\dev\weaver-forge
+branch=main
+head=b3e432f2c9887b04908faaf6afe15f240bd80ce9
+origin_main=b3e432f2c9887b04908faaf6afe15f240bd80ce9
+expected_head=b3e432f2c9887b04908faaf6afe15f240bd80ce9
+head_exact_match=True
+origin_main_synchronized=True
+working_tree_clean=True
+staged_files=(none at precheck)
+unstaged_files=(none at precheck)
+precheck_gate=PASS

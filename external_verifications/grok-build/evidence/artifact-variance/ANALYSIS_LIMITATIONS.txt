@@ -1,0 +1,9 @@
+ANALYSIS_LIMITATIONS.txt — C2D-2
+- No product execution; no ldd; no runtime loading of the ELF interpreter for product code
+- No cargo / no rebuild
+- No full disassembly or diffoscope
+- Section dumps via objcopy of multi-hundred-MB sections avoided (Docker OOM risk); range hashing used instead
+- Embedded path inventory is filtered (absolute /work/, cargo-target*, /src/, /rustc/); not full strings dump
+- Symbol comparison uses nm name inventories; address-level identity not claimed
+- First 50 differing byte offsets only; not full cmp -l dump
+- Does not prove functional equivalence or security properties
