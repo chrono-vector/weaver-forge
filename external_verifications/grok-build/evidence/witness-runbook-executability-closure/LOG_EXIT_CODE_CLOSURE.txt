@@ -1,0 +1,5 @@
+LOG_EXIT_CODE_CLOSURE — C2E-2
+container_logs=CONTAINER_STDOUT.txt CONTAINER_STDERR.txt DOCKER_EXIT_CODE.txt
+cargo_logs=BUILD_STDOUT.txt BUILD_STDERR.txt BUILD_EXIT_CODE.txt BUILD_TIMING.txt
+cargo_exit_preserved=yes no tee pipeline on cargo
+bootstrap_fail=cargo_started=NO BUILD_NOT_STARTED stage recorded

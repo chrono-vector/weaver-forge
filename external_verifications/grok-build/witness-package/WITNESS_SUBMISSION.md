@@ -1,35 +1,78 @@
-# Witness submission — Grok Build
+# Witness submission — Grok Build (1.0.0-rc1)
+
+## Run ID
+
+```text
+<github-user-or-witness-id>-<UTC-YYYYMMDD>-<short-run-id>
+```
+
+Example: `alice-20260722-a1b2c3`
+
+Host helper generates this automatically.
 
 ## Primary method (preferred)
 
 1. Fork `https://github.com/chrono-vector/weaver-forge`.
-2. Create a branch named:
-   `independent-witness/<witness-id>-<yyyy-mm-dd>`
-   Example: `independent-witness/alice-2026-07-22`
-3. Add **only** your evidence under:
-   `external_verifications/grok-build/witness-submissions/<witness-id>-<yyyy-mm-dd>/`
-4. Include completed templates / required files (see manifest).
-5. Open a Pull Request. Do **not** edit owner `evidence/` logs or change owner verdicts to claim PASS on their behalf.
+2. Branch: `independent-witness/<run-id>`
+3. Evidence directory:
 
-Witness may update a PR description; classification is assigned per [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) after review.
+```text
+external_verifications/grok-build/witness-submissions/<run-id>/
+```
 
-## Fallback method
+4. Pull request title:
 
-If a PR is impractical:
+```text
+Independent Grok Build Witness: <run-id>
+```
 
-1. Produce a ZIP or tar archive of the evidence directory.
-2. Compute a cryptographic hash of the archive (SHA-256).
-3. Deliver via an agreed channel (documented by owner intake).
-4. Owner must preserve the original archive before extraction.
+5. PR description **must** include:
 
-A private fallback delivery is **not** automatically “public independent verification” until published in the repository.
+| Field | Required |
+|-------|----------|
+| Package tag | e.g. `grok-build-witness-v1.0.0-rc1` |
+| Resolved Weaver Forge commit | 40-char commit from tag |
+| Grok Build source commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| Proposed verdict | PASS / PARTIAL / FAIL / INDETERMINATE |
+| `product_executed` | `NO` |
+| `ldd_used` | `NO` |
+| Deviations | Summary or pointer to `DEVIATIONS.txt` |
+
+## Required files (minimum)
+
+- `EVIDENCE_MANIFEST.sha256`
+- `WEAVER_FORGE_PACKAGE_IDENTITY.txt`
+- `SOURCE_IDENTITY.txt`
+- Full set per [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md)
+- `REDACTIONS.md`
+
+Run structural validator:
+
+```bash
+python external_verifications/grok-build/witness-package/scripts/validate_witness_evidence.py \
+  external_verifications/grok-build/witness-submissions/<run-id>/
+```
+
+Structural PASS does not prove execution or independence.
+
+## Corrections policy
+
+- Preserve original commits; **append** corrections (new commits or addendum files).
+- Do **not** silently erase failed runs or negative evidence.
+- Accepted public evidence becomes **immutable historical evidence** (subsequent corrections reference it).
+
+## Fallback archive
+
+1. ZIP/tar the evidence directory.
+2. Record archive SHA-256 **before** extraction on the receiving side.
+3. Private delivery is **not** public independent verification until published in the repository with auditable history.
 
 ## Must not modify
 
-- Owner historical evidence trees
-- Pinned source of Grok Build
-- Claim IDs for owner-side results (add Witness results separately)
+- Owner historical `evidence/` trees
+- Pinned Grok Build source or `Cargo.lock` in upstream clone used as evidence
+- Owner claim IDs (add Witness claims separately)
 
 ## Bit-identical note
 
-Do not expect your artifact SHA-256 to match owner values. Record **your** hash.
+Witness PASS does **not** require matching owner artifact SHA-256 values.

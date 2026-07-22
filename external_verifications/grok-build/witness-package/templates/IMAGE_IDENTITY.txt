@@ -1,3 +1,8 @@
-# IMAGE_IDENTITY.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# IMAGE_IDENTITY.txt — required fields
+image_reference=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+rust_version_expected=1.92.0
+docker_pull_utc=
+repo_digest_observed=
+image_id=
+platform=linux/amd64
+digest_match_expected=yes|no

@@ -1,0 +1,9 @@
+CONTAINER_SCRIPT_REVIEW — C2E-2 (author-only; not executed)
+path=witness-package/scripts/container_narrow_build.sh
+narrow_build_only=cargo build -p xai-grok-pager-bin --locked
+cargo_incremental=0
+cargo_logs=BUILD_STDOUT BUILD_STDERR BUILD_EXIT_CODE BUILD_TIMING
+bootstrap_failure=cargo_started=NO BUILD_NOT_STARTED
+static_inspection_on_success=readelf objdump file
+product_execution=no
+ldd=no

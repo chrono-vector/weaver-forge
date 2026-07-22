@@ -1,0 +1,7 @@
+REMAINING_GAPS — C2E-2
+annotated_package_tag_not_created=yes
+helper_scripts_not_exercised=yes
+repeat_blind_audit_not_completed=yes
+independent_witness_C-014=NOT_STARTED
+offline_repro=NOT ESTABLISHED
+apt_versions_unpinned=yes

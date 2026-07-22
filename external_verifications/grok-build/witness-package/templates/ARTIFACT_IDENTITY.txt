@@ -1,3 +1,8 @@
-# ARTIFACT_IDENTITY.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# ARTIFACT_IDENTITY.txt — required fields
+artifact_path=
+artifact_filename=xai-grok-pager
+artifact_size_bytes=
+artifact_sha256=
+gnu_build_id=
+product_executed=NO
+ldd_used=NO

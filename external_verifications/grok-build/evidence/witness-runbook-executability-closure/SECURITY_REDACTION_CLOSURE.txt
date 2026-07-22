@@ -1,0 +1,5 @@
+SECURITY_REDACTION_CLOSURE — C2E-2
+WITNESS_SECURITY_AND_REDACTION.md updated
+required_checks=git diff --cached --check git diff --cached pattern review
+REDACTIONS.md template=created
+no_scanner_guarantee=yes

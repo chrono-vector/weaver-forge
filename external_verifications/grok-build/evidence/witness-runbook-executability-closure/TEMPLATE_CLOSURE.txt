@@ -1,0 +1,4 @@
+TEMPLATE_CLOSURE — C2E-2
+templates_expanded=yes explicit fields not FILL_ME
+new_templates=WEAVER_FORGE_PACKAGE_IDENTITY.txt DOCKER_EXIT_CODE.txt REDACTIONS.md
+manifest_documents=EVIDENCE_MANIFEST.sha256 generation

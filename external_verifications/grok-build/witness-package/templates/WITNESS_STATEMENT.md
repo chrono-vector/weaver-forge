@@ -1,23 +1,28 @@
-# Witness statement
+# WITNESS_STATEMENT.md — required sections
 
-| Field | Value |
-|-------|-------|
-| Witness ID / GitHub handle | |
-| Date (with timezone) | |
-| I am not the owner of this verification package | Yes / No |
-| Run used my own host/VM/cloud | Yes / No |
-| Relationship to owner (if any) | none / describe |
-| OS and architecture | |
-| Docker version (client/server) | |
-| VM or cloud used? | |
-| AI assistance used? | Yes / No |
-| AI / automation tools used (if any) | |
-| I reviewed the outputs personally | Yes / No |
-| No owner cache or owner binary was used as build input | Yes / No |
-| Deviations disclosed in DEVIATIONS.txt | Yes / No |
+## Witness identity
 
-Legal name is **not** required.
+- Legal/name or public handle:
+- GitHub user (if submitting PR):
+- Relationship to Weaver Forge / Grok Build maintainers:
 
-## Free-text confirmation
+## Independence
 
-(State that you followed the Witness package runbook to the best of your ability, and list any help received.)
+- Not the package owner / C2E author: yes/no
+- Not the owner-side reproducer for this run: yes/no
+- Host is Witness-controlled: yes/no
+
+## AI assistance
+
+- AI tools used during run or evidence prep: yes/no
+- If yes, which tools and for what steps:
+
+## Human review
+
+- Human reviewed all evidence before submission: yes/no
+
+## Scope acknowledgment
+
+- product_executed=NO
+- ldd_used=NO
+- Upstream product commands not run: yes/no

@@ -1,3 +1,11 @@
-# CLEAN_TARGET_PROOF.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# CLEAN_TARGET_PROOF.txt — required fields
+cargo_target_dir_absolute=
+creation_utc_host=
+creation_utc_container=
+required_entry_count=0
+observed_entry_count_host=
+observed_entry_count_container=
+host_ls_la=
+host_find=
+container_find=
+proof_failed=yes|no

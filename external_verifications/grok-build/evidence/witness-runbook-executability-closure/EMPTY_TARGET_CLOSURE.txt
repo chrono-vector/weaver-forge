@@ -1,0 +1,5 @@
+EMPTY_TARGET_CLOSURE — C2E-2
+host_proof_before_docker=CLEAN_TARGET_PROOF.txt entry_count=0
+container_proof_before_build=append to CLEAN_TARGET_PROOF.txt
+commands=ls find wc entry count
+nonempty=stop no build

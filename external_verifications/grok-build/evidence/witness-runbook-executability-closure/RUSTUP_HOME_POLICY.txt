@@ -1,0 +1,5 @@
+RUSTUP_HOME_POLICY — C2E-2
+do_not_set_rustup_home_to_empty_witness_dir=yes
+preserve_pinned_image_toolchain=yes
+record_effective_rustup_home=yes
+container_script_does_not_override_unset=yes

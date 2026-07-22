@@ -1,0 +1,6 @@
+CLASSIFICATION_PRECEDENCE_CLOSURE — C2E-2
+WITNESS_CLASSIFICATION.md updated with ordered precedence 1-5
+wrong_commit=FAIL
+missing_commit_proof=INDETERMINATE
+owner_hash_alone_not_fail=yes
+witness_proposes maintainer_intake=pending

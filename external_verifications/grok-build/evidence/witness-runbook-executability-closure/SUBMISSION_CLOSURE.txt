@@ -1,0 +1,8 @@
+SUBMISSION_CLOSURE — C2E-2
+run_id=<witness-id>-<UTC-YYYYMMDD>-<short-run-id>
+path=external_verifications/grok-build/witness-submissions/<run-id>/
+branch=independent-witness/<run-id>
+pr_title=Independent Grok Build Witness: <run-id>
+corrections=preserve append no silent erase
+immutable_accepted_evidence=yes
+fallback_archive_hash_before_extract=yes

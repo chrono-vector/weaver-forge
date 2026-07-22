@@ -1,0 +1,6 @@
+POST_CLOSURE_INTEGRITY — C2E-2
+weaver_forge_HEAD=0aaae298f0e543d4042302224ed075c1796a6016
+pinned_grok_build_source_in_repo=not vendored unchanged by this phase
+owner_artifacts_not_used_as_inputs=yes
+prohibited_commands_not_run=docker cargo rustc rustup dotslash protoc product build witness dry-run
+changes_scope=weaver docs scripts templates validator tests closure evidence only

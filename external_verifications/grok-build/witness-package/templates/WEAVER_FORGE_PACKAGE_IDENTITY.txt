@@ -1,0 +1,12 @@
+# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields
+witness_id=
+run_id=
+package_version=1.0.0-rc1
+weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc1
+weaver_forge_commit_resolved=
+weaver_forge_commit_resolved_utc=
+grok_build_source_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+audited_predecessor_commit=0aaae298f0e543d4042302224ed075c1796a6016
+tag_exists_on_origin=yes|no
+human_reviewer_pending=yes

@@ -1,3 +1,16 @@
-# BUILD_ENVIRONMENT.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# BUILD_ENVIRONMENT.txt — required fields
+HOME=
+CARGO_HOME=
+CARGO_TARGET_DIR=
+CARGO_INCREMENTAL=0
+DOTSLASH_CACHE=
+PROTOC=
+RUSTUP_HOME_effective=
+PATH=
+docker_platform=linux/amd64
+network_mode=bridge
+mount_src=/src:ro
+mount_work=/work:rw
+mount_evidence=/evidence:rw
+mount_container_script=/witness/container_narrow_build.sh:ro
+rust_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e

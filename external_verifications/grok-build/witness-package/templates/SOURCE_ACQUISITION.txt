@@ -1,3 +1,8 @@
-# SOURCE_ACQUISITION.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# SOURCE_ACQUISITION.txt — required fields
+weaver_forge_clone_utc=
+weaver_forge_clone_command=
+grok_build_clone_utc=
+grok_build_clone_command=
+grok_build_checkout_command=git checkout --detach 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+fresh_clones=yes|no
+owner_caches_used=no

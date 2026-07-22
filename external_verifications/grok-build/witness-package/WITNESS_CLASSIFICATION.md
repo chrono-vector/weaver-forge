@@ -1,62 +1,30 @@
-# Witness classification rules — Grok Build narrow rebuild
+# Witness classification — precedence (1.0.0-rc1)
 
-Bit-identical equality with owner SHA-256 values is **not** required for PASS.
+Apply rules **in order**; first matching row governs the **proposed Witness verdict**. Maintainers assign **intake verdict** separately; disagreements stay visible.
 
----
+| Order | Condition | Proposed verdict |
+|------:|-----------|------------------|
+| 1 | Proven prohibited **product execution**, deliberate falsification, or material evidence manipulation | **FAIL** |
+| 2 | Proven source **commit mismatch**, **image digest mismatch**, build failure, missing artifact, **source tree change**, or **`Cargo.lock` change** | **FAIL** |
+| 3 | Evidence cannot establish what occurred (including **missing proof of commit** when required) | **INDETERMINATE** |
+| 4 | Build succeeded but independence, cache provenance, procedure, or mandatory evidence is incomplete | **PARTIAL** |
+| 5 | Every mandatory condition affirmatively established | **PASS** |
 
-## INDEPENDENT NARROW REBUILD PASS
+## Clarifications
 
-All of the following:
+| Topic | Rule |
+|-------|------|
+| Wrong commit observed | **FAIL** (when proven) |
+| Missing proof of expected commit | **INDETERMINATE** |
+| Different artifact SHA-256 vs owner alone | **Not FAIL** by itself |
+| Witness role | Proposes verdict in `WITNESS_VERDICT.md` |
+| Maintainer role | Assigns intake verdict; may differ with documented rationale |
+| Bit-identical reproducibility | **Not** required for narrow rebuild PASS |
 
-1. Witness is a person **other than** the owner/package author.
-2. Run occurred on the Witness’s **own** host, VM, or cloud environment.
-3. Public instructions (this package) were sufficient to start (no owner private assistance required for the core path).
-4. Exact pinned source commit matched.
-5. Exact pinned Rust image digest matched.
-6. Source tree was clean before and after build.
-7. `Cargo.lock` remained unchanged.
-8. New **empty** `CARGO_TARGET_DIR` documented.
-9. `CARGO_INCREMENTAL=0` documented.
-10. `cargo build -p xai-grok-pager-bin --locked` exited **0**.
-11. Expected artifact `xai-grok-pager` was produced.
-12. Artifact size and SHA-256 (and recommended Build ID / `file` output) were recorded.
-13. Post-build source integrity passed.
-14. Required evidence files were supplied (see manifest).
+## Narrow rebuild PASS checklist (order 5)
 
-A **different** SHA-256 than owner C2B-4 or C2D-1 is **not** FAIL by itself.
-
----
-
-## INDEPENDENT NARROW REBUILD PARTIAL
-
-Use when the binary was produced but one or more of independence, pinning, clean-target, bootstrap disclosure, cache provenance, or evidence completeness conditions failed, or the procedure was materially modified without full disclosure.
-
----
-
-## INDEPENDENT NARROW REBUILD FAIL
-
-Use when:
-
-- source commit or image digest did not match
-- build failed or expected artifact missing
-- source or `Cargo.lock` changed
-- evidence contradicts the claimed result
-
----
-
-## INDETERMINATE
-
-Evidence is insufficient to determine whether the claimed run occurred as stated.
-
----
+Independence, own host, public pins, clean source, digest-pinned image, empty target, `CARGO_INCREMENTAL=0`, exact build command exit 0, artifact produced, static metadata recorded, `product_executed=NO`, `ldd_used=NO`, post-build integrity, required evidence files + manifest.
 
 ## Explicit non-upgrades
 
-A Witness PASS on narrow rebuild does **not** automatically establish:
-
-- overall Weaver package PASS
-- functional product verification
-- security review
-- production readiness
-- Windows-native readiness
-- bit-identical reproducibility across environments
+Witness narrow PASS does **not** establish overall Weaver PASS, functional/security/ops readiness, Windows-native readiness, or C-014 completion.

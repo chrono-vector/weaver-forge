@@ -1,0 +1,8 @@
+STATUS_CORRECTION — C2E-2
+prior_public_readiness=C2E-1 WITNESS PACKAGE READY WITH LIMITATIONS
+superseding_review=public-entry-point blind audit at 0aaae298f0e543d4042302224ed075c1796a6016
+current_banner=WITNESS PACKAGE NOT READY — EXECUTABILITY REMEDIATION IN PROGRESS
+C-022_historical_PASS_preserved=yes
+C-022_current_readiness=NOT READY (superseded)
+C-014=NOT_STARTED
+overall=PARTIAL

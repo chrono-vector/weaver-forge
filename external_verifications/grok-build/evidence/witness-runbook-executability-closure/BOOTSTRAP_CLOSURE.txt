@@ -1,0 +1,6 @@
+BOOTSTRAP_CLOSURE — C2E-2
+apt_packages=ca-certificates git build-essential pkg-config cmake curl perl file binutils
+apt_pinned=no limitation documented
+dotslash=0.5.7 cargo install into isolated CARGO_HOME
+protoc=LF copy of /src/bin/protoc to /work/bootstrap writable chmod +x PROTOC exact path
+network_disclosed=apt dotslash protoc cargo deps

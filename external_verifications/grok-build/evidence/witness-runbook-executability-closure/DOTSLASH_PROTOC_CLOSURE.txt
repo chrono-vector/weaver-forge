@@ -1,0 +1,8 @@
+DOTSLASH_PROTOC_CLOSURE — C2E-2
+dotslash_version=0.5.7
+protoc_descriptor_inspected=upstream bin/protoc at pin 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce (WebFetch/read-only)
+lf_normalization=sed 's/\r$//' copy without modifying /src
+protoc_export=PROTOC=<writable descriptor path>
+version_probe=protoc --version via descriptor (non-product)
+dotslash_fetch_phrase_avoided_in_docs=yes use executable descriptor shebang method
+linux_x86_64_digest_expected=3e866620c5be27664f3d2fa2d656b5f3e09b5152b42f1bedbf427b333e90021a

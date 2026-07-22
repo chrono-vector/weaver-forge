@@ -1,0 +1,12 @@
+HOST_SCRIPT_REVIEW — C2E-2 (author-only; not executed)
+path=witness-package/scripts/run_witness_narrow_build.sh
+bash_strict=set -Eeuo pipefail
+witness_id_argument=required
+run_id_format=<witness-id>-<UTC-YYYYMMDD>-<short-run-id>
+work_root_guards=empty slash home weaver_repo nonempty_without_flag
+fresh_clones=weaver_forge and grok_build
+tag_resolution=fail_if_missing
+docker_capture=CONTAINER_STDOUT STDERR DOCKER_EXIT_CODE
+manifest=EVIDENCE_MANIFEST.sha256
+product_execution=no
+ldd=no

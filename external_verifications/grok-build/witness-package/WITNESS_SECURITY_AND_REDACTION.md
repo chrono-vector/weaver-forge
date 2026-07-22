@@ -1,32 +1,47 @@
-# Security and redaction — Witness package
+# Security and redaction — Witness package (1.0.0-rc1)
+
+## Before staging or opening a PR
+
+Review **every** staged file:
+
+```bash
+git diff --cached --check
+git diff --cached
+```
+
+Search for sensitive patterns (manual review — **no guarantee** of completeness):
+
+- `token`, `password`, `authorization`, `cookie`
+- `private key`, `credential`, `proxy`
+- email addresses, cloud account identifiers
+
+Inspect Docker and environment logs for accidental secret emission.
+
+## Redaction log
+
+Record each redaction in `REDACTIONS.md` (see [templates/REDACTIONS.md](templates/REDACTIONS.md)):
+
+```text
+[REDACTED: reason]
+```
+
+## Never redact
+
+- Mandatory commit IDs and digests
+- Exact build commands and exit codes
+- Artifact identity fields (size, SHA-256, Build ID)
+- Independence statements and AI-assistance disclosure
 
 ## Do not publish
 
-- API keys, tokens, cookies
-- SSH private keys, Git credentials
-- Unnecessary full home-directory paths
-- Private email addresses (unless you intentionally make them public)
-- Sensitive hostnames or cloud account IDs
-- Unrelated environment dumps
-
-## Do before submission
-
-Review all logs. Redact secrets, marking redactions:
-
-```text
-[REDACTED: Git credential]
-[REDACTED: path under home directory]
-```
-
-## Must remain visible after redaction
-
-- Source commit
-- Image digest
-- Build command
-- Exit code
-- Artifact SHA-256 and size
-- Enough environment detail to judge independence (OS, Docker version, arch)
+- API keys, OAuth tokens, session cookies
+- SSH private keys, `.netrc`, git credentials
+- Unrelated full environment dumps
 
 ## Product / auth
 
-Do not introduce product authentication materials. This Witness scope has **no** product login.
+Witness scope includes **no** product login. Do not introduce authentication materials.
+
+## Scanner disclaimer
+
+Pattern search and manual review **do not** guarantee absence of secrets.

@@ -1,3 +1,10 @@
-# STATIC_ARTIFACT_INSPECTION.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# STATIC_ARTIFACT_INSPECTION.txt — required fields
+artifact_path=
+file_output=
+readelf_h=
+readelf_n=
+readelf_d=
+objdump_f=
+static_commands_run=file readelf -h readelf -n readelf -d objdump -f
+product_executed=NO
+ldd_used=NO

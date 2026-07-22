@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package READY WITH LIMITATIONS; Independent Witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY (executability remediation); Independent Witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-22` |

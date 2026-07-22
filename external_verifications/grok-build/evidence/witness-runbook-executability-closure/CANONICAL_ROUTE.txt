@@ -1,0 +1,7 @@
+CANONICAL_ROUTE — C2E-2
+canonical=Linux x86_64 OR WSL2 bash + Docker Desktop Linux containers
+container_platform=linux/amd64
+powershell_native=noncanonical for 1.0.0-rc1
+windows_native_rust=BLOCKED
+macos_docker=unvalidated noncanonical
+documents_updated=WITNESS_RUNBOOK.md WITNESS_REQUIREMENTS.md witness-package/README.md

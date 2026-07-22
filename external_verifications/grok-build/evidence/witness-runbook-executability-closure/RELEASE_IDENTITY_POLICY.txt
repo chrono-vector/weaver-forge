@@ -1,0 +1,7 @@
+RELEASE_IDENTITY_POLICY — C2E-2
+package_version=1.0.0-rc1
+proposed_tag=grok-build-witness-v1.0.0-rc1
+tag_exists_during_drafting=no
+human_creates_annotated_tag_after_review=yes
+WITNESS_PACKAGE_VERSION.md=created
+host_script_fails_if_tag_missing=yes

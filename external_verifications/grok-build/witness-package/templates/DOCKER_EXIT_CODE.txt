@@ -1,0 +1,8 @@
+# DOCKER_EXIT_CODE.txt — required fields
+docker_exit_code=
+docker_started_utc=
+docker_finished_utc=
+container_platform=linux/amd64
+network_mode=bridge
+product_executed=NO
+ldd_used=NO

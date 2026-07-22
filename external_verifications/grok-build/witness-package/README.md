@@ -2,9 +2,11 @@
 
 | Field | Value |
 |-------|-------|
-| Package status | **WITNESS PACKAGE READY WITH LIMITATIONS** |
-| Independent Witness status | **`NOT_STARTED`** (no third-party run yet) |
-| Target | Grok Build at pinned commit (not floating tip) |
+| Package version | **1.0.0-rc1** |
+| Proposed release tag | **`grok-build-witness-v1.0.0-rc1`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
+| **Current package status** | **WITNESS PACKAGE NOT READY — EXECUTABILITY REMEDIATION IN PROGRESS** |
+| Historical C2E-1 status (superseded for readiness) | READY WITH LIMITATIONS — see blind audit intake |
+| Independent Witness (C-014) | **`NOT_STARTED`** |
 | Scope | Narrow clean rebuild of `xai-grok-pager-bin` only |
 | Product execution | **Forbidden** |
 
@@ -12,63 +14,52 @@
 
 ## Who this is for
 
-An independent person (not the package owner / owner-side reproducer) who will rebuild Grok Build’s narrow binary from public materials on **their own** host, VM, or cloud environment.
+An independent person (not the package owner) who rebuilds `xai-grok-pager` from public pins on **their own** Linux or WSL2 host using **linux/amd64** Docker.
 
-## Canonical entry points (public)
+**PowerShell-native Witness execution is not canonical for 1.0.0-rc1.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
 
-| Role | URL / path |
-|------|------------|
-| Weaver Forge repository (this package) | `https://github.com/chrono-vector/weaver-forge` |
-| Package path in repo | `external_verifications/grok-build/witness-package/` |
-| Grok Build source (upstream) | `https://github.com/xai-org/grok-build` |
-| Pinned source commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+## Canonical entry points
 
-Start here after cloning Weaver Forge at any commit that includes this directory. Prefer a recent `main` tip that contains the Witness package.
+| Role | Value |
+|------|--------|
+| Weaver Forge URL | `https://github.com/chrono-vector/weaver-forge.git` |
+| Package path | `external_verifications/grok-build/witness-package/` |
+| Grok Build URL | `https://github.com/xai-org/grok-build.git` |
+| Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
-## Fixed identities (must match)
+Do **not** start from an unpinned `main` tip alone. Resolve the **annotated package tag** (once published) or the maintainer-directed commit.
+
+## Fixed identities
 
 | Item | Value |
 |------|--------|
-| Source URL | `https://github.com/xai-org/grok-build` |
-| Source commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Container image | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
-| Rust | **1.92.0** (image + `rust-toolchain.toml` at pin) |
+| Rust image | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
+| Rust version | **1.92.0** |
 | Package | `xai-grok-pager-bin` |
-| Binary name | `xai-grok-pager` |
-| Build command | `cargo build -p xai-grok-pager-bin --locked` |
-| Incremental | `CARGO_INCREMENTAL=0` |
-| Target dir | **new empty** `CARGO_TARGET_DIR` (Witness-chosen path) |
+| Binary | `xai-grok-pager` |
+| Build | `cargo build -p xai-grok-pager-bin --locked` |
+| Env | `CARGO_INCREMENTAL=0` |
+| Target | **New empty** `CARGO_TARGET_DIR` |
 
-## Read next (in order)
+## Read next
 
-1. [WITNESS_REQUIREMENTS.md](WITNESS_REQUIREMENTS.md)
-2. [WITNESS_RUNBOOK.md](WITNESS_RUNBOOK.md)
-3. [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md)
-4. [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md)
-5. [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md)
-6. [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md)
-7. Templates under [templates/](templates/)
-
-## What success means
-
-**INDEPENDENT NARROW REBUILD PASS** does **not** require matching either owner-side artifact SHA-256. You must record **your own** size, SHA-256, Build ID, and static file metadata.
-
-Owner-side artifacts (historical evidence only):
-
-| Build | Size | SHA-256 |
-|-------|-----:|---------|
-| C2B-4 (incremental) | 600647920 | `1efcd864606d3894b685ed3ec8c6b23e7e0aceeabdc04c4c8fc991c65df4389b` |
-| C2D-1 (clean) | 600515304 | `eebdbe81a8fc34645a2f3c72aad36825d692fbef594a6c540f77ffaa42c18dad` |
-
-Those hashes are **not** acceptance criteria for Witness PASS.
+1. [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)
+2. [WITNESS_REQUIREMENTS.md](WITNESS_REQUIREMENTS.md)
+3. [WITNESS_RUNBOOK.md](WITNESS_RUNBOOK.md)
+4. [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md)
+5. [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md)
+6. [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md)
+7. [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md)
+8. [scripts/VALIDATOR.md](scripts/VALIDATOR.md)
+9. [templates/](templates/) and [templates/REDACTIONS.md](templates/REDACTIONS.md)
 
 ## Explicit non-claims
 
-- This package readiness status is **not** Independent Witness PASS.
-- Offline-from-empty-cache rebuild is **not** established.
-- Windows-native build remains **BLOCKED** (Docker Linux route only).
-- Product TUI/auth/agent runs are **out of scope**.
+- **NOT READY** until tag + re-audit + successful blind run.
+- C-014 Independent Witness **not started**.
+- No bit-identical reproducibility requirement vs owner hashes.
+- Upstream product commands (`grok`, login, agents, etc.) are **out of scope** and must not be run during Witness rebuild.
 
-## Historical owner evidence
+## Owner artifact hashes (historical only)
 
-Owner-side logs under `../evidence/` use paths such as `C:\dev\...` and `/work/cargo-target*`. Those are **historical owner records**, not Witness command requirements.
+Not acceptance criteria for Witness PASS. See prior README table in git history / owner evidence.

@@ -32,7 +32,7 @@
 | Repository / artifact root | `C:\dev\external-verification-targets\grok-build` (**owner-side historical path**) |
 | Weaver package path | `external_verifications/grok-build/` (Weaver Forge repo) |
 
-> **Witness note (C2E-1):** This file is an **owner-side historical reproduction log**. Independent Witnesses must follow **`witness-package/README.md`** and **`WITNESS_RUNBOOK.md`** only. Do not treat owner `C:\dev\...` paths as Witness requirements.
+> **Witness note (C2E-2):** Owner-side log only. Witness package status is **NOT READY — executability remediation in progress**. Canonical Witness procedure: **`witness-package/WITNESS_RUNBOOK.md`** and **`scripts/run_witness_narrow_build.sh`** (once tag `grok-build-witness-v1.0.0-rc1` exists). C-014 **NOT_STARTED**.
 
 ## 3. Command Sequence (executed)
 

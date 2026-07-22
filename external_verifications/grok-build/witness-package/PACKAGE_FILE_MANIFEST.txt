@@ -1,0 +1,39 @@
+# Witness package file manifest (package-relative paths)
+# Version 1.0.0-rc1 — excludes binaries, caches, generated build artifacts
+
+README.md
+WITNESS_PACKAGE_VERSION.md
+WITNESS_REQUIREMENTS.md
+WITNESS_RUNBOOK.md
+WITNESS_CLASSIFICATION.md
+WITNESS_SUBMISSION.md
+WITNESS_SECURITY_AND_REDACTION.md
+WITNESS_PACKAGE_MANIFEST.md
+PACKAGE_FILE_MANIFEST.txt
+scripts/run_witness_narrow_build.sh
+scripts/container_narrow_build.sh
+scripts/validate_witness_evidence.py
+scripts/VALIDATOR.md
+scripts/tests/test_validate_witness_evidence.py
+templates/WEAVER_FORGE_PACKAGE_IDENTITY.txt
+templates/SOURCE_ACQUISITION.txt
+templates/SOURCE_IDENTITY.txt
+templates/IMAGE_IDENTITY.txt
+templates/ENVIRONMENT.txt
+templates/BOOTSTRAP.txt
+templates/CLEAN_TARGET_PROOF.txt
+templates/BUILD_COMMAND.txt
+templates/BUILD_ENVIRONMENT.txt
+templates/BUILD_EXIT_CODE.txt
+templates/BUILD_TIMING.txt
+templates/DOCKER_EXIT_CODE.txt
+templates/ARTIFACT_IDENTITY.txt
+templates/STATIC_ARTIFACT_INSPECTION.txt
+templates/POST_BUILD_INTEGRITY.txt
+templates/DEVIATIONS.txt
+templates/WITNESS_STATEMENT.md
+templates/WITNESS_VERDICT.md
+templates/REDACTIONS.md
+
+# Release tag policy: grok-build-witness-v1.0.0-rc1 (human-created after review)
+# Evidence submissions require EVIDENCE_MANIFEST.sha256 + structural validator PASS

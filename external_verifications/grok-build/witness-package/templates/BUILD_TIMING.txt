@@ -1,3 +1,7 @@
-# BUILD_TIMING.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# BUILD_TIMING.txt — required fields
+utc_start=
+utc_end=
+elapsed_seconds=
+exact_build_command=cargo build -p xai-grok-pager-bin --locked
+cargo_exit_code=
+docker_exit_code=

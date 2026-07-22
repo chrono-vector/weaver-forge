@@ -1,23 +1,20 @@
-# Witness verdict — Grok Build narrow rebuild
+# WITNESS_VERDICT.md — required fields
 
 | Field | Value |
 |-------|-------|
-| Witness ID | |
-| Date | |
-| Selected classification | `INDEPENDENT NARROW REBUILD PASS` / `PARTIAL` / `FAIL` / `INDETERMINATE` |
-| Source commit observed | |
-| Image digest observed | |
-| Build exit code | |
-| Artifact size | |
-| Artifact SHA-256 | |
-| Matches owner SHA-256? | not required / yes / no (state which owner hash if yes) |
+| run_id | |
+| package_tag | grok-build-witness-v1.0.0-rc1 |
+| weaver_forge_commit | |
+| grok_build_commit | 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce |
+| proposed_verdict | PASS / PARTIAL / FAIL / INDETERMINATE |
+| product_executed | NO |
+| ldd_used | NO |
+| maintainer_intake_verdict | pending |
 
 ## Justification
 
-(Explain why the classification applies. Cite evidence filenames.)
+(Reference classification precedence in WITNESS_CLASSIFICATION.md.)
 
-## Explicit non-claims
+## Deviations
 
-- This does not claim product functional verification.
-- This does not claim security review.
-- This does not claim overall Weaver package PASS.
+(Summary or pointer to DEVIATIONS.txt.)

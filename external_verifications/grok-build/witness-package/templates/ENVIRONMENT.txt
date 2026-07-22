@@ -1,3 +1,17 @@
-# ENVIRONMENT.txt — Independent Witness evidence template
-# Fill with Witness observations. Do not copy owner evidence.
-# Redact secrets. Do not execute the product binary.
+# ENVIRONMENT.txt — required fields
+witness_id=
+host_os=
+host_arch=
+host_docker_client_version=
+host_docker_server_version=
+host_free_disk_gb=
+host_ram_gib=
+container_os_release=
+container_uname=
+rustc_version=
+cargo_version=
+ai_assistance_used=yes|no
+ai_assistance_detail=
+human_review_completed=yes|no
+product_executed=NO
+ldd_used=NO

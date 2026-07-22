@@ -1,0 +1,6 @@
+VALIDATOR_CLOSURE — C2E-2
+script=witness-package/scripts/validate_witness_evidence.py
+stdlib_only=yes
+synthetic_tests=scripts/tests/test_validate_witness_evidence.py
+structural_pass_disclaimer=yes
+fake_witness_evidence_not_committed=yes

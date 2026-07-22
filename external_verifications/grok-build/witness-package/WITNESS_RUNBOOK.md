@@ -1,159 +1,174 @@
-# Witness runbook — Grok Build narrow clean rebuild
+# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc1)
 
-**Supersedes** informal build snippets in owner-side `REPRODUCTION.md` / historical evidence for **Witness** use. Owner evidence remains historical.
+**Package status:** NOT READY until annotated tag `grok-build-witness-v1.0.0-rc1` exists and re-audit passes. This runbook is the canonical procedure once the tag is published.
 
-Variables (Witness-chosen):
-
-```text
-WF_DIR          # clone of https://github.com/chrono-vector/weaver-forge
-SRC_DIR         # clone of https://github.com/xai-org/grok-build (fresh)
-WORK_DIR        # empty work root you create
-CARGO_HOME_W    # $WORK_DIR/cargo-home
-CARGO_TARGET_W  # $WORK_DIR/cargo-target   (must start empty)
-DOTSLASH_CACHE_W # $WORK_DIR/dotslash-cache
-RUSTUP_HOME_W   # $WORK_DIR/rustup-home (optional but recommended)
-EVIDENCE_DIR    # your submission evidence directory
-IMAGE           # docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
-PIN             # 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-```
-
-Do **not** use owner paths such as `C:\dev\external-verification-*`.
+**Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`, `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must not** be run.
 
 ---
 
-## A. Host precheck
+## Canonical platform
 
-Record OS, arch, Docker client/server versions, free disk, RAM if known. Confirm Docker can run Linux containers.
+| Route | Status |
+|-------|--------|
+| Linux x86_64 host + Docker | **Canonical** |
+| WSL2 Linux shell + Docker Desktop (Linux containers) | **Canonical** |
+| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc1 |
+| Windows-native `cargo` | **BLOCKED** |
+| macOS Docker | **Unvalidated / noncanonical** |
 
-## B. Source acquisition
+All builds run **inside** `linux/amd64` Docker (`--platform linux/amd64`).
 
-```text
-git clone https://github.com/xai-org/grok-build.git "$SRC_DIR"
-cd "$SRC_DIR"
-git checkout 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+---
+
+## One copyable host block (Linux / WSL2 bash)
+
+Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and choose an **empty** work root **outside** any Weaver Forge clone.
+
+```bash
+export WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
+export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc1"
+export GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
+export GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
+export RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
+export WORK_ROOT="/var/tmp/grok-witness-work"
+
+# After tag exists: clone Weaver Forge only to obtain scripts, or run from an existing checkout of the tagged commit.
+WF_CHECKOUT="/var/tmp/weaver-forge-tag-checkout"
+git clone "${WEAVER_FORGE_URL}" "${WF_CHECKOUT}"
+git -C "${WF_CHECKOUT}" fetch --tags origin
+git -C "${WF_CHECKOUT}" checkout "refs/tags/${WEAVER_FORGE_TAG}"
+
+bash "${WF_CHECKOUT}/external_verifications/grok-build/witness-package/scripts/run_witness_narrow_build.sh" \
+  --work-root "${WORK_ROOT}" \
+  YOUR_WITNESS_ID
 ```
 
-## C. Source identity
+**Exact invocation (once variables are set):**
 
-```text
-git rev-parse HEAD
-# must print: 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-git status --short
-# must be empty (clean)
-# record SHA-256 of Cargo.lock (and optionally README.md, LICENSE, Cargo.toml)
+```bash
+bash external_verifications/grok-build/witness-package/scripts/run_witness_narrow_build.sh \
+  --work-root "${WORK_ROOT}" \
+  YOUR_WITNESS_ID
 ```
 
-Expected Cargo.lock SHA-256 (Phase B):
-`1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421`
+### Run ID and evidence directory
 
-## D. Image acquisition and digest verification
+Format: `<witness-id>-<UTC-YYYYMMDD>-<short-run-id>`
+
+Evidence directory (host helper default):
 
 ```text
-docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
-docker image inspect docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e --format "{{json .RepoDigests}}"
+${WORK_ROOT}/evidence/<run-id>/
 ```
 
-Confirm the digest matches the pin. Prefer **linux/amd64**.
+Copy completed templates + logs into submission path per [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md).
 
-## E. Clean directory creation
+---
 
-```text
-mkdir -p "$CARGO_HOME_W" "$CARGO_TARGET_W" "$DOTSLASH_CACHE_W" "$RUSTUP_HOME_W" "$WORK_DIR/state" "$WORK_DIR/logs" "$EVIDENCE_DIR"
-# Prove CARGO_TARGET_W is empty (no prior compiled artifacts)
-```
+## Directory layout (host helper)
 
-## F. Dependency / bootstrap acquisition
+| Variable | Typical path under `WORK_ROOT` |
+|----------|--------------------------------|
+| `WF_DIR` | `weaver-forge/` (fresh clone; resolves tag) |
+| `SRC_DIR` | `grok-build-src/` (fresh clone at pin) |
+| `CARGO_HOME_DIR` | `cargo-home/` |
+| `CARGO_TARGET_DIR` | `cargo-target/` (must start empty) |
+| `DOTSLASH_CACHE_DIR` | `dotslash-cache/` |
+| `HOME_DIR` | `home/` |
+| `BOOTSTRAP_DIR` | `bootstrap/` (LF protoc descriptor copy) |
+| `EVIDENCE_DIR` | `evidence/<run-id>/` |
 
-In a disposable container (network **on** for bootstrap and dependency fetch), with:
+---
 
-- Source: `"$SRC_DIR":/src:ro` (read-only recommended)
-- Writable: `CARGO_HOME_W`, `CARGO_TARGET_W`, `DOTSLASH_CACHE_W`, `RUSTUP_HOME_W`, state/logs
-- Env: `CARGO_HOME`, `CARGO_TARGET_DIR`, `CARGO_INCREMENTAL=0`, `DOTSLASH_CACHE`, `RUSTUP_HOME`, `HOME` under work (not host home)
-- No host home, no Docker socket, no SSH keys, no product credentials
+## Docker contract (single container run)
 
-Bootstrap (record all commands and outputs):
+The host script runs **one** disposable container:
 
-1. `apt-get update` and install (recommended set):
-   `ca-certificates git build-essential pkg-config cmake curl perl`
-   (package **versions** not pinned in this package — disclose observed versions)
-2. Ensure DotSlash:
-   `cargo install dotslash --version 0.5.7 --locked`
-   (if not already present in your `CARGO_HOME`/bin)
-3. Protoc via DotSlash:
-   - Prefer LF-normalized copy of `/src/bin/protoc` into writable state (strip CR) if needed
-   - `dotslash -- fetch <wrapper>` then set `PROTOC` to the fetched binary
-   - Expect protoc **29.3** class resolution
-4. Optionally `cargo fetch --locked` (network); disclose downloads
+| Flag / mount | Value |
+|--------------|--------|
+| `--rm` | yes |
+| `--platform` | `linux/amd64` |
+| `--network` | `bridge` |
+| Source | `-v ${SRC_DIR}:/src:ro` |
+| Work | `-v ${WORK_ROOT}:/work` |
+| Evidence | `-v ${EVIDENCE_DIR}:/evidence` |
+| Script | `-v .../container_narrow_build.sh:/witness/container_narrow_build.sh:ro` |
+| `-w` | `/src` |
+| `HOME` | `/work/home` |
+| `CARGO_HOME` | `/work/cargo-home` |
+| `CARGO_TARGET_DIR` | `/work/cargo-target` |
+| `CARGO_INCREMENTAL` | `0` |
+| `DOTSLASH_CACHE` | `/work/dotslash-cache` |
+| `PATH` | `/work/cargo-home/bin:` + image cargo paths |
+| `RUSTUP_HOME` | **Do not** set to empty work dir — preserve image toolchain; record effective value |
 
-**Do not** mount or copy owner caches/targets.
+---
 
-## G. Narrow build
+## Evidence filenames (required)
 
-Authorized command only:
+| File | Role |
+|------|------|
+| `CONTAINER_STDOUT.txt` / `CONTAINER_STDERR.txt` | Full Docker capture |
+| `DOCKER_EXIT_CODE.txt` | Docker exit code |
+| `BUILD_STDOUT.txt` / `BUILD_STDERR.txt` | Cargo-only logs |
+| `BUILD_EXIT_CODE.txt` | Cargo exit + `cargo_started` |
+| `BUILD_TIMING.txt` | UTC start/end, elapsed, command |
+| `CLEAN_TARGET_PROOF.txt` | Host + container empty-target proof |
+| `WEAVER_FORGE_PACKAGE_IDENTITY.txt` | Tag + resolved Weaver commit |
+| `SOURCE_IDENTITY.txt` | Grok pin + Cargo.lock hash |
+| `EVIDENCE_MANIFEST.sha256` | Checksum manifest |
+| `REDACTIONS.md` | Redaction log |
 
-```text
-export CARGO_INCREMENTAL=0
-export CARGO_TARGET_DIR=...   # your empty target
-export CARGO_HOME=...
-# plus PROTOC, PATH including cargo-home/bin
-cd /src
+See [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md) for the full list.
+
+---
+
+## Bootstrap (container)
+
+Noninteractive `apt-get install` (versions **not** pinned — record observed):
+
+`ca-certificates`, `git`, `build-essential`, `pkg-config`, `cmake`, `curl`, `perl`, `file`, `binutils`
+
+| Component | Pin |
+|-----------|-----|
+| DotSlash | `cargo install dotslash --version 0.5.7 --locked` into isolated `CARGO_HOME` |
+| protoc | Copy `/src/bin/protoc` → writable LF file under `/work/bootstrap/`; `chmod +x`; `export PROTOC=<that path>`; version probe via descriptor only |
+
+**Do not** modify `/src`. **Do not** run the product binary.
+
+---
+
+## Build command (exact)
+
+```bash
 cargo build -p xai-grok-pager-bin --locked
 ```
 
-Capture full stdout/stderr, exit code, wall time.
-Jobs flag (`-j N`) is optional; if used, record it as a deviation from the bare command.
+With `CARGO_INCREMENTAL=0`. No `-j 2` in the canonical command (optional parallelism is a **noncanonical** deviation if used).
 
-Network during compile: disclose whether bridge/host network was available. Offline-from-empty-cache is **not** required or proven.
-
-## H. Artifact static inspection (no execution)
-
-After success, expected path pattern:
-
-```text
-$CARGO_TARGET_DIR/debug/xai-grok-pager
-```
-
-Record (static only):
-
-- filename, size, SHA-256
-- `file` output
-- `readelf -h` (or equivalent)
-- `readelf -n` Build ID if available
-- `readelf -d` NEEDED list (**do not use `ldd`**)
-
-**Do not run** the binary. **Do not** pass `--version`, `--help`, `-h`, or any product argument.
-
-## I. Post-build integrity
-
-```text
-git -C "$SRC_DIR" rev-parse HEAD   # still pin
-git -C "$SRC_DIR" status --short   # still clean
-# Cargo.lock SHA-256 unchanged
-```
-
-## J. Evidence packaging
-
-Fill templates under `templates/` and capture:
-
-- `BUILD_STDOUT.txt`, `BUILD_STDERR.txt` (raw logs)
-
-Follow [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md) and [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md).
+Separate `cargo fetch --locked` is **omitted**; fresh `CARGO_HOME` still requires network during the locked build. Completely offline reproduction is **NOT ESTABLISHED**.
 
 ---
 
-## Authorized commands (summary)
+## Failure behavior
 
-- git clone/checkout/status/rev-parse/hash
-- docker pull/inspect/run (Linux container)
-- apt install of bootstrap packages (disclosed)
-- cargo install of DotSlash 0.5.7; cargo fetch/build as above
-- static tools: sha256sum/file/readelf/objdump static parsing
+| Condition | Behavior |
+|-----------|----------|
+| Missing `WEAVER_FORGE_TAG` on origin | Host script **exit 3** with clear message |
+| Non-empty `WORK_ROOT` | Refused unless `--allow-nonempty-work-root` |
+| Unsafe `WORK_ROOT` (`/`, `$HOME`, Weaver repo) | **exit 2** |
+| Non-empty target before build | Stop; record failure; no Cargo |
+| Bootstrap failure | `cargo_started=NO`, `BUILD_NOT_STARTED`, container exit ≠ 0 |
+| Source / lock change | FAIL classification per [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) |
 
-## Prohibited commands (summary)
+---
 
-- Any execution of `xai-grok-pager` / `grok` product entry
-- `--version`, `--help`, `-h`, bare TUI, login, agent, prompts, OAuth, models, update
-- Full workspace build; `--release` (unless separately authorized later)
-- Source or Cargo.lock modification
-- `ldd` (not required; use `readelf -d`)
-- Using owner artifacts or caches as inputs
+## Optional / noncanonical alternatives
+
+Manual step-by-step Docker without the host script is **unvalidated**. Owner historical paths under `../evidence/` are **not** Witness commands.
+
+---
+
+## Static inspection (after successful build only)
+
+Record path, size, SHA-256, `file`, `readelf -h`, `readelf -n`, `readelf -d`, `objdump -f`. **Never execute** the artifact. **`ldd` forbidden.**

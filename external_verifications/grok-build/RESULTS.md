@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **owner-side through C2D-2 PASS axes; Witness package READY WITH LIMITATIONS; Independent Witness NOT_STARTED; overall PARTIAL** |
+| Results status | **owner-side through C2D-2 PASS axes; Witness package NOT READY (executability remediation); Independent Witness NOT_STARTED; overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
 | Compilation date | `2026-07-22` (C2E-1) |
@@ -37,7 +37,8 @@
 | Phase C2B-4 (cargo build) | **`PASS`** (exit 0; 43m 18s; incremental) |
 | Phase C2D-1 (clean non-incremental rebuild) | **`PASS`** (exit 0; 85m 21s; BIT_IDENTICAL_NOT_OBSERVED) |
 | Phase C2D-2 (static artifact variance) | **`PASS`** (15 identical / 30 differing sections; `.text` differs) |
-| Phase C2E-1 (Witness package readiness) | **READY WITH LIMITATIONS** (Independent Witness still **NOT_STARTED**) |
+| Phase C2E-1 (Witness package readiness) | **READY WITH LIMITATIONS** (historical; superseded) |
+| Phase C2E-2 (Executability closure) | **NOT READY — remediation materials prepared; re-audit required** |
 
 ## 2. Per-Claim Results
 
@@ -61,7 +62,8 @@
 | C-019 | Static startup boundary (help/version) | `PARTIAL` | evidence/startup-boundary/ |
 | C-020 | Clean non-incremental narrow rebuild | `PASS` | evidence/clean-rebuild/ |
 | C-021 | Static artifact variance analysis (C2B-4 vs C2D-1) | `PASS` | evidence/artifact-variance/ |
-| C-022 | Independent Witness package readiness | `PASS` (readiness only) | evidence/witness-package-readiness/ |
+| C-022 | Independent Witness package readiness | `PASS` (C2E-1 audit only; **superseded for readiness**) | evidence/witness-package-readiness/ |
+| C-023 | Public blind audit intake | `PASS` (recording only) | evidence/public-blind-audit/ |
 | C-014 | Independent witness | `NOT_STARTED` | — |
 | C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
 | C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
@@ -143,7 +145,7 @@
 | Status | Claims |
 |--------|-------:|
 | `NOT_STARTED` | 2 (C-012, C-014 Independent Witness) |
-| `PASS` | 18 (incl. C-013, C-016–C-018, C-020–C-022) |
+| `PASS` | 19 (incl. C-013, C-016–C-018, C-020–C-023) |
 | `PARTIAL` | 1 (C-019 static startup) |
 | `FAIL` | 0 |
 | `BLOCKED` | 1 (C-015 Windows host) |

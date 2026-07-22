@@ -1,0 +1,6 @@
+DISCOVERABILITY_CLOSURE — C2E-2
+root_README_section=Published External Verification Packages
+grok_build_README_created=yes
+witness_package_README_updated=yes
+link=external_verifications/grok-build/witness-package/README.md
+status_label=NOT READY remediation in progress
