@@ -1,0 +1,14 @@
+evidence_schema_version=1
+witness_id=witness01
+run_id=run-2026-07-22-001
+package_version=1.0.0-rc4
+weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4
+weaver_forge_commit_resolved=89127c78c3a11492892de7e3b5f0dee18d71775a
+package_clone_head=89127c78c3a11492892de7e3b5f0dee18d71775a
+package_clone_detached=yes
+package_clone_clean_status=yes
+tag_head_match=yes
+package_commit_authority=annotated_tag_resolution
+grok_build_source_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+canonical_run=yes

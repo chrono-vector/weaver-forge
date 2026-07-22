@@ -1,0 +1,2 @@
+# BUILD_STDOUT capture for scenario static-inspection-incomplete
+(captured output elided in fixture)

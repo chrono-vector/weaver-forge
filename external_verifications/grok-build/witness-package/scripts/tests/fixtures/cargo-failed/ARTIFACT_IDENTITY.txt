@@ -1,0 +1,7 @@
+evidence_schema_version=1
+outcome=CARGO_FAILED
+applicable=no
+artifact_present=no
+reason=cargo build exited nonzero (101)
+product_executed=NO
+ldd_used=NO

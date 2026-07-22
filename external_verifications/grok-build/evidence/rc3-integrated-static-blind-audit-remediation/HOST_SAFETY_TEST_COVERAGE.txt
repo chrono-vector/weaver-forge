@@ -1,0 +1,6 @@
+﻿phase=C2E-5
+closure=HOST_SAFETY_TEST_COVERAGE
+coverage=canonical_constants;silent_override_rejection;noncanonical_mode;PASS_prohibition;Weaver_URL_severity;WITNESS_ID;WORK_ROOT;dirty_clones;locks;image_failures;outcome_preservation
+method=static_shell_inspection_and_synthetic_validator_tests
+package_status=NOT READY
+c014=NOT_STARTED

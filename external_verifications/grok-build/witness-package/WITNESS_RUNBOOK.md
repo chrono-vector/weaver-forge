@@ -1,13 +1,19 @@
-# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc3)
+# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc4)
 
-**Package status:** **NOT READY** pending fixed-tag repeat blind audit and required readiness
-gates. Canonical package tag: `grok-build-witness-v1.0.0-rc3` (availability verified by Git
-resolution; canonical execution requires successful resolution).
+**Package status:** **RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT**
+
+Canonical package tag: `grok-build-witness-v1.0.0-rc4` (`canonical_package_tag=grok-build-witness-v1.0.0-rc4`).
+Availability verified by annotated-tag resolution; canonical execution requires successful
+resolution; if resolution fails, canonical execution stops. After publication, the tag is
+immutable. `package_commit_authority=annotated_tag_resolution` (no embedded future rc4 commit).
+`grok-build-witness-v1.0.0-rc3` remains fixed at `77221a224bbd6194cfafb81f6ecb58c800e5bc13`
+(integrated four-batch static audit verdict **NOT READY**; audit preserved under
+`evidence/rc3-static-blind-audit/`).
 `grok-build-witness-v1.0.0-rc2` remains fixed at `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`
 (integrated four-batch static blind audit verdict **NOT READY**).
 `grok-build-witness-v1.0.0-rc1` remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a`
-(repeat audit verdict **NOT READY**). Both are **immutable historical releases** and must not be
-moved, deleted, or force-updated.
+(repeat audit verdict **NOT READY**). rc1, rc2, and rc3 are **immutable historical releases** and
+must not be moved, deleted, or force-updated. C-014 **NOT_STARTED**. Overall **PARTIAL**.
 
 **Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`,
 `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must
@@ -21,7 +27,7 @@ not** be run.
 |-------|--------|
 | Linux x86_64 host + Docker | **Canonical** |
 | WSL2 Linux shell + Docker Desktop (Linux containers) | **Canonical** |
-| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc3 |
+| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc4 |
 | Windows-native `cargo` | **BLOCKED** |
 | macOS Docker | **Unvalidated / noncanonical** |
 
@@ -39,7 +45,7 @@ deviation sets `canonical_run=NO` for the whole run.
 | Constant | Value |
 |----------|-------|
 | `CANONICAL_WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `CANONICAL_WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc3` |
+| `CANONICAL_WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc4` |
 | `CANONICAL_GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `CANONICAL_GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `CANONICAL_RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -48,10 +54,11 @@ deviation sets `canonical_run=NO` for the whole run.
 | `CANONICAL_EXPECTED_RUSTC_VERSION` | `1.92.0` |
 | `CANONICAL_EXPECTED_DOTSLASH_VERSION` | `0.5.7` |
 
-**Package commit authority:** the annotated tag. Canonical mode resolves
-`refs/tags/grok-build-witness-v1.0.0-rc3^{commit}`, checks out that commit detached,
+**Package commit authority:** the annotated tag (`annotated_tag_resolution`). Canonical mode
+resolves `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}`, checks out that commit detached,
 requires `HEAD` to equal the resolved commit, and requires a clean package clone.
-The tagged package does **not** embed its own future commit hash (C2E-4A).
+The tagged package does **not** embed its own future commit hash. If resolution fails, canonical
+execution stops. After publication, the tag is immutable.
 
 **Optional additional verification only:** `WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT` (env).
 When set to a full 40-char commit, it must equal the resolved tag commit and detached
@@ -115,14 +122,14 @@ Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and
 
 ```bash
 export WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc3"
+export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc4"
 export GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
 export GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 export RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 export WORK_ROOT="/var/tmp/grok-witness-work"
 
-# After the rc3 tag exists: clone Weaver Forge only to obtain scripts, or run from an existing
-# checkout of the tagged commit.
+# Canonical execution: clone Weaver Forge only to obtain scripts, or run from an existing
+# checkout of the tagged commit resolved via annotated-tag resolution.
 WF_CHECKOUT="/var/tmp/weaver-forge-tag-checkout"
 git clone "${WEAVER_FORGE_URL}" "${WF_CHECKOUT}"
 git -C "${WF_CHECKOUT}" fetch --tags origin
@@ -141,10 +148,11 @@ bash external_verifications/grok-build/witness-package/scripts/run_witness_narro
   YOUR_WITNESS_ID
 ```
 
-If the requested `WEAVER_FORGE_TAG` is not present on `origin`, the host script fails clearly
+If the requested `WEAVER_FORGE_TAG` cannot be resolved on `origin`, the host script fails clearly
 with `exit 3` and records `WEAVER_FORGE_PACKAGE_IDENTITY.txt` with
 `reason=requested_tag_not_present_on_origin` plus the list of any `grok-build-witness-*` tags
-that **are** present.
+that **are** present. Canonical execution requires successful resolution; if resolution fails,
+canonical execution stops.
 
 ### Run ID and evidence directory
 
@@ -383,16 +391,23 @@ after the final manifest has been generated.
 
 ---
 
-## Package remains NOT READY until tag + re-audit
+## Package remains NOT READY until rc4 commit, tag, and re-audit
 
 This runbook describes the **procedure** a Witness would follow once the package is ready to
-execute. The package itself remains **NOT READY** for blind execution until:
+execute. The package itself remains **NOT READY** until rc4 is committed, tagged, and
+repeat-audited.
 
-1. The `grok-build-witness-v1.0.0-rc3` annotated tag exists on `origin`, and
-2. A repeat blind audit against that exact tag confirms copyable executability.
+Canonical execution requires successful annotated-tag resolution of
+`grok-build-witness-v1.0.0-rc4`. If resolution fails, canonical execution stops (host script
+`exit 3` by design). After publication, the tag is immutable. Later `main`-branch status/audit
+records are outside the tagged snapshot.
 
-Do not attempt a live run of this runbook against `main` before the rc3 tag exists — the
-`WEAVER_FORGE_TAG` resolution step will fail with `exit 3` by design.
+### HISTORICAL PRE-TAG STATE
+
+Earlier revisions of this section used “until/before/after rc3 tag exists” and “do not attempt a
+live run against `main` before the rc3 tag exists” as current normative identity language. That
+language is superseded: rc3 was tagged and audited **NOT READY** (C-026), and rc4 is now the
+package content under preparation.
 
 ## Change log
 
@@ -400,3 +415,4 @@ Do not attempt a live run of this runbook against `main` before the rc3 tag exis
 |---------|--------|
 | 1.0.0-rc2 | Prior canonical-platform, host-block, directory-layout, Docker-contract, bootstrap, build-command, failure-behavior, and manifest-lifecycle sections |
 | 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; removed normative pre-tag “tag exists/pending” assertions from current text |

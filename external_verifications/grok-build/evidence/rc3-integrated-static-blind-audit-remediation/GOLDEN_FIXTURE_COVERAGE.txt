@@ -1,0 +1,6 @@
+﻿phase=C2E-5
+closure=GOLDEN_FIXTURE_COVERAGE
+fixtures=success-artifact-present;build-not-started;cargo-failed;artifact-missing;infrastructure-failure;static-inspection-incomplete;image-pull-failure;image-inspect-failure;digest-mismatch;platform-mismatch
+validated_by=validate_witness_evidence.py_unit_tests
+package_status=NOT READY
+c014=NOT_STARTED

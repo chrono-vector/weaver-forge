@@ -1,0 +1,13 @@
+evidence_schema_version=1
+weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4
+weaver_forge_commit_resolved=89127c78c3a11492892de7e3b5f0dee18d71775a
+package_clone_head=89127c78c3a11492892de7e3b5f0dee18d71775a
+package_clone_clean_status=yes
+tag_head_match=yes
+package_commit_authority=annotated_tag_resolution
+grok_build_url=https://github.com/xai-org/grok-build.git
+grok_build_commit_requested=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+grok_build_commit_observed=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+grok_build_clean_tree=yes
+fresh_clones=yes

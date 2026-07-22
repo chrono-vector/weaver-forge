@@ -1,19 +1,17 @@
-# DOCKER_EXIT_CODE.txt — required fields (evidence_schema_version=1)
-# NOTE: this file must be labeled key=value fields. A bare unlabelled numeric
-# value (e.g. a lone "0" line) is rejected by the validator.
+# DOCKER_EXIT_CODE.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Host-owned record of the `docker run` invocation. docker_exit_code is numeric
+# (or NOT_STARTED / NOT_REACHED when the container never launched, e.g. an image
+# pull / inspect failure). product_executed and ldd_used must be exactly NO.
+# outcome must equal the authoritative BUILD_EXIT_CODE.txt outcome.
 evidence_schema_version=1
-docker_started_utc=
-docker_finished_utc=
-docker_exit_code=
+status=RECORDED
+docker_started_utc=<UTC timestamp>
+docker_finished_utc=<UTC timestamp>
+docker_exit_code=0
 container_platform=linux/amd64
 network_mode=bridge
 product_executed=NO
 ldd_used=NO
-# outcome must be one of: BUILD_NOT_STARTED | CARGO_FAILED |
-#   CARGO_SUCCEEDED_ARTIFACT_MISSING | CARGO_SUCCEEDED_ARTIFACT_PRESENT |
-#   INFRASTRUCTURE_FAILURE
-# It must match the outcome recorded in BUILD_EXIT_CODE.txt.
-outcome=
-# failure_stage: non-empty description of where a failure occurred, or "N/A"
-# when outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT.
-failure_stage=
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+failure_stage=NONE

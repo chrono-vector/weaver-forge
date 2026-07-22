@@ -1,0 +1,6 @@
+phase=C2E-5
+closure=BUILD_ENVIRONMENT_SCHEMA_ALIGNMENT
+required_keys=evidence_schema_version,status,outcome,docker_platform,network_mode,rust_image,workdir,home,cargo_home,cargo_target_dir,bootstrap_cargo_target_dir,cargo_incremental,dotslash_cache,path,grok_build_commit,expected_cargo_lock_sha256,canonical_build_command,mount_src,mount_work,mount_evidence,mount_container_script
+key_style=lowercase_snake_case
+package_status=NOT READY
+c014=NOT_STARTED

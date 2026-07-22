@@ -2,11 +2,25 @@
 # Independent Witness host orchestrator — Grok Build narrow clean rebuild.
 # Author-only helper: do not execute from owner remediation sessions without Witness independence.
 #
-# rc3 (C2E-4) rewrite. Canonical identity constants are immutable and separate
-# from the "effective" values actually used for a run. Any effective value
-# that differs from its canonical counterpart requires the explicit
-# --noncanonical-deviation flag; without it the script refuses to run rather
-# than silently accepting an environment-variable override.
+# Package version 1.0.0-rc4 (C2E-5 host-orchestrator remediation). Rewritten to align with the
+# rc4 container_narrow_build.sh evidence schema (BEGIN_SCHEMA_BLOCK / END_SCHEMA_BLOCK, explicit
+# outcome model) and to close the host-side blockers recorded in
+# evidence/rc3-static-blind-audit/BATCH_2_FINDINGS.md and BATCH_3_FINDINGS.md (RC3B-003, -005,
+# -006, -007, -008, -010, -012, -013, -019, -020, -021, -024).
+#
+# Canonical identity constants are immutable and separate from the "effective" values actually
+# used for a run. Any effective value that differs from its canonical counterpart requires the
+# explicit --noncanonical-deviation flag; without it the script refuses to run rather than
+# silently accepting an environment-variable override.
+#
+# Pipeline stages are numbered STEP 1..STEP 22 in comments and in mark_stage() labels below, for
+# unambiguous cross-reference between this file, evidence, and remediation records. STEP 10 is
+# the host-side ENVIRONMENT.txt generator (dual-owned; the container appends toolchain facts).
+#
+# Outcome authority (RC3B-008): once the container has run, the single source of truth for
+# `outcome` is the container-written BUILD_EXIT_CODE.txt. The host NEVER reconstructs an ordinary
+# outcome from cargo_started/artifact-presence/raw Docker exit code alone; a missing, duplicated,
+# or invalid container outcome is itself an INFRASTRUCTURE_FAILURE (see parse_container_outcome()).
 set -Eeuo pipefail
 
 # ---------------------------------------------------------------------------
@@ -20,8 +34,9 @@ WEAVER_FORGE_PACKAGE_REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 # ---------------------------------------------------------------------------
 # Canonical constants (immutable; never assigned from the environment)
 # ---------------------------------------------------------------------------
+readonly PACKAGE_VERSION="1.0.0-rc4"
 readonly CANONICAL_WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc3"
+readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc4"
 # Package commit identity is derived at runtime from the annotated tag
 # (refs/tags/${CANONICAL_WEAVER_FORGE_TAG}^{commit}). The tagged package MUST
 # NOT embed its own future commit hash — that creates a self-referential
@@ -29,10 +44,18 @@ readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc3"
 readonly CANONICAL_GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
 readonly CANONICAL_GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 readonly CANONICAL_RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
-readonly CANONICAL_EXPECTED_CARGO_LOCK_SHA256="1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
+readonly CANONICAL_IMAGE_DIGEST="sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
+readonly CANONICAL_CARGO_LOCK_SHA256="1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 readonly CANONICAL_BUILD_CMD="cargo build -p xai-grok-pager-bin --locked"
 readonly CANONICAL_EXPECTED_RUSTC_VERSION="1.92.0"
 readonly CANONICAL_EXPECTED_DOTSLASH_VERSION="0.5.7"
+
+# Defensive self-check: CANONICAL_IMAGE_DIGEST must be embedded verbatim in CANONICAL_RUST_IMAGE.
+# A drift here would silently desynchronize two constants that must always agree.
+if [[ "${CANONICAL_RUST_IMAGE}" != *"@${CANONICAL_IMAGE_DIGEST}" ]]; then
+  echo "FATAL[self-check]: CANONICAL_IMAGE_DIGEST is not embedded in CANONICAL_RUST_IMAGE; refusing to run with inconsistent constants" >&2
+  exit 2
+fi
 
 # ---------------------------------------------------------------------------
 # Effective values (default = canonical; overridable via environment, but
@@ -43,7 +66,7 @@ EFFECTIVE_WEAVER_FORGE_TAG="${WEAVER_FORGE_TAG:-${CANONICAL_WEAVER_FORGE_TAG}}"
 EFFECTIVE_GROK_BUILD_URL="${GROK_BUILD_URL:-${CANONICAL_GROK_BUILD_URL}}"
 EFFECTIVE_GROK_BUILD_COMMIT="${GROK_BUILD_COMMIT:-${CANONICAL_GROK_BUILD_COMMIT}}"
 EFFECTIVE_RUST_IMAGE="${RUST_IMAGE:-${CANONICAL_RUST_IMAGE}}"
-EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256="${EXPECTED_CARGO_LOCK_SHA256:-${CANONICAL_EXPECTED_CARGO_LOCK_SHA256}}"
+EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256="${EXPECTED_CARGO_LOCK_SHA256:-${CANONICAL_CARGO_LOCK_SHA256}}"
 EFFECTIVE_BUILD_CMD="${BUILD_CMD:-${CANONICAL_BUILD_CMD}}"
 EFFECTIVE_EXPECTED_RUSTC_VERSION="${EXPECTED_RUSTC_VERSION:-${CANONICAL_EXPECTED_RUSTC_VERSION}}"
 EFFECTIVE_EXPECTED_DOTSLASH_VERSION="${EXPECTED_DOTSLASH_VERSION:-${CANONICAL_EXPECTED_DOTSLASH_VERSION}}"
@@ -80,6 +103,33 @@ readonly MANDATORY_EVIDENCE_FILES=(
   POST_BUILD_INTEGRITY.txt
 )
 
+# Closed auxiliary-file allow-list (RC3B-021): the ONLY host-written files under
+# EVIDENCE_DIR that are not in MANDATORY_EVIDENCE_FILES and not a manual Witness
+# file (WITNESS_STATEMENT.md / WITNESS_VERDICT.md / DEVIATIONS.txt / REDACTIONS.md /
+# EVIDENCE_MANIFEST.sha256, none of which this script writes to completion). Any
+# other regular file found under EVIDENCE_DIR at the end of the automated run is a
+# structural violation (see enforce_closed_aux_inventory()).
+readonly ALLOWED_AUX_EVIDENCE_FILES=(
+  HOST_RUN_METADATA.txt
+  IMAGE_PULL_STDOUT.txt
+  IMAGE_PULL_STDERR.txt
+  CARGO_LOCK_INTEGRITY.txt
+)
+
+# Required (not "aux") file this script also writes directly, outside the
+# NOT_REACHED-initialized MANDATORY_EVIDENCE_FILES loop.
+readonly DEVIATIONS_FILE_NAME="DEVIATIONS.txt"
+
+# Fixed outcome vocabulary (must match container_narrow_build.sh and
+# templates/validate_witness_evidence.py exactly).
+readonly OUTCOME_ALLOWED_VALUES=(
+  BUILD_NOT_STARTED
+  CARGO_FAILED
+  CARGO_SUCCEEDED_ARTIFACT_MISSING
+  CARGO_SUCCEEDED_ARTIFACT_PRESENT
+  INFRASTRUCTURE_FAILURE
+)
+
 readonly SYSTEM_PREFIXES=(
   /bin /boot /dev /etc /lib /lib64 /proc /root /run /sbin /sys
   /usr /usr/bin /usr/sbin /usr/lib /usr/lib64 /usr/local /var
@@ -104,6 +154,8 @@ SPECIFIC_FAILURE_RECORDED=0
 CARGO_STARTED="NO"
 DOCKER_STARTED_UTC=""
 DOCKER_FINISHED_UTC=""
+DOCKER_STARTED_EPOCH=""
+DOCKER_FINISHED_EPOCH=""
 DOCKER_EXIT=""
 OUTCOME="BUILD_NOT_STARTED"
 FAILURE_STAGE="none"
@@ -148,64 +200,318 @@ write_not_reached() {
   } > "${path}"
 }
 
+# Read the first "key=value" line from a file, tolerant of no match (never
+# trips `set -e`). Returns `default` when the key is absent or the file is
+# missing.
+read_first_kv() {
+  local file="$1" key="$2" default="${3:-NOT_RECORDED}"
+  local line=""
+  if [[ -f "${file}" ]]; then
+    line="$(grep -m1 "^${key}=" "${file}" 2>/dev/null)" || true
+  fi
+  if [[ -n "${line}" ]]; then
+    printf '%s' "${line#*=}"
+  else
+    printf '%s' "${default}"
+  fi
+}
+
+# Symlink-safe reset of a single managed scratch/child path (RC3B-010): a
+# symlink is unlinked directly and NEVER followed into `rm -rf`. This is
+# independent of, and in addition to, the WORK_ROOT-level guard below.
+safe_reset_managed_path() {
+  local p="$1"
+  if [[ -L "${p}" ]]; then
+    rm -f -- "${p}"
+    return 0
+  fi
+  if [[ -e "${p}" ]]; then
+    rm -rf -- "${p}"
+  fi
+}
+
+is_allowed_outcome() {
+  local v="$1" o
+  for o in "${OUTCOME_ALLOWED_VALUES[@]}"; do
+    [[ "${v}" == "${o}" ]] && return 0
+  done
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# Single deterministic verdict-ceiling function (RC3B-024). This is the ONLY
+# place VERDICT_CEILING is computed; nothing else in this script independently
+# derives it. The canonical-identity field list below MUST equal the
+# "canonical identity fields" enumerated in WITNESS_CLASSIFICATION.md's
+# NONMATERIAL_DISCLOSED severity row (WEAVER_FORGE_URL included — RC3B-003:
+# a Weaver Forge URL mismatch is a material FAIL, never merely PARTIAL).
+# This is an advisory host-side ceiling for identity-override deviations
+# only; WITNESS_CLASSIFICATION.md remains authoritative for the full
+# precedence table (product execution, outcome, etc.) and the Witness must
+# apply its stricter ceiling when the two disagree.
+# ---------------------------------------------------------------------------
+compute_verdict_ceiling() {
+  local -a canonical_identity_fields=(
+    WEAVER_FORGE_URL
+    WEAVER_FORGE_TAG
+    GROK_BUILD_URL
+    GROK_BUILD_COMMIT
+    RUST_IMAGE
+    EXPECTED_CARGO_LOCK_SHA256
+    BUILD_CMD
+  )
+
+  if [[ "${NONCANONICAL_RUN}" -ne 1 ]]; then
+    VERDICT_CEILING="PASS"
+    return 0
+  fi
+
+  VERDICT_CEILING="PARTIAL"
+  local name field
+  for name in "${CHANGED_IDENTITY_FIELD_NAMES[@]}"; do
+    for field in "${canonical_identity_fields[@]}"; do
+      if [[ "${name}" == "${field}" ]]; then
+        VERDICT_CEILING="FAIL"
+      fi
+    done
+  done
+}
+
+# ---------------------------------------------------------------------------
+# Evidence finalizers — guarantee no mandatory file is ever left recording
+# NOT_REACHED as its FINAL value (RC3B-007), and guarantee the container's
+# authoritative outcome (once Docker has run) is never independently
+# re-derived (RC3B-008). Both finalizers write evidence and then terminate
+# the run via abort(); neither one returns to its caller.
+# ---------------------------------------------------------------------------
+
+# Pre-Docker infrastructure failure (RC3B-007): used for every abort path that
+# occurs strictly before `docker run` — Weaver Forge / Grok Build identity
+# failures, Cargo.lock mismatch, non-empty host target, image pull failure,
+# and image identity/digest/platform mismatch. Also reused by the ERR trap
+# for any unexpected failure that happens before Docker has started.
+finalize_pre_docker_infrastructure_failure() {
+  local stage="$1"
+  local exit_code="$2"
+  local message="$3"
+
+  CARGO_STARTED="NO"
+  OUTCOME="INFRASTRUCTURE_FAILURE"
+  FAILURE_STAGE="${stage}"
+
+  # Any mandatory file still holding its initial NOT_REACHED placeholder is
+  # finalized here to a truthful, non-placeholder INFRASTRUCTURE_FAILURE
+  # record. Files that already carry specific failure content (written by the
+  # caller before invoking this function) are left untouched.
+  local f path
+  for f in "${MANDATORY_EVIDENCE_FILES[@]}"; do
+    path="${EVIDENCE_DIR}/${f}"
+    if [[ ! -s "${path}" ]] || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null; then
+      {
+        echo "evidence_schema_version=1"
+        echo "status=FAILED"
+        echo "outcome=INFRASTRUCTURE_FAILURE"
+        echo "applicable=no"
+        echo "inspection_applicable=no"
+        echo "artifact_present=no"
+        echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+        echo "failure_stage=${stage}"
+        echo "cargo_started=NO"
+        echo "product_executed=NO"
+        echo "ldd_used=NO"
+      } > "${path}"
+    fi
+  done
+
+  # Outcome-critical files: always rewritten authoritatively with the exact
+  # required fields, regardless of any prior placeholder state.
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "cargo_started=NO"
+    echo "build_status=INFRASTRUCTURE_FAILURE"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "docker_started_utc=NOT_STARTED"
+    echo "docker_finished_utc=NOT_STARTED"
+    echo "docker_exit_code=NOT_STARTED"
+    echo "container_platform=linux/amd64"
+    echo "network_mode=bridge"
+    echo "product_executed=NO"
+    echo "ldd_used=NO"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "docker_started_utc=NOT_STARTED"
+    echo "docker_finished_utc=NOT_STARTED"
+    echo "docker_elapsed_seconds=NOT_APPLICABLE"
+    echo "cargo_started_utc=NOT_APPLICABLE"
+    echo "cargo_finished_utc=NOT_APPLICABLE"
+    echo "cargo_started=NO"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "docker_exit_code=NOT_STARTED"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "applicable=no"
+    echo "artifact_present=no"
+    echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+    echo "product_executed=NO"
+    echo "ldd_used=NO"
+  } > "${EVIDENCE_DIR}/ARTIFACT_IDENTITY.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=NOT_APPLICABLE"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "inspection_applicable=no"
+    echo "artifact_present=no"
+    echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+  } > "${EVIDENCE_DIR}/STATIC_ARTIFACT_INSPECTION.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=NOT_APPLICABLE"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "source_head_before=NOT_APPLICABLE"
+    echo "source_head_after=NOT_APPLICABLE"
+    echo "source_head_unchanged=no"
+    echo "source_clean_before=no"
+    echo "source_clean_after=no"
+    echo "cargo_lock_sha256_before=NOT_APPLICABLE"
+    echo "cargo_lock_sha256_after=NOT_APPLICABLE"
+    echo "cargo_lock_unchanged=no"
+    echo "cargo_lock_post_matches_expected=no"
+    echo "source_or_lock_changed=no"
+    echo "artifact_exists=no"
+    echo "evidence_inventory_complete=no"
+    echo "full_integrity_gate_all_four_yes=no"
+    echo "post_build_integrity_ok=no"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt"
+
+  if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "--- finalize_pre_docker_infrastructure_failure ---"
+      echo "utc_finalized=$(utc_now)"
+      echo "finalized_stage=${stage}"
+      echo "finalized_outcome=INFRASTRUCTURE_FAILURE"
+      echo "finalized_exit_code=${exit_code}"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" 2>/dev/null || true
+  fi
+
+  abort "${exit_code}" "${message}"
+}
+
+# Post-Docker unexpected failure: used only by the ERR trap when an
+# uncaught error occurs after `docker run` has started (i.e. Docker's own
+# wall-clock has begun). Ordinary post-Docker outcomes are handled by
+# parse_container_outcome() / patch_build_timing_docker_wallclock(), not here.
+finalize_post_docker_unexpected_failure() {
+  local stage="$1"
+  local exit_code="$2"
+  local message="$3"
+
+  OUTCOME="INFRASTRUCTURE_FAILURE"
+  FAILURE_STAGE="${stage}"
+  CARGO_STARTED="${CARGO_STARTED:-NO}"
+
+  write_docker_exit_code_authoritative
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=${OUTCOME}"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
+    echo "docker_finished_utc=$(utc_now)"
+    echo "docker_elapsed_seconds=NOT_APPLICABLE"
+    echo "cargo_started_utc=NOT_APPLICABLE"
+    echo "cargo_finished_utc=NOT_APPLICABLE"
+    echo "cargo_started=${CARGO_STARTED}"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "docker_exit_code=${DOCKER_EXIT:-${exit_code}}"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=${OUTCOME}"
+    echo "cargo_started=${CARGO_STARTED}"
+    echo "build_status=INFRASTRUCTURE_FAILURE"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "failure_stage=${stage}"
+  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+
+  local f path
+  for f in ARTIFACT_IDENTITY.txt STATIC_ARTIFACT_INSPECTION.txt POST_BUILD_INTEGRITY.txt; do
+    path="${EVIDENCE_DIR}/${f}"
+    if [[ ! -s "${path}" ]] || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null; then
+      {
+        echo "evidence_schema_version=1"
+        echo "status=FAILED"
+        echo "outcome=${OUTCOME}"
+        echo "applicable=no"
+        echo "inspection_applicable=no"
+        echo "artifact_present=no"
+        echo "reason=unexpected_post_docker_failure_at_stage_${stage}"
+        echo "evidence_inventory_complete=no"
+        echo "product_executed=NO"
+        echo "ldd_used=NO"
+      } > "${path}"
+    fi
+  done
+
+  abort "${exit_code}" "${message}"
+}
+
 # ---------------------------------------------------------------------------
 # ERR trap: extends generic failure handling without overwriting more
 # specific failure classifications already recorded by abort()-driven paths.
 # ---------------------------------------------------------------------------
-record_generic_failure() {
-  local ec="$1"
-  if [[ "${SPECIFIC_FAILURE_RECORDED}" -eq 1 ]]; then
-    return 0
-  fi
-  FAILURE_STAGE="${CURRENT_STAGE}"
-  case "${CURRENT_STAGE}" in
-    docker_run|cargo_lock_post_docker|post_build_integrity|outcome_determination|manifest_generation)
-      OUTCOME="INFRASTRUCTURE_FAILURE"
-      ;;
-    *)
-      OUTCOME="BUILD_NOT_STARTED"
-      ;;
-  esac
-  if [[ -n "${EVIDENCE_DIR}" && -d "${EVIDENCE_DIR}" ]]; then
-    {
-      echo "evidence_schema_version=1"
-      echo "status=UNEXPECTED_FAILURE"
-      echo "cargo_started=${CARGO_STARTED}"
-      echo "failing_stage=${FAILURE_STAGE}"
-      echo "outcome=${OUTCOME}"
-      echo "exit_code=${ec}"
-    } >> "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt" 2>/dev/null || true
-    {
-      echo "evidence_schema_version=1"
-      echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
-      echo "docker_finished_utc=$(utc_now)"
-      echo "docker_exit_code=${ec}"
-      echo "container_platform=linux/amd64"
-      echo "network_mode=bridge"
-      echo "product_executed=NO"
-      echo "ldd_used=NO"
-      echo "outcome=${OUTCOME}"
-      echo "failure_stage=${FAILURE_STAGE}"
-    } >> "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt" 2>/dev/null || true
-    {
-      echo "evidence_schema_version=1"
-      echo "unexpected_failure_stage=${FAILURE_STAGE}"
-      echo "outcome=${OUTCOME}"
-    } >> "${EVIDENCE_DIR}/BUILD_TIMING.txt" 2>/dev/null || true
-  fi
-}
-
 on_err() {
   local ec=$?
-  echo "ERROR: host orchestrator failed at stage '${CURRENT_STAGE}' line ${BASH_LINENO[0]} (exit ${ec})" >&2
-  record_generic_failure "${ec}"
-  exit "${ec}"
+  if [[ "${SPECIFIC_FAILURE_RECORDED}" -eq 1 ]]; then
+    exit "${ec}"
+  fi
+  local failing_stage="${CURRENT_STAGE}"
+  echo "ERROR: host orchestrator failed unexpectedly at stage '${failing_stage}' line ${BASH_LINENO[0]} (exit ${ec})" >&2
+
+  if [[ -z "${EVIDENCE_DIR}" || ! -d "${EVIDENCE_DIR}" ]]; then
+    # Failure occurred before an evidence directory even exists.
+    exit "${ec}"
+  fi
+
+  if [[ -z "${DOCKER_STARTED_UTC}" ]]; then
+    finalize_pre_docker_infrastructure_failure \
+      "unexpected_${failing_stage}" "${ec}" \
+      "Unexpected failure before Docker started, at stage=${failing_stage}"
+  else
+    finalize_post_docker_unexpected_failure \
+      "unexpected_${failing_stage}" "${ec}" \
+      "Unexpected failure after Docker started, at stage=${failing_stage}"
+  fi
 }
 trap on_err ERR
 
 usage() {
   cat <<EOF
 Usage: run_witness_narrow_build.sh [options] <witness-id>
+
+Package version: ${PACKAGE_VERSION}
 
 Required:
   witness-id                    ${WITNESS_ID:+(already set) }Identifier matching ^[a-z0-9][a-z0-9._-]{0,63}\$
@@ -227,7 +533,7 @@ Canonical identity (immutable defaults; see script header):
   GROK_BUILD_URL               = ${CANONICAL_GROK_BUILD_URL}
   GROK_BUILD_COMMIT            = ${CANONICAL_GROK_BUILD_COMMIT}
   RUST_IMAGE                   = ${CANONICAL_RUST_IMAGE}
-  EXPECTED_CARGO_LOCK_SHA256   = ${CANONICAL_EXPECTED_CARGO_LOCK_SHA256}
+  EXPECTED_CARGO_LOCK_SHA256   = ${CANONICAL_CARGO_LOCK_SHA256}
   BUILD_CMD                    = ${CANONICAL_BUILD_CMD}
   EXPECTED_RUSTC_VERSION       = ${CANONICAL_EXPECTED_RUSTC_VERSION}
   EXPECTED_DOTSLASH_VERSION    = ${CANONICAL_EXPECTED_DOTSLASH_VERSION}
@@ -246,7 +552,8 @@ Optional additional verification (not required for canonical execution):
 Environment variables of the canonical field names may override the values above,
 but ONLY take effect when --noncanonical-deviation is also passed. Any accepted
 deviation sets canonical_run=NO, is recorded in DEVIATIONS.txt/HOST_RUN_METADATA.txt,
-and caps the proposed Witness verdict at PARTIAL (or FAIL for material identity changes).
+and caps the proposed Witness verdict at PARTIAL (or FAIL for material identity
+changes, including WEAVER_FORGE_URL — see WITNESS_CLASSIFICATION.md).
 --noncanonical-deviation does NOT bypass tag→resolved-commit→detached-HEAD integrity
 for the effective package tag.
 
@@ -275,32 +582,24 @@ check_identity_override() {
 }
 
 apply_identity_gate() {
+  # WEAVER_FORGE_URL checked first and explicitly (RC3B-003): any mismatch is a
+  # canonical-identity deviation with FAIL consequences, never merely PARTIAL —
+  # see compute_verdict_ceiling().
   check_identity_override "WEAVER_FORGE_URL" "${CANONICAL_WEAVER_FORGE_URL}" "${EFFECTIVE_WEAVER_FORGE_URL}"
   check_identity_override "WEAVER_FORGE_TAG" "${CANONICAL_WEAVER_FORGE_TAG}" "${EFFECTIVE_WEAVER_FORGE_TAG}"
   check_identity_override "GROK_BUILD_URL" "${CANONICAL_GROK_BUILD_URL}" "${EFFECTIVE_GROK_BUILD_URL}"
   check_identity_override "GROK_BUILD_COMMIT" "${CANONICAL_GROK_BUILD_COMMIT}" "${EFFECTIVE_GROK_BUILD_COMMIT}"
   check_identity_override "RUST_IMAGE" "${CANONICAL_RUST_IMAGE}" "${EFFECTIVE_RUST_IMAGE}"
-  check_identity_override "EXPECTED_CARGO_LOCK_SHA256" "${CANONICAL_EXPECTED_CARGO_LOCK_SHA256}" "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
+  check_identity_override "EXPECTED_CARGO_LOCK_SHA256" "${CANONICAL_CARGO_LOCK_SHA256}" "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
   check_identity_override "BUILD_CMD" "${CANONICAL_BUILD_CMD}" "${EFFECTIVE_BUILD_CMD}"
   check_identity_override "EXPECTED_RUSTC_VERSION" "${CANONICAL_EXPECTED_RUSTC_VERSION}" "${EFFECTIVE_EXPECTED_RUSTC_VERSION}"
   check_identity_override "EXPECTED_DOTSLASH_VERSION" "${CANONICAL_EXPECTED_DOTSLASH_VERSION}" "${EFFECTIVE_EXPECTED_DOTSLASH_VERSION}"
 
-  VERDICT_CEILING="PASS"
-  if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
-    VERDICT_CEILING="PARTIAL"
-    local name
-    for name in "${CHANGED_IDENTITY_FIELD_NAMES[@]}"; do
-      case "${name}" in
-        WEAVER_FORGE_TAG|GROK_BUILD_URL|GROK_BUILD_COMMIT|RUST_IMAGE|EXPECTED_CARGO_LOCK_SHA256|BUILD_CMD)
-          VERDICT_CEILING="FAIL"
-          ;;
-      esac
-    done
-  fi
+  compute_verdict_ceiling
 }
 
 # ---------------------------------------------------------------------------
-# WITNESS_ID safety
+# WITNESS_ID safety (unchanged from rc3 — retained verbatim per rc4 scope)
 # ---------------------------------------------------------------------------
 validate_witness_id() {
   local id="$1"
@@ -329,7 +628,8 @@ validate_witness_id() {
 }
 
 # ---------------------------------------------------------------------------
-# WORK_ROOT safety (evaluated in full before any deletion occurs)
+# WORK_ROOT safety (unchanged from rc3 — retained verbatim per rc4 scope;
+# evaluated in full before any deletion occurs)
 # ---------------------------------------------------------------------------
 is_system_prefix() {
   local p="$1" prefix
@@ -519,17 +819,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-mark_stage "identity_gate"
+# STEP 1: identity gate (WEAVER_FORGE_URL mismatch handling + machine VERDICT_CEILING)
+mark_stage "step1_identity_gate"
 apply_identity_gate
 
-mark_stage "witness_id_validation"
+# STEP 2: WITNESS_ID validation
+mark_stage "step2_witness_id_validation"
 validate_witness_id "${WITNESS_ID}"
 
-mark_stage "work_root_validation"
+# STEP 3: WORK_ROOT validation
+mark_stage "step3_work_root_validation"
 validate_work_root "${WORK_ROOT}"
 
 # ---------------------------------------------------------------------------
-# Run identity / directory layout
+# STEP 4: Run identity / directory layout
 # ---------------------------------------------------------------------------
 short_run_id() {
   if command -v openssl >/dev/null 2>&1; then
@@ -539,6 +842,7 @@ short_run_id() {
   fi
 }
 
+mark_stage "step4_run_identity_and_layout"
 UTC_DATE="$(date -u +%Y%m%d)"
 RUN_ID="${WITNESS_ID}-${UTC_DATE}-$(short_run_id)"
 
@@ -552,16 +856,18 @@ HOME_DIR="${WORK_ROOT}/home"
 BOOTSTRAP_DIR="${WORK_ROOT}/bootstrap"
 EVIDENCE_DIR="${WORK_ROOT}/evidence/${RUN_ID}"
 
-mark_stage "work_root_reset_confirmation"
+# STEP 5: WORK_ROOT reset confirmation
+mark_stage "step5_work_root_reset_confirmation"
 confirm_work_root_reset_if_needed
 
-mark_stage "directory_setup"
+# STEP 6: Directory setup
+mark_stage "step6_directory_setup"
 mkdir -p "${WORK_ROOT}" "${EVIDENCE_DIR}"
 
 # ---------------------------------------------------------------------------
-# Evidence initialization — BEFORE any fallible host/container operation.
+# STEP 7: Evidence initialization — BEFORE any fallible host/container operation.
 # ---------------------------------------------------------------------------
-mark_stage "evidence_initialization"
+mark_stage "step7_evidence_initialization"
 init_mandatory_evidence() {
   local f
   for f in "${MANDATORY_EVIDENCE_FILES[@]}"; do
@@ -570,10 +876,15 @@ init_mandatory_evidence() {
 }
 init_mandatory_evidence
 
+# ---------------------------------------------------------------------------
+# STEP 8: HOST_RUN_METADATA.txt (allowed aux) + DEVIATIONS.txt (required)
+# ---------------------------------------------------------------------------
+mark_stage "step8_host_run_metadata_and_deviations"
 {
   echo "evidence_schema_version=1"
   echo "run_id=${RUN_ID}"
   echo "witness_id=${WITNESS_ID}"
+  echo "package_version=${PACKAGE_VERSION}"
   echo "utc_start=$(utc_now)"
   echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
   echo "verdict_ceiling=${VERDICT_CEILING}"
@@ -584,7 +895,8 @@ init_mandatory_evidence
   echo "CANONICAL_GROK_BUILD_URL=${CANONICAL_GROK_BUILD_URL}"
   echo "CANONICAL_GROK_BUILD_COMMIT=${CANONICAL_GROK_BUILD_COMMIT}"
   echo "CANONICAL_RUST_IMAGE=${CANONICAL_RUST_IMAGE}"
-  echo "CANONICAL_EXPECTED_CARGO_LOCK_SHA256=${CANONICAL_EXPECTED_CARGO_LOCK_SHA256}"
+  echo "CANONICAL_IMAGE_DIGEST=${CANONICAL_IMAGE_DIGEST}"
+  echo "CANONICAL_CARGO_LOCK_SHA256=${CANONICAL_CARGO_LOCK_SHA256}"
   echo "CANONICAL_BUILD_CMD=${CANONICAL_BUILD_CMD}"
   echo "CANONICAL_EXPECTED_RUSTC_VERSION=${CANONICAL_EXPECTED_RUSTC_VERSION}"
   echo "CANONICAL_EXPECTED_DOTSLASH_VERSION=${CANONICAL_EXPECTED_DOTSLASH_VERSION}"
@@ -606,17 +918,26 @@ init_mandatory_evidence
   echo "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
   echo "BOOTSTRAP_CARGO_TARGET_DIR=${BOOTSTRAP_CARGO_TARGET_DIR}"
   echo "EVIDENCE_DIR=${EVIDENCE_DIR}"
+  echo "--- closed auxiliary-file allow-list (RC3B-021) ---"
+  echo "allowed_aux_evidence_files=${ALLOWED_AUX_EVIDENCE_FILES[*]}"
   echo "--- validator output policy ---"
   echo "validator_output_policy=Validator (validate_witness_evidence.py) stdout/stderr MUST be captured OUTSIDE EVIDENCE_DIR. Do not redirect validator output into EVIDENCE_DIR at any time, and never write validator output into the evidence tree after the final manifest has been generated."
   echo "--- manifest lifecycle ---"
   echo "manifest_lifecycle=This run writes a PRELIMINARY EVIDENCE_MANIFEST.sha256 covering automated evidence only. Finalization is REQUIRED after WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, and REDACTIONS.md are completed; regenerate the manifest from within EVIDENCE_DIR using ./relative paths before submission."
 } > "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
 
+NONCANONICAL_DISCLOSURE_TEXT="none"
+if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
+  NONCANONICAL_DISCLOSURE_TEXT="$(printf '%s; ' "${CHANGED_IDENTITY_FIELDS[@]}")"
+fi
+
 {
   echo "evidence_schema_version=1"
+  echo "deviation_state=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo PRESENT || echo NONE)"
   echo "status=RECORDED"
   echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
   echo "verdict_ceiling=${VERDICT_CEILING}"
+  echo "noncanonical_disclosure=${NONCANONICAL_DISCLOSURE_TEXT}"
   if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
     echo "noncanonical_deviation_flag_present=yes"
     echo "changed_identity_field_count=${#CHANGED_IDENTITY_FIELDS[@]}"
@@ -631,13 +952,38 @@ init_mandatory_evidence
     echo "changed_identity_field_count=0"
     echo "verdict_impact=No automated identity deviations recorded; this section does not by itself establish PASS eligibility for the other classification rules in WITNESS_CLASSIFICATION.md."
   fi
-} > "${EVIDENCE_DIR}/DEVIATIONS.txt"
+} > "${EVIDENCE_DIR}/${DEVIATIONS_FILE_NAME}"
 
 echo "--- WORK_ROOT deletion targets recorded to HOST_RUN_METADATA.txt ---" >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
 work_root_managed_targets >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
 
 # ---------------------------------------------------------------------------
-# Host environment recording
+# STEP 9: DOCKER_EXIT_CODE.txt authoritative writer (declared here; used both
+# pre- and post-Docker so a single implementation is shared everywhere).
+# ---------------------------------------------------------------------------
+write_docker_exit_code_authoritative() {
+  {
+    echo "evidence_schema_version=1"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
+    echo "docker_finished_utc=${DOCKER_FINISHED_UTC:-NOT_STARTED}"
+    echo "docker_exit_code=${DOCKER_EXIT:-NOT_STARTED}"
+    echo "container_platform=linux/amd64"
+    echo "network_mode=bridge"
+    echo "product_executed=NO"
+    echo "ldd_used=NO"
+    echo "outcome=${OUTCOME}"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "outcome_source=container_BUILD_EXIT_CODE.txt_authoritative"
+  } > "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
+}
+
+# ---------------------------------------------------------------------------
+# STEP 10: Host-side ENVIRONMENT.txt generator (RC3B-012, RC3B-013).
+# ENVIRONMENT.txt is dual-owned: this host block is written BEFORE Docker
+# runs, wrapped in BEGIN/END_SCHEMA_BLOCK ENVIRONMENT; the container appends
+# its own toolchain-facts block below via `>>` (see container_narrow_build.sh
+# init_evidence(), which detects this file is already non-empty and does not
+# clobber it).
 # ---------------------------------------------------------------------------
 record_host_environment() {
   local utc now_os now_kernel now_arch cpu ram disk docker_client docker_server docker_ctx platform wsl
@@ -645,21 +991,31 @@ record_host_environment() {
   now_os="$(uname -s 2>/dev/null || echo UNKNOWN)"
   now_kernel="$(uname -r 2>/dev/null || echo UNKNOWN)"
   now_arch="$(uname -m 2>/dev/null || echo UNKNOWN)"
+  local cpu_model ram_gib disk_free_gb
   if command -v lscpu >/dev/null 2>&1; then
     cpu="$(lscpu 2>/dev/null | head -n 20 || echo UNKNOWN)"
+    cpu_model="$(lscpu 2>/dev/null | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
   else
     cpu="UNKNOWN"
+    cpu_model=""
   fi
+  [[ -z "${cpu_model}" ]] && cpu_model="UNKNOWN"
   if command -v free >/dev/null 2>&1; then
     ram="$(free -h 2>/dev/null | head -n 5 || echo UNKNOWN)"
+    ram_gib="$(free -g 2>/dev/null | awk '/^Mem:/{print $2; exit}')"
   else
     ram="UNKNOWN"
+    ram_gib=""
   fi
+  [[ -z "${ram_gib}" ]] && ram_gib="UNKNOWN"
   if command -v df >/dev/null 2>&1; then
     disk="$(df -h "${WORK_ROOT}" 2>/dev/null || echo UNKNOWN)"
+    disk_free_gb="$(df -BG "${WORK_ROOT}" 2>/dev/null | awk 'NR==2{gsub(/G/,"",$4); print $4; exit}')"
   else
     disk="UNKNOWN"
+    disk_free_gb=""
   fi
+  [[ -z "${disk_free_gb}" ]] && disk_free_gb="UNKNOWN"
   if command -v docker >/dev/null 2>&1; then
     docker_client="$(docker version --format '{{.Client.Version}}' 2>/dev/null || echo UNKNOWN)"
     docker_server="$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo UNKNOWN)"
@@ -676,38 +1032,53 @@ record_host_environment() {
     wsl="UNKNOWN"
   fi
   {
+    echo "# record_utc=${utc}"
+    echo "BEGIN_SCHEMA_BLOCK ENVIRONMENT"
     echo "evidence_schema_version=1"
     echo "status=OK"
-    echo "record_utc=${utc}"
+    echo "outcome=BUILD_NOT_STARTED"
+    echo "witness_id=${WITNESS_ID}"
     echo "host_os=${now_os}"
     echo "host_kernel=${now_kernel}"
-    echo "host_architecture=${now_arch}"
-    echo "cpu_information<<EOF"
-    echo "${cpu}"
-    echo "EOF"
-    echo "ram<<EOF"
-    echo "${ram}"
-    echo "EOF"
-    echo "available_disk<<EOF"
-    echo "${disk}"
-    echo "EOF"
+    echo "host_arch=${now_arch}"
+    echo "host_cpu=${cpu_model}"
+    echo "host_ram_gib=${ram_gib}"
+    echo "host_free_disk_gb=${disk_free_gb}"
     echo "docker_client_version=${docker_client}"
     echo "docker_server_version=${docker_server}"
     echo "docker_context=${docker_ctx}"
     echo "canonical_platform=${platform}"
     echo "wsl2_indicator=${wsl}"
+    echo "ai_assistance_used=see_WITNESS_STATEMENT.md"
+    echo "ai_assistance_detail=recorded_in_WITNESS_STATEMENT.md"
+    echo "human_review_completed=pending"
+    echo "product_executed=NO"
+    echo "upstream_product_commands_not_run=yes"
+    echo "ldd_used=NO"
+    echo "END_SCHEMA_BLOCK"
+    echo "# --- non-validated context fields (human review only) ---"
+    echo "# host_cpu_summary<<EOF"
+    echo "# ${cpu}"
+    echo "# EOF"
+    echo "# host_ram<<EOF"
+    echo "# ${ram}"
+    echo "# EOF"
+    echo "# host_available_disk<<EOF"
+    echo "# ${disk}"
+    echo "# EOF"
+    echo "# --- container-appended toolchain facts follow below this line ---"
   } > "${EVIDENCE_DIR}/ENVIRONMENT.txt"
 }
-mark_stage "host_environment_recording"
+mark_stage "step10_host_environment_recording"
 record_host_environment
 
 # ---------------------------------------------------------------------------
-# Weaver Forge package clone + tag resolution + clean/commit enforcement
+# STEP 11: Weaver Forge package clone + tag resolution + clean/commit enforcement
 # ---------------------------------------------------------------------------
-mark_stage "weaver_forge_package_clone"
+mark_stage "step11_weaver_forge_package_clone"
 WF_CLONE_START="$(utc_now)"
-if [[ -d "${WF_DIR}/.git" ]]; then
-  rm -rf "${WF_DIR}"
+if [[ -e "${WF_DIR}" || -L "${WF_DIR}" ]]; then
+  safe_reset_managed_path "${WF_DIR}"
 fi
 git clone "${EFFECTIVE_WEAVER_FORGE_URL}" "${WF_DIR}"
 git -C "${WF_DIR}" fetch --tags origin
@@ -720,15 +1091,25 @@ if ! git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}^{comm
     echo "reason=requested_tag_not_present_on_origin"
     echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
     echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
+    echo "package_version=${PACKAGE_VERSION}"
     echo "available_witness_tags<<EOF"
     git -C "${WF_DIR}" tag -l 'grok-build-witness-*' 2>/dev/null || true
     echo "EOF"
   } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
-  abort 3 "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} is not present on origin"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_resolution" 3 \
+    "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} is not present on origin; canonical execution requires successful annotated-tag resolution and stops here"
 fi
 WEAVER_FORGE_RESOLVED_COMMIT="$(git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}^{commit}")"
 if [[ ! "${WEAVER_FORGE_RESOLVED_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
-  abort 3 "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} did not resolve to a full 40-char lowercase commit (got: ${WEAVER_FORGE_RESOLVED_COMMIT})"
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=tag_did_not_resolve_to_full_40_char_commit"
+    echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
+    echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
+  } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_resolution_format" 3 \
+    "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} did not resolve to a full 40-char lowercase commit (got: ${WEAVER_FORGE_RESOLVED_COMMIT})"
 fi
 git -C "${WF_DIR}" checkout --detach "${WEAVER_FORGE_RESOLVED_COMMIT}"
 
@@ -742,7 +1123,8 @@ if [[ "${WF_HEAD}" != "${WEAVER_FORGE_RESOLVED_COMMIT}" ]]; then
   TAG_HEAD_MATCH="no"
 fi
 
-# Detached-state probe (informational + enforcement: we required --detach above).
+# Detached-state proof (RC3B-005 methodology, applied here too): `git
+# symbolic-ref -q HEAD` must FAIL (nonzero exit == genuinely detached).
 WF_DETACHED="yes"
 if git -C "${WF_DIR}" symbolic-ref -q HEAD >/dev/null 2>&1; then
   WF_DETACHED="no"
@@ -753,7 +1135,13 @@ EXTERNAL_EXPECTED_MATCH="not_supplied"
 if [[ -n "${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT}" ]]; then
   EXTERNAL_EXPECTED_SUPPLIED="yes"
   if [[ ! "${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
-    abort 3 "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT must be a full 40-char lowercase hex commit when supplied"
+    {
+      echo "evidence_schema_version=1"
+      echo "status=FAILED"
+      echo "reason=external_expected_commit_not_40_char_hex"
+    } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    finalize_pre_docker_infrastructure_failure "weaver_forge_external_expected_commit_format" 3 \
+      "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT must be a full 40-char lowercase hex commit when supplied"
   fi
   if [[ "${WEAVER_FORGE_RESOLVED_COMMIT}" == "${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT}" && "${WF_HEAD}" == "${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT}" ]]; then
     EXTERNAL_EXPECTED_MATCH="yes"
@@ -767,7 +1155,7 @@ fi
   echo "status=OK"
   echo "witness_id=${WITNESS_ID}"
   echo "run_id=${RUN_ID}"
-  echo "package_version=1.0.0-rc3"
+  echo "package_version=${PACKAGE_VERSION}"
   echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
   echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
   echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
@@ -781,6 +1169,7 @@ fi
   echo "external_expected_commit_match=${EXTERNAL_EXPECTED_MATCH}"
   echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
   echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo no || echo yes)"
+  echo "noncanonical_disclosure=${NONCANONICAL_DISCLOSURE_TEXT}"
 } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
 
 {
@@ -802,31 +1191,36 @@ fi
   echo "package_commit_authority=annotated_tag_resolution"
 } > "${EVIDENCE_DIR}/SOURCE_ACQUISITION.txt"
 
-if [[ "${TAG_HEAD_MATCH}" != "yes" ]]; then
-  abort 3 "Detached HEAD (${WF_HEAD}) does not equal resolved tag commit (${WEAVER_FORGE_RESOLVED_COMMIT})"
-fi
 if [[ "${WF_DETACHED}" != "yes" ]]; then
-  abort 3 "Weaver Forge package clone is not in detached HEAD state after tag checkout"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_detached_head_check" 3 \
+    "Weaver Forge package clone is not in detached HEAD state after tag checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
+fi
+if [[ "${TAG_HEAD_MATCH}" != "yes" ]]; then
+  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_head_mismatch" 3 \
+    "Detached HEAD (${WF_HEAD}) does not equal resolved tag commit (${WEAVER_FORGE_RESOLVED_COMMIT})"
 fi
 if [[ "${WF_CLEAN}" != "yes" ]]; then
-  abort 3 "Weaver Forge package clone tree is not clean after detached checkout"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_dirty_clone" 3 \
+    "Weaver Forge package clone tree is not clean after detached checkout"
 fi
 if [[ "${EXTERNAL_EXPECTED_SUPPLIED}" == "yes" && "${EXTERNAL_EXPECTED_MATCH}" != "yes" ]]; then
-  abort 3 "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT mismatch: external=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT} resolved_tag=${WEAVER_FORGE_RESOLVED_COMMIT} head=${WF_HEAD}"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_external_expected_commit_mismatch" 3 \
+    "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT mismatch: external=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT} resolved_tag=${WEAVER_FORGE_RESOLVED_COMMIT} head=${WF_HEAD}"
 fi
 
 HOST_CONTAINER_SCRIPT="${WF_DIR}/external_verifications/grok-build/witness-package/scripts/container_narrow_build.sh"
 if [[ ! -f "${HOST_CONTAINER_SCRIPT}" ]]; then
-  abort 3 "Resolved Weaver commit missing container script at ${HOST_CONTAINER_SCRIPT}"
+  finalize_pre_docker_infrastructure_failure "container_script_missing" 3 \
+    "Resolved Weaver commit missing container script at ${HOST_CONTAINER_SCRIPT}"
 fi
 
 # ---------------------------------------------------------------------------
-# Grok Build source clone + HEAD/clean enforcement
+# STEP 12: Grok Build source clone + detached-HEAD/HEAD/clean enforcement
 # ---------------------------------------------------------------------------
-mark_stage "grok_build_source_clone"
+mark_stage "step12_grok_build_source_clone"
 GB_CLONE_START="$(utc_now)"
-if [[ -d "${SRC_DIR}/.git" ]]; then
-  rm -rf "${SRC_DIR}"
+if [[ -e "${SRC_DIR}" || -L "${SRC_DIR}" ]]; then
+  safe_reset_managed_path "${SRC_DIR}"
 fi
 git clone "${EFFECTIVE_GROK_BUILD_URL}" "${SRC_DIR}"
 git -C "${SRC_DIR}" checkout --detach "${EFFECTIVE_GROK_BUILD_COMMIT}"
@@ -836,14 +1230,22 @@ SRC_HEAD="$(git -C "${SRC_DIR}" rev-parse HEAD)"
 SRC_STATUS="$(git -C "${SRC_DIR}" status --porcelain)"
 CARGO_LOCK_BEFORE="$(sha256_of "${SRC_DIR}/Cargo.lock")"
 
+# grok_build_detached_head is DERIVED, never hardcoded (RC3B-005): `git
+# symbolic-ref -q HEAD` must FAIL for a genuinely detached checkout.
+GB_DETACHED="yes"
+if git -C "${SRC_DIR}" symbolic-ref -q HEAD >/dev/null 2>&1; then
+  GB_DETACHED="no"
+fi
+
 {
   echo "evidence_schema_version=1"
   echo "status=OK"
   echo "grok_build_url=${EFFECTIVE_GROK_BUILD_URL}"
   echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
   echo "grok_build_commit_observed=${SRC_HEAD}"
+  echo "grok_build_detached_head=${GB_DETACHED}"
   echo "grok_build_clean_status_porcelain=${SRC_STATUS}"
-  echo "cargo_lock_sha256_before=${CARGO_LOCK_BEFORE}"
+  echo "cargo_lock_sha256_observed=${CARGO_LOCK_BEFORE}"
   echo "cargo_lock_sha256_expected=${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
 } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
 
@@ -858,24 +1260,30 @@ CARGO_LOCK_BEFORE="$(sha256_of "${SRC_DIR}/Cargo.lock")"
   echo "grok_build_commit_observed=${SRC_HEAD}"
   echo "grok_build_clone_command=git clone ${EFFECTIVE_GROK_BUILD_URL} <work-root>/grok-build-src"
   echo "grok_build_checkout_command=git -C <work-root>/grok-build-src checkout --detach ${EFFECTIVE_GROK_BUILD_COMMIT}"
-  echo "grok_build_detached_head=yes"
+  echo "grok_build_detached_head=${GB_DETACHED}"
   echo "grok_build_clean_tree=$([[ -z "${SRC_STATUS}" ]] && echo yes || echo no)"
   echo "fresh_clones=yes"
   echo "owner_caches_used=no"
   echo "status=OK"
 } >> "${EVIDENCE_DIR}/SOURCE_ACQUISITION.txt"
 
+if [[ "${GB_DETACHED}" != "yes" ]]; then
+  finalize_pre_docker_infrastructure_failure "grok_build_detached_head_check" 4 \
+    "Grok Build source clone is not in detached HEAD state after checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
+fi
 if [[ "${SRC_HEAD}" != "${EFFECTIVE_GROK_BUILD_COMMIT}" ]]; then
-  abort 4 "Grok Build source commit mismatch"
+  finalize_pre_docker_infrastructure_failure "grok_build_commit_mismatch" 4 \
+    "Grok Build source commit mismatch: observed=${SRC_HEAD} expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
 fi
 if [[ -n "${SRC_STATUS}" ]]; then
-  abort 4 "Grok Build source tree not clean after detached checkout"
+  finalize_pre_docker_infrastructure_failure "grok_build_dirty_clone" 4 \
+    "Grok Build source tree not clean after detached checkout"
 fi
 
 # ---------------------------------------------------------------------------
-# Cargo.lock direct enforcement — BEFORE Docker
+# STEP 13: Cargo.lock direct enforcement — BEFORE Docker
 # ---------------------------------------------------------------------------
-mark_stage "cargo_lock_pre_docker"
+mark_stage "step13_cargo_lock_pre_docker"
 CARGO_LOCK_PRE_MATCH="no"
 [[ "${CARGO_LOCK_BEFORE}" == "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" ]] && CARGO_LOCK_PRE_MATCH="yes"
 {
@@ -888,17 +1296,20 @@ CARGO_LOCK_PRE_MATCH="no"
 } > "${EVIDENCE_DIR}/CARGO_LOCK_INTEGRITY.txt"
 
 if [[ "${CARGO_LOCK_PRE_MATCH}" != "yes" ]]; then
-  abort 4 "Cargo.lock SHA-256 mismatch BEFORE Docker (expected ${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}, observed ${CARGO_LOCK_BEFORE})"
+  finalize_pre_docker_infrastructure_failure "cargo_lock_pre_docker_mismatch" 4 \
+    "Cargo.lock SHA-256 mismatch BEFORE Docker (expected ${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}, observed ${CARGO_LOCK_BEFORE})"
 fi
 
 # ---------------------------------------------------------------------------
-# Isolated writable directories + clean target proof
+# STEP 14: Isolated writable directories + host/container clean target proof
 # ---------------------------------------------------------------------------
-mark_stage "isolated_directory_setup"
-rm -rf "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}"
+mark_stage "step14_isolated_directory_setup"
+for _managed_dir in "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}"; do
+  safe_reset_managed_path "${_managed_dir}"
+done
 mkdir -p "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}"
 
-mark_stage "clean_target_proof"
+mark_stage "step14_clean_target_proof"
 TARGET_CREATED_UTC="$(utc_now)"
 TARGET_LISTING="$(ls -la "${CARGO_TARGET_DIR}" 2>&1 || true)"
 TARGET_FIND="$(find "${CARGO_TARGET_DIR}" -mindepth 1 -print 2>/dev/null || true)"
@@ -907,156 +1318,161 @@ TARGET_COUNT="$(find "${CARGO_TARGET_DIR}" -mindepth 1 | wc -l | tr -d ' ')"
 {
   echo "evidence_schema_version=1"
   echo "status=CHECKED"
-  echo "cargo_target_dir_absolute=${CARGO_TARGET_DIR}"
-  echo "creation_utc=${TARGET_CREATED_UTC}"
+  # Host/container-scoped fields (RC3B-014): the container preserves these
+  # exact key names via its own read_kv() fallback and appends its own
+  # container_prebootstrap / container_precargo sections below.
+  echo "target_path_host=${CARGO_TARGET_DIR}"
+  echo "proof_utc_host=${TARGET_CREATED_UTC}"
+  echo "observed_entry_count_host=${TARGET_COUNT}"
   echo "required_entry_count=0"
-  echo "observed_entry_count=${TARGET_COUNT}"
-  echo "--- ls -la ---"
+  echo "--- ls -la (host) ---"
   echo "${TARGET_LISTING}"
-  echo "--- find ---"
+  echo "--- find (host) ---"
   echo "${TARGET_FIND}"
 } > "${EVIDENCE_DIR}/CLEAN_TARGET_PROOF.txt"
 
 if [[ "${TARGET_COUNT}" != "0" ]]; then
-  abort 5 "Host pre-build target directory not empty"
+  finalize_pre_docker_infrastructure_failure "host_pre_build_target_not_empty" 5 \
+    "Host pre-build target directory not empty (observed_entry_count_host=${TARGET_COUNT})"
 fi
 
 # ---------------------------------------------------------------------------
-# Docker image pull — FATAL on nonzero exit; never fall back to a cached image
+# STEP 15: Docker image pull — FATAL on nonzero exit; never fall back to a
+# cached image. Writes IMAGE_IDENTITY.txt (BEGIN/END_SCHEMA_BLOCK, RC3B-006).
 # ---------------------------------------------------------------------------
-mark_stage "image_pull"
-IMAGE_PULL_UTC="$(utc_now)"
-DOCKER_PULL_CMD="docker pull --platform linux/amd64 ${EFFECTIVE_RUST_IMAGE}"
-set +e
-docker pull --platform linux/amd64 "${EFFECTIVE_RUST_IMAGE}" > "${EVIDENCE_DIR}/IMAGE_PULL_STDOUT.txt" 2> "${EVIDENCE_DIR}/IMAGE_PULL_STDERR.txt"
-IMAGE_PULL_EXIT=$?
-set -e
-
-if [[ "${IMAGE_PULL_EXIT}" -ne 0 ]]; then
+write_image_identity_block() {
   {
+    echo "BEGIN_SCHEMA_BLOCK IMAGE_IDENTITY"
     echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "reason=docker_pull_nonzero_exit"
-    echo "requested_image_string=${EFFECTIVE_RUST_IMAGE}"
-    echo "docker_pull_command=${DOCKER_PULL_CMD}"
-    echo "docker_pull_exit_code=${IMAGE_PULL_EXIT}"
-    echo "docker_pull_stdout_file=IMAGE_PULL_STDOUT.txt"
-    echo "docker_pull_stderr_file=IMAGE_PULL_STDERR.txt"
-    echo "proceeded_to_inspect_or_run=NO"
+    echo "status=${II_STATUS}"
+    echo "failure_stage=${II_FAILURE_STAGE:-NOT_APPLICABLE}"
+    echo "requested_image=${EFFECTIVE_RUST_IMAGE}"
+    echo "requested_digest=${REQUESTED_DIGEST:-NONE_PARSED}"
+    echo "pull_command=${DOCKER_PULL_CMD}"
+    echo "pull_exit_code=${IMAGE_PULL_EXIT}"
+    echo "inspect_image_id_command=${II_INSPECT_ID_CMD:-NOT_APPLICABLE}"
+    echo "inspect_image_id_exit_code=${II_INSPECT_ID_EC:-NOT_APPLICABLE}"
+    echo "image_id=${II_IMAGE_ID:-NOT_APPLICABLE}"
+    echo "inspect_repo_digests_command=${II_INSPECT_REPODIGESTS_CMD:-NOT_APPLICABLE}"
+    echo "inspect_repo_digests_exit_code=${II_INSPECT_REPODIGESTS_EC:-NOT_APPLICABLE}"
+    echo "repo_digests=${II_REPO_DIGESTS:-NOT_APPLICABLE}"
+    echo "inspect_os_command=${II_INSPECT_OS_CMD:-NOT_APPLICABLE}"
+    echo "inspect_os_exit_code=${II_INSPECT_OS_EC:-NOT_APPLICABLE}"
+    echo "observed_os=${II_IMAGE_OS:-NOT_APPLICABLE}"
+    echo "inspect_architecture_command=${II_INSPECT_ARCH_CMD:-NOT_APPLICABLE}"
+    echo "inspect_architecture_exit_code=${II_INSPECT_ARCH_EC:-NOT_APPLICABLE}"
+    echo "observed_architecture=${II_IMAGE_ARCH:-NOT_APPLICABLE}"
+    echo "observed_platform=${II_IMAGE_PLATFORM:-NOT_APPLICABLE}"
+    echo "image_id_available=${II_IMAGE_ID_AVAILABLE:-no}"
+    echo "digest_match_expected=${II_DIGEST_MATCH:-no}"
+    echo "platform_match_expected=${II_PLATFORM_MATCH:-no}"
+    echo "proceeded_to_inspect_or_run=${II_PROCEEDED:-NO}"
     echo "cached_image_fallback_used=NO"
+    echo "END_SCHEMA_BLOCK"
+    echo "# --- non-schema auxiliary IMAGE_IDENTITY context (human review only) ---"
+    echo "# pull_utc_start=${IMAGE_PULL_UTC_START:-NOT_APPLICABLE}"
+    echo "# pull_utc_end=${IMAGE_PULL_UTC_END:-NOT_APPLICABLE}"
+    echo "# pull_stdout_file=IMAGE_PULL_STDOUT.txt"
+    echo "# pull_stderr_file=IMAGE_PULL_STDERR.txt"
     echo "product_executed=NO"
     echo "ldd_used=NO"
   } > "${EVIDENCE_DIR}/IMAGE_IDENTITY.txt"
-  OUTCOME="INFRASTRUCTURE_FAILURE"
-  FAILURE_STAGE="image_pull"
-  {
-    echo "evidence_schema_version=1"
-    echo "docker_started_utc=NOT_STARTED"
-    echo "docker_finished_utc=NOT_STARTED"
-    echo "docker_exit_code=NOT_STARTED"
-    echo "container_platform=linux/amd64"
-    echo "network_mode=bridge"
-    echo "product_executed=NO"
-    echo "ldd_used=NO"
-    echo "outcome=${OUTCOME}"
-    echo "failure_stage=${FAILURE_STAGE}"
-    echo "image_pull_exit_code=${IMAGE_PULL_EXIT}"
-  } > "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
-  {
-    echo "evidence_schema_version=1"
-    echo "outcome=${OUTCOME}"
-    echo "image_pull_exit_code=${IMAGE_PULL_EXIT}"
-  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
-  abort "${IMAGE_PULL_EXIT}" "docker pull failed (image pull is FATAL); refusing to proceed with a cached/local image"
-fi
+}
 
-# ---------------------------------------------------------------------------
-# Image identity enforcement — must pass BEFORE docker run
-# ---------------------------------------------------------------------------
-mark_stage "image_identity_enforcement"
+mark_stage "step15_image_pull"
+IMAGE_PULL_UTC_START="$(utc_now)"
+DOCKER_PULL_CMD="docker pull --platform linux/amd64 ${EFFECTIVE_RUST_IMAGE}"
 REQUESTED_DIGEST=""
 if [[ "${EFFECTIVE_RUST_IMAGE}" == *"@sha256:"* ]]; then
   REQUESTED_DIGEST="sha256:${EFFECTIVE_RUST_IMAGE##*@sha256:}"
 fi
 
-DOCKER_INSPECT_ID_CMD="docker inspect --format {{.Id}} ${EFFECTIVE_RUST_IMAGE}"
-DOCKER_INSPECT_REPODIGESTS_CMD="docker inspect --format {{json .RepoDigests}} ${EFFECTIVE_RUST_IMAGE}"
-DOCKER_INSPECT_OS_CMD="docker inspect --format {{.Os}} ${EFFECTIVE_RUST_IMAGE}"
-DOCKER_INSPECT_ARCH_CMD="docker inspect --format {{.Architecture}} ${EFFECTIVE_RUST_IMAGE}"
+set +e
+docker pull --platform linux/amd64 "${EFFECTIVE_RUST_IMAGE}" > "${EVIDENCE_DIR}/IMAGE_PULL_STDOUT.txt" 2> "${EVIDENCE_DIR}/IMAGE_PULL_STDERR.txt"
+IMAGE_PULL_EXIT=$?
+set -e
+IMAGE_PULL_UTC_END="$(utc_now)"
 
-DOCKER_CLIENT_VER="$(docker version --format '{{.Client.Version}}' 2>/dev/null || echo UNKNOWN)"
-DOCKER_SERVER_VER="$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo UNKNOWN)"
+if [[ "${IMAGE_PULL_EXIT}" -ne 0 ]]; then
+  II_STATUS="FAILED"
+  II_FAILURE_STAGE="image_pull"
+  II_PROCEEDED="NO"
+  write_image_identity_block
+  finalize_pre_docker_infrastructure_failure "image_pull" "${IMAGE_PULL_EXIT}" \
+    "docker pull failed (image pull is FATAL); refusing to proceed with a cached/local image"
+fi
+
+# ---------------------------------------------------------------------------
+# STEP 16: Image identity enforcement — must pass BEFORE docker run
+# ---------------------------------------------------------------------------
+mark_stage "step16_image_identity_enforcement"
+II_PROCEEDED="YES"
+II_INSPECT_ID_CMD="docker inspect --format {{.Id}} ${EFFECTIVE_RUST_IMAGE}"
+II_INSPECT_REPODIGESTS_CMD="docker inspect --format {{json .RepoDigests}} ${EFFECTIVE_RUST_IMAGE}"
+II_INSPECT_OS_CMD="docker inspect --format {{.Os}} ${EFFECTIVE_RUST_IMAGE}"
+II_INSPECT_ARCH_CMD="docker inspect --format {{.Architecture}} ${EFFECTIVE_RUST_IMAGE}"
 
 set +e
-IMAGE_ID="$(docker inspect --format '{{.Id}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
-IMAGE_ID_EXIT=$?
-REPO_DIGESTS="$(docker inspect --format '{{json .RepoDigests}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
-REPO_DIGESTS_EXIT=$?
-IMAGE_OS="$(docker inspect --format '{{.Os}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
-IMAGE_OS_EXIT=$?
-IMAGE_ARCH="$(docker inspect --format '{{.Architecture}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
-IMAGE_ARCH_EXIT=$?
+II_IMAGE_ID="$(docker inspect --format '{{.Id}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
+II_INSPECT_ID_EC=$?
+II_REPO_DIGESTS="$(docker inspect --format '{{json .RepoDigests}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
+II_INSPECT_REPODIGESTS_EC=$?
+II_IMAGE_OS="$(docker inspect --format '{{.Os}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
+II_INSPECT_OS_EC=$?
+II_IMAGE_ARCH="$(docker inspect --format '{{.Architecture}}' "${EFFECTIVE_RUST_IMAGE}" 2>/dev/null)"
+II_INSPECT_ARCH_EC=$?
 set -e
 
-[[ -z "${IMAGE_ID}" ]] && IMAGE_ID="UNKNOWN"
-[[ -z "${REPO_DIGESTS}" ]] && REPO_DIGESTS="UNKNOWN"
-[[ -z "${IMAGE_OS}" ]] && IMAGE_OS="UNKNOWN"
-[[ -z "${IMAGE_ARCH}" ]] && IMAGE_ARCH="UNKNOWN"
-IMAGE_PLATFORM="${IMAGE_OS}/${IMAGE_ARCH}"
+[[ -z "${II_IMAGE_ID}" ]] && II_IMAGE_ID="UNKNOWN"
+[[ -z "${II_REPO_DIGESTS}" ]] && II_REPO_DIGESTS="UNKNOWN"
+[[ -z "${II_IMAGE_OS}" ]] && II_IMAGE_OS="UNKNOWN"
+[[ -z "${II_IMAGE_ARCH}" ]] && II_IMAGE_ARCH="UNKNOWN"
+II_IMAGE_PLATFORM="${II_IMAGE_OS}/${II_IMAGE_ARCH}"
 
-IMAGE_ID_AVAILABLE="no"
-[[ "${IMAGE_ID_EXIT}" -eq 0 && "${IMAGE_ID}" != "UNKNOWN" && -n "${IMAGE_ID}" ]] && IMAGE_ID_AVAILABLE="yes"
+II_IMAGE_ID_AVAILABLE="no"
+[[ "${II_INSPECT_ID_EC}" -eq 0 && "${II_IMAGE_ID}" != "UNKNOWN" && -n "${II_IMAGE_ID}" ]] && II_IMAGE_ID_AVAILABLE="yes"
 
-DIGEST_MATCH_EXPECTED="no"
-if [[ -n "${REQUESTED_DIGEST}" && "${REPO_DIGESTS_EXIT}" -eq 0 && "${REPO_DIGESTS}" == *"${REQUESTED_DIGEST}"* ]]; then
-  DIGEST_MATCH_EXPECTED="yes"
+II_DIGEST_MATCH="no"
+if [[ -n "${REQUESTED_DIGEST}" && "${II_INSPECT_REPODIGESTS_EC}" -eq 0 && "${II_REPO_DIGESTS}" == *"${REQUESTED_DIGEST}"* ]]; then
+  II_DIGEST_MATCH="yes"
 fi
 
-PLATFORM_MATCH_EXPECTED="no"
-if [[ "${IMAGE_OS_EXIT}" -eq 0 && "${IMAGE_ARCH_EXIT}" -eq 0 && "${IMAGE_OS}" == "linux" && "${IMAGE_ARCH}" == "amd64" ]]; then
-  PLATFORM_MATCH_EXPECTED="yes"
+II_PLATFORM_MATCH="no"
+if [[ "${II_INSPECT_OS_EC}" -eq 0 && "${II_INSPECT_ARCH_EC}" -eq 0 && "${II_IMAGE_OS}" == "linux" && "${II_IMAGE_ARCH}" == "amd64" ]]; then
+  II_PLATFORM_MATCH="yes"
 fi
 
-{
-  echo "evidence_schema_version=1"
-  echo "status=OK"
-  echo "utc_acquisition=${IMAGE_PULL_UTC}"
-  echo "requested_image_string=${EFFECTIVE_RUST_IMAGE}"
-  echo "requested_digest=${REQUESTED_DIGEST:-NONE_PARSED}"
-  echo "docker_pull_command=${DOCKER_PULL_CMD}"
-  echo "docker_pull_exit_code=${IMAGE_PULL_EXIT}"
-  echo "docker_client_version=${DOCKER_CLIENT_VER}"
-  echo "docker_server_version=${DOCKER_SERVER_VER}"
-  echo "docker_inspect_image_id_command=${DOCKER_INSPECT_ID_CMD}"
-  echo "docker_inspect_image_id_exit_code=${IMAGE_ID_EXIT}"
-  echo "image_id=${IMAGE_ID}"
-  echo "docker_inspect_repodigests_command=${DOCKER_INSPECT_REPODIGESTS_CMD}"
-  echo "docker_inspect_repodigests_exit_code=${REPO_DIGESTS_EXIT}"
-  echo "repo_digests=${REPO_DIGESTS}"
-  echo "docker_inspect_os_command=${DOCKER_INSPECT_OS_CMD}"
-  echo "docker_inspect_os_exit_code=${IMAGE_OS_EXIT}"
-  echo "os=${IMAGE_OS}"
-  echo "docker_inspect_architecture_command=${DOCKER_INSPECT_ARCH_CMD}"
-  echo "docker_inspect_architecture_exit_code=${IMAGE_ARCH_EXIT}"
-  echo "architecture=${IMAGE_ARCH}"
-  echo "platform=${IMAGE_PLATFORM}"
-  echo "image_id_available=${IMAGE_ID_AVAILABLE}"
-  echo "digest_match_expected=${DIGEST_MATCH_EXPECTED}"
-  echo "platform_match_expected=${PLATFORM_MATCH_EXPECTED}"
-} > "${EVIDENCE_DIR}/IMAGE_IDENTITY.txt"
+# status=OK is gated on EVERY identity sub-check passing (RC3B-006): a
+# partial pass (e.g. platform ok, digest mismatched) must never read OK.
+if [[ "${II_IMAGE_ID_AVAILABLE}" == "yes" && "${II_DIGEST_MATCH}" == "yes" && "${II_PLATFORM_MATCH}" == "yes" ]]; then
+  II_STATUS="OK"
+  II_FAILURE_STAGE="NOT_APPLICABLE"
+else
+  II_STATUS="FAILED"
+  if [[ "${II_IMAGE_ID_AVAILABLE}" != "yes" ]]; then
+    II_FAILURE_STAGE="image_inspect_id"
+  elif [[ "${II_DIGEST_MATCH}" != "yes" ]]; then
+    II_FAILURE_STAGE="image_inspect_digest"
+  else
+    II_FAILURE_STAGE="image_inspect_platform"
+  fi
+fi
+write_image_identity_block
 
-if [[ "${IMAGE_ID_AVAILABLE}" != "yes" || "${DIGEST_MATCH_EXPECTED}" != "yes" || "${PLATFORM_MATCH_EXPECTED}" != "yes" ]]; then
-  abort 8 "Image identity enforcement failed (image_id_available=${IMAGE_ID_AVAILABLE} digest_match_expected=${DIGEST_MATCH_EXPECTED} platform_match_expected=${PLATFORM_MATCH_EXPECTED}); refusing to run the container"
+if [[ "${II_STATUS}" != "OK" ]]; then
+  finalize_pre_docker_infrastructure_failure "image_identity_enforcement" 8 \
+    "Image identity enforcement failed (image_id_available=${II_IMAGE_ID_AVAILABLE} digest_match_expected=${II_DIGEST_MATCH} platform_match_expected=${II_PLATFORM_MATCH}); refusing to run the container"
 fi
 
 # ---------------------------------------------------------------------------
-# Docker invocation (exact contract)
+# STEP 17: Docker invocation (exact contract)
 # ---------------------------------------------------------------------------
-mark_stage "docker_run"
+mark_stage "step17_docker_run"
 DOCKER_STDOUT="${EVIDENCE_DIR}/CONTAINER_STDOUT.txt"
 DOCKER_STDERR="${EVIDENCE_DIR}/CONTAINER_STDERR.txt"
 
 DOCKER_STARTED_UTC="$(utc_now)"
+DOCKER_STARTED_EPOCH="$(date +%s)"
 set +e
 docker run --rm \
   --platform linux/amd64 \
@@ -1076,6 +1492,7 @@ docker run --rm \
   -e CANONICAL_BUILD_CMD="${EFFECTIVE_BUILD_CMD}" \
   -e EXPECTED_RUSTC_VERSION="${EFFECTIVE_EXPECTED_RUSTC_VERSION}" \
   -e EXPECTED_DOTSLASH_VERSION="${EFFECTIVE_EXPECTED_DOTSLASH_VERSION}" \
+  -e RUST_IMAGE="${EFFECTIVE_RUST_IMAGE}" \
   -w /src \
   "${EFFECTIVE_RUST_IMAGE}" \
   bash /witness/container_narrow_build.sh \
@@ -1083,81 +1500,164 @@ docker run --rm \
 DOCKER_EXIT=$?
 set -e
 DOCKER_FINISHED_UTC="$(utc_now)"
+DOCKER_FINISHED_EPOCH="$(date +%s)"
 
 # ---------------------------------------------------------------------------
-# Outcome model + Docker exit schema
+# STEP 18: Container outcome parsing — outcome authority (RC3B-008).
+# Exactly one `outcome=` must be present in the container-written
+# BUILD_EXIT_CODE.txt; missing, duplicated, or invalid values are themselves
+# an INFRASTRUCTURE_FAILURE. Ordinary outcomes are NEVER reconstructed from
+# cargo_started / artifact presence / raw Docker exit code alone.
 # ---------------------------------------------------------------------------
-mark_stage "outcome_determination"
-determine_outcome_after_docker() {
+CONTAINER_OUTCOME_VALID="no"
+CONTAINER_OUTCOME_ERROR="none"
+PARSED_OUTCOME=""
+PARSED_FAILURE_STAGE=""
+PARSED_CARGO_STARTED=""
+
+parse_container_outcome() {
   local build_exit_file="${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
-  local cargo_started="NO"
-  local cargo_exit=""
-
-  if [[ -s "${build_exit_file}" ]] && grep -q '^cargo_started=YES' "${build_exit_file}" 2>/dev/null; then
-    cargo_started="YES"
-    cargo_exit="$(grep -m1 '^cargo_exit_code=' "${build_exit_file}" 2>/dev/null | cut -d= -f2)"
-  fi
-  CARGO_STARTED="${cargo_started}"
+  local outcome_count
 
   if [[ "${DOCKER_EXIT}" -eq 125 ]]; then
-    OUTCOME="INFRASTRUCTURE_FAILURE"
-    FAILURE_STAGE="docker_run_launch"
-  elif [[ "${cargo_started}" != "YES" ]]; then
-    OUTCOME="BUILD_NOT_STARTED"
-    FAILURE_STAGE="container_bootstrap_or_pre_cargo"
-  elif [[ "${cargo_exit}" != "0" ]]; then
-    OUTCOME="CARGO_FAILED"
-    FAILURE_STAGE="cargo_build"
-  else
-    local artifact="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
-    if [[ -f "${artifact}" ]]; then
-      OUTCOME="CARGO_SUCCEEDED_ARTIFACT_PRESENT"
-    else
-      OUTCOME="CARGO_SUCCEEDED_ARTIFACT_MISSING"
-    fi
-    FAILURE_STAGE="none"
+    CONTAINER_OUTCOME_ERROR="docker_run_launch_failure_exit_125"
+    return 0
   fi
+  if [[ ! -s "${build_exit_file}" ]]; then
+    CONTAINER_OUTCOME_ERROR="build_exit_code_file_missing_or_empty"
+    return 0
+  fi
+
+  outcome_count="$(grep -c '^outcome=' "${build_exit_file}" 2>/dev/null)" || true
+  outcome_count="${outcome_count:-0}"
+  if [[ "${outcome_count}" -eq 0 ]]; then
+    CONTAINER_OUTCOME_ERROR="outcome_field_missing"
+    return 0
+  fi
+  if [[ "${outcome_count}" -gt 1 ]]; then
+    CONTAINER_OUTCOME_ERROR="outcome_field_duplicated"
+    return 0
+  fi
+
+  local raw_outcome
+  raw_outcome="$(read_first_kv "${build_exit_file}" "outcome" "")"
+  if ! is_allowed_outcome "${raw_outcome}"; then
+    CONTAINER_OUTCOME_ERROR="outcome_field_invalid_value_${raw_outcome:-EMPTY}"
+    return 0
+  fi
+
+  CONTAINER_OUTCOME_VALID="yes"
+  PARSED_OUTCOME="${raw_outcome}"
+  PARSED_CARGO_STARTED="$(read_first_kv "${build_exit_file}" "cargo_started" "NO")"
+  PARSED_FAILURE_STAGE="$(read_first_kv "${build_exit_file}" "failure_stage" "NOT_RECORDED")"
 }
-determine_outcome_after_docker
 
-{
-  echo "evidence_schema_version=1"
-  echo "docker_started_utc=${DOCKER_STARTED_UTC}"
-  echo "docker_finished_utc=${DOCKER_FINISHED_UTC}"
-  echo "docker_exit_code=${DOCKER_EXIT}"
-  echo "container_platform=linux/amd64"
-  echo "network_mode=bridge"
-  echo "product_executed=NO"
-  echo "ldd_used=NO"
-  echo "outcome=${OUTCOME}"
-  echo "failure_stage=${FAILURE_STAGE}"
-} > "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
+# Rewrites BUILD_TIMING.txt, preserving the container's authoritative
+# outcome/failure_stage/cargo_* fields and patching in the host-known Docker
+# wall-clock (the container itself cannot know Docker's own start/finish
+# time, and records NOT_APPLICABLE placeholders for those specific fields).
+# Full rewrite (not append) avoids ever producing a duplicate key.
+patch_build_timing_docker_wallclock() {
+  local build_timing_file="${EVIDENCE_DIR}/BUILD_TIMING.txt"
+  local cargo_started_utc cargo_finished_utc cargo_elapsed_seconds cargo_started cargo_exit_code
+  local docker_elapsed="NOT_APPLICABLE"
 
-{
-  echo "---"
-  echo "evidence_schema_version=1"
-  echo "docker_started_utc=${DOCKER_STARTED_UTC}"
-  echo "docker_finished_utc=${DOCKER_FINISHED_UTC}"
-  echo "docker_exit_code=${DOCKER_EXIT}"
-  echo "outcome=${OUTCOME}"
-} >> "${EVIDENCE_DIR}/BUILD_TIMING.txt"
+  cargo_started_utc="$(read_first_kv "${build_timing_file}" "cargo_started_utc" "NOT_APPLICABLE")"
+  cargo_finished_utc="$(read_first_kv "${build_timing_file}" "cargo_finished_utc" "NOT_APPLICABLE")"
+  cargo_elapsed_seconds="$(read_first_kv "${build_timing_file}" "cargo_elapsed_seconds" "NOT_APPLICABLE")"
+  cargo_started="$(read_first_kv "${build_timing_file}" "cargo_started" "${CARGO_STARTED}")"
+  cargo_exit_code="$(read_first_kv "${build_timing_file}" "cargo_exit_code" "NOT_APPLICABLE")"
+
+  if [[ -n "${DOCKER_STARTED_EPOCH}" && -n "${DOCKER_FINISHED_EPOCH}" ]]; then
+    docker_elapsed=$(( DOCKER_FINISHED_EPOCH - DOCKER_STARTED_EPOCH ))
+  fi
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=RECORDED"
+    echo "outcome=${OUTCOME}"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC}"
+    echo "docker_finished_utc=${DOCKER_FINISHED_UTC}"
+    echo "docker_elapsed_seconds=${docker_elapsed}"
+    echo "cargo_started_utc=${cargo_started_utc}"
+    echo "cargo_finished_utc=${cargo_finished_utc}"
+    echo "cargo_elapsed_seconds=${cargo_elapsed_seconds}"
+    echo "cargo_started=${cargo_started}"
+    echo "cargo_exit_code=${cargo_exit_code}"
+    echo "docker_exit_code=${DOCKER_EXIT}"
+    echo "failure_stage=${FAILURE_STAGE}"
+  } > "${build_timing_file}"
+}
+
+mark_stage "step18_container_outcome_parsing"
+parse_container_outcome
+
+if [[ "${CONTAINER_OUTCOME_VALID}" != "yes" ]]; then
+  OUTCOME="INFRASTRUCTURE_FAILURE"
+  FAILURE_STAGE="invalid_or_missing_container_outcome"
+  CARGO_STARTED="NO"
+  write_docker_exit_code_authoritative
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=${OUTCOME}"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC}"
+    echo "docker_finished_utc=${DOCKER_FINISHED_UTC}"
+    echo "docker_elapsed_seconds=$(( DOCKER_FINISHED_EPOCH - DOCKER_STARTED_EPOCH ))"
+    echo "cargo_started_utc=NOT_APPLICABLE"
+    echo "cargo_finished_utc=NOT_APPLICABLE"
+    echo "cargo_started=NO"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "docker_exit_code=${DOCKER_EXIT}"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "container_outcome_parse_error=${CONTAINER_OUTCOME_ERROR}"
+  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=${OUTCOME}"
+    echo "cargo_started=NO"
+    echo "build_status=INFRASTRUCTURE_FAILURE"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "container_outcome_parse_error=${CONTAINER_OUTCOME_ERROR}"
+  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  abort 10 "Container outcome could not be authoritatively determined (reason=${CONTAINER_OUTCOME_ERROR}); refusing to reconstruct outcome from cargo_started/artifact/docker exit code alone"
+else
+  OUTCOME="${PARSED_OUTCOME}"
+  FAILURE_STAGE="${PARSED_FAILURE_STAGE}"
+  CARGO_STARTED="${PARSED_CARGO_STARTED}"
+  write_docker_exit_code_authoritative
+  patch_build_timing_docker_wallclock
+fi
 
 # ---------------------------------------------------------------------------
-# Cargo.lock direct enforcement — AFTER Docker (must remain unchanged)
+# STEP 19: Cargo.lock direct enforcement AFTER Docker + POST_BUILD_INTEGRITY
 # ---------------------------------------------------------------------------
-mark_stage "cargo_lock_post_docker"
+mark_stage "step19_post_build_integrity"
 SRC_HEAD_AFTER="$(git -C "${SRC_DIR}" rev-parse HEAD)"
 SRC_STATUS_AFTER="$(git -C "${SRC_DIR}" status --porcelain)"
 CARGO_LOCK_AFTER="$(sha256_of "${SRC_DIR}/Cargo.lock")"
 
-CARGO_LOCK_UNCHANGED="no"
-[[ "${CARGO_LOCK_AFTER}" == "${CARGO_LOCK_BEFORE}" ]] && CARGO_LOCK_UNCHANGED="yes"
-CARGO_LOCK_POST_MATCH="no"
-[[ "${CARGO_LOCK_AFTER}" == "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" ]] && CARGO_LOCK_POST_MATCH="yes"
 SOURCE_HEAD_UNCHANGED="no"
 [[ "${SRC_HEAD_AFTER}" == "${SRC_HEAD}" ]] && SOURCE_HEAD_UNCHANGED="yes"
+
+# Blank porcelain output is explicitly normalized before yes/no classification
+# (RC3B-019): an empty string means clean (`yes`), never left ambiguous.
 SOURCE_CLEAN_AFTER="yes"
-[[ -n "${SRC_STATUS_AFTER}" ]] && SOURCE_CLEAN_AFTER="no"
+if [[ -n "${SRC_STATUS_AFTER}" ]]; then
+  SOURCE_CLEAN_AFTER="no"
+fi
+SOURCE_CLEAN_BEFORE="yes"
+if [[ -n "${SRC_STATUS}" ]]; then
+  SOURCE_CLEAN_BEFORE="no"
+fi
+
+CARGO_LOCK_UNCHANGED="no"
+[[ "${CARGO_LOCK_AFTER}" == "${CARGO_LOCK_BEFORE}" ]] && CARGO_LOCK_UNCHANGED="yes"
+
+CARGO_LOCK_POST_MATCHES_EXPECTED="no"
+[[ "${CARGO_LOCK_AFTER}" == "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" ]] && CARGO_LOCK_POST_MATCHES_EXPECTED="yes"
 
 {
   echo "evidence_schema_version=1"
@@ -1167,22 +1667,35 @@ SOURCE_CLEAN_AFTER="yes"
   echo "cargo_lock_sha256_before=${CARGO_LOCK_BEFORE}"
   echo "cargo_lock_sha256_after=${CARGO_LOCK_AFTER}"
   echo "cargo_lock_unchanged=${CARGO_LOCK_UNCHANGED}"
-  echo "cargo_lock_matches_expected=${CARGO_LOCK_POST_MATCH}"
+  echo "cargo_lock_post_matches_expected=${CARGO_LOCK_POST_MATCHES_EXPECTED}"
   echo "source_head_before=${SRC_HEAD}"
   echo "source_head_after=${SRC_HEAD_AFTER}"
   echo "source_head_unchanged=${SOURCE_HEAD_UNCHANGED}"
   echo "source_clean_after=${SOURCE_CLEAN_AFTER}"
 } >> "${EVIDENCE_DIR}/CARGO_LOCK_INTEGRITY.txt"
 
+# evidence_inventory_complete is ALWAYS "no" from this automated host run: it
+# can only become "yes" after the Witness completes WITNESS_STATEMENT.md,
+# WITNESS_VERDICT.md, DEVIATIONS.txt, and REDACTIONS.md, and the FINAL
+# manifest passes the structural validator (RC3B-020). The four-field gate
+# below is computed and disclosed, but will always read "no" at this stage —
+# that is expected and is not itself a build defect.
+EVIDENCE_INVENTORY_COMPLETE="no"
+
+FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
+if [[ "${SOURCE_HEAD_UNCHANGED}" == "yes" && "${CARGO_LOCK_UNCHANGED}" == "yes" && "${CARGO_LOCK_POST_MATCHES_EXPECTED}" == "yes" && "${EVIDENCE_INVENTORY_COMPLETE}" == "yes" ]]; then
+  FULL_INTEGRITY_GATE_ALL_FOUR_YES="yes"
+fi
+
+# Technical post-build integrity (three automatable fields only) — this is
+# what gates the HOST script's own FINAL_EXIT_CODE below. The full four-field
+# gate (including evidence_inventory_complete) is a separate, later Witness
+# responsibility per WITNESS_CLASSIFICATION.md's PASS checklist.
 POST_BUILD_INTEGRITY_OK="yes"
-if [[ "${CARGO_LOCK_UNCHANGED}" != "yes" || "${SOURCE_HEAD_UNCHANGED}" != "yes" || "${SOURCE_CLEAN_AFTER}" != "yes" ]]; then
+if [[ "${SOURCE_HEAD_UNCHANGED}" != "yes" || "${CARGO_LOCK_UNCHANGED}" != "yes" || "${CARGO_LOCK_POST_MATCHES_EXPECTED}" != "yes" || "${SOURCE_CLEAN_AFTER}" != "yes" ]]; then
   POST_BUILD_INTEGRITY_OK="no"
 fi
 
-# ---------------------------------------------------------------------------
-# Post-build integrity evidence
-# ---------------------------------------------------------------------------
-mark_stage "post_build_integrity"
 ARTIFACT_PATH="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
 ARTIFACT_EXISTS="no"
 [[ -f "${ARTIFACT_PATH}" ]] && ARTIFACT_EXISTS="yes"
@@ -1190,25 +1703,54 @@ ARTIFACT_EXISTS="no"
 {
   echo "evidence_schema_version=1"
   echo "status=OK"
+  echo "outcome=${OUTCOME}"
   echo "source_head_before=${SRC_HEAD}"
   echo "source_head_after=${SRC_HEAD_AFTER}"
   echo "source_head_unchanged=${SOURCE_HEAD_UNCHANGED}"
-  echo "source_clean_before=${SRC_STATUS}"
-  echo "source_clean_after=${SRC_STATUS_AFTER}"
+  echo "source_clean_before=${SOURCE_CLEAN_BEFORE}"
+  echo "source_clean_after=${SOURCE_CLEAN_AFTER}"
   echo "cargo_lock_sha256_before=${CARGO_LOCK_BEFORE}"
   echo "cargo_lock_sha256_after=${CARGO_LOCK_AFTER}"
   echo "cargo_lock_unchanged=${CARGO_LOCK_UNCHANGED}"
+  echo "cargo_lock_post_matches_expected=${CARGO_LOCK_POST_MATCHES_EXPECTED}"
+  echo "source_or_lock_changed=$([[ "${CARGO_LOCK_UNCHANGED}" == "yes" && "${SOURCE_HEAD_UNCHANGED}" == "yes" ]] && echo no || echo yes)"
   echo "artifact_path=${ARTIFACT_PATH}"
   echo "artifact_exists=${ARTIFACT_EXISTS}"
   echo "docker_exit_code=${DOCKER_EXIT}"
-  echo "outcome=${OUTCOME}"
+  echo "failure_stage=${FAILURE_STAGE}"
+  echo "evidence_inventory_complete=${EVIDENCE_INVENTORY_COMPLETE}"
+  echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
+  echo "full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no"
   echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
 } > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt"
 
 # ---------------------------------------------------------------------------
-# Manifest lifecycle — preliminary manifest, finalization required later.
+# STEP 20: Closed auxiliary-file inventory check (RC3B-021)
 # ---------------------------------------------------------------------------
-mark_stage "manifest_generation"
+enforce_closed_aux_inventory() {
+  mark_stage "step20_closed_aux_inventory_check"
+  local -a allowed=("${MANDATORY_EVIDENCE_FILES[@]}" "${ALLOWED_AUX_EVIDENCE_FILES[@]}" "${DEVIATIONS_FILE_NAME}")
+  local f base is_allowed a
+  while IFS= read -r f; do
+    base="$(basename "${f}")"
+    is_allowed=0
+    for a in "${allowed[@]}"; do
+      if [[ "${base}" == "${a}" ]]; then
+        is_allowed=1
+        break
+      fi
+    done
+    if [[ "${is_allowed}" -ne 1 ]]; then
+      abort 11 "Unlisted evidence file violates the closed aux-file allow-list: ${base} (allowed aux files are: ${ALLOWED_AUX_EVIDENCE_FILES[*]})"
+    fi
+  done < <(find "${EVIDENCE_DIR}" -maxdepth 1 -type f -print)
+}
+enforce_closed_aux_inventory
+
+# ---------------------------------------------------------------------------
+# STEP 21: Manifest lifecycle — preliminary manifest, finalization required later.
+# ---------------------------------------------------------------------------
+mark_stage "step21_manifest_generation"
 (
   cd "${EVIDENCE_DIR}"
   find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum
@@ -1222,17 +1764,21 @@ mark_stage "manifest_generation"
   echo "final_failure_stage=${FAILURE_STAGE}"
   echo "final_verdict_ceiling=${VERDICT_CEILING}"
   echo "final_canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
+  echo "final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
+  echo "final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
 } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
 
 # ---------------------------------------------------------------------------
-# Summary + exit code
+# STEP 22: Summary + exit code
 # ---------------------------------------------------------------------------
+mark_stage "step22_summary_and_exit"
 FINAL_EXIT_CODE="${DOCKER_EXIT}"
 if [[ "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then
   FINAL_EXIT_CODE=9
 fi
 
 echo "--- Witness host summary (conservative) ---"
+echo "package_version=${PACKAGE_VERSION}"
 echo "run_id=${RUN_ID}"
 echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
 echo "verdict_ceiling=${VERDICT_CEILING}"
@@ -1244,6 +1790,7 @@ echo "outcome=${OUTCOME}"
 echo "failure_stage=${FAILURE_STAGE}"
 echo "artifact_exists=${ARTIFACT_EXISTS}"
 echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
+echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES} (evidence_inventory_complete is always 'no' from an automated host run; re-evaluate after manual Witness files + final manifest validation)"
 echo "evidence_dir=${EVIDENCE_DIR}"
 echo "product_executed=NO (orchestrator)"
 echo "ldd_used=NO (orchestrator)"

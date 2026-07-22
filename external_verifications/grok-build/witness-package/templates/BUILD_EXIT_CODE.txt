@@ -1,21 +1,19 @@
-# BUILD_EXIT_CODE.txt — required fields (evidence_schema_version=1)
+# BUILD_EXIT_CODE.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
 #
-# This file is the PREFERRED, authoritative source for `outcome`. Choose
-# exactly one outcome and fill the fields per this table (validator-enforced):
+# Container-owned and AUTHORITATIVE for `outcome`. Field names mirror the
+# container's `BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE` writer exactly.
 #
-#   outcome                            | cargo_started | build_status              | cargo_exit_code
-#   ------------------------------------|----------------|---------------------------|----------------
-#   BUILD_NOT_STARTED                  | NO             | BUILD_NOT_STARTED         | N/A
-#   CARGO_FAILED                       | YES            | FAILED                    | <nonzero>
-#   CARGO_SUCCEEDED_ARTIFACT_MISSING   | YES            | COMPLETE                  | 0
-#   CARGO_SUCCEEDED_ARTIFACT_PRESENT   | YES            | COMPLETE                  | 0
-#   INFRASTRUCTURE_FAILURE             | NO             | INFRASTRUCTURE_FAILURE    | N/A
-#
+# outcome is one of: BUILD_NOT_STARTED | CARGO_FAILED |
+#   CARGO_SUCCEEDED_ARTIFACT_MISSING | CARGO_SUCCEEDED_ARTIFACT_PRESENT |
+#   INFRASTRUCTURE_FAILURE
+# cargo_exit_code is "0" on success, a nonzero integer on CARGO_FAILED, and
+# exactly NOT_APPLICABLE (never "N/A") when cargo never started.
+# status is OK when the run fully succeeded (artifact present AND static
+# inspection complete) and FAILED otherwise.
 evidence_schema_version=1
-cargo_started=YES|NO
-outcome=
-build_status=
-cargo_exit_code=
-# failure_stage: non-empty description of where a failure occurred, or "N/A"
-# when outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT.
-failure_stage=
+status=OK
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+cargo_started=YES
+build_status=COMPLETE
+cargo_exit_code=0
+failure_stage=NOT_APPLICABLE

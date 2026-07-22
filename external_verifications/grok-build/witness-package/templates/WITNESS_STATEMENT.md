@@ -1,34 +1,25 @@
-# WITNESS_STATEMENT.md — required fields (evidence_schema_version=1)
+# WITNESS_STATEMENT.md — required fields (evidence_schema_version=1, 1.0.0-rc4)
 
-Fields below are parsed as `key=value` lines by the validator regardless of
-surrounding markdown headings. Keep the exact field names.
+This file is authored by the independent Witness. The `key=value` lines below
+are structurally validated; surrounding prose is for human review.
 
+Independence attestations must all be `yes`. product_executed and ldd_used
+must be exactly `NO`, and upstream_product_commands_not_run must be `yes`
+(the Witness never ran the product binary or any upstream product command,
+and never invoked `ldd` on the artifact). If ai_assistance_used=yes, a
+non-empty ai_assistance_detail is required. human_review_completed must be
+`yes`.
+
+```
 evidence_schema_version=1
-
-## Witness identity
-
-witness_identity_or_handle=
-github_user_if_submitting_pr=
-relationship_to_maintainers=
-
-## Independence
-
-not_package_owner=yes|no
-not_owner_side_reproducer=yes|no
-witness_controlled_host=yes|no
-
-## AI assistance
-
-ai_assistance_used=yes|no
-# Required, non-empty, when ai_assistance_used=yes:
+witness_identity_or_handle=<name or public handle>
+not_package_owner=yes
+not_owner_side_reproducer=yes
+witness_controlled_host=yes
+ai_assistance_used=no
 ai_assistance_detail=
-
-## Human review
-
-human_review_completed=yes|no
-
-## Scope acknowledgment
-
+human_review_completed=yes
 product_executed=NO
 ldd_used=NO
-upstream_product_commands_not_run=yes|no
+upstream_product_commands_not_run=yes
+```

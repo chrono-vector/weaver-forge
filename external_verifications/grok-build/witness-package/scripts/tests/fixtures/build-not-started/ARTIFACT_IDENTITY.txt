@@ -1,0 +1,7 @@
+evidence_schema_version=1
+outcome=BUILD_NOT_STARTED
+applicable=no
+artifact_present=no
+reason=cargo never started (pre_cargo_empty_target)
+product_executed=NO
+ldd_used=NO

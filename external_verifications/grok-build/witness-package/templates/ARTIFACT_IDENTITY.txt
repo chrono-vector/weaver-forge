@@ -1,28 +1,21 @@
-# ARTIFACT_IDENTITY.txt — required fields (evidence_schema_version=1)
+# ARTIFACT_IDENTITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
 #
-# applicable / artifact_present depend on outcome (from BUILD_EXIT_CODE.txt):
-#   CARGO_SUCCEEDED_ARTIFACT_PRESENT -> applicable=yes, artifact_present=yes
-#   CARGO_SUCCEEDED_ARTIFACT_MISSING -> applicable=yes, artifact_present=no
-#   BUILD_NOT_STARTED / CARGO_FAILED / INFRASTRUCTURE_FAILURE
-#                                     -> applicable=no,  artifact_present=no
+# Container/host-owned. product_executed and ldd_used must be exactly NO.
+# outcome must equal the authoritative BUILD_EXIT_CODE.txt outcome.
 #
-# When artifact_present=no: reason= is required.
-# When artifact_present=yes: artifact_sha256, artifact_size_bytes,
-#   artifact_filename, artifact_path are all required.
+# When artifact_present=yes, artifact_sha256 (64-char lowercase hex),
+# artifact_size_bytes (numeric), artifact_filename, and artifact_path are all
+# required. When artifact_present=no, a non-empty reason is required.
 evidence_schema_version=1
-applicable=yes|no
-artifact_present=yes|no
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+applicable=yes
+artifact_present=yes
+artifact_path=/work/cargo-target/debug/xai-grok-pager
+artifact_filename=xai-grok-pager
+artifact_size_bytes=<numeric byte count>
+artifact_sha256=<64-char lowercase hex sha256>
+static_inspection_complete=yes
 product_executed=NO
 ldd_used=NO
-
-# Required when artifact_present=no:
-reason=
-
-# Required when artifact_present=yes:
-artifact_path=
-artifact_filename=xai-grok-pager
-artifact_size_bytes=
-artifact_sha256=
-
-# Non-validated context fields (kept for human review; not schema-required):
-gnu_build_id=
+# When artifact_present=no, omit the artifact_* value fields and instead give:
+# reason=<why the artifact is absent / inapplicable>

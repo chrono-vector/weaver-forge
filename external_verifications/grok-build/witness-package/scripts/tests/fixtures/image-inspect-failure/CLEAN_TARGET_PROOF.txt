@@ -1,0 +1,14 @@
+evidence_schema_version=1
+status=CHECKED
+outcome=BUILD_NOT_STARTED
+target_path_host=/work/cargo-target
+proof_utc_host=2026-07-22T00:00:00Z
+observed_entry_count_host=0
+target_path_container_prebootstrap=NOT_REACHED
+proof_utc_container_prebootstrap=NOT_REACHED
+observed_entry_count_container_prebootstrap=NOT_REACHED
+target_path_container_precargo=NOT_REACHED
+proof_utc_container_precargo=NOT_REACHED
+observed_entry_count_container=NOT_REACHED
+proof_failed=no
+failure_stage=NONE

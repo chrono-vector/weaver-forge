@@ -1,15 +1,20 @@
-# Witness requirements — Grok Build narrow rebuild (1.0.0-rc3)
+# Witness requirements — Grok Build narrow rebuild (1.0.0-rc4)
 
 ## Current package status
 
-**WITNESS PACKAGE NOT READY** — package version `1.0.0-rc3`; canonical package tag
-`grok-build-witness-v1.0.0-rc3`; readiness pending fixed-tag repeat blind audit and required
-gates. Tag availability is verified by resolving the annotated tag; canonical execution requires
-successful resolution. `grok-build-witness-v1.0.0-rc1`
-(`89127c78c3a11492892de7e3b5f0dee18d71775a`) and `grok-build-witness-v1.0.0-rc2`
-(`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`) are preserved as **immutable historical releases**,
-each with its own recorded **NOT READY** audit verdict. C-014 (Independent Witness) remains
-**`NOT_STARTED`**.
+**RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT**
+
+Package version `1.0.0-rc4`; `canonical_package_tag=grok-build-witness-v1.0.0-rc4`;
+`package_commit_authority=annotated_tag_resolution` (no embedded future rc4 commit). Tag
+availability is verified by annotated-tag resolution; canonical execution requires successful
+resolution; if resolution fails, canonical execution stops. After publication, the tag is
+immutable. `grok-build-witness-v1.0.0-rc1` (`89127c78c3a11492892de7e3b5f0dee18d71775a`),
+`grok-build-witness-v1.0.0-rc2` (`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and
+`grok-build-witness-v1.0.0-rc3` (`77221a224bbd6194cfafb81f6ecb58c800e5bc13`; audit preserved under
+`evidence/rc3-static-blind-audit/`) are preserved as **immutable historical releases**, each with
+its own recorded **NOT READY** audit verdict. C-014 (Independent Witness) remains
+**`NOT_STARTED`**. Overall **PARTIAL**. Package remains **NOT READY** until rc4 is committed,
+tagged, and repeat-audited.
 
 ## Evidence schema
 
@@ -53,7 +58,7 @@ outcome is itself a `PROHIBITED`-severity violation (see [WITNESS_CLASSIFICATION
 
 ## Canonical platform
 
-| Environment | Witness 1.0.0-rc3 |
+| Environment | Witness 1.0.0-rc4 |
 |-------------|---------------------|
 | Linux x86_64 + Docker | **Canonical** |
 | WSL2 bash + Docker Desktop Linux containers | **Canonical** |
@@ -69,7 +74,7 @@ Container platform: **`linux/amd64`**.
 |-------------|------|
 | Person | Not the owner / package author |
 | Host | Witness-owned machine, VM, or cloud |
-| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc3` (publication verified by tag resolution; canonical execution stops if resolution fails) |
+| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc4` (publication verified by tag resolution; canonical execution stops if resolution fails) |
 | Grok source | Fresh clone at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Target | New empty `CARGO_TARGET_DIR` |
 | Owner caches | **Forbidden** as inputs |
@@ -84,8 +89,8 @@ the explicit `--noncanonical-deviation` flag; without it the host orchestrator r
 | Item | Required value |
 |------|----------------|
 | `WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc3` |
-| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc3^{commit}`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash. |
+| `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc4` |
+| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). |
 | `GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -158,3 +163,4 @@ on `xai-grok-pager` / `grok`.
 |---------|--------|
 | 1.0.0-rc2 | Prior canonical-platform, independence, fixed-identity, bootstrap, and network sections |
 | 1.0.0-rc3 | Added evidence-schema-version section; outcome model and outcome-sensitivity table; explicit failure-submissions-supported policy; `WITNESS_ID`/`WORK_ROOT` safety rules matching the host orchestrator; image-pull-is-fatal policy; canonical-constants table reconciled with `scripts/run_witness_narrow_build.sh` |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; no Independent Witness reproduction |

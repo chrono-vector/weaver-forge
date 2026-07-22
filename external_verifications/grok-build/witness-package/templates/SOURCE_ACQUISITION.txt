@@ -1,25 +1,18 @@
-# SOURCE_ACQUISITION.txt — required fields (evidence_schema_version=1)
+# SOURCE_ACQUISITION.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# How the Weaver Forge package and the Grok Build source were acquired.
+# grok_build_commit_requested is the pinned canonical commit;
+# package_commit_authority is always annotated_tag_resolution.
 evidence_schema_version=1
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc3
-weaver_forge_commit_resolved=
-package_clone_head=
-package_clone_clean_status=yes|no
-tag_head_match=yes|no
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4
+weaver_forge_commit_resolved=<40-char lowercase hex commit>
+package_clone_head=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>
+package_clone_clean_status=yes
+tag_head_match=yes
 package_commit_authority=annotated_tag_resolution
 grok_build_url=https://github.com/xai-org/grok-build.git
 grok_build_commit_requested=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-grok_build_commit_observed=
-grok_build_clean_tree=yes|no
-fresh_clones=yes|no
-
-# Non-validated context fields (kept for human review; not schema-required):
-weaver_forge_clone_utc=
-weaver_forge_clone_command=
-weaver_forge_fetch_command=
-weaver_forge_checkout_command=
-weaver_forge_detached_head=yes|no
-grok_build_clone_utc=
-grok_build_clone_command=
-grok_build_checkout_command=git checkout --detach 98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-owner_caches_used=no
+grok_build_commit_observed=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+grok_build_clean_tree=yes
+fresh_clones=yes

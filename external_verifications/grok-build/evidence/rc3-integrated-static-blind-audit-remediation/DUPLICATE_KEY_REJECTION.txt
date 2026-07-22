@@ -1,0 +1,8 @@
+﻿phase=C2E-5
+closure=DUPLICATE_KEY_REJECTION
+parse_kv=rejects_duplicates
+same_key_same_value=FAIL
+same_key_conflicting_value=FAIL
+last_value_wins=NO
+package_status=NOT READY
+c014=NOT_STARTED

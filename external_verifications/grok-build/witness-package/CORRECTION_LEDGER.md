@@ -1,4 +1,4 @@
-# Correction ledger — format and policy (1.0.0-rc3)
+# Correction ledger — format and policy (1.0.0-rc4)
 
 This is an **immutable, append-only** ledger format for corrections to previously accepted Witness
 evidence or maintainer intake decisions. It exists because accepted public evidence becomes
@@ -47,7 +47,7 @@ leave none blank. `entry_id` must be unique and monotonically increasing (`CL-00
 | supersession_relationship | one of: ADDENDUM (adds information; original stands unchanged) | CLARIFICATION (explains/reinterprets original without changing its facts) | PARTIAL_SUPERSESSION (specific fields of the original are now understood differently; original text is NOT deleted) | FULL_SUPERSESSION (a new run/submission replaces the original for acceptance purposes; original remains as immutable historical record and is marked superseded, not deleted) |
 | original_negative_evidence_preserved | yes (mandatory; must always be "yes" — a correction that would set this to "no" is invalid and must be rejected by the maintainer) |
 | maintainer_reviewer | <maintainer identity who reviewed and merged this correction> |
-| maintainer_intake_verdict_for_correction | PENDING | ACCEPTED | REJECTED | CORRECTION_REQUESTED | DISPUTED (per MAINTAINER_INTAKE_POLICY.md) |
+| maintainer_intake_verdict_for_correction | PENDING | ACCEPTED | REJECTED | CORRECTION_REQUESTED | DISPUTED | SUPERSEDED (per MAINTAINER_INTAKE_POLICY.md; SUPERSEDED is a history annotation after ledgered supersession of a prior ACCEPTED submission, not a first-pass disposition for a brand-new correction) |
 ```
 
 ## Example (illustrative only — not a real entry)
@@ -99,7 +99,7 @@ leave none blank. `entry_id` must be unique and monotonically increasing (`CL-00
 
 ## Ledger entries
 
-_No entries recorded yet. This ledger is part of the 1.0.0-rc3 package policy set; the first
+_No entries recorded yet. This ledger is part of the 1.0.0-rc4 package policy set; the first
 submission that requires a correction appends here. Do not fabricate ledger rows._
 
 ## Change log
@@ -107,3 +107,4 @@ submission that requires a correction appends here. Do not fabricate ledger rows
 | Version | Change |
 |---------|--------|
 | 1.0.0-rc3 | Created. Defines the append-only correction entry format (original commit, original evidence manifest SHA-256, correction commit, corrected manifest SHA-256, reason, affected files, supersession relationship) and the policy rules guaranteeing corrections append and never erase original negative evidence. |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4`; intake-state set aligned with MAINTAINER_INTAKE_POLICY including SUPERSEDED as post-acceptance history annotation |

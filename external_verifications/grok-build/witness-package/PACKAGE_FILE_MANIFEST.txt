@@ -1,7 +1,13 @@
 # Witness package file manifest (package-relative paths)
-# Version 1.0.0-rc3 — excludes binaries, caches, generated build artifacts
-# NOT READY: pending fixed-tag repeat blind audit and readiness gates; C-014 NOT_STARTED.
-# Canonical package tag: grok-build-witness-v1.0.0-rc3 (availability verified by tag resolution)
+# Version 1.0.0-rc4 — excludes binaries, caches, generated build artifacts
+# NOT READY: rc4 package content under preparation; remains NOT READY until rc4 committed,
+#   tagged, and repeat-audited; C-014 NOT_STARTED; overall PARTIAL.
+# Canonical package tag: grok-build-witness-v1.0.0-rc4
+#   (availability verified by annotated-tag resolution; canonical execution requires successful
+#   resolution; if resolution fails, canonical execution stops; after publication, tag immutable;
+#   package_commit_authority=annotated_tag_resolution; no embedded future rc4 commit)
+# Banner: RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION —
+#   NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT
 
 README.md
 WITNESS_PACKAGE_VERSION.md
@@ -40,14 +46,22 @@ templates/WITNESS_STATEMENT.md
 templates/WITNESS_VERDICT.md
 templates/REDACTIONS.md
 
-# Release tag policy: canonical package tag grok-build-witness-v1.0.0-rc3
+# Release tag policy: canonical package tag grok-build-witness-v1.0.0-rc4
 #   (availability verified by annotated-tag resolution; package commit authority =
 #   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated
 #   after publication; later main status/audit records are outside the tagged snapshot)
+# rc3 tag grok-build-witness-v1.0.0-rc3 fixed at 77221a224bbd6194cfafb81f6ecb58c800e5bc13 —
+#   NOT READY integrated four-batch static audit (immutable historical release;
+#   audit preserved under evidence/rc3-static-blind-audit/)
 # rc2 tag grok-build-witness-v1.0.0-rc2 fixed at 255b357c9ee33c4a9e34b5d9b6e396c53cfe494e —
 #   NOT READY integrated four-batch static blind audit (immutable historical release)
 # rc1 tag grok-build-witness-v1.0.0-rc1 fixed at 89127c78c3a11492892de7e3b5f0dee18d71775a —
 #   NOT READY repeat audit (immutable historical release)
+# Closed auxiliary inventory (optional host-only; not required in EVIDENCE_MANIFEST):
+#   HOST_RUN_METADATA.txt, IMAGE_PULL_STDOUT.txt, IMAGE_PULL_STDERR.txt, CARGO_LOCK_INTEGRITY.txt
+# No BOOTSTRAP_PROTOC_VERSION.txt under EVIDENCE_DIR
+# evidence_inventory_complete must not be yes before automated evidence complete + manual forms
+#   complete + final manifest regenerated; host may leave no until finalization
 # Evidence submissions require EVIDENCE_MANIFEST.sha256 (final, after manual files) + structural
 #   validator PASS (validator output captured outside EVIDENCE_DIR); see WITNESS_PACKAGE_MANIFEST.md
 # Package-level readiness: see PACKAGE_READINESS_POLICY.md (current: NOT READY)

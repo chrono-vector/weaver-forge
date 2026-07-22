@@ -1,0 +1,7 @@
+evidence_schema_version=1
+outcome=INFRASTRUCTURE_FAILURE
+applicable=no
+artifact_present=no
+reason=container never launched (repo digest mismatch)
+product_executed=NO
+ldd_used=NO

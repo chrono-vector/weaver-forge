@@ -1,12 +1,14 @@
-# SOURCE_IDENTITY.txt — required fields (evidence_schema_version=1)
+# SOURCE_IDENTITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Host-owned identity snapshot of the Grok Build source clone BEFORE the build.
+# grok_build_commit_expected and cargo_lock_sha256_expected are the pinned
+# canonical values. grok_build_detached_head records whether the source clone
+# was checked out at a detached HEAD (yes|no). cargo_lock_sha256_before is the
+# SHA-256 of Cargo.lock as acquired (or NOT_REACHED on an early failure path).
 evidence_schema_version=1
+status=OK
 grok_build_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-grok_build_commit_observed=
+grok_build_commit_observed=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+grok_build_detached_head=yes
 cargo_lock_sha256_expected=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
-cargo_lock_sha256_observed=
-
-# Non-validated context fields (kept for human review; not schema-required):
-git_status_porcelain_before=
-git_status_porcelain_after=
-source_clean=yes|no
-commit_proof_method=git rev-parse HEAD
+cargo_lock_sha256_before=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421

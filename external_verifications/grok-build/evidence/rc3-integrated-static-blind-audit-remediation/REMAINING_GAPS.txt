@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+gap_1=rc4 commit not yet created
+gap_2=rc4 annotated tag grok-build-witness-v1.0.0-rc4 not yet published
+gap_3=rc4 fixed-tag repeat blind audit not yet performed
+gap_4=Independent Witness C-014 remains NOT_STARTED
+gap_5=package readiness remains NOT READY
+note=rc3 remains immutable at 77221a224bbd6194cfafb81f6ecb58c800e5bc13 with recorded NOT READY audit

@@ -1,0 +1,9 @@
+phase=C2E-5
+closure=STATIC_INSPECTION_SCHEMA_ALIGNMENT
+per_command_keys=sha256sum,stat,file,readelf_h,readelf_n,readelf_d,objdump_f
+key_pattern=<tool>_command,<tool>_output,<tool>_exit_code
+multiline_encoding=escaped_single_line_backslash_n
+repeated_generic_command_exit_code_keys=REMOVED
+failure_policy=outcome_remains_CARGO_SUCCEEDED_ARTIFACT_PRESENT;inspection_complete=no;status=FAILED;container_exit_dedicated_nonzero;verdict_ceiling_PARTIAL;PASS_prohibited
+package_status=NOT READY
+c014=NOT_STARTED

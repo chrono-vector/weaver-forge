@@ -1,19 +1,39 @@
-# ENVIRONMENT.txt — required fields (evidence_schema_version=1)
+# ENVIRONMENT.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Dual-owned file. The host writes the host-fact keys inside a
+# `BEGIN_SCHEMA_BLOCK ENVIRONMENT` block BEFORE Docker runs (STEP 10); the
+# container APPENDS a second `BEGIN_SCHEMA_BLOCK ENVIRONMENT` block with the
+# four container-toolchain keys (container_os_release, container_uname,
+# rustc_version, cargo_version). Together the two blocks must cover exactly
+# the required key set below, with no duplicated keys.
+#
+# product_executed and ldd_used must be exactly NO;
+# upstream_product_commands_not_run must be exactly yes.
 evidence_schema_version=1
-witness_id=
-host_os=
-host_arch=
-host_docker_client_version=
-host_docker_server_version=
-container_os_release=
-rustc_version=
-cargo_version=
+status=OK
+# outcome must be one of the five build outcomes; the host records
+# BUILD_NOT_STARTED here because the build has not begun at STEP 10.
+outcome=BUILD_NOT_STARTED
+witness_id=<witness-handle-token>
+host_os=Linux
+host_kernel=<uname -r>
+host_arch=x86_64
+host_cpu=<single-line CPU model name>
+host_ram_gib=<integer GiB>
+host_free_disk_gb=<integer GB free on WORK_ROOT>
+docker_client_version=<docker client version>
+docker_server_version=<docker server version>
+docker_context=default
+canonical_platform=linux/amd64
+wsl2_indicator=no
+ai_assistance_used=see_WITNESS_STATEMENT.md
+ai_assistance_detail=recorded_in_WITNESS_STATEMENT.md
+human_review_completed=pending
 product_executed=NO
+upstream_product_commands_not_run=yes
 ldd_used=NO
-
-# Non-validated context fields (kept for human review; not schema-required):
-host_free_disk_gb=
-host_ram_gib=
-container_uname=
-
-# AI assistance and human review are recorded in WITNESS_STATEMENT.md, not here.
+# --- container-appended toolchain facts (second ENVIRONMENT block) ---
+container_os_release=<PRETTY_NAME from /etc/os-release>
+container_uname=<uname -sr inside container>
+rustc_version=1.92.0
+cargo_version=1.92.0

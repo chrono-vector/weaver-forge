@@ -1,0 +1,9 @@
+﻿phase=C2E-5
+closure=PUBLIC_STATUS_ALIGNMENT
+rc3_audit=NOT READY immutable
+rc4_version=1.0.0-rc4
+canonical_tag=grok-build-witness-v1.0.0-rc4
+package_status=NOT READY
+c014=NOT_STARTED
+overall=PARTIAL
+independent_witness_reproduction=NO

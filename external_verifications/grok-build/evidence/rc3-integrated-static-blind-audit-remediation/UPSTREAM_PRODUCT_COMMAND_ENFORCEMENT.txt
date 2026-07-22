@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+closure=UPSTREAM_PRODUCT_COMMAND_ENFORCEMENT
+required_field=upstream_product_commands_not_run=yes
+locations=ENVIRONMENT.txt;WITNESS_STATEMENT.md;WITNESS_VERDICT.md_if_declared
+missing_or_no=prevents_PASS;normally_FAIL_if_execution_proven
+package_status=NOT READY
+c014=NOT_STARTED

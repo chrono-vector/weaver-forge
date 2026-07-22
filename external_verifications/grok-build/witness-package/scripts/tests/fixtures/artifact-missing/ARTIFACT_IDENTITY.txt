@@ -1,0 +1,7 @@
+evidence_schema_version=1
+outcome=CARGO_SUCCEEDED_ARTIFACT_MISSING
+applicable=yes
+artifact_present=no
+reason=cargo exited 0 but expected artifact is missing
+product_executed=NO
+ldd_used=NO

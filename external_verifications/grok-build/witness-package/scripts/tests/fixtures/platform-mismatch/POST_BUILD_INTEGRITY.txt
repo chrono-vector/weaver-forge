@@ -1,0 +1,15 @@
+evidence_schema_version=1
+status=FAILED
+outcome=INFRASTRUCTURE_FAILURE
+source_head_before=NOT_REACHED
+source_head_after=NOT_REACHED
+source_head_unchanged=no
+source_clean_before=no
+source_clean_after=no
+cargo_lock_sha256_before=NOT_REACHED
+cargo_lock_sha256_after=NOT_REACHED
+cargo_lock_unchanged=no
+cargo_lock_post_matches_expected=no
+source_or_lock_changed=yes
+evidence_inventory_complete=no
+failure_stage=architecture_mismatch

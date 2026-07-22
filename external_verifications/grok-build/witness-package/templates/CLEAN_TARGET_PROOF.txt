@@ -1,14 +1,22 @@
-# CLEAN_TARGET_PROOF.txt — required fields (evidence_schema_version=1)
+# CLEAN_TARGET_PROOF.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Proof that the Grok Build cargo target directory was empty at each checkpoint
+# (host, container pre-bootstrap, container pre-cargo). Field names mirror the
+# container's `BEGIN_SCHEMA_BLOCK CLEAN_TARGET` writer (flush_clean_target_proof)
+# exactly. proof_failed is yes|no. When proof_failed=no every
+# observed_entry_count_* must be 0 (or NOT_REACHED on a checkpoint the run
+# never reached).
 evidence_schema_version=1
-cargo_target_dir_absolute=
-required_entry_count=0
-observed_entry_count_host=
-observed_entry_count_container=
-proof_failed=yes|no
-
-# Non-validated context fields (kept for human review; not schema-required):
-creation_utc_host=
-creation_utc_container=
-host_ls_la=
-host_find=
-container_find=
+status=OK
+outcome=CLEAN_TARGET_VERIFIED
+target_path_host=/work/cargo-target
+proof_utc_host=<UTC timestamp>
+observed_entry_count_host=0
+target_path_container_prebootstrap=/work/cargo-target
+proof_utc_container_prebootstrap=<UTC timestamp>
+observed_entry_count_container_prebootstrap=0
+target_path_container_precargo=/work/cargo-target
+proof_utc_container_precargo=<UTC timestamp>
+observed_entry_count_container=0
+proof_failed=no
+failure_stage=NOT_APPLICABLE

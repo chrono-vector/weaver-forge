@@ -1,0 +1,8 @@
+﻿phase=C2E-5
+closure=VERDICT_CEILING_ENFORCEMENT
+function=compute_verdict_ceiling
+machine_enforced=yes
+alignment=validator;WITNESS_CLASSIFICATION.md;host_VERDICT_CEILING
+manual_reinterpretation=FORBIDDEN
+package_status=NOT READY
+c014=NOT_STARTED

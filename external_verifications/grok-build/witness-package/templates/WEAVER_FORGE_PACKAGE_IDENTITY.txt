@@ -1,28 +1,21 @@
-# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1)
+# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Identity of the Weaver Forge package clone that produced this evidence set.
+# canonical_run=yes requires weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4.
+# package_clone_head must equal weaver_forge_commit_resolved (tag -> HEAD integrity)
+# and tag_head_match must be yes. package_commit_authority is always
+# annotated_tag_resolution (the tagged package must not embed its own commit).
 evidence_schema_version=1
-witness_id=
-run_id=
-package_version=1.0.0-rc3
+witness_id=<witness-handle-token>
+run_id=<run-id-token>
+package_version=1.0.0-rc4
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc3
-weaver_forge_commit_resolved=
-package_clone_head=
-package_clone_detached=yes|no
-package_clone_clean_status=yes|no
-tag_head_match=yes|no
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4
+weaver_forge_commit_resolved=<40-char lowercase hex commit>
+package_clone_head=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>
+package_clone_detached=yes
+package_clone_clean_status=yes
+tag_head_match=yes
 package_commit_authority=annotated_tag_resolution
 grok_build_source_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-canonical_run=yes|no
-
-# Optional additional verification (not required for canonical execution):
-# external_expected_commit_supplied=yes|no
-# external_expected_commit=<40-hex|not_supplied>
-# external_expected_commit_match=yes|no|not_supplied
-
-# Required only when canonical_run=no:
-# noncanonical_disclosure=<explain what deviated from the canonical published tag/procedure>
-
-# Non-validated context fields (kept for human review; not schema-required):
-audited_predecessor_commit=255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
-tag_exists_on_origin=yes|no
-human_reviewer_pending=yes
+canonical_run=yes

@@ -1,0 +1,296 @@
+﻿PHASE C2E-5A 窶・FINAL STAGED-TREE INTEGRITY AND TEST-DISCOVERY RECONCILIATION
+Date: 2026-07-23
+Branch: main
+HEAD / origin/main: 77221a224bbd6194cfafb81f6ecb58c800e5bc13
+
+================================================================================
+1. IDENTITY PRECHECK
+================================================================================
+cwd: C:/dev/weaver-forge
+branch: main
+HEAD: 77221a224bbd6194cfafb81f6ecb58c800e5bc13
+origin/main: 77221a224bbd6194cfafb81f6ecb58c800e5bc13
+working tree relative to index at phase start: clean (only staged index entries; no unstaged/untracked)
+rc1 local+remote peeled: 89127c78c3a11492892de7e3b5f0dee18d71775a
+rc2 local+remote peeled: 255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
+rc3 local+remote peeled: 77221a224bbd6194cfafb81f6ecb58c800e5bc13
+rc3 object type: annotated tag
+rc4 local: ABSENT
+rc4 remote: ABSENT
+PRECHECK: PASS
+
+================================================================================
+2. STAGED TREE HASHES
+================================================================================
+STAGED_TREE_BEFORE (git write-tree at C2E-5A start, before this file):
+  9a587c9b99bfc1a005c53737d7b279e78dc26af5
+
+Corrections during C2E-5A (intentional; tree hash changed):
+  - Expanded HostSafetyStaticTests + DeviationCeilingTests in
+    witness-package/scripts/tests/test_validate_witness_evidence.py
+    to close STEP-7 named-coverage gaps (Witness-ID, WORK_ROOT needles,
+    managed-child symlink policy, missing-tag / tag-HEAD mismatch,
+    dirty clones, wrong Grok commit / Cargo.lock finalizers,
+    host container-outcome authority, deviation ceiling).
+  - This evidence file FINAL_STAGED_TREE_RECONCILIATION.txt created and staged.
+
+STAGED_TREE_AFTER is intentionally NOT embedded in this file (embedding the
+hash would make the hash self-referential). The final reviewed tree hash is
+recorded in the C2E-5A human report as the output of `git write-tree` after
+this file and the test corrections are staged and STEP-9 validation passes.
+That final hash supersedes STAGED_TREE_BEFORE.
+
+================================================================================
+3. STAGED INVENTORY (exact)
+================================================================================
+git diff --cached --name-status counts at C2E-5A start (before this file):
+  added:    290
+  modified:  43
+  deleted:    0
+  renamed:    0
+  total:    333  (exact)
+  stat:     333 files changed, 8044 insertions(+), 2159 deletions(-)
+
+Category breakdown (333 files; 窶徙ther窶・reclassified as policies):
+  root/public status docs:     7
+    README.md, CLAIM_REGISTER.md, README.md, REPRODUCTION.md,
+    RESULTS.md, VERDICT.md, WITNESS_HANDOFF.md
+  docs/:                       1
+    GROK_BUILD_WITNESS_RC3_INTEGRATED_STATIC_BLIND_AUDIT_REMEDIATION_COMPLETION_NOTE.md
+  rc3 audit evidence:         12
+    evidence/rc3-static-blind-audit/*
+  rc3 remediation evidence:   35
+    evidence/rc3-integrated-static-blind-audit-remediation/*
+    (was 35 before this file; +1 after staging this reconciliation)
+  witness-package policies:   10
+    CORRECTION_LEDGER, MAINTAINER_INTAKE_POLICY, PACKAGE_READINESS_POLICY,
+    README, WITNESS_CLASSIFICATION, WITNESS_PACKAGE_VERSION,
+    WITNESS_REQUIREMENTS, WITNESS_RUNBOOK, WITNESS_SECURITY_AND_REDACTION,
+    WITNESS_SUBMISSION
+  host/container scripts:      2
+  validator:                   2
+    validate_witness_evidence.py, VALIDATOR.md
+  unit-test modules:           3
+    test_validate_witness_evidence.py, fixtures_lib.py, _generate_fixtures.py
+  golden fixtures:           240
+    10 scenarios ﾃ・24 files each
+  templates:                  19
+  manifests:                   2
+    PACKAGE_FILE_MANIFEST.txt, WITNESS_PACKAGE_MANIFEST.md
+  other:                       0 (none)
+
+Growth 88 竊・333 explained:
+  C2E-4 era staged set (~88) was package/docs/script/validator without the
+  full rc3 audit+remediation evidence trees and without committed golden
+  fixtures. C2E-5 intentionally added:
+    - 12 rc3 static blind-audit evidence files
+    - 35+ remediation evidence files
+    - 240 golden fixture files (10 ﾃ・24)
+    - fixtures_lib.py / _generate_fixtures.py
+    - templates/policy/public-doc remediations
+  88 + ~245 fixture/evidence/support files 竕・333. Exact total is 333
+  before this reconciliation file; after staging this file the staged
+  total becomes 334 (or 335 if test module was already counted in 333).
+
+================================================================================
+4. UNINTENDED-FILE SCREEN
+================================================================================
+Searched staged paths for: __pycache__, .pyc/.pyo, .pytest_cache,
+node_modules, target/, dist/, build/, .tmp/.bak/.orig/.rej, editor swap,
+logs, validator output, personal exports, transfer ZIPs, extracted archives
+outside fixtures, credentials, .env, private keys, tokens, cookies, sessions.
+
+Result: NONE staged.
+False-positive note only: CONTAINER_OUTCOME_AUTHORITY.txt matched substring
+"auth" in a naive keyword scan; it is a legitimate remediation evidence file.
+
+================================================================================
+5. LARGE / BINARY FILE REVIEW
+================================================================================
+git diff --cached --numstat: no binary entries ("-" / "-").
+No staged file > 1 MiB.
+Golden fixtures total ~109 KiB across 240 text files; largest individual
+files are EVIDENCE_MANIFEST.sha256 (~2034 bytes).
+No ZIP, executable, compiled object, database, or image staged.
+Fixtures are deterministic synthetic text evidence trees required by
+GoldenFixtureTests; smaller text fixtures would not replace the need for
+full required-file sets matching the generator/schema contract.
+
+================================================================================
+6. TEST-DISCOVERY RECONCILIATION (79 竊・54 竊・65)
+================================================================================
+C2E-4B (committed at HEAD):
+  test_validate_witness_evidence.py has 79 methods named test_* under
+  unittest.TestCase subclasses (BaseTreeTests-style in-tree builders).
+  Discovery: 79 tests, 1 skipped (historical report).
+
+C2E-5 staged rewrite (intentional consolidation, not discovery loss):
+  Same path rewritten to scenario/golden-fixture architecture:
+    - 1 discoverable test_*.py
+    - fixtures_lib.py + 10 committed golden fixtures
+    - ~54 test_* methods at C2E-5 end
+  Coverage of the five primary outcomes and negative image/static paths
+  moved into GoldenFixtureTests + fixtures rather than one TestCase method
+  per mutation. No tests moved outside discovery path; no load_tests hook;
+  no silent import omission; file still begins with test_; classes still
+  inherit unittest.TestCase; methods still begin with test_.
+
+C2E-5A coverage closure (this phase):
+  Expanded HostSafetyStaticTests + added DeviationCeilingTests for STEP-7
+  named-coverage gaps that were script-implemented but lacked dedicated
+  discoverable assertions.
+  Final discoverable count after C2E-5A: 65 tests, 0 skipped, 0 failed.
+  Static counts: test_*.py files=1; TestCase classes=12; test_* methods=65.
+
+Removed relative to HEAD 79:
+  Many fine-grained BaseTreeTests mutations superseded by golden fixtures
+  and consolidated negative tests (manifest/redaction/outcome/ceiling).
+Replaced:
+  Per-outcome tree builders 竊・fixtures_lib.ALL_SCENARIOS + committed fixtures.
+New in C2E-5 / C2E-5A:
+  ContractTests, GoldenFixtureTests, HostSafetyStaticTests expansions,
+  DeviationCeilingTests.test_verdict_above_deviation_ceiling_rejected.
+
+Material coverage retained: all five primary outcomes; static-incomplete;
+image pull/inspect/digest/platform failures; schema contracts; duplicate
+keys; manifest grammar; aux inventory; redaction; upstream/product/ldd;
+verdict ceilings; host safety needles listed in STEP 7.
+
+================================================================================
+7. REQUIRED COVERAGE 竊・EXACT TEST NAMES
+================================================================================
+Five primary outcomes (via fixtures + GoldenFixtureTests):
+  success / not-started / cargo-failed / artifact-missing / infrastructure
+  竊・test_all_committed_fixtures_pass
+  竊・test_all_scenarios_build_and_pass
+  竊・test_main_entrypoint_returns_zero_on_success_fixture
+  (scenarios: success-artifact-present, build-not-started, cargo-failed,
+   artifact-missing, infrastructure-failure)
+
+static-inspection incomplete:
+  竊・fixture static-inspection-incomplete + GoldenFixtureTests.*
+  竊・test_compute_ceiling_static_incomplete_partial
+  竊・test_proposed_verdict_above_ceiling_rejected
+
+image pull / inspect / digest / platform mismatch:
+  竊・fixtures image-pull-failure, image-inspect-failure, digest-mismatch,
+    platform-mismatch + GoldenFixtureTests.*
+  竊・test_image_pull_and_identity_failure_finalizers_present
+  竊・test_no_cached_image_fallback
+
+host preserves container INFRASTRUCTURE_FAILURE:
+  竊・test_host_preserves_container_outcome_authority
+
+generator/schema contract (structured generated files):
+  竊・test_container_generated_clean_target_keys_match_schema
+  竊・test_container_generated_build_environment_keys_match_schema
+  竊・test_container_generated_timing_keys_match_schema
+  竊・test_container_generated_build_exit_code_keys_match_schema
+  竊・test_container_generated_static_inspection_keys_match_schema
+  竊・test_host_generated_image_identity_keys_match_schema
+  竊・test_host_generated_environment_keys_match_schema
+  竊・test_host_generated_post_build_integrity_keys_match_schema
+  竊・test_image_identity_uses_rc4_key_names
+
+successful + negative generated evidence:
+  竊・GoldenFixtureTests (all 10 fixtures)
+
+duplicate key rejection:
+  竊・test_duplicate_key_same_value_rejected
+  竊・test_duplicate_key_conflicting_value_rejected
+  竊・test_no_last_value_wins
+  竊・test_duplicate_key_in_evidence_file_fails_validation
+
+exact manifest grammar / one-space / aux inventory:
+  竊・test_single_space_manifest_line_rejected
+  竊・test_hash_mismatch_rejected
+  竊・test_missing_manifest_entry_rejected
+  竊・test_prohibited_aux_file_rejected
+  竊・test_undeclared_aux_in_manifest_rejected
+  竊・test_allowed_aux_file_accepted
+
+post-lock expected mismatch:
+  竊・test_wrong_grok_commit_and_cargo_lock_finalizers_present
+    (cargo_lock_post_matches_expected / CARGO_LOCK_AFTER needles)
+
+verdict above outcome ceiling / deviation ceiling / outcome mismatch:
+  竊・test_proposed_verdict_above_ceiling_rejected
+  竊・test_proposed_pass_on_cargo_failed_rejected
+  竊・test_verdict_above_deviation_ceiling_rejected
+  竊・test_witness_verdict_outcome_mismatch_fails
+  竊・test_docker_outcome_disagreement_fails
+  竊・test_timing_outcome_disagreement_fails
+  竊・test_missing_outcome_fails
+  竊・test_invalid_outcome_value_fails
+  竊・test_duplicate_outcome_line_fails
+
+upstream_product_commands_not_run missing/no:
+  竊・test_statement_upstream_not_yes_rejected
+  竊・test_environment_upstream_not_yes_rejected
+  竊・test_statement_upstream_no_flags_ceiling_fail
+
+unlogged / prohibited redaction:
+  竊・test_unlogged_redaction_marker_rejected
+  竊・test_prohibited_category_redaction_rejected
+  竊・test_valid_present_redaction_accepted
+
+Witness-ID / WORK_ROOT / managed-child symlink:
+  竊・test_witness_id_validation_present
+  竊・test_work_root_guards_present
+  竊・test_managed_child_symlink_policy_present
+
+missing tag / tag-HEAD mismatch / dirty package / dirty Grok /
+wrong Grok commit / wrong Cargo.lock / canonical gating:
+  竊・test_missing_tag_and_tag_head_mismatch_finalizers_present
+  竊・test_dirty_package_and_grok_clone_finalizers_present
+  竊・test_wrong_grok_commit_and_cargo_lock_finalizers_present
+  竊・test_grok_detached_probe_present
+  竊・test_canonical_constants_present_and_readonly
+  竊・test_constants_self_check_present
+  竊・test_override_requires_noncanonical_flag
+  竊・test_noncanonical_pass_prohibition_and_url_fail_severity
+  竊・test_no_embedded_future_rc4_commit
+
+product / ldd:
+  竊・test_product_executed_yes_rejected
+  竊・test_ldd_used_yes_rejected
+
+================================================================================
+8. GOLDEN FIXTURE INVENTORY (10)
+================================================================================
+Each fixture: 24 files; synthetic values; consumed by GoldenFixtureTests;
+manifest hashes recomputed by fixtures_lib for determinism; field names
+aligned to templates / generator contracts (not a second idealized schema).
+
+  success-artifact-present      竊・CARGO_SUCCEEDED_ARTIFACT_PRESENT / PASS
+  build-not-started             竊・BUILD_NOT_STARTED / INDETERMINATE
+  cargo-failed                  竊・CARGO_FAILED / FAIL
+  artifact-missing              竊・CARGO_SUCCEEDED_ARTIFACT_MISSING / FAIL
+  infrastructure-failure        竊・INFRASTRUCTURE_FAILURE / INDETERMINATE
+  static-inspection-incomplete  竊・CARGO_SUCCEEDED_ARTIFACT_PRESENT / PARTIAL
+  image-pull-failure            竊・INFRASTRUCTURE_FAILURE (image_pull) / FAIL
+  image-inspect-failure         竊・INFRASTRUCTURE_FAILURE (image_inspect) / FAIL
+  digest-mismatch               竊・INFRASTRUCTURE_FAILURE (digest) / FAIL
+  platform-mismatch             竊・INFRASTRUCTURE_FAILURE (platform) / FAIL
+
+No secrets or machine-specific absolute paths in fixtures.
+
+================================================================================
+9. STATUS CONSISTENCY
+================================================================================
+rc1/rc2/rc3 unchanged; rc4 absent
+package version: 1.0.0-rc4
+canonical tag name: grok-build-witness-v1.0.0-rc4
+package: NOT READY
+C-014: NOT_STARTED
+overall: PARTIAL
+No Independent Witness reproduction claimed.
+No embedded future rc4 commit; package_commit_authority=annotated_tag_resolution.
+
+================================================================================
+10. PROHIBITED OPERATIONS (confirm none executed)
+================================================================================
+No Docker, Cargo, rustc, rustup, DotSlash, protoc, Witness-script execution,
+Grok Build product, ldd, build, commit, push, or tag create/move/delete.
+Only safe static validation (receipts, py_compile, unittest discover, bash -n,
+git diff --check) and index staging of this reconciliation + test corrections.

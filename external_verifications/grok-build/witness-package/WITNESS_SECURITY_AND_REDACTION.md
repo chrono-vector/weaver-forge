@@ -1,4 +1,4 @@
-# Security and redaction — Witness package (1.0.0-rc3)
+# Security and redaction — Witness package (1.0.0-rc4)
 
 ## Before staging or opening a PR
 
@@ -68,7 +68,7 @@ Record each redaction in `REDACTIONS.md` (see [templates/REDACTIONS.md](template
 `redaction_state=PRESENT` requires every redaction to be enumerated with all four fields, and
 `semantic_integrity_declaration=yes` is required unconditionally.
 
-## Never redact (validator-enforced keyword screen)
+## Never redact (validator-enforced keyword screen + package policy)
 
 The structural validator rejects any redaction whose logged field/reason text matches a
 prohibited-category keyword. Never redact:
@@ -78,9 +78,19 @@ prohibited-category keyword. Never redact:
 - Exact build commands and exit codes (`exit_code`, `exit code`)
 - Artifact identity fields (`artifact_size`, size, SHA-256, Build ID)
 - Independence statements and AI-assistance disclosure (`independence`)
+- **Outcome / status fields:** `outcome`, `build_status`, `failure_stage`
+- **Verdict fields:** Witness proposed verdict, maintainer intake verdict
+- **Canonical-run / ceiling fields:** `canonical_run`, `verdict_ceiling`
+
+**Marker reconciliation:** every `[REDACTED: …]` marker in evidence must have a matching
+enumerated entry in `REDACTIONS.md`, and every `REDACTIONS.md` entry must correspond to a visible
+marker in the cited file/field. Unreconciled markers or orphaned log entries are defects.
 
 This validator-enforced list is a floor, not a ceiling — the four-condition test above and the
 absolute "no material softening" rule apply even to fields the validator does not keyword-screen.
+
+Current package identity: version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`;
+package remains **NOT READY**; C-014 **NOT_STARTED**; overall **PARTIAL**.
 
 ## Do not publish
 
@@ -102,3 +112,4 @@ Pattern search and manual review **do not** guarantee absence of secrets.
 |---------|--------|
 | 1.0.0-rc2 | Prior pre-staging review, redaction log, never-redact, do-not-publish sections |
 | 1.0.0-rc3 | Added explicit four-condition test for when nonmaterial private-path redaction is permitted (visible marker; every redaction logged; semantic evidence intact; commands/hashes/identities/exit codes/target separation/failure evidence remain readable); added absolute rule that no redaction may hide, alter, or soften a material defect, deviation, mismatch, failure, or independence conflict; aligned never-redact list with the validator's keyword screen |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4`; never-redact extended to outcome, build_status, failure_stage, Witness proposed verdict, maintainer intake verdict, canonical_run, verdict_ceiling; marker reconciliation required |

@@ -1,0 +1,5 @@
+﻿phase=C2E-5
+closure=MANIFEST_TEST_COMPLETION
+tests=one_space_separator;duplicate_keys;allowed_aux;prohibited_aux_even_listed;post_lock_mismatch;verdict_above_ceiling;static_incomplete_PARTIAL;unlogged_redaction;outcome_verdict_mismatch;upstream_product_commands
+package_status=NOT READY
+c014=NOT_STARTED

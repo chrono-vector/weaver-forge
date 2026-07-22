@@ -1,0 +1,17 @@
+﻿phase=C2E-5
+rc1_unchanged=yes
+rc2_unchanged=yes
+rc3_unchanged=yes
+rc4_tag_absent=yes
+package_version=1.0.0-rc4
+canonical_tag=grok-build-witness-v1.0.0-rc4
+embedded_future_rc4_commit=NO
+package_status=NOT READY
+c014=NOT_STARTED
+overall=PARTIAL
+commit_this_phase=NO
+push_this_phase=NO
+tag_this_phase=NO
+docker_executed=NO
+cargo_executed=NO
+witness_scripts_executed=NO

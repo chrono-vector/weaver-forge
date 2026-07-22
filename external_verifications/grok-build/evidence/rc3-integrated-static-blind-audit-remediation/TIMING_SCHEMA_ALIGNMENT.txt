@@ -1,0 +1,7 @@
+phase=C2E-5
+closure=TIMING_SCHEMA_ALIGNMENT
+required_keys=evidence_schema_version,status,outcome,docker_started_utc,docker_finished_utc,docker_elapsed_seconds,cargo_started_utc,cargo_finished_utc,cargo_elapsed_seconds,cargo_started,cargo_exit_code,docker_exit_code,failure_stage
+generic_utc_start_utc_end=REMOVED
+non_cargo_sentinel=NOT_APPLICABLE
+package_status=NOT READY
+c014=NOT_STARTED

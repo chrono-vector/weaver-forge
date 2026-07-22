@@ -1,0 +1,8 @@
+﻿phase=C2E-5
+closure=EVIDENCE_INVENTORY_LIFECYCLE
+evidence_inventory_complete_early=FORBIDDEN
+requires_before_yes=automated_evidence_complete;manual_forms_complete;final_manifest_regenerated
+host_emits=evidence_inventory_complete=no
+final_yes_authority=manual_finalization_or_validator_report_outside_EVIDENCE_DIR
+package_status=NOT READY
+c014=NOT_STARTED

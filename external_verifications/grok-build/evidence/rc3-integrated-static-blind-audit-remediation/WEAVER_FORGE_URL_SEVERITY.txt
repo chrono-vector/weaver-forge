@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+closure=WEAVER_FORGE_URL_SEVERITY
+canonical_mode=reject_mismatch
+noncanonical_mode=canonical_run=NO;verdict_ceiling=FAIL
+prefer=FAIL_for_different_package_repository_origin
+package_status=NOT READY
+c014=NOT_STARTED

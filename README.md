@@ -53,7 +53,7 @@ Exit code `0` means all receipts passed; `1` means at least one receipt is missi
 
 | Package | Status |
 |---------|--------|
-| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — package version `1.0.0-rc3`; canonical tag `grok-build-witness-v1.0.0-rc3` (availability verified by tag resolution); pending fixed-tag repeat blind audit; rc1 and rc2 are immutable historical releases each with a recorded NOT READY audit; Independent Witness (C-014) **NOT_STARTED**; overall **PARTIAL** |
+| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — package version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4` (availability verified by annotated-tag resolution; if resolution fails, canonical execution stops); rc4 package content under preparation; rc1, rc2, and rc3 are immutable historical releases each with a recorded NOT READY audit; Independent Witness (C-014) **NOT_STARTED**; overall **PARTIAL** |
 
 ## Independent reproduction
 

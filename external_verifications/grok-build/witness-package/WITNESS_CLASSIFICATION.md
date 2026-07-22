@@ -1,12 +1,15 @@
-# Witness classification — precedence (1.0.0-rc3)
+# Witness classification — precedence (1.0.0-rc4)
 
-Applies to package version **1.0.0-rc3** (canonical package tag
-`grok-build-witness-v1.0.0-rc3`; package commit authority =
-`annotated_tag_resolution`).
-Superseded rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
-`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`) and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
+Applies to package version **1.0.0-rc4** (canonical package tag
+`grok-build-witness-v1.0.0-rc4`; package commit authority =
+`annotated_tag_resolution`; no embedded future rc4 commit).
+Superseded rc3 text (tag `grok-build-witness-v1.0.0-rc3`, commit
+`77221a224bbd6194cfafb81f6ecb58c800e5bc13`), rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
+`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
-history at those tags; this file states **current** policy only.
+history at those tags; this file states **current** policy only. rc1/rc2/rc3 audits were each
+**NOT READY**. C-014 remains **NOT_STARTED**. Overall package status remains **PARTIAL** /
+**NOT READY** until rc4 is committed, tagged, and repeat-audited.
 
 Apply rules **in order**; the first matching row governs the **proposed Witness verdict**
 recorded in `WITNESS_VERDICT.md`. Maintainers assign an **intake verdict** separately, using
@@ -44,8 +47,8 @@ applicable row.
 | 1 | Proven **product execution** (any invocation of `xai-grok-pager` / `grok`, including `--version`, `--help`, `-h`, TUI, login, agents, OAuth, models, update) | **FAIL** |
 | 2 | Proven **`ldd` use** against the built artifact or any other executable | **FAIL** |
 | 3 | Deliberate falsification or material evidence manipulation (edited logs/hashes, backdated timestamps, fabricated command output) | **FAIL** |
-| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not `grok-build-witness-v1.0.0-rc3`, or the tag could not be resolved on `origin` at all | **FAIL** |
-| 5 | **Canonical Weaver Forge commit mismatch** — the commit resolved from the requested tag does not equal the pinned/expected Weaver Forge commit once one is recorded for rc3 | **FAIL** |
+| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not `grok-build-witness-v1.0.0-rc4`, or the tag could not be resolved on `origin` at all | **FAIL** |
+| 5 | **Canonical Weaver Forge commit mismatch** — the commit resolved from the requested tag does not equal the pinned/expected Weaver Forge commit once one is recorded for rc4 | **FAIL** |
 | 6 | **Canonical Grok Build commit mismatch** — observed Grok Build `HEAD` after clone/checkout ≠ `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` | **FAIL** |
 | 7 | **Canonical Rust image mismatch** — pulled image digest, OS, or architecture does not match the pinned `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` / `linux/amd64` | **FAIL** |
 | 8 | **`Cargo.lock` mismatch or change** — SHA-256 before build ≠ `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421`, or the before/after SHA-256 values differ from each other | **FAIL** |
@@ -54,7 +57,7 @@ applicable row.
 | 11 | **Missing artifact** — outcome is `CARGO_SUCCEEDED_ARTIFACT_MISSING` (cargo reported success but the expected binary is absent) | **FAIL** |
 | 12 | A `PROHIBITED`-severity deviation of any kind not already covered above | **FAIL** |
 | 13 | **Insufficient proof** — evidence cannot establish what occurred: outcome is `BUILD_NOT_STARTED` or `INFRASTRUCTURE_FAILURE` for reasons that do not themselves prove a canonical-identity or `Cargo.lock`/source defect (e.g. image pull failure, bootstrap failure before cargo starts, unexplained gaps in mandatory evidence, missing proof of an expected commit) | **INDETERMINATE** |
-| 14 | Outcome is `CARGO_SUCCEEDED_ARTIFACT_PRESENT`, all canonical identities matched, `Cargo.lock`/source unchanged, but independence, cache provenance, procedure, or any mandatory evidence file is incomplete, **or** any `MATERIAL_NONCANONICAL`/`NONMATERIAL_DISCLOSED` deviation was accepted for this run | **PARTIAL** (or the specific deviation's own ceiling from the table above, whichever is stricter) |
+| 14 | Outcome is `CARGO_SUCCEEDED_ARTIFACT_PRESENT`, all canonical identities matched, `Cargo.lock`/source unchanged, but independence, cache provenance, procedure, or any mandatory evidence file is incomplete, **or** any `MATERIAL_NONCANONICAL`/`NONMATERIAL_DISCLOSED` deviation was accepted for this run, **or** static inspection is incomplete | **PARTIAL** (or the specific deviation's own ceiling from the table above, whichever is stricter; incomplete static inspection is capped at **PARTIAL** and must never be upgraded to **PASS**) |
 | 15 | Outcome is `CARGO_SUCCEEDED_ARTIFACT_PRESENT`, every mandatory condition in the PASS checklist below is affirmatively established, `canonical_run=yes` (zero accepted deviations of any severity) | **PASS** |
 
 **Successful canonical run with a nonmaterial disclosed limitation** (row 14, `NONMATERIAL_DISCLOSED`
@@ -66,13 +69,17 @@ never `PASS`.
 | Topic | Rule |
 |-------|------|
 | Wrong commit/tag/image/lock observed (rows 4–8) | **FAIL** whenever proven, regardless of whether it was disclosed via `--noncanonical-deviation` |
+| **Weaver Forge URL mismatch** | In canonical mode, an effective `WEAVER_FORGE_URL` that differs from `https://github.com/chrono-vector/weaver-forge.git` is a **material FAIL** (identity mismatch), even if disclosed via `--noncanonical-deviation` |
 | Missing proof of an expected commit (evidence gap, not a proven wrong value) | **INDETERMINATE** (row 13) |
 | Different artifact SHA-256 vs. the owner's historical artifact alone | **Not FAIL** by itself — bit-identical reproducibility is never required |
 | Witness role | Proposes a verdict in `WITNESS_VERDICT.md`; never assigns the maintainer intake value |
 | Maintainer role | Assigns intake verdict per [MAINTAINER_INTAKE_POLICY.md](MAINTAINER_INTAKE_POLICY.md); may differ from the Witness proposal with documented rationale |
 | Bit-identical reproducibility | **Not** required for narrow rebuild PASS |
 | Failure submissions | A truthful `FAIL`, `INDETERMINATE`, or negative-outcome submission is a **valid, acceptable** Witness submission and must never be discouraged, hidden, or reclassified upward to obtain a nominally better status |
-| Orchestrator `verdict_ceiling` vs. this document | The host orchestrator (`scripts/run_witness_narrow_build.sh`) computes an advisory `verdict_ceiling` for identity-override deviations. This document is authoritative. Where the orchestrator's computed ceiling is looser than the ceiling this table would assign to the same deviation (for example, an accepted `WEAVER_FORGE_TAG` override), the Witness **must** apply this document's stricter ceiling when completing `WITNESS_VERDICT.md`, and must record the discrepancy in `DEVIATIONS.txt`. Reconciling the orchestrator's computed value with this table is tracked as an open script-alignment item and is **not** performed as part of this documentation pass. |
+| Upstream product commands | `upstream_product_commands_not_run` must remain affirmatively true for any non-FAIL path; any product invocation is row-1 **FAIL** |
+| Static inspection incomplete | When artifact is present but required static inspection is incomplete, proposed verdict ceiling is **≤ PARTIAL** (never PASS) |
+| Machine verdict ceiling alignment | The Witness proposed verdict in `WITNESS_VERDICT.md` must not exceed the machine-computed `verdict_ceiling` recorded by the orchestrator for the same run. When the machine ceiling is stricter than a human-selected line, the Witness must apply the machine ceiling (or a stricter human classification) and record the alignment in `DEVIATIONS.txt` if needed |
+| Orchestrator `verdict_ceiling` vs. this document | The host orchestrator (`scripts/run_witness_narrow_build.sh`) computes an advisory `verdict_ceiling` for identity-override deviations. This document is authoritative for classification policy. Where the orchestrator's computed ceiling is looser than the ceiling this table would assign to the same deviation (for example, an accepted `WEAVER_FORGE_TAG` override), the Witness **must** apply this document's stricter ceiling when completing `WITNESS_VERDICT.md`, and must record the discrepancy in `DEVIATIONS.txt`. Reconciling the orchestrator's computed value with this table is tracked as an open script-alignment item and is **not** performed as part of this documentation pass. |
 
 ## Narrow rebuild PASS checklist (row 15)
 
@@ -114,3 +121,4 @@ A Witness narrow-rebuild `PASS` does **not** establish:
 | 1.0.0-rc1 | Initial precedence table (5 ordered rules) |
 | 1.0.0-rc2 | Unchanged from rc1 at the tagged commit; found materially incomplete by the rc2 integrated four-batch static blind audit (`RB-025`: precedence table did not cover overlapping-defect cases) |
 | 1.0.0-rc3 | Explicit per-condition FAIL/INDETERMINATE/PARTIAL mapping (product execution, `ldd` use, tag/commit/image/`Cargo.lock`/source mismatch, build failure, missing artifact, insufficient proof, nonmaterial-limitation ceiling); formal deviation-severity-to-ceiling table (`NONE`/`NONMATERIAL_DISCLOSED`/`MATERIAL_NONCANONICAL`/`PROHIBITED`); explicit Witness-proposed vs. maintainer-intake separation with a pointer to `MAINTAINER_INTAKE_POLICY.md`; orchestrator-ceiling reconciliation note added as a disclosed known gap (RB-025 remediation) |
+| 1.0.0-rc4 | Identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 immutable NOT READY history; Weaver Forge URL mismatch = material FAIL in canonical mode; `upstream_product_commands_not_run`; incomplete static inspection ≤ PARTIAL; machine verdict-ceiling alignment required |

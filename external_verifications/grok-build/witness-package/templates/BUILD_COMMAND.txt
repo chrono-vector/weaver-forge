@@ -1,9 +1,14 @@
-# BUILD_COMMAND.txt — required fields (evidence_schema_version=1)
+# BUILD_COMMAND.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# The exact canonical build command. exact_build_command must equal
+# "cargo build -p xai-grok-pager-bin --locked", cargo_incremental must be 0,
+# and product_executed must be exactly NO.
+#
+# On a pre-cargo / pre-container failure path this file may instead be the
+# host's `status=NOT_REACHED` placeholder (accepted by the validator for
+# non-started / infrastructure outcomes).
 evidence_schema_version=1
 exact_build_command=cargo build -p xai-grok-pager-bin --locked
 cargo_incremental=0
 working_directory=/src
 product_executed=NO
-
-# Non-validated context fields (kept for human review; not schema-required):
-cargo_fetch_separate_step=OMITTED|RUN (document)

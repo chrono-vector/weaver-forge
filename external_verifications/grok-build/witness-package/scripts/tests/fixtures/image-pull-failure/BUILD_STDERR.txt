@@ -1,0 +1,1 @@
+# BUILD_STDERR: container never launched (image_pull)

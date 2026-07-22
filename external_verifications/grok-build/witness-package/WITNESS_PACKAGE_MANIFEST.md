@@ -1,4 +1,4 @@
-# Witness package manifest — required outputs (1.0.0-rc3)
+# Witness package manifest — required outputs (1.0.0-rc4)
 
 Submit under:
 
@@ -40,7 +40,7 @@ A shared/generic body cannot satisfy more than one file's schema.
 | `EVIDENCE_MANIFEST.sha256` | SHA-256 of all other evidence files (**final**, after manual files; regenerated once, not incrementally edited) |
 | `REDACTIONS.md` | `redaction_state`; `semantic_integrity_declaration=yes`; per-redaction file/field/reason/marker |
 
-## Optional (host-only auxiliary; not required in the manifest)
+## Optional (host-only auxiliary; closed inventory — not required in the manifest)
 
 | File | Purpose |
 |------|---------|
@@ -48,8 +48,20 @@ A shared/generic body cannot satisfy more than one file's schema.
 | `IMAGE_PULL_STDOUT.txt` / `IMAGE_PULL_STDERR.txt` | Raw `docker pull` capture; present only on pull failure |
 | `CARGO_LOCK_INTEGRITY.txt` | Direct pre/post-Docker `Cargo.lock` SHA-256 comparison performed by the host (supplements `SOURCE_IDENTITY.txt`/`POST_BUILD_INTEGRITY.txt`) |
 
+There is **no** `BOOTSTRAP_PROTOC_VERSION.txt` under `EVIDENCE_DIR`. The closed auxiliary inventory above is exhaustive for optional host-only files: `HOST_RUN_METADATA.txt`, `IMAGE_PULL_STDOUT.txt`, `IMAGE_PULL_STDERR.txt`, `CARGO_LOCK_INTEGRITY.txt`.
+
 Any regular file present in the evidence directory that is **not** one of the required files above
 and **not** in this optional list is a structural failure (`Unlisted regular evidence file`).
+
+## `evidence_inventory_complete` lifecycle
+
+`evidence_inventory_complete` must **not** be set to `yes` before:
+
+1. automated evidence capture is complete,
+2. all manual forms are complete (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`), and
+3. the **final** `EVIDENCE_MANIFEST.sha256` has been regenerated.
+
+The host may leave `evidence_inventory_complete=no` until finalization. Setting it to `yes` earlier is a defect.
 
 ## Outcome requirements
 
@@ -73,9 +85,14 @@ than being omitted.
   (repeat audit **NOT READY**). Immutable historical release.
 - **`grok-build-witness-v1.0.0-rc2`** remains at `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`
   (integrated four-batch static blind audit **NOT READY**). Immutable historical release.
-- Witness must record package tag **`grok-build-witness-v1.0.0-rc3`** and the
+- **`grok-build-witness-v1.0.0-rc3`** remains at `77221a224bbd6194cfafb81f6ecb58c800e5bc13`
+  (integrated four-batch static audit **NOT READY**; audit preserved under
+  `evidence/rc3-static-blind-audit/`). Immutable historical release.
+- Witness must record package tag **`grok-build-witness-v1.0.0-rc4`** and the
   **full Weaver commit** resolved from that annotated tag. Tag availability is verified by Git
-  resolution; canonical execution requires successful resolution.
+  resolution; canonical execution requires successful resolution; if resolution fails, canonical
+  execution stops. After publication, the tag is immutable.
+  `package_commit_authority=annotated_tag_resolution` (no embedded future rc4 commit).
 
 ## Final manifest lifecycle
 
@@ -107,9 +124,12 @@ redirected into `EVIDENCE_DIR` at any stage.
 
 | Field | Value |
 |-------|-------|
-| Package version | `1.0.0-rc3` |
-| Canonical package tag | `grok-build-witness-v1.0.0-rc3` |
-| Package commit authority | `annotated_tag_resolution` |
+| Package version | `1.0.0-rc4` |
+| Canonical package tag | `grok-build-witness-v1.0.0-rc4` |
+| Package commit authority | `annotated_tag_resolution` (no embedded future rc4 commit) |
+| Package readiness | **NOT READY** until rc4 committed, tagged, and repeat-audited |
+| Independent Witness (C-014) | `NOT_STARTED` |
+| Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Rust image digest | `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -132,3 +152,4 @@ reviewed after receipt.
 |---------|--------|
 | 1.0.0-rc2 | Prior required-files table, preliminary/final manifest note, release tag policy |
 | 1.0.0-rc3 | Reconciled required-files list exactly against `validate_witness_evidence.py` `REQUIRED_FILES`; added optional host-only auxiliary file section; added outcome requirements and failure-submissions-supported sections; added explicit numbered final-manifest lifecycle; added validator-output policy; added package-identity table; added cross-links to the new readiness/maintainer-intake/correction-ledger policy docs |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 immutable NOT READY history; closed auxiliary inventory noted; `evidence_inventory_complete` lifecycle; no `BOOTSTRAP_PROTOC_VERSION.txt` |

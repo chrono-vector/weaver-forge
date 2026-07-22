@@ -1,0 +1,2 @@
+# BUILD_STDERR capture for scenario artifact-missing
+(captured output elided in fixture)

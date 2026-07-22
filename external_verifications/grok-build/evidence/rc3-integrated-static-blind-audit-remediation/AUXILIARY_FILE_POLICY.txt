@@ -1,0 +1,8 @@
+﻿phase=C2E-5
+closure=AUXILIARY_FILE_POLICY
+policy=A_closed_inventory
+allowed_aux=HOST_RUN_METADATA.txt;IMAGE_PULL_STDOUT.txt;IMAGE_PULL_STDERR.txt;CARGO_LOCK_INTEGRITY.txt
+undeclared_even_if_in_manifest=REJECT
+BOOTSTRAP_PROTOC_VERSION_txt=FORBIDDEN
+package_status=NOT READY
+c014=NOT_STARTED

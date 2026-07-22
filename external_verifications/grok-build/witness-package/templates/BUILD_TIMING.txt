@@ -1,15 +1,20 @@
-# BUILD_TIMING.txt — required fields (evidence_schema_version=1)
+# BUILD_TIMING.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Container-owned. Field names mirror the container's
+# `BEGIN_SCHEMA_BLOCK BUILD_TIMING` writer exactly. When cargo actually started
+# (CARGO_FAILED / CARGO_SUCCEEDED_*) cargo_started_utc and cargo_finished_utc
+# must be present. outcome must equal the authoritative BUILD_EXIT_CODE.txt
+# outcome. status is OK|FAILED.
 evidence_schema_version=1
-# outcome must match BUILD_EXIT_CODE.txt's outcome exactly.
-outcome=
-docker_started_utc=
-docker_finished_utc=
-# cargo_started_utc / cargo_finished_utc are required whenever cargo actually
-# started, i.e. outcome is CARGO_FAILED, CARGO_SUCCEEDED_ARTIFACT_MISSING, or
-# CARGO_SUCCEEDED_ARTIFACT_PRESENT. Omit (or leave blank) for BUILD_NOT_STARTED
-# and INFRASTRUCTURE_FAILURE.
-cargo_started_utc=
-cargo_finished_utc=
-
-# Non-validated context fields (kept for human review; not schema-required):
-elapsed_seconds=
+status=OK
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+docker_started_utc=<UTC timestamp>
+docker_finished_utc=<UTC timestamp>
+docker_elapsed_seconds=<integer seconds>
+cargo_started_utc=<UTC timestamp>
+cargo_finished_utc=<UTC timestamp>
+cargo_elapsed_seconds=<integer seconds>
+cargo_started=YES
+cargo_exit_code=0
+docker_exit_code=0
+failure_stage=NOT_APPLICABLE

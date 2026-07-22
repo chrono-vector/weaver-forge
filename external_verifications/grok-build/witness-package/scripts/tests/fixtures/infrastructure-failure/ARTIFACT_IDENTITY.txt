@@ -1,0 +1,7 @@
+evidence_schema_version=1
+outcome=INFRASTRUCTURE_FAILURE
+applicable=no
+artifact_present=no
+reason=infrastructure failure before artifact build
+product_executed=NO
+ldd_used=NO

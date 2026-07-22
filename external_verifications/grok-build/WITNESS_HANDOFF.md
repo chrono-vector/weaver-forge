@@ -3,13 +3,13 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; Independent Witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 package content under preparation; Independent Witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-22` |
-| Verification-plan version / date | Phase C2E-4 2026-07-22 |
-| Current package version | `1.0.0-rc3` (canonical package tag `grok-build-witness-v1.0.0-rc3`; availability verified by annotated-tag resolution) |
-| Immutable historical releases | `grok-build-witness-v1.0.0-rc1` → NOT READY repeat audit (C-024); `grok-build-witness-v1.0.0-rc2` → NOT READY integrated four-batch static audit (C-025) |
+| Verification-plan version / date | Phase C2E-5 2026-07-22 |
+| Current package version | `1.0.0-rc4` (canonical package tag `grok-build-witness-v1.0.0-rc4`; availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops; package commit authority = annotated_tag_resolution, no embedded future rc4 commit) |
+| Immutable historical releases | `grok-build-witness-v1.0.0-rc1` → NOT READY repeat audit (C-024); `grok-build-witness-v1.0.0-rc2` → NOT READY integrated four-batch static audit (C-025); `grok-build-witness-v1.0.0-rc3` → NOT READY integrated four-batch static audit (C-026; audit preserved under evidence/rc3-static-blind-audit/) |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 | **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
@@ -158,9 +158,15 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2E-2/C2E-3 done (owner-side audit intake):** A public-entry-point blind audit (C-023) and a repeat blind audit against immutable tag `grok-build-witness-v1.0.0-rc1` (commit `89127c78c3a11492892de7e3b5f0dee18d71775a`; C-024) were recorded. Both audit verdicts were **NOT READY**. `grok-build-witness-v1.0.0-rc1` is preserved as an **immutable historical release**.
 
-**C2E-4 done (owner-side audit intake; rc3 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc2` (commit `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; C-025) was recorded. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc2` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake. Package version is **`1.0.0-rc3`**; canonical package tag is **`grok-build-witness-v1.0.0-rc3`** (availability verified by tag resolution). **Independent Witness (C-014) remains `NOT_STARTED`.**
+**C2E-4 done (owner-side audit intake; rc3 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc2` (commit `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; C-025) was recorded. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc2` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake.
 
 **C2E-4B (tagged-snapshot wording finalization):** Normative release-facing documents use time-stable identity language so the fixed tagged snapshot does not assert “tag absent/pending” as a current fact. Later `main`-branch status/audit records remain outside the tagged snapshot.
+
+**C2E-5 done (owner-side audit intake; rc4 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc3` (commit `77221a224bbd6194cfafb81f6ecb58c800e5bc13`; C-026) was recorded, preserved under `evidence/rc3-static-blind-audit/`. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc3` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake. Package version is **`1.0.0-rc4`**; canonical package tag is **`grok-build-witness-v1.0.0-rc4`** (availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops). Package commit authority is `annotated_tag_resolution` with no embedded future rc4 commit. **Independent Witness (C-014) remains `NOT_STARTED`.**
+
+### HISTORICAL PRE-TAG STATE
+
+Prior wording described rc3 package content as prepared pending its repeat blind audit. That audit has since completed (NOT READY, C-026); rc3 is now immutable history and rc4 is the package content under preparation.
 
 ---
 
@@ -307,6 +313,7 @@ Independent verification; E4; build success; security; production readiness.
 | 2026-07-22 | Phase C2E-2/C2E-3: public blind audit (C-023) and rc1 repeat blind audit (C-024) recorded; both NOT READY; rc1 preserved immutable | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2E-4: rc2 integrated four-batch static blind audit (C-025) recorded; verdict NOT READY; rc2 preserved immutable; package version `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; C-014 still NOT_STARTED | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2E-4B: tagged-snapshot release-wording finalization | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-5: rc3 integrated four-batch static blind audit (C-026) recorded; verdict NOT READY; audit preserved under evidence/rc3-static-blind-audit/; rc3 preserved immutable; package version `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; C-014 still NOT_STARTED; time-stable rc4 identity wording applied | Weaver Forge documentation package author |
 
 ---
 

@@ -1,31 +1,44 @@
-# STATIC_ARTIFACT_INSPECTION.txt — required fields (evidence_schema_version=1)
+# STATIC_ARTIFACT_INSPECTION.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
 #
-# inspection_applicable and artifact_present are both "yes" only for outcome
-# CARGO_SUCCEEDED_ARTIFACT_PRESENT; both are "no" for every other outcome.
+# Container-owned. Field names mirror the container's
+# `BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION` writer exactly. Every per-tool
+# key below is ALWAYS present (empty value when the tool was not run). No
+# product execution and no ldd are ever permitted (static inspection only).
+# Multiline command output is escaped to a single line (literal \n, CR
+# stripped) — never a raw carriage return.
 #
-# When absent (inspection_applicable=no, artifact_present=no): reason= is
-# required.
-# When applicable (inspection_applicable=yes, artifact_present=yes): every
-# command exit code below is required and must be numeric.
+# applicable=yes only for outcome CARGO_SUCCEEDED_ARTIFACT_PRESENT; then every
+# *_exit_code must be numeric. inspection_complete=yes requires every
+# *_exit_code to be 0; inspection_complete=no forces status=FAILED
+# (verdict ceiling PARTIAL — PASS prohibited). Otherwise applicable=no,
+# artifact_present=no, outcome=NOT_APPLICABLE, and a non-empty reason.
 evidence_schema_version=1
-inspection_applicable=yes|no
-artifact_present=yes|no
-
-# Required when inspection_applicable=no:
-reason=
-
-# Required when inspection_applicable=yes:
-artifact_path=
-file_output=
-file_exit_code=
-readelf_h=
-readelf_h_exit_code=
-readelf_n=
-readelf_n_exit_code=
-readelf_d=
-readelf_d_exit_code=
-objdump_f=
-objdump_f_exit_code=
-static_commands_run=file readelf -h readelf -n readelf -d objdump -f
-product_executed=NO
-ldd_used=NO
+status=OK
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+applicable=yes
+artifact_present=yes
+artifact_path=/work/cargo-target/debug/xai-grok-pager
+sha256sum_command=sha256sum /work/cargo-target/debug/xai-grok-pager
+sha256sum_output=<64-char lowercase hex>  /work/cargo-target/debug/xai-grok-pager
+sha256sum_exit_code=0
+stat_command=stat /work/cargo-target/debug/xai-grok-pager
+stat_output=<escaped single-line stat output>
+stat_exit_code=0
+file_command=file /work/cargo-target/debug/xai-grok-pager
+file_output=ELF 64-bit LSB executable, x86-64
+file_exit_code=0
+readelf_h_command=readelf -h /work/cargo-target/debug/xai-grok-pager
+readelf_h_output=<escaped single-line readelf -h output>
+readelf_h_exit_code=0
+readelf_n_command=readelf -n /work/cargo-target/debug/xai-grok-pager
+readelf_n_output=<escaped single-line readelf -n output>
+readelf_n_exit_code=0
+readelf_d_command=readelf -d /work/cargo-target/debug/xai-grok-pager
+readelf_d_output=<escaped single-line readelf -d output>
+readelf_d_exit_code=0
+objdump_f_command=objdump -f /work/cargo-target/debug/xai-grok-pager
+objdump_f_output=<escaped single-line objdump -f output>
+objdump_f_exit_code=0
+inspection_complete=yes
+failure_stage=NOT_APPLICABLE
+reason=all required static inspection commands succeeded

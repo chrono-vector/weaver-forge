@@ -1,11 +1,27 @@
-# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1)
+# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Host-owned. Confirms the source tree and Cargo.lock were unchanged by the
+# build. source_head_before/after are 40-char lowercase hex commits (or
+# NOT_REACHED on a pre-build failure). cargo_lock_sha256_before/after are
+# 64-char lowercase hex (or NOT_REACHED). All *_unchanged / *_clean_* /
+# source_or_lock_changed / evidence_inventory_complete fields are yes|no.
+# outcome must equal the authoritative BUILD_EXIT_CODE.txt outcome.
+#
+# evidence_inventory_complete is ALWAYS no from the automated host run; it can
+# only become yes after the Witness completes the manual files and the FINAL
+# manifest validates.
 evidence_schema_version=1
-source_head_before=
-source_head_after=
-source_clean_before=yes|no
-source_clean_after=yes|no
-cargo_lock_sha256_before=
-cargo_lock_sha256_after=
-source_or_lock_changed=yes|no
-artifact_exists=yes|no
-evidence_inventory_complete=yes|no
+status=OK
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+source_head_before=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+source_head_after=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+source_head_unchanged=yes
+source_clean_before=yes
+source_clean_after=yes
+cargo_lock_sha256_before=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+cargo_lock_sha256_after=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+cargo_lock_unchanged=yes
+cargo_lock_post_matches_expected=yes
+source_or_lock_changed=no
+evidence_inventory_complete=no
+failure_stage=NONE

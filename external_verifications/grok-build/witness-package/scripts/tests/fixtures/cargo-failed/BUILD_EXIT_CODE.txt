@@ -1,0 +1,7 @@
+evidence_schema_version=1
+status=FAILED
+outcome=CARGO_FAILED
+cargo_started=YES
+build_status=FAILED
+cargo_exit_code=101
+failure_stage=cargo_build

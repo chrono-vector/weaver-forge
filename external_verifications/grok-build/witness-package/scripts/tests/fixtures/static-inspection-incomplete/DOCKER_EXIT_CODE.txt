@@ -1,0 +1,11 @@
+evidence_schema_version=1
+status=RECORDED
+docker_started_utc=2026-07-22T00:00:00Z
+docker_finished_utc=2026-07-22T01:00:00Z
+docker_exit_code=43
+container_platform=linux/amd64
+network_mode=bridge
+product_executed=NO
+ldd_used=NO
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+failure_stage=static_readelf_d

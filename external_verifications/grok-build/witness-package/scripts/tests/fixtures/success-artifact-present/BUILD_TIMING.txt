@@ -1,0 +1,13 @@
+evidence_schema_version=1
+status=OK
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+docker_started_utc=2026-07-22T00:00:00Z
+docker_finished_utc=2026-07-22T01:00:00Z
+docker_elapsed_seconds=3600
+cargo_started_utc=2026-07-22T00:05:00Z
+cargo_finished_utc=2026-07-22T00:55:00Z
+cargo_elapsed_seconds=3000
+cargo_started=YES
+cargo_exit_code=0
+docker_exit_code=0
+failure_stage=NONE

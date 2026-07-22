@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+closure=MANAGED_SYMLINK_POLICY
+function=safe_rm_managed_child
+before_rm_rf=lstat_symlink_check
+if_symlink=rm_-f_symlink_only_never_follow
+package_status=NOT READY
+c014=NOT_STARTED

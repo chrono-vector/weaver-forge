@@ -32,7 +32,7 @@
 | Repository / artifact root | `C:\dev\external-verification-targets\grok-build` (**owner-side historical path**) |
 | Weaver package path | `external_verifications/grok-build/` (Weaver Forge repo) |
 
-> **Witness note (C2E-4 / C2E-4B):** Owner-side log only. Witness package status is **NOT READY** — package version `1.0.0-rc3`; canonical tag `grok-build-witness-v1.0.0-rc3` (availability verified by annotated-tag resolution). `grok-build-witness-v1.0.0-rc1` and `grok-build-witness-v1.0.0-rc2` are immutable historical releases, each with a recorded **NOT READY** audit. Canonical Witness procedure: **`witness-package/WITNESS_RUNBOOK.md`** and **`scripts/run_witness_narrow_build.sh`** (canonical execution requires successful tag resolution). No Witness execution has occurred. C-014 **NOT_STARTED**.
+> **Witness note (C2E-5):** Owner-side log only. Witness package status is **NOT READY** — package version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4` (availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops); rc4 package content under preparation. `grok-build-witness-v1.0.0-rc1`, `grok-build-witness-v1.0.0-rc2`, and `grok-build-witness-v1.0.0-rc3` are immutable historical releases, each with a recorded **NOT READY** audit. Canonical Witness procedure: **`witness-package/WITNESS_RUNBOOK.md`** and **`scripts/run_witness_narrow_build.sh`** (canonical execution requires successful tag resolution). No Witness execution has occurred. C-014 **NOT_STARTED**.
 
 ## 3. Command Sequence (executed)
 

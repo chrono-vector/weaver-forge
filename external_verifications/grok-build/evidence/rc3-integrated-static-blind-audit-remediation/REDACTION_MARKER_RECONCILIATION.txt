@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+closure=REDACTION_MARKER_RECONCILIATION
+scan_marker=[REDACTED:
+require_REDACTIONS_md_entry=file;field_or_line;marker;reason
+reject=unlogged;duplicate_ambiguous;prohibited_field;non_affirmative_semantic_integrity
+package_status=NOT READY
+c014=NOT_STARTED

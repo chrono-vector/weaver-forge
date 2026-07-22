@@ -1,0 +1,1 @@
+# CONTAINER_STDOUT: container never launched (image_pull)

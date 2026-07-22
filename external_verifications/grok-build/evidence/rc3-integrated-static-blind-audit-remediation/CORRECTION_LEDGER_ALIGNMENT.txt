@@ -1,0 +1,6 @@
+﻿phase=C2E-5
+closure=CORRECTION_LEDGER_ALIGNMENT
+aligned_with=MAINTAINER_INTAKE_POLICY.md
+SUPERSEDED=included_or_explicitly_excluded_with_explanation_in_policy_docs
+package_status=NOT READY
+c014=NOT_STARTED

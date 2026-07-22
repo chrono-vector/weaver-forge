@@ -1,0 +1,5 @@
+﻿phase=C2E-5
+closure=REDACTION_PROTECTION_CLOSURE
+never_redact=outcome;build_status;failure_stage;Witness_proposed_verdict;maintainer_intake_verdict;canonical_run;verdict_ceiling
+package_status=NOT READY
+c014=NOT_STARTED

@@ -1,0 +1,7 @@
+phase=C2E-5
+closure=OUTCOME_CONSISTENCY
+required_agreement_files=BUILD_EXIT_CODE.txt,BUILD_TIMING.txt,DOCKER_EXIT_CODE.txt,ARTIFACT_IDENTITY.txt,STATIC_ARTIFACT_INSPECTION.txt,WITNESS_VERDICT.md
+tests_required=valid_agreement,missing_outcome,duplicate_outcome,invalid_outcome,host_container_mismatch,infrastructure_failure_preservation
+enforcement=validator_and_host_parser
+package_status=NOT READY
+c014=NOT_STARTED

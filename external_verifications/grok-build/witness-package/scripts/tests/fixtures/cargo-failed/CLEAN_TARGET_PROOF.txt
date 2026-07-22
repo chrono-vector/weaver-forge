@@ -1,0 +1,14 @@
+evidence_schema_version=1
+status=OK
+outcome=CLEAN_TARGET_VERIFIED
+target_path_host=/work/cargo-target
+proof_utc_host=2026-07-22T00:00:00Z
+observed_entry_count_host=0
+target_path_container_prebootstrap=/work/cargo-target
+proof_utc_container_prebootstrap=2026-07-22T00:01:00Z
+observed_entry_count_container_prebootstrap=0
+target_path_container_precargo=/work/cargo-target
+proof_utc_container_precargo=2026-07-22T00:05:00Z
+observed_entry_count_container=0
+proof_failed=no
+failure_stage=NOT_APPLICABLE

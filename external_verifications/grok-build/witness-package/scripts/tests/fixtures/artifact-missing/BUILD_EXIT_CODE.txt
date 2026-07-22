@@ -1,0 +1,7 @@
+evidence_schema_version=1
+status=FAILED
+outcome=CARGO_SUCCEEDED_ARTIFACT_MISSING
+cargo_started=YES
+build_status=COMPLETE
+cargo_exit_code=0
+failure_stage=artifact_presence_check

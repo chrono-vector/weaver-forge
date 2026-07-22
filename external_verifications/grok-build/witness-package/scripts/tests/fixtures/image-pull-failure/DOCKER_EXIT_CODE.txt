@@ -1,0 +1,11 @@
+evidence_schema_version=1
+status=FAILED
+docker_started_utc=NOT_STARTED
+docker_finished_utc=NOT_STARTED
+docker_exit_code=NOT_STARTED
+container_platform=linux/amd64
+network_mode=bridge
+product_executed=NO
+ldd_used=NO
+outcome=INFRASTRUCTURE_FAILURE
+failure_stage=image_pull

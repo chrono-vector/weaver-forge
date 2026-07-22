@@ -1,0 +1,12 @@
+evidence_schema_version=1
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+applicable=yes
+artifact_present=yes
+artifact_path=/work/cargo-target/debug/xai-grok-pager
+artifact_filename=xai-grok-pager
+artifact_size_bytes=600647920
+artifact_sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+gnu_build_id=abcdef0123456789
+static_inspection_complete=no
+product_executed=NO
+ldd_used=NO

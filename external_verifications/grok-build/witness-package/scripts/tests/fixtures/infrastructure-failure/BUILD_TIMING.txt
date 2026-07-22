@@ -1,0 +1,13 @@
+evidence_schema_version=1
+status=FAILED
+outcome=INFRASTRUCTURE_FAILURE
+docker_started_utc=2026-07-22T00:00:00Z
+docker_finished_utc=2026-07-22T01:00:00Z
+docker_elapsed_seconds=3600
+cargo_started_utc=NOT_APPLICABLE
+cargo_finished_utc=NOT_APPLICABLE
+cargo_elapsed_seconds=NOT_APPLICABLE
+cargo_started=NO
+cargo_exit_code=NOT_APPLICABLE
+docker_exit_code=1
+failure_stage=container_runtime

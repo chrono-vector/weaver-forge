@@ -1,4 +1,4 @@
-# Maintainer intake policy (1.0.0-rc3)
+# Maintainer intake policy (1.0.0-rc4)
 
 This document governs how a **maintainer** (not the Witness, not the package author acting as
 Witness) reviews and dispositions a submitted Witness evidence package. It is distinct from
@@ -63,6 +63,8 @@ The reviewer reads, at minimum:
 
 ## Intake values (enumerated; exactly one applies per submission)
 
+These values align with correction-ledger / intake states used across the package:
+
 | Value | Meaning |
 |-------|---------|
 | `PENDING` | Submitted; not yet reviewed. Matches the required `maintainer_intake_verdict=pending` field in `WITNESS_VERDICT.md` at submission time. |
@@ -70,7 +72,7 @@ The reviewer reads, at minimum:
 | `REJECTED` | Reviewed; not merged. Structural failure, unresolved independence concern, or a proven prohibited condition (product execution, `ldd` use, falsification) that the Witness does not correct. |
 | `CORRECTION_REQUESTED` | Reviewed; specific, itemized defects identified; maintainer has asked the Witness for a correction (new commit/PR, per [CORRECTION_LEDGER.md](CORRECTION_LEDGER.md)) rather than outright rejecting. |
 | `DISPUTED` | Reviewer and Witness (or two reviewers) disagree on classification or acceptability; both positions are recorded; not merged until resolved or explicitly merged-with-recorded-dispute. |
-| `SUPERSEDED` | A previously `ACCEPTED` submission has been superseded by a later correction per the correction ledger; the original record remains, annotated as superseded, never deleted. |
+| `SUPERSEDED` | A previously `ACCEPTED` submission has been superseded by a later correction per the correction ledger; the original record remains, annotated as superseded, never deleted. `SUPERSEDED` is an **intake/history annotation** for a prior acceptance after a ledgered supersession — it is not a first-pass disposition for a brand-new submission (use `PENDING` / `ACCEPTED` / `REJECTED` / `CORRECTION_REQUESTED` / `DISPUTED` for initial review). |
 
 ## Acceptance
 
@@ -142,11 +144,14 @@ Rejection requires the maintainer to record, in the PR thread and in the claim r
   unqualified `PASS`; a `FAIL`/`INDETERMINATE`-verdict acceptance records that a Witness attempt
   occurred and was truthfully reported, but does not by itself satisfy C-014).
 - C-014 must never be marked complete, `PASS`, or any status implying successful independent
-  reproduction based on: an audit of the package (C-022 through C-025 and any successor audits),
+  reproduction based on: an audit of the package (C-022 through C-026 and any successor audits),
   a maintainer's own testing, or any submission still at `PENDING`, `REJECTED`,
-  `CORRECTION_REQUESTED`, or `DISPUTED` intake.
+  `CORRECTION_REQUESTED`, `DISPUTED`, or `SUPERSEDED` intake.
 - The specific accepted run ID(s) that satisfy C-014 must be cited by run ID in the claim register
   entry for C-014 at the moment of transition.
+- Current package identity for this policy revision: version `1.0.0-rc4`; canonical tag
+  `grok-build-witness-v1.0.0-rc4`; package remains **NOT READY**; overall **PARTIAL**; no
+  Independent Witness reproduction has occurred.
 
 ## Required public history
 
@@ -164,3 +169,4 @@ Rejection requires the maintainer to record, in the PR thread and in the claim r
 | Version | Change |
 |---------|--------|
 | 1.0.0-rc3 | Created. Defines reviewer identity, independence expectation, validator-output/evidence review, classification application, enumerated intake values, acceptance/rejection/correction-request/disagreement/merge procedures, C-014 transition rule, and required public history. |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4`; `SUPERSEDED` clarified as post-acceptance history annotation aligned with correction-ledger states; C-014 rule cites C-022–C-026; no Independent Witness reproduction |

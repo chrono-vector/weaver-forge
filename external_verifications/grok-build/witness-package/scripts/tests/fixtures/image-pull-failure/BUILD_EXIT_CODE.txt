@@ -1,0 +1,7 @@
+evidence_schema_version=1
+status=FAILED
+outcome=INFRASTRUCTURE_FAILURE
+cargo_started=NO
+build_status=INFRASTRUCTURE_FAILURE
+cargo_exit_code=NOT_APPLICABLE
+failure_stage=image_pull

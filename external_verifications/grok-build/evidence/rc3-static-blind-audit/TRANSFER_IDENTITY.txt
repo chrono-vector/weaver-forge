@@ -1,0 +1,42 @@
+PHASE=C2E-5 RC3 STATIC BLIND AUDIT — TRANSFER IDENTITY
+repository=https://github.com/chrono-vector/weaver-forge
+fixed_rc3_tag=grok-build-witness-v1.0.0-rc3
+fixed_rc3_tag_commit=77221a224bbd6194cfafb81f6ecb58c800e5bc13
+rc3_immutable=YES
+
+transfer_bundle_path_external=C:\dev\weaver-forge-audit-exports\weaver-forge-grok-build-witness-v1.0.0-rc3-transfer-bundle.zip
+transfer_bundle_name=weaver-forge-grok-build-witness-v1.0.0-rc3-transfer-bundle.zip
+transfer_bundle_sha256=b7b4c6a20d2e1b8d55c15dbfff784499507f28ccddff7b54e8aa4ab8fc3bde7c
+
+inner_archive_name=weaver-forge-grok-build-witness-v1.0.0-rc3.zip
+inner_archive_sha256=b3a65151f62dfa975ba7068f68a9ceb00f80c4058a3a6220663e5b9b8fae51d8
+
+bundle_contents_count=3
+bundle_contents_1=TRANSFER_MANIFEST.txt
+bundle_contents_2=weaver-forge-grok-build-witness-v1.0.0-rc3.zip
+bundle_contents_3=weaver-forge-grok-build-witness-v1.0.0-rc3.zip.sha256.txt
+
+review_modality=static_documentation_and_script_review_only
+build_executed=NO
+docker_executed=NO
+cargo_executed=NO
+rustc_executed=NO
+rustup_executed=NO
+dotslash_executed=NO
+protoc_executed=NO
+ldd_executed=NO
+product_executed=NO
+witness_scripts_executed=NO
+independent_witness_reproduction=NO
+commit_performed=NO
+push_performed=NO
+tag_operation=NO
+
+c014_status=NOT_STARTED
+verdict=NOT READY
+
+prior_rc1_verdict=NOT READY
+prior_rc2_verdict=NOT READY
+rc3_verdict=NOT READY
+
+note=This file records the identity and integrity of the offline transfer bundle used as the sole input to the RC3 static blind audit. The bundle was reviewed statically only; no file from the bundle was executed, built, or run as a script or product.

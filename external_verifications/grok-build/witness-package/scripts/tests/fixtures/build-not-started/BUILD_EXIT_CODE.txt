@@ -1,0 +1,7 @@
+evidence_schema_version=1
+status=FAILED
+outcome=BUILD_NOT_STARTED
+cargo_started=NO
+build_status=BUILD_NOT_STARTED
+cargo_exit_code=NOT_APPLICABLE
+failure_stage=pre_cargo_empty_target

@@ -1,0 +1,7 @@
+﻿phase=C2E-5
+closure=PROTOC_AUXILIARY_FILE_CLOSURE
+BOOTSTRAP_PROTOC_VERSION_txt_under_EVIDENCE_DIR=REMOVED
+capture_location=/work/bootstrap/ or shell_variable
+normalized_fields_in_BOOTSTRAP_txt=protoc_version_output;protoc_version_exit_code
+package_status=NOT READY
+c014=NOT_STARTED

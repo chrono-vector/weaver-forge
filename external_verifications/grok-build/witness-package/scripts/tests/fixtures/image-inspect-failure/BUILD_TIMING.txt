@@ -1,0 +1,13 @@
+evidence_schema_version=1
+status=FAILED
+outcome=INFRASTRUCTURE_FAILURE
+docker_started_utc=NOT_STARTED
+docker_finished_utc=NOT_STARTED
+docker_elapsed_seconds=NOT_APPLICABLE
+cargo_started_utc=NOT_APPLICABLE
+cargo_finished_utc=NOT_APPLICABLE
+cargo_elapsed_seconds=NOT_APPLICABLE
+cargo_started=NO
+cargo_exit_code=NOT_APPLICABLE
+docker_exit_code=NOT_STARTED
+failure_stage=image_inspect_id

@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Verdict status | **Owner-side build axes PASS; Witness package NOT READY (`1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`); C-014 NOT_STARTED; overall PARTIAL** |
+| Verdict status | **Owner-side build axes PASS; Witness package NOT READY (`1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 package content under preparation); C-014 NOT_STARTED; overall PARTIAL** |
 | Issued by | Weaver Forge documentation package author |
 | Role | Owner-side evaluator (not independent witness) |
-| Verdict date | `2026-07-22` (C2E-4B tagged-snapshot wording finalization) |
+| Verdict date | `2026-07-22` (C2E-5 rc4 preparation; rc3 integrated four-batch static audit recorded NOT READY) |
 | Source pin | **`98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`** |
 
 ---
@@ -22,7 +22,7 @@
 | Functional | `NOT_STARTED` | |
 | Security | `NOT_STARTED` | |
 | Independent witness | **`NOT_STARTED`** | C-014 unchanged |
-| Witness package readiness | **NOT READY — `1.0.0-rc3`; canonical tag `grok-build-witness-v1.0.0-rc3`; pending fixed-tag repeat blind audit** | C2E-1 **READY WITH LIMITATIONS** superseded; rc1 and rc2 preserved as immutable historical releases, each with a recorded NOT READY audit (C-024, C-025) |
+| Witness package readiness | **NOT READY — `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 package content under preparation** | C2E-1 **READY WITH LIMITATIONS** superseded; rc1, rc2, and rc3 preserved as immutable historical releases, each with a recorded NOT READY audit (C-024, C-025, C-026) |
 | Operational readiness | `NOT_STARTED` | |
 | Windows readiness | `BLOCKED` | |
 | Static startup | `PARTIAL` | |
@@ -45,17 +45,22 @@
 | C-023 | **PASS** (blind audit intake recorded only) |
 | C-024 | **PASS** (rc1 repeat blind audit recording only; audit verdict **NOT READY**); rc1 preserved immutable |
 | C-025 | **PASS** (rc2 integrated four-batch static blind audit recording only; audit verdict **NOT READY**); rc2 preserved immutable |
+| C-026 | **PASS** (display label `AUDIT_RECORDED` — rc3 integrated four-batch static blind audit recording only; audit verdict **NOT READY**); rc3 preserved immutable |
 
 ## Where a Witness starts
 
 `external_verifications/grok-build/witness-package/README.md`
 
-## C2E-4 / C2E-4B status
+## C2E-5 status
 
-**RC3 PACKAGE CONTENT PREPARED — CANONICAL TAG NAME ASSIGNED — NOT READY PENDING FIXED-TAG REPEAT BLIND AUDIT**
+**RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT**
 
-Package version **`1.0.0-rc3`**; canonical package tag **`grok-build-witness-v1.0.0-rc3`** (availability verified by annotated-tag resolution; tagged snapshot immutable after publication). C-025 records the rc2 integrated four-batch static audit intake (verdict NOT READY); C-024 (rc1 repeat audit) remains preserved unchanged. Later `main`-branch status/audit records are outside the rc3 tagged snapshot.
+Package version **`1.0.0-rc4`**; canonical package tag **`grok-build-witness-v1.0.0-rc4`** (availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops; after publication the tag is immutable). Package commit authority is `annotated_tag_resolution` — no embedded future rc4 commit. C-026 records the rc3 integrated four-batch static audit intake (verdict NOT READY; audit preserved under `evidence/rc3-static-blind-audit/`); C-024 (rc1 repeat audit) and C-025 (rc2 integrated audit) remain preserved unchanged. Later `main`-branch status/audit records are outside the rc4 tagged snapshot once it exists.
+
+### HISTORICAL PRE-TAG STATE
+
+Prior wording in this section described rc3 as package content prepared with a canonical tag name assigned, pending its repeat blind audit. That audit has since completed (NOT READY, C-026); rc3 is now immutable history and rc4 is the package content under preparation.
 
 ---
 
-**Witness is attestation, not authority. Package NOT READY until rc3 tag exists + repeat re-audit. C-014 NOT_STARTED.**
+**Witness is attestation, not authority. Package remains NOT READY until rc4 is committed, tagged, and repeat-audited. C-014 NOT_STARTED.**

@@ -1,0 +1,13 @@
+evidence_schema_version=1
+status=bootstrap_complete
+apt_packages=ca-certificates git build-essential pkg-config cmake curl perl file binutils
+dotslash_version=0.5.7
+dotslash_binary_path=/work/cargo-home/bin/dotslash
+protoc_descriptor_src=/src/bin/protoc
+protoc_descriptor_writable=yes
+protoc_descriptor_src_sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+protoc_descriptor_lf_sha256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+PROTOC=/work/bootstrap/protoc-descriptor.lf
+protoc_version_output=libprotoc 29.3
+protoc_version_exit_code=0
+product_executed=NO

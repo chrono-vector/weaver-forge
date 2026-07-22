@@ -1,0 +1,8 @@
+﻿phase=C2E-5
+closure=GROK_DETACHED_PROBE
+command=git symbolic-ref -q HEAD
+require=nonzero_no_branch
+evidence_field=grok_build_detached_head=yes|no
+abort_on=no
+package_status=NOT READY
+c014=NOT_STARTED

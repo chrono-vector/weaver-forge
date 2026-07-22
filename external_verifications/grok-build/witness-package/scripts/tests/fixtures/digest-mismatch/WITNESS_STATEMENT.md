@@ -1,0 +1,10 @@
+evidence_schema_version=1
+witness_identity_or_handle=Jane Doe (@janedoe)
+not_package_owner=yes
+not_owner_side_reproducer=yes
+witness_controlled_host=yes
+ai_assistance_used=no
+human_review_completed=yes
+product_executed=NO
+ldd_used=NO
+upstream_product_commands_not_run=yes

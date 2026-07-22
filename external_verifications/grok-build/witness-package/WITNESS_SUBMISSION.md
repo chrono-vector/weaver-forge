@@ -1,4 +1,4 @@
-# Witness submission — Grok Build (1.0.0-rc3)
+# Witness submission — Grok Build (1.0.0-rc4)
 
 ## Run ID
 
@@ -34,7 +34,7 @@ Independent Grok Build Witness: <run-id>
 |-------|----------|
 | Run ID | `<run-id>` exactly as recorded in the evidence directory name and every evidence file |
 | Witness ID | The `witness_id` value used for this run (satisfies the `WITNESS_ID` grammar) |
-| Package tag | e.g. `grok-build-witness-v1.0.0-rc3` |
+| Package tag | e.g. `grok-build-witness-v1.0.0-rc4` |
 | Resolved Weaver Forge commit | 40-char commit resolved from the requested tag |
 | Grok Build source commit | Observed, 40-char (expected `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`) |
 | Rust image digest | Observed `sha256:...` from `docker inspect` / `IMAGE_IDENTITY.txt` (expected `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e`) |
@@ -88,10 +88,15 @@ against the final manifest, again capturing its output outside the evidence dire
 
 Every submission is reviewed by a maintainer per
 [MAINTAINER_INTAKE_POLICY.md](MAINTAINER_INTAKE_POLICY.md) and receives one of `PENDING`,
-`ACCEPTED`, `REJECTED`, `CORRECTION_REQUESTED`, or `DISPUTED`. This intake value is recorded
+`ACCEPTED`, `REJECTED`, `CORRECTION_REQUESTED`, `DISPUTED`, or (as a post-acceptance history
+annotation after ledgered supersession) `SUPERSEDED`. This intake value is recorded
 **separately** from the Witness's own proposed verdict — `WITNESS_VERDICT.md`'s
 `maintainer_intake_verdict` field must read `pending` at submission time; it is updated by the
 maintainer in a follow-up commit, never by editing the Witness's original submission.
+
+Current package identity: version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`;
+package remains **NOT READY** until rc4 is committed, tagged, and repeat-audited; C-014
+**NOT_STARTED**; overall **PARTIAL**; no Independent Witness reproduction.
 
 ## Corrections policy
 
@@ -131,3 +136,4 @@ Witness PASS does **not** require matching owner artifact SHA-256 values.
 |---------|--------|
 | 1.0.0-rc2 | Prior run-ID, primary-method, required-files, final-manifest, corrections, fallback-archive, and must-not-modify sections |
 | 1.0.0-rc3 | Expanded mandatory PR description field table (run ID, Witness ID, package tag, resolved Weaver Forge commit, Grok Build commit, Rust image digest, proposed verdict, outcome, `product_executed`, `ldd_used`, deviations state, redactions state, correction ledger entry); added maintainer-intake section distinguishing Witness verdict from intake value; linked corrections policy to the new `CORRECTION_LEDGER.md` format |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; intake states aligned with SUPERSEDED; package remains NOT READY; C-014 NOT_STARTED |

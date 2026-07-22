@@ -1,16 +1,43 @@
-# IMAGE_IDENTITY.txt — required fields (evidence_schema_version=1)
+# IMAGE_IDENTITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+#
+# Host-owned file (the container never writes this file). Field names mirror
+# the host orchestrator's `BEGIN_SCHEMA_BLOCK IMAGE_IDENTITY` writer exactly.
+#
+# Every key below must always be present (closed, always-present key set).
+# status=OK requires image_id_available=yes, digest_match_expected=yes, and
+# platform_match_expected=yes — the host refuses to run the container
+# otherwise. status=FAILED means `docker pull` (or a subsequent inspect /
+# digest / platform enforcement step) failed; a cached/local image is NEVER
+# an acceptable fallback (cached_image_fallback_used must always be NO).
 evidence_schema_version=1
-requested_image_string=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+status=OK
+# failure_stage: NOT_APPLICABLE (or NONE) when status=OK; a concrete stage
+# name (image_pull, image_inspect_id, repo_digest_mismatch,
+# architecture_mismatch, ...) when status=FAILED.
+failure_stage=NOT_APPLICABLE
+requested_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
 requested_digest=sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
-docker_pull_exit_code=
-image_id=
-repo_digests=
-os=linux
-architecture=amd64
-platform=linux/amd64
-digest_match_expected=yes|no
-platform_match_expected=yes|no
+pull_command=docker pull --platform linux/amd64 docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+pull_exit_code=0
+inspect_image_id_command=docker inspect --format {{.Id}} <requested_image>
+inspect_image_id_exit_code=0
+image_id=sha256:<observed-image-id>
+inspect_repo_digests_command=docker inspect --format {{json .RepoDigests}} <requested_image>
+inspect_repo_digests_exit_code=0
+repo_digests=[docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e]
+inspect_os_command=docker inspect --format {{.Os}} <requested_image>
+inspect_os_exit_code=0
+observed_os=linux
+inspect_architecture_command=docker inspect --format {{.Architecture}} <requested_image>
+inspect_architecture_exit_code=0
+observed_architecture=amd64
+observed_platform=linux/amd64
+image_id_available=yes
+digest_match_expected=yes
+platform_match_expected=yes
+proceeded_to_inspect_or_run=YES
+cached_image_fallback_used=NO
 
-# Non-validated context fields (kept for human review; not schema-required):
-rust_version_expected=1.92.0
-docker_pull_utc=
+# Non-schema auxiliary context (human review only; not schema-required):
+product_executed=NO
+ldd_used=NO
