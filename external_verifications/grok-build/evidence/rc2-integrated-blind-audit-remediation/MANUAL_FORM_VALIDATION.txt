@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=MANUAL_FORM_VALIDATION
+WITNESS_STATEMENT=identity; not owner; not owner-side; Witness-controlled host; AI disclosure; human review; product=no; ldd=no
+DEVIATIONS=deviation_state; severity; canonical impact; verdict ceiling
+REDACTIONS=redaction_state; visible marker; no prohibited; semantic integrity
+status=CLOSED_IN_DRAFT

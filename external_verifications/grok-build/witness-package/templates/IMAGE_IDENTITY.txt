@@ -1,8 +1,16 @@
-# IMAGE_IDENTITY.txt — required fields
-image_reference=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
-rust_version_expected=1.92.0
-docker_pull_utc=
-repo_digest_observed=
+# IMAGE_IDENTITY.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
+requested_image_string=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+requested_digest=sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+docker_pull_exit_code=
 image_id=
+repo_digests=
+os=linux
+architecture=amd64
 platform=linux/amd64
 digest_match_expected=yes|no
+platform_match_expected=yes|no
+
+# Non-validated context fields (kept for human review; not schema-required):
+rust_version_expected=1.92.0
+docker_pull_utc=

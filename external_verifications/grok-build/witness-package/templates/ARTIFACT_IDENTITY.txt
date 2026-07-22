@@ -1,8 +1,28 @@
-# ARTIFACT_IDENTITY.txt — required fields
+# ARTIFACT_IDENTITY.txt — required fields (evidence_schema_version=1)
+#
+# applicable / artifact_present depend on outcome (from BUILD_EXIT_CODE.txt):
+#   CARGO_SUCCEEDED_ARTIFACT_PRESENT -> applicable=yes, artifact_present=yes
+#   CARGO_SUCCEEDED_ARTIFACT_MISSING -> applicable=yes, artifact_present=no
+#   BUILD_NOT_STARTED / CARGO_FAILED / INFRASTRUCTURE_FAILURE
+#                                     -> applicable=no,  artifact_present=no
+#
+# When artifact_present=no: reason= is required.
+# When artifact_present=yes: artifact_sha256, artifact_size_bytes,
+#   artifact_filename, artifact_path are all required.
+evidence_schema_version=1
+applicable=yes|no
+artifact_present=yes|no
+product_executed=NO
+ldd_used=NO
+
+# Required when artifact_present=no:
+reason=
+
+# Required when artifact_present=yes:
 artifact_path=
 artifact_filename=xai-grok-pager
 artifact_size_bytes=
 artifact_sha256=
+
+# Non-validated context fields (kept for human review; not schema-required):
 gnu_build_id=
-product_executed=NO
-ldd_used=NO

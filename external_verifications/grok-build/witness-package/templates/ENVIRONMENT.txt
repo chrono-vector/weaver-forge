@@ -1,17 +1,19 @@
-# ENVIRONMENT.txt — required fields
+# ENVIRONMENT.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 witness_id=
 host_os=
 host_arch=
 host_docker_client_version=
 host_docker_server_version=
-host_free_disk_gb=
-host_ram_gib=
 container_os_release=
-container_uname=
 rustc_version=
 cargo_version=
-ai_assistance_used=yes|no
-ai_assistance_detail=
-human_review_completed=yes|no
 product_executed=NO
 ldd_used=NO
+
+# Non-validated context fields (kept for human review; not schema-required):
+host_free_disk_gb=
+host_ram_gib=
+container_uname=
+
+# AI assistance and human review are recorded in WITNESS_STATEMENT.md, not here.

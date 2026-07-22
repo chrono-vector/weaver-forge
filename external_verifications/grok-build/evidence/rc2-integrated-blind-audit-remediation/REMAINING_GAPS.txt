@@ -1,0 +1,9 @@
+﻿phase=C2E-4B
+remaining_gaps=YES
+gap_1=rc3 annotated tag publication and fixed-tag repeat blind audit not yet completed
+gap_2=Independent Witness C-014 remains NOT_STARTED
+gap_3=package readiness remains NOT READY
+gap_4=overall remains PARTIAL
+self_commit_placeholder_removed=YES
+time_stable_release_wording=YES
+no_ready_claim=YES

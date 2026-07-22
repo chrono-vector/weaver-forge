@@ -1,7 +1,15 @@
-# BUILD_TIMING.txt — required fields
-utc_start=
-utc_end=
+# BUILD_TIMING.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
+# outcome must match BUILD_EXIT_CODE.txt's outcome exactly.
+outcome=
+docker_started_utc=
+docker_finished_utc=
+# cargo_started_utc / cargo_finished_utc are required whenever cargo actually
+# started, i.e. outcome is CARGO_FAILED, CARGO_SUCCEEDED_ARTIFACT_MISSING, or
+# CARGO_SUCCEEDED_ARTIFACT_PRESENT. Omit (or leave blank) for BUILD_NOT_STARTED
+# and INFRASTRUCTURE_FAILURE.
+cargo_started_utc=
+cargo_finished_utc=
+
+# Non-validated context fields (kept for human review; not schema-required):
 elapsed_seconds=
-exact_build_command=cargo build -p xai-grok-pager-bin --locked
-cargo_exit_code=
-docker_exit_code=

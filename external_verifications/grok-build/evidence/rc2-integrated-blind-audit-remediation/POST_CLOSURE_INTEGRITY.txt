@@ -1,0 +1,15 @@
+﻿phase=C2E-4
+head_at_remediation_start=255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
+rc1_peeled=89127c78c3a11492892de7e3b5f0dee18d71775a
+rc2_peeled=255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
+rc1_moved=NO
+rc2_moved=NO
+rc3_tag_created=NO
+commit_performed=NO
+push_performed=NO
+docker_executed=NO
+cargo_executed=NO
+witness_scripts_executed=NO
+product_executed=NO
+ldd_executed=NO
+integrity=PASS_FOR_DRAFT_MATERIALS

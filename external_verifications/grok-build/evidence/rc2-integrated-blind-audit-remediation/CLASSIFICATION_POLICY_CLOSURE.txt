@@ -1,0 +1,8 @@
+﻿phase=C2E-4
+closure=CLASSIFICATION_POLICY
+file=witness-package/WITNESS_CLASSIFICATION.md
+product_ldd_identity_build_artifact_failures=FAIL
+insufficient_proof=INDETERMINATE
+nonmaterial_disclosed_on_canonical_success=PARTIAL_ceiling
+severities=NONE; NONMATERIAL_DISCLOSED; MATERIAL_NONCANONICAL; PROHIBITED
+status=CLOSED_IN_DRAFT

@@ -1,15 +1,18 @@
-# BOOTSTRAP.txt — required fields
+# BOOTSTRAP.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 apt_packages=ca-certificates git build-essential pkg-config cmake curl perl file binutils
-apt_versions_unpinned_limitation=yes
-apt_install_commands=
 dotslash_version=0.5.7
-dotslash_install_command=cargo install dotslash --version 0.5.7 --locked
 dotslash_binary_path=
 protoc_descriptor_src=/src/bin/protoc
-protoc_descriptor_writable=
+protoc_descriptor_writable=yes|no
 protoc_descriptor_src_sha256=
 protoc_descriptor_lf_sha256=
 PROTOC=
 protoc_version_output=
 protoc_version_exit_code=
 product_executed=NO
+
+# Non-validated context fields (kept for human review; not schema-required):
+apt_versions_unpinned_limitation=yes
+apt_install_commands=
+dotslash_install_command=cargo install dotslash --version 0.5.7 --locked

@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=PACKAGE_READINESS_POLICY
+file=witness-package/PACKAGE_READINESS_POLICY.md
+current_classification=NOT READY
+ready_with_limitations=only when material paths complete and limits nonfatal disclosed
+ready=complete conservative internal consistency
+status=CLOSED_IN_DRAFT

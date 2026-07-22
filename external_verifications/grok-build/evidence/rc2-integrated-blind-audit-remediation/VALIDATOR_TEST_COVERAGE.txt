@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=VALIDATOR_TEST_COVERAGE
+suite=scripts/tests/test_validate_witness_evidence.py
+coverage_includes=valid success; BUILD_NOT_STARTED; cargo failure; artifact missing; missing files; manifest grammar; symlink; verdict cases; statement/deviation/redaction; outcomes; main return
+file_specific_fixtures=YES
+status=CLOSED_IN_DRAFT

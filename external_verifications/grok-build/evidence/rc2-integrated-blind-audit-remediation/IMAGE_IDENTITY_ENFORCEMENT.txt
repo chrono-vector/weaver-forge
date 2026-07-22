@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=IMAGE_IDENTITY_ENFORCEMENT
+required=image_id available; RepoDigest contains requested digest; os=linux; architecture=amd64; platform=linux/amd64
+fields=digest_match_expected; platform_match_expected
+stop_before_docker_run_when=either match is false
+status=CLOSED_IN_DRAFT

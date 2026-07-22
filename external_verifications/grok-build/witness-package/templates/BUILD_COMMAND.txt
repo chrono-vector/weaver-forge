@@ -1,6 +1,9 @@
-# BUILD_COMMAND.txt — required fields
+# BUILD_COMMAND.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 exact_build_command=cargo build -p xai-grok-pager-bin --locked
 cargo_incremental=0
-cargo_fetch_separate_step=OMITTED|RUN (document)
 working_directory=/src
 product_executed=NO
+
+# Non-validated context fields (kept for human review; not schema-required):
+cargo_fetch_separate_step=OMITTED|RUN (document)

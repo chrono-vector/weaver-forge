@@ -1,10 +1,31 @@
-# STATIC_ARTIFACT_INSPECTION.txt — required fields
+# STATIC_ARTIFACT_INSPECTION.txt — required fields (evidence_schema_version=1)
+#
+# inspection_applicable and artifact_present are both "yes" only for outcome
+# CARGO_SUCCEEDED_ARTIFACT_PRESENT; both are "no" for every other outcome.
+#
+# When absent (inspection_applicable=no, artifact_present=no): reason= is
+# required.
+# When applicable (inspection_applicable=yes, artifact_present=yes): every
+# command exit code below is required and must be numeric.
+evidence_schema_version=1
+inspection_applicable=yes|no
+artifact_present=yes|no
+
+# Required when inspection_applicable=no:
+reason=
+
+# Required when inspection_applicable=yes:
 artifact_path=
 file_output=
+file_exit_code=
 readelf_h=
+readelf_h_exit_code=
 readelf_n=
+readelf_n_exit_code=
 readelf_d=
+readelf_d_exit_code=
 objdump_f=
+objdump_f_exit_code=
 static_commands_run=file readelf -h readelf -n readelf -d objdump -f
 product_executed=NO
 ldd_used=NO

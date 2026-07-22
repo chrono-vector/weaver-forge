@@ -1,0 +1,16 @@
+﻿phase=C2E-4B
+closure=RC3_RELEASE_IDENTITY_POLICY
+package_version=1.0.0-rc3
+canonical_package_tag=grok-build-witness-v1.0.0-rc3
+package_commit_authority=annotated_tag_resolution
+rc3_commit_embedded_in_package=NO
+# HISTORICAL PRE-TAG STATE (preparation of this evidence file on main):
+# At preparation time the annotated rc3 tag had not yet been published.
+# That fact is historical preparation context only; normative package wording
+# verifies availability by tag resolution rather than asserting absence as status.
+historical_pre_tag_state_at_evidence_preparation=YES
+rc1_immutable=grok-build-witness-v1.0.0-rc1 -> 89127c78c3a11492892de7e3b5f0dee18d71775a
+rc2_immutable=grok-build-witness-v1.0.0-rc2 -> 255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
+post_tag_policy=tagged package immutable; later main status/audit records distinct; no fill-own-commit; no amend/recreate/force-update
+package_status=NOT READY
+status=CLOSED_IN_DRAFT

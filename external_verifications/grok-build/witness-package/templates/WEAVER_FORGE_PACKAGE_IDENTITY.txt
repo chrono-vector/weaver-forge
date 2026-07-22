@@ -1,12 +1,28 @@
-# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields
+# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 witness_id=
 run_id=
-package_version=1.0.0-rc2
+package_version=1.0.0-rc3
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc2
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc3
 weaver_forge_commit_resolved=
-weaver_forge_commit_resolved_utc=
+package_clone_head=
+package_clone_detached=yes|no
+package_clone_clean_status=yes|no
+tag_head_match=yes|no
+package_commit_authority=annotated_tag_resolution
 grok_build_source_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
-audited_predecessor_commit=0aaae298f0e543d4042302224ed075c1796a6016
+canonical_run=yes|no
+
+# Optional additional verification (not required for canonical execution):
+# external_expected_commit_supplied=yes|no
+# external_expected_commit=<40-hex|not_supplied>
+# external_expected_commit_match=yes|no|not_supplied
+
+# Required only when canonical_run=no:
+# noncanonical_disclosure=<explain what deviated from the canonical published tag/procedure>
+
+# Non-validated context fields (kept for human review; not schema-required):
+audited_predecessor_commit=255b357c9ee33c4a9e34b5d9b6e396c53cfe494e
 tag_exists_on_origin=yes|no
 human_reviewer_pending=yes

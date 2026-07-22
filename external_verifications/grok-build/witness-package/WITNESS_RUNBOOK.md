@@ -1,8 +1,17 @@
-# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc2)
+# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc3)
 
-**Package status:** **NOT READY** until annotated tag `grok-build-witness-v1.0.0-rc2` is committed, published on `origin`, and passes repeat blind audit. Tag **`grok-build-witness-v1.0.0-rc1`** remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a` (repeat audit verdict **NOT READY**).
+**Package status:** **NOT READY** pending fixed-tag repeat blind audit and required readiness
+gates. Canonical package tag: `grok-build-witness-v1.0.0-rc3` (availability verified by Git
+resolution; canonical execution requires successful resolution).
+`grok-build-witness-v1.0.0-rc2` remains fixed at `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`
+(integrated four-batch static blind audit verdict **NOT READY**).
+`grok-build-witness-v1.0.0-rc1` remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a`
+(repeat audit verdict **NOT READY**). Both are **immutable historical releases** and must not be
+moved, deleted, or force-updated.
 
-**Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`, `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must not** be run.
+**Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`,
+`--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must
+not** be run.
 
 ---
 
@@ -12,7 +21,7 @@
 |-------|--------|
 | Linux x86_64 host + Docker | **Canonical** |
 | WSL2 Linux shell + Docker Desktop (Linux containers) | **Canonical** |
-| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc2 |
+| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc3 |
 | Windows-native `cargo` | **BLOCKED** |
 | macOS Docker | **Unvalidated / noncanonical** |
 
@@ -20,19 +29,100 @@ All builds run **inside** `linux/amd64` Docker (`--platform linux/amd64`).
 
 ---
 
+## Canonical constants (immutable; never assigned from the environment)
+
+These live in `scripts/run_witness_narrow_build.sh` as `readonly` shell variables. Any
+`EFFECTIVE_*` value used for a run defaults to its canonical counterpart; an environment-variable
+override only takes effect when `--noncanonical-deviation` is also passed, and any accepted
+deviation sets `canonical_run=NO` for the whole run.
+
+| Constant | Value |
+|----------|-------|
+| `CANONICAL_WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
+| `CANONICAL_WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc3` |
+| `CANONICAL_GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
+| `CANONICAL_GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
+| `CANONICAL_RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
+| `CANONICAL_EXPECTED_CARGO_LOCK_SHA256` | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` |
+| `CANONICAL_BUILD_CMD` | `cargo build -p xai-grok-pager-bin --locked` |
+| `CANONICAL_EXPECTED_RUSTC_VERSION` | `1.92.0` |
+| `CANONICAL_EXPECTED_DOTSLASH_VERSION` | `0.5.7` |
+
+**Package commit authority:** the annotated tag. Canonical mode resolves
+`refs/tags/grok-build-witness-v1.0.0-rc3^{commit}`, checks out that commit detached,
+requires `HEAD` to equal the resolved commit, and requires a clean package clone.
+The tagged package does **not** embed its own future commit hash (C2E-4A).
+
+**Optional additional verification only:** `WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT` (env).
+When set to a full 40-char commit, it must equal the resolved tag commit and detached
+`HEAD`; mismatch is fatal. It is **not** required for canonical execution and must **not**
+be stored as a placeholder inside the fixed tagged package. Its absence does not weaken
+tag→HEAD consistency checks.
+
+## `--noncanonical-deviation`
+
+Any of the nine canonical fields above may be overridden via an identically-named environment variable
+(`WEAVER_FORGE_URL`, `WEAVER_FORGE_TAG`, `GROK_BUILD_URL`,
+`GROK_BUILD_COMMIT`, `RUST_IMAGE`, `EXPECTED_CARGO_LOCK_SHA256`, `BUILD_CMD`,
+`EXPECTED_RUSTC_VERSION`, `EXPECTED_DOTSLASH_VERSION`), but the override is only **accepted**
+when `--noncanonical-deviation` is also passed on the command line. Without the flag, any
+detected deviation is a **fatal error (exit `2`)** — the script refuses to silently run with an
+environment-variable override.
+
+When accepted:
+
+- `canonical_run=NO` is recorded in `HOST_RUN_METADATA.txt` and `WEAVER_FORGE_PACKAGE_IDENTITY.txt`.
+- Every changed field is listed in `DEVIATIONS.txt` under `--- changed identity fields ---`.
+- The proposed Witness verdict is capped at **PARTIAL** by default, escalated to **FAIL** for any
+  of `WEAVER_FORGE_TAG`, `GROK_BUILD_URL`, `GROK_BUILD_COMMIT`, `RUST_IMAGE`, `EXPECTED_CARGO_LOCK_SHA256`, or
+  `BUILD_CMD` — see [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md).
+- `--noncanonical-deviation` does **not** bypass tag→resolved-commit→detached-`HEAD` integrity
+  for the **effective** package tag. Effective tag and resolved commit are still recorded;
+  PASS remains prohibited.
+
+## `WITNESS_ID` regex
+
+```text
+^[a-z0-9][a-z0-9._-]{0,63}$
+```
+
+Also rejected regardless of regex match: path separators (`/`, `\`), the substring `..`,
+whitespace, control characters, or a leading dash. Violations exit `2` before any work directory
+or evidence file is touched.
+
+## `WORK_ROOT` safety
+
+`WORK_ROOT` is validated **before any deletion occurs**:
+
+- Must be an absolute path.
+- Resolved (symlinks in every existing path component followed) value must not equal `/`, the
+  resolved `$HOME`, `/home/<user>`, `/root`, a WSL drive-root mount (`/mnt/<letter>`), or any
+  system prefix (`/bin`, `/boot`, `/dev`, `/etc`, `/lib*`, `/proc`, `/run`, `/sbin`, `/sys`,
+  `/usr*`, `/var`).
+- Must not equal, contain, or be contained by the Weaver Forge package repository root.
+- A **non-empty** top-level `WORK_ROOT` is refused unless `--allow-nonempty-work-root` is passed;
+  even then, the exact managed deletion targets (`weaver-forge/`, `grok-build-src/`,
+  `cargo-home/`, `cargo-target/`, `bootstrap-cargo-target/`, `dotslash-cache/`, `home/`,
+  `bootstrap/`) are disclosed and either typed confirmation of the resolved path or
+  `--force-work-root-reset` is required before anything is deleted.
+
+---
+
 ## One copyable host block (Linux / WSL2 bash)
 
-Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and choose an **empty** work root **outside** any Weaver Forge clone.
+Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and choose an
+**empty** work root **outside** any Weaver Forge clone.
 
 ```bash
 export WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc2"
+export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc3"
 export GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
 export GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 export RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 export WORK_ROOT="/var/tmp/grok-witness-work"
 
-# After tag exists: clone Weaver Forge only to obtain scripts, or run from an existing checkout of the tagged commit.
+# After the rc3 tag exists: clone Weaver Forge only to obtain scripts, or run from an existing
+# checkout of the tagged commit.
 WF_CHECKOUT="/var/tmp/weaver-forge-tag-checkout"
 git clone "${WEAVER_FORGE_URL}" "${WF_CHECKOUT}"
 git -C "${WF_CHECKOUT}" fetch --tags origin
@@ -51,6 +141,11 @@ bash external_verifications/grok-build/witness-package/scripts/run_witness_narro
   YOUR_WITNESS_ID
 ```
 
+If the requested `WEAVER_FORGE_TAG` is not present on `origin`, the host script fails clearly
+with `exit 3` and records `WEAVER_FORGE_PACKAGE_IDENTITY.txt` with
+`reason=requested_tag_not_present_on_origin` plus the list of any `grok-build-witness-*` tags
+that **are** present.
+
 ### Run ID and evidence directory
 
 Format: `<witness-id>-<UTC-YYYYMMDD>-<short-run-id>`
@@ -61,7 +156,7 @@ Evidence directory (host helper default):
 ${WORK_ROOT}/evidence/<run-id>/
 ```
 
-Copy completed templates + logs into submission path per [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md).
+Copy completed templates + logs into the submission path per [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md).
 
 ---
 
@@ -78,6 +173,25 @@ Copy completed templates + logs into submission path per [WITNESS_SUBMISSION.md]
 | `HOME_DIR` | `home/` |
 | `BOOTSTRAP_DIR` | `bootstrap/` (LF protoc descriptor copy) |
 | `EVIDENCE_DIR` | `evidence/<run-id>/` |
+
+---
+
+## Evidence initialization (before any fallible operation)
+
+Before any host or container operation that can fail, every file in
+`MANDATORY_EVIDENCE_FILES` is initialized to:
+
+```text
+evidence_schema_version=1
+status=NOT_REACHED
+applicable=no
+reason=stage_not_reached
+product_executed=NO
+ldd_used=NO
+```
+
+This guarantees that an early failure still leaves a complete, honest, non-empty evidence set —
+no mandatory file is ever silently absent because a later stage never ran.
 
 ---
 
@@ -104,27 +218,64 @@ The host script runs **one** disposable container:
 | `PATH` | `/work/cargo-home/bin:` + image cargo paths |
 | `RUSTUP_HOME` | **Do not** set to empty work dir — preserve image toolchain; record effective value |
 
+**Docker image pull is fatal.** `docker pull --platform linux/amd64 <image>` failure of any kind
+aborts the run with `IMAGE_IDENTITY.txt` recording `status=FAILED`, outcome
+`INFRASTRUCTURE_FAILURE`, and **no** fallback to a cached/local image. Image identity (digest,
+platform) is also re-verified via `docker inspect` immediately before `docker run`; a mismatch
+aborts before the container starts.
+
+---
+
+## Outcome model
+
+Every run resolves to exactly one outcome, recorded consistently in `BUILD_EXIT_CODE.txt`,
+`DOCKER_EXIT_CODE.txt`, and `BUILD_TIMING.txt`:
+
+| Outcome | Meaning |
+|---------|---------|
+| `BUILD_NOT_STARTED` | Docker/bootstrap ran but cargo was never invoked |
+| `CARGO_FAILED` | Cargo started and exited non-zero |
+| `CARGO_SUCCEEDED_ARTIFACT_MISSING` | Cargo exited `0` but the expected artifact was not found |
+| `CARGO_SUCCEEDED_ARTIFACT_PRESENT` | Cargo exited `0` and the artifact was found and inspected |
+| `INFRASTRUCTURE_FAILURE` | An environment/infrastructure fault (not a cargo/bootstrap failure) prevented the build |
+
+See [WITNESS_REQUIREMENTS.md](WITNESS_REQUIREMENTS.md#outcome-model-outcome-sensitive-evidence)
+for the outcome-sensitivity table and [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) for
+how each outcome maps to a proposed verdict. **Truthful failure submissions are supported and
+expected** — a `BUILD_NOT_STARTED`, `CARGO_FAILED`, or `INFRASTRUCTURE_FAILURE` outcome, correctly
+and completely documented, is a valid Witness submission.
+
 ---
 
 ## Evidence filenames (required)
 
 | File | Role |
 |------|------|
-| `CONTAINER_STDOUT.txt` / `CONTAINER_STDERR.txt` | Full Docker capture |
-| `DOCKER_EXIT_CODE.txt` | Docker exit code |
-| `BUILD_STDOUT.txt` / `BUILD_STDERR.txt` | Cargo-only logs |
-| `BUILD_EXIT_CODE.txt` | Cargo exit + `cargo_started` |
-| `BUILD_TIMING.txt` | UTC start/end, elapsed, command |
-| `CLEAN_TARGET_PROOF.txt` | Host + container empty-target proof |
-| `WEAVER_FORGE_PACKAGE_IDENTITY.txt` | Tag + resolved Weaver commit |
-| `SOURCE_ACQUISITION.txt` | Clone/fetch/checkout commands and UTC times |
-| `IMAGE_IDENTITY.txt` | Digest-pinned pull + docker inspect |
+| `WEAVER_FORGE_PACKAGE_IDENTITY.txt` | Tag + resolved Weaver commit; `canonical_run` |
+| `SOURCE_ACQUISITION.txt` | Clone/fetch/checkout commands and UTC times (both repos) |
+| `SOURCE_IDENTITY.txt` | Grok pin + `Cargo.lock` hash (expected vs. observed) |
+| `IMAGE_IDENTITY.txt` | Digest-pinned pull + `docker inspect` |
 | `ENVIRONMENT.txt` | Host + container environment |
-| `SOURCE_IDENTITY.txt` | Grok pin + Cargo.lock hash |
-| `EVIDENCE_MANIFEST.sha256` | Checksum manifest (**final** after manual files) |
+| `BOOTSTRAP.txt` | apt, DotSlash 0.5.7, protoc descriptor hashes, `PROTOC` path |
+| `CLEAN_TARGET_PROOF.txt` | Host + container empty-target proof |
+| `BUILD_COMMAND.txt` | Exact cargo command; `CARGO_INCREMENTAL=0` |
+| `BUILD_ENVIRONMENT.txt` | `HOME`, `CARGO_*`, `DOTSLASH_CACHE`, `PROTOC`, mounts, network |
+| `CONTAINER_STDOUT.txt` / `CONTAINER_STDERR.txt` | Full Docker capture (raw; schema-exempt) |
+| `DOCKER_EXIT_CODE.txt` | Docker exit code; outcome; failure stage |
+| `BUILD_STDOUT.txt` / `BUILD_STDERR.txt` | Cargo-only logs (raw; schema-exempt) |
+| `BUILD_EXIT_CODE.txt` | Cargo exit; `cargo_started`; outcome; failure stage |
+| `BUILD_TIMING.txt` | UTC start/end, elapsed, outcome |
+| `ARTIFACT_IDENTITY.txt` | Path, size, SHA-256 when present; `reason` when absent |
+| `STATIC_ARTIFACT_INSPECTION.txt` | file/readelf/objdump when present; `reason` when absent |
+| `POST_BUILD_INTEGRITY.txt` | Before/after source and `Cargo.lock` |
+| `WITNESS_STATEMENT.md` | Identity, independence, AI assistance, human review |
+| `WITNESS_VERDICT.md` | Single line `Witness proposed verdict: PASS\|PARTIAL\|FAIL\|INDETERMINATE`; `maintainer_intake_verdict=pending` |
+| `DEVIATIONS.txt` | Procedure changes; severity + ceiling per deviation |
 | `REDACTIONS.md` | Redaction log |
+| `EVIDENCE_MANIFEST.sha256` | Checksum manifest (**final**, after manual files) |
+| `HOST_RUN_METADATA.txt` | Host-only auxiliary run record (**optional**; not required in the manifest) |
 
-See [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md) for the full list.
+See [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md) for the full normative list.
 
 ---
 
@@ -149,9 +300,11 @@ Noninteractive `apt-get install` (versions **not** pinned — record observed):
 cargo build -p xai-grok-pager-bin --locked
 ```
 
-With `CARGO_INCREMENTAL=0`. No `-j 2` in the canonical command (optional parallelism is a **noncanonical** deviation if used).
+With `CARGO_INCREMENTAL=0`. No `-j 2` in the canonical command (optional parallelism is a
+`NONMATERIAL_DISCLOSED` deviation if used, capped at PARTIAL).
 
-Separate `cargo fetch --locked` is **omitted**; fresh `CARGO_HOME` still requires network during the locked build. Completely offline reproduction is **NOT ESTABLISHED**.
+Separate `cargo fetch --locked` is **omitted**; fresh `CARGO_HOME` still requires network during
+the locked build. Completely offline reproduction is **NOT ESTABLISHED**.
 
 ---
 
@@ -159,35 +312,91 @@ Separate `cargo fetch --locked` is **omitted**; fresh `CARGO_HOME` still require
 
 | Condition | Behavior |
 |-----------|----------|
-| Missing `WEAVER_FORGE_TAG` on origin | Host script **exit 3** with clear message |
-| Non-empty `WORK_ROOT` | Refused unless `--allow-nonempty-work-root` |
-| Unsafe `WORK_ROOT` (`/`, `$HOME`, Weaver repo) | **exit 2** |
-| Non-empty Grok Build target before build | Stop; record failure; `BUILD_NOT_STARTED`; no Grok Build Cargo |
+| Missing `WEAVER_FORGE_TAG` on origin | Host script **exit 3** with clear message and the list of available `grok-build-witness-*` tags |
+| Non-empty `WORK_ROOT` | Refused unless `--allow-nonempty-work-root` (plus typed confirmation or `--force-work-root-reset`) |
+| Unsafe `WORK_ROOT` (`/`, `$HOME`, system prefix, WSL drive root, Weaver repo) | **exit 2** |
+| Weaver Forge package clone tree not clean, or commit mismatch (once pinned) | **exit 3** |
+| `Cargo.lock` SHA-256 mismatch before Docker | **exit 4** |
+| Grok Build source commit mismatch or dirty tree after checkout | **exit 4** |
+| Host pre-build target directory not empty | **exit 5** |
+| `docker pull` non-zero exit | **Fatal**; `INFRASTRUCTURE_FAILURE`; no fallback image |
+| Image identity/platform mismatch before `docker run` | **exit 8**; container never started |
+| Non-empty Grok Build target before build (in-container) | Stop; record failure; `BUILD_NOT_STARTED`; no Grok Build Cargo |
 | Bootstrap failure | `cargo_started=NO`, `BUILD_NOT_STARTED`, container exit ≠ 0 |
-| Source / lock change | FAIL classification per [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) |
+| Post-build integrity failure (source/lock changed) | Final exit code `9`; classification per [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) |
+| Any unexpected/uncaught failure | `ERR` trap records `UNEXPECTED_FAILURE` with `failing_stage` and best-effort outcome rather than leaving evidence silently incomplete |
 
 ---
 
 ## Optional / noncanonical alternatives
 
-Manual step-by-step Docker without the host script is **unvalidated**. Owner historical paths under `../evidence/` are **not** Witness commands.
+Manual step-by-step Docker without the host script is **unvalidated**. Owner historical paths
+under `../evidence/` are **not** Witness commands.
 
 ---
 
 ## Static inspection (after successful build only)
 
-Record path, size, SHA-256, `file`, `readelf -h`, `readelf -n`, `readelf -d`, `objdump -f`. **Never execute** the artifact. **`ldd` forbidden.**
+Applicable only when outcome is `CARGO_SUCCEEDED_ARTIFACT_PRESENT`. Record path, size, SHA-256,
+`file`, `readelf -h`, `readelf -n`, `readelf -d`, `objdump -f`. **Never execute** the artifact.
+**`ldd` forbidden.** For every other outcome, `STATIC_ARTIFACT_INSPECTION.txt` records
+`inspection_applicable=no` and `artifact_present=no` with a non-empty `reason`.
 
 ---
 
-## Evidence manifest lifecycle
+## Validator output stays outside `EVIDENCE_DIR`
 
-The host orchestrator writes a **preliminary** `EVIDENCE_MANIFEST.sha256` when automated capture finishes. Manual Witness files (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`) may still be incomplete.
+The structural validator (`scripts/validate_witness_evidence.py`) writes **only** to its own
+stdout/stderr. It never writes, creates, or modifies any file inside the evidence directory it
+validates. Validator invocations must capture their output **outside** `EVIDENCE_DIR` (e.g. to a
+separate log file or the terminal) at every stage of a run — before the preliminary manifest,
+before finalization, and for any re-run after redaction review. Never redirect validator
+stdout/stderr into `EVIDENCE_DIR`, and never write validator output into the evidence tree even
+after the final manifest has been generated.
 
-After **all** mandatory evidence files are finalized, regenerate the manifest from inside the evidence directory (excludes the manifest file itself):
+---
 
-```bash
-cd "${EVIDENCE_DIR}" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
-```
+## Evidence manifest lifecycle (exact)
 
-Run the structural validator only against the **final** manifest. The validator recomputes SHA-256 for every listed file and fails on mismatch, missing entries, unsafe paths, duplicates, or unlisted regular evidence files (see [scripts/VALIDATOR.md](scripts/VALIDATOR.md)).
+1. The host orchestrator writes a **preliminary** `EVIDENCE_MANIFEST.sha256` immediately after
+   automated capture finishes, covering only the automated evidence files. At this point the
+   manual files (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`)
+   may still be incomplete or absent from the manifest.
+2. The Witness completes every manual file.
+3. The Witness completes the redaction review per
+   [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md).
+4. The Witness regenerates the **final** manifest from inside the evidence directory (excludes
+   the manifest file itself):
+
+   ```bash
+   cd "${EVIDENCE_DIR}" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+   ```
+
+5. The structural validator is run **only** against this final manifest, with its own output
+   captured outside `EVIDENCE_DIR`. The validator recomputes SHA-256 for every listed file and
+   fails on mismatch, missing entries, unsafe paths, duplicates, symlinks, or an unlisted regular
+   evidence file (`HOST_RUN_METADATA.txt` is the sole documented optional exception — see
+   [scripts/VALIDATOR.md](scripts/VALIDATOR.md)).
+6. No further evidence-directory edits occur after step 5 passes; any correction after this point
+   follows [CORRECTION_LEDGER.md](CORRECTION_LEDGER.md), never an in-place edit of accepted
+   evidence.
+
+---
+
+## Package remains NOT READY until tag + re-audit
+
+This runbook describes the **procedure** a Witness would follow once the package is ready to
+execute. The package itself remains **NOT READY** for blind execution until:
+
+1. The `grok-build-witness-v1.0.0-rc3` annotated tag exists on `origin`, and
+2. A repeat blind audit against that exact tag confirms copyable executability.
+
+Do not attempt a live run of this runbook against `main` before the rc3 tag exists — the
+`WEAVER_FORGE_TAG` resolution step will fail with `exit 3` by design.
+
+## Change log
+
+| Version | Change |
+|---------|--------|
+| 1.0.0-rc2 | Prior canonical-platform, host-block, directory-layout, Docker-contract, bootstrap, build-command, failure-behavior, and manifest-lifecycle sections |
+| 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |

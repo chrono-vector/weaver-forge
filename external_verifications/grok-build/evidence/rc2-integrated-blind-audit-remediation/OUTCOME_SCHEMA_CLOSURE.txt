@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=OUTCOME_SCHEMA
+outcomes=BUILD_NOT_STARTED; CARGO_FAILED; CARGO_SUCCEEDED_ARTIFACT_MISSING; CARGO_SUCCEEDED_ARTIFACT_PRESENT; INFRASTRUCTURE_FAILURE
+STATIC_ARTIFACT_INSPECTION=always present; inspection_applicable=no when no artifact
+ARTIFACT_IDENTITY=applicable and presence fields required
+truthful_failure_submissions=supported
+status=CLOSED_IN_DRAFT

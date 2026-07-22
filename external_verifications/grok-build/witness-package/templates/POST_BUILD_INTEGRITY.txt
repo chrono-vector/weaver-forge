@@ -1,8 +1,9 @@
-# POST_BUILD_INTEGRITY.txt — required fields
+# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 source_head_before=
 source_head_after=
-source_clean_before=
-source_clean_after=
+source_clean_before=yes|no
+source_clean_after=yes|no
 cargo_lock_sha256_before=
 cargo_lock_sha256_after=
 source_or_lock_changed=yes|no

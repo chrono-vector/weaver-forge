@@ -1,11 +1,12 @@
-# SOURCE_IDENTITY.txt — required fields
-grok_build_url=https://github.com/xai-org/grok-build.git
+# SOURCE_IDENTITY.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 grok_build_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 grok_build_commit_observed=
+cargo_lock_sha256_expected=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+cargo_lock_sha256_observed=
+
+# Non-validated context fields (kept for human review; not schema-required):
 git_status_porcelain_before=
 git_status_porcelain_after=
-cargo_lock_sha256_expected=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
-cargo_lock_sha256_observed_before=
-cargo_lock_sha256_observed_after=
 source_clean=yes|no
 commit_proof_method=git rev-parse HEAD

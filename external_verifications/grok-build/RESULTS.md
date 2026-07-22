@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **owner-side through C2D-2 PASS axes; Witness package NOT READY (executability remediation); Independent Witness NOT_STARTED; overall PARTIAL** |
+| Results status | **owner-side through C2D-2 PASS axes; Witness package NOT READY (`1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; pending fixed-tag repeat blind audit); Independent Witness NOT_STARTED; overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-22` (C2E-1) |
+| Compilation date | `2026-07-22` (C2E-4) |
 | Linked reproduction run ID | C2E-1 `run-20260722-witness-package-readiness` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
@@ -39,6 +39,8 @@
 | Phase C2D-2 (static artifact variance) | **`PASS`** (15 identical / 30 differing sections; `.text` differs) |
 | Phase C2E-1 (Witness package readiness) | **READY WITH LIMITATIONS** (historical; superseded) |
 | Phase C2E-2 (Executability closure) | **NOT READY — remediation materials prepared; re-audit required** |
+| Phase C2E-3 (rc1 repeat blind audit intake) | **NOT READY** (audit intake recorded; rc1 preserved immutable) |
+| Phase C2E-4 (rc2 integrated four-batch static blind audit intake; rc3 package content) | **NOT READY** (audit intake recorded; rc2 preserved immutable; package version `1.0.0-rc3`; canonical tag `grok-build-witness-v1.0.0-rc3`) |
 
 ## 2. Per-Claim Results
 
@@ -57,17 +59,18 @@
 | C-011 | Auth documented | `PASS` | README |
 | C-012 | Broad/release build claims | `NOT_STARTED` | — |
 | C-013 | Validation cargo check | `PASS` | evidence/cargo-check/ |
-| C-017 | Container bootstrap | `PASS` | evidence/container-bootstrap/ |
+| C-014 | Independent witness | `NOT_STARTED` | — |
+| C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
+| C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
+| C-017 | Container bootstrap packages/DotSlash/protoc | `PASS` | evidence/container-bootstrap/ |
 | C-018 | Narrow cargo build | `PASS` | evidence/cargo-build/ |
 | C-019 | Static startup boundary (help/version) | `PARTIAL` | evidence/startup-boundary/ |
 | C-020 | Clean non-incremental narrow rebuild | `PASS` | evidence/clean-rebuild/ |
 | C-021 | Static artifact variance analysis (C2B-4 vs C2D-1) | `PASS` | evidence/artifact-variance/ |
 | C-022 | Independent Witness package readiness | `PASS` (C2E-1 audit only; **superseded for readiness**) | evidence/witness-package-readiness/ |
 | C-023 | Public blind audit intake | `PASS` (recording only) | evidence/public-blind-audit/ |
-| C-014 | Independent witness | `NOT_STARTED` | — |
-| C-015 | Windows host build env ready | `BLOCKED` | evidence/environment-readiness/ (C1) |
-| C-016 | Docker/Linux image+toolchain ready | `PASS` | evidence/container-toolchain/ |
-| C-017 | Container bootstrap packages/DotSlash/protoc | `PASS` | evidence/container-bootstrap/ |
+| C-024 | RC1 repeat blind audit intake | `PASS` (recording only; audit verdict **NOT READY**) | evidence/rc1-repeat-blind-audit/ |
+| C-025 | RC2 integrated four-batch static blind audit intake | `PASS` (recording only; audit verdict **NOT READY**) | evidence/rc2-static-blind-audit/; evidence/rc2-integrated-blind-audit-remediation/ |
 
 ## 3. Build Results
 
@@ -144,12 +147,14 @@
 
 | Status | Claims |
 |--------|-------:|
-| `NOT_STARTED` | 2 (C-012, C-014 Independent Witness) |
-| `PASS` | 19 (incl. C-013, C-016–C-018, C-020–C-023) |
-| `PARTIAL` | 1 (C-019 static startup) |
+| `NOT_STARTED` | 2 (C-012, C-014) |
+| `BLOCKED` | 1 (C-015) |
+| `PASS` | 20 (docs + C-013 + C-016–C-018 + C-020 + C-021 + C-023 + C-024 + C-025) |
+| `HISTORICAL SUPERSEDED` | 1 (C-022) |
+| `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
-| `BLOCKED` | 1 (C-015 Windows host) |
 | `NOT_APPLICABLE` | integrity sub-checks as above |
+| **Total** | **25** |
 
 ## 10. Owner-Side vs Independent Witness
 
@@ -238,6 +243,9 @@
 | 2026-07-22 | Phase C2D-1 clean non-incremental rebuild PASS (bit-identical not observed) |
 | 2026-07-22 | Phase C2D-2 static artifact variance analysis PASS | |
 | 2026-07-22 | Phase C2E-1 Witness package readiness READY WITH LIMITATIONS; C-014 still NOT_STARTED | |
+| 2026-07-22 | Phase C2E-2/C2E-3: public blind audit (C-023) and rc1 repeat blind audit (C-024) recorded; both NOT READY; package NOT READY | |
+| 2026-07-22 | Phase C2E-4: rc2 integrated four-batch static blind audit (C-025) recorded; verdict NOT READY; rc1 and rc2 preserved as immutable historical releases; package version `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; C-014 still NOT_STARTED; per-claim table de-duplicated and reordered; aggregate counts recalculated to 25 | |
+| 2026-07-22 | Phase C2E-4B: tagged-snapshot release-wording finalization (time-stable rc3 identity language; no normative “tag absent/pending” assertions) | |
 
 ---
 

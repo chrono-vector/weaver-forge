@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=WORK_ROOT_SAFETY
+requires=absolute path; canonical resolve; typed confirm or --force-work-root-reset for nonempty
+rejects=/; home; WSL drive roots; system prefixes; package repo; ancestors; dangerous symlinks
+prints=exact deletion targets
+default=empty WORK_ROOT only
+status=CLOSED_IN_DRAFT

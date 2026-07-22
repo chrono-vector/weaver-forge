@@ -1,0 +1,12 @@
+phase=C2E-4B
+closure=RC3_TAGGED_SNAPSHOT_WORDING_FINALIZATION
+rc2_stale_release_wording_defect=released rc2 tagged snapshot still used pre-release wording such as proposed tag / tag pending / tag does not exist
+rc3_time_stable_wording_policy=normative documents use canonical package tag name and tag-resolution verification language that remains correct before and after publication
+normative_vs_historical=normative/current release-facing files must not assert tag absent/pending as current fact; historical phase evidence may record pre-tag preparation state only when labelled HISTORICAL PRE-TAG STATE
+tag_resolution_authority=refs/tags/grok-build-witness-v1.0.0-rc3^{commit}
+tagged_snapshot_immutability=after publication must not move/delete/recreate/force-update; must not rewrite snapshot to insert own commit
+later_main_record_distinction=later main status/audit commits may observe tag target and audit results but are outside the rc3 tagged snapshot
+tests_added=ReleaseIdentityPolicyTests wording checks restricted to normative release-facing files
+package_status=NOT READY
+c014=NOT_STARTED
+overall=PARTIAL

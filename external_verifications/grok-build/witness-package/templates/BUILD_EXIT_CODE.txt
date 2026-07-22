@@ -1,7 +1,21 @@
-# BUILD_EXIT_CODE.txt — required fields
+# BUILD_EXIT_CODE.txt — required fields (evidence_schema_version=1)
+#
+# This file is the PREFERRED, authoritative source for `outcome`. Choose
+# exactly one outcome and fill the fields per this table (validator-enforced):
+#
+#   outcome                            | cargo_started | build_status              | cargo_exit_code
+#   ------------------------------------|----------------|---------------------------|----------------
+#   BUILD_NOT_STARTED                  | NO             | BUILD_NOT_STARTED         | N/A
+#   CARGO_FAILED                       | YES            | FAILED                    | <nonzero>
+#   CARGO_SUCCEEDED_ARTIFACT_MISSING   | YES            | COMPLETE                  | 0
+#   CARGO_SUCCEEDED_ARTIFACT_PRESENT   | YES            | COMPLETE                  | 0
+#   INFRASTRUCTURE_FAILURE             | NO             | INFRASTRUCTURE_FAILURE    | N/A
+#
+evidence_schema_version=1
 cargo_started=YES|NO
-build_status=COMPLETE|FAILED|BUILD_NOT_STARTED
+outcome=
+build_status=
 cargo_exit_code=
-failing_bootstrap_stage=
-docker_exit_code=
-product_executed=NO
+# failure_stage: non-empty description of where a failure occurred, or "N/A"
+# when outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT.
+failure_stage=

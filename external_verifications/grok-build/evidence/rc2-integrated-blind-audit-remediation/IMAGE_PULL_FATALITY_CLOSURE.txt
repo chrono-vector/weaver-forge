@@ -1,0 +1,8 @@
+﻿phase=C2E-4
+closure=IMAGE_PULL_FATALITY
+implementation=external_verifications/grok-build/witness-package/scripts/run_witness_narrow_build.sh
+behavior=docker pull stdout/stderr/exit captured; nonzero pull stops before inspect/run; no cached-image fallback after failed pull; truthful IMAGE_IDENTITY and failure evidence written before exit
+status=CLOSED_IN_DRAFT
+package_status=NOT READY
+c014=NOT_STARTED
+docker_executed_during_remediation=NO

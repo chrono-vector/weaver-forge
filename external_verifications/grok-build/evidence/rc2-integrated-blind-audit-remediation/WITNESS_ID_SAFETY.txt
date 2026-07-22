@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=WITNESS_ID_SAFETY
+regex=^[a-z0-9][a-z0-9._-]{0,63}$
+rejects=slash; backslash; ..; whitespace; control; empty components; leading dash
+tests=unit_or_shell_static_covered
+status=CLOSED_IN_DRAFT

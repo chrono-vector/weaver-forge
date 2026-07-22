@@ -1,0 +1,8 @@
+﻿phase=C2E-4
+closure=MISSING_ARTIFACT_FAILURE
+condition=cargo exit 0 AND target/debug/xai-grok-pager absent
+outcome=CARGO_SUCCEEDED_ARTIFACT_MISSING
+exit=dedicated nonzero (42)
+classification=FAIL
+host_and_container=must not report success
+status=CLOSED_IN_DRAFT

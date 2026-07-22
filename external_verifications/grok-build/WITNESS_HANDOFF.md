@@ -3,11 +3,13 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY (executability remediation); Independent Witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; Independent Witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-22` |
-| Verification-plan version / date | Phase C2E-1 2026-07-22 |
+| Verification-plan version / date | Phase C2E-4 2026-07-22 |
+| Current package version | `1.0.0-rc3` (canonical package tag `grok-build-witness-v1.0.0-rc3`; availability verified by annotated-tag resolution) |
+| Immutable historical releases | `grok-build-witness-v1.0.0-rc1` → NOT READY repeat audit (C-024); `grok-build-witness-v1.0.0-rc2` → NOT READY integrated four-batch static audit (C-025) |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 | **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
@@ -152,7 +154,13 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2D-2 done (owner-side):** static variance analysis of C2B-4 vs C2D-1 artifacts (no execution, no `ldd`, no rebuild). 15 identical / 30 differing sections; **`.text` differs**; GNU Build IDs differ (identifier of distinct linked outputs, not a root cause); embedded paths `/work/cargo-target` vs `/work/cargo-target-c2d1` (supported likely metadata contributor). Executable/relocation differences documented without isolating incremental-vs-clean as sole cause. **ARTIFACT VARIANCE ANALYSIS PASS**; root-cause confidence **LIKELY** (partial; unique full cause not established). Evidence: `evidence/artifact-variance/`.
 
-**C2E-1 done (owner-side package audit):** Independent Witness package prepared at `witness-package/` (public entry points, fixed identities, portable runbook, templates, classification, submission, redaction). Classification **WITNESS PACKAGE READY WITH LIMITATIONS**. **Independent Witness remains `NOT_STARTED`.** A new Witness must follow **`witness-package/README.md`** and **`WITNESS_RUNBOOK.md`** only — not owner `C:\dev\...` evidence paths.
+**C2E-1 done (owner-side package audit):** Independent Witness package prepared at `witness-package/` (public entry points, fixed identities, portable runbook, templates, classification, submission, redaction). Classification **WITNESS PACKAGE READY WITH LIMITATIONS** — this classification was later **superseded**. **Independent Witness remains `NOT_STARTED`.** A new Witness must follow **`witness-package/README.md`** and **`WITNESS_RUNBOOK.md`** only — not owner `C:\dev\...` evidence paths.
+
+**C2E-2/C2E-3 done (owner-side audit intake):** A public-entry-point blind audit (C-023) and a repeat blind audit against immutable tag `grok-build-witness-v1.0.0-rc1` (commit `89127c78c3a11492892de7e3b5f0dee18d71775a`; C-024) were recorded. Both audit verdicts were **NOT READY**. `grok-build-witness-v1.0.0-rc1` is preserved as an **immutable historical release**.
+
+**C2E-4 done (owner-side audit intake; rc3 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc2` (commit `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; C-025) was recorded. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc2` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake. Package version is **`1.0.0-rc3`**; canonical package tag is **`grok-build-witness-v1.0.0-rc3`** (availability verified by tag resolution). **Independent Witness (C-014) remains `NOT_STARTED`.**
+
+**C2E-4B (tagged-snapshot wording finalization):** Normative release-facing documents use time-stable identity language so the fixed tagged snapshot does not assert “tag absent/pending” as a current fact. Later `main`-branch status/audit records remain outside the tagged snapshot.
 
 ---
 
@@ -296,6 +304,9 @@ Independent verification; E4; build success; security; production readiness.
 | 2026-07-17 | Shell | Weaver Forge documentation package author |
 | 2026-07-17 | Phase B pin + identity commands frozen | Weaver Forge documentation package author |
 | 2026-07-17 | Phase C1 env readiness BLOCKED noted | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-2/C2E-3: public blind audit (C-023) and rc1 repeat blind audit (C-024) recorded; both NOT READY; rc1 preserved immutable | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-4: rc2 integrated four-batch static blind audit (C-025) recorded; verdict NOT READY; rc2 preserved immutable; package version `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; C-014 still NOT_STARTED | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-4B: tagged-snapshot release-wording finalization | Weaver Forge documentation package author |
 
 ---
 

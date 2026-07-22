@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=UNEXPECTED_FAILURE_TRAPS
+pre_cargo=cargo_started=NO; BUILD_NOT_STARTED or INFRASTRUCTURE_FAILURE; failing_stage; evidence updated
+post_cargo=preserve cargo exit; record stage; complete post-failure evidence
+no_overwrite=more specific classifications preserved over generic trap
+status=CLOSED_IN_DRAFT

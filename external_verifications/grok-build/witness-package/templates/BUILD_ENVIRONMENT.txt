@@ -1,17 +1,20 @@
-# BUILD_ENVIRONMENT.txt — required fields
+# BUILD_ENVIRONMENT.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 HOME=
 CARGO_HOME=
 CARGO_TARGET_DIR=
-BOOTSTRAP_CARGO_TARGET_DIR=
 CARGO_INCREMENTAL=0
 DOTSLASH_CACHE=
 PROTOC=
-RUSTUP_HOME_effective=
-PATH=
 docker_platform=linux/amd64
 network_mode=bridge
+rust_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+
+# Non-validated context fields (kept for human review; not schema-required):
+BOOTSTRAP_CARGO_TARGET_DIR=
+RUSTUP_HOME_effective=
+PATH=
 mount_src=/src:ro
 mount_work=/work:rw
 mount_evidence=/evidence:rw
 mount_container_script=/witness/container_narrow_build.sh:ro
-rust_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e

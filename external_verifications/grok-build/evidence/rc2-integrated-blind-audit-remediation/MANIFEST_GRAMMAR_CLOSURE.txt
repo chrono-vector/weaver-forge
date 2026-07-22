@@ -1,0 +1,5 @@
+﻿phase=C2E-4
+closure=MANIFEST_GRAMMAR
+preferred=<64 lowercase hex><two spaces>./<safe-relative-path>
+rejects=extra tokens; uppercase digest; abs paths; Windows drives; parent traversal; backslashes; self-entry; duplicates; unsafe names; missing files; wrong hashes; unlisted files; symlinks by default
+status=CLOSED_IN_DRAFT

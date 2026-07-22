@@ -1,0 +1,5 @@
+﻿phase=C2E-4
+closure=FAILURE_EVIDENCE_INITIALIZATION
+before_fallible_ops=initialize all automated mandatory evidence files
+defaults=evidence_schema_version=1; status=NOT_REACHED; applicable=no; reason=stage_not_reached
+status=CLOSED_IN_DRAFT

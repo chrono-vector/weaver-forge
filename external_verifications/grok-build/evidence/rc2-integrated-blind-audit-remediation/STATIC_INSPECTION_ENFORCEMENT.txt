@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=STATIC_INSPECTION
+required_commands=sha256sum; stat; file; readelf -h; readelf -n; readelf -d; objdump -f
+no_silent_or_true=YES
+failure=evidence incomplete; nonzero or verdict capped below PASS
+product_ldd=PROHIBITED
+status=CLOSED_IN_DRAFT

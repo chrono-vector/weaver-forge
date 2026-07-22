@@ -2,9 +2,13 @@
 
 | Field | Value |
 |-------|-------|
-| Package version | **1.0.0-rc2** |
-| Proposed release tag | **`grok-build-witness-v1.0.0-rc2`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
-| **Current package status** | **NOT READY** — rc2 tag pending; rc1 repeat blind audit **NOT READY** |
+| Package version | **1.0.0-rc3** |
+| Canonical package tag | **`grok-build-witness-v1.0.0-rc3`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
+| Package commit authority | **annotated_tag_resolution** |
+| **Current package status** | **NOT READY** — pending fixed-tag repeat blind audit and readiness gates |
+| Tag availability | Verified by resolving `refs/tags/grok-build-witness-v1.0.0-rc3^{commit}`; canonical execution requires successful resolution |
+| Immutable historical release: rc1 | `grok-build-witness-v1.0.0-rc1` → `89127c78c3a11492892de7e3b5f0dee18d71775a`; repeat blind audit verdict **NOT READY** |
+| Immutable historical release: rc2 | `grok-build-witness-v1.0.0-rc2` → `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; integrated four-batch static blind audit verdict **NOT READY** |
 | Historical C2E-1 status (superseded for readiness) | READY WITH LIMITATIONS — see blind audit intake |
 | Independent Witness (C-014) | **`NOT_STARTED`** |
 | Scope | Narrow clean rebuild of `xai-grok-pager-bin` only |
@@ -16,7 +20,7 @@
 
 An independent person (not the package owner) who rebuilds `xai-grok-pager` from public pins on **their own** Linux or WSL2 host using **linux/amd64** Docker.
 
-**PowerShell-native Witness execution is not canonical for 1.0.0-rc2.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
+**PowerShell-native Witness execution is not canonical for 1.0.0-rc3.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
 
 ## Canonical entry points
 
@@ -24,10 +28,11 @@ An independent person (not the package owner) who rebuilds `xai-grok-pager` from
 |------|--------|
 | Weaver Forge URL | `https://github.com/chrono-vector/weaver-forge.git` |
 | Package path | `external_verifications/grok-build/witness-package/` |
+| Canonical package tag | `grok-build-witness-v1.0.0-rc3` |
 | Grok Build URL | `https://github.com/xai-org/grok-build.git` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
-Do **not** start from an unpinned `main` tip alone. Resolve the **annotated package tag** (once published) or the maintainer-directed commit.
+Do **not** start from an unpinned `main` tip alone. Resolve the **annotated package tag** `grok-build-witness-v1.0.0-rc3` (or a maintainer-directed noncanonical override with explicit deviation disclosure).
 
 ## Fixed identities
 
@@ -55,10 +60,20 @@ Do **not** start from an unpinned `main` tip alone. Resolve the **annotated pack
 
 ## Explicit non-claims
 
-- **NOT READY** until tag + re-audit + successful blind run.
+- **NOT READY** until fixed-tag repeat blind audit and required readiness gates succeed.
 - C-014 Independent Witness **not started**.
 - No bit-identical reproducibility requirement vs owner hashes.
 - Upstream product commands (`grok`, login, agents, etc.) are **out of scope** and must not be run during Witness rebuild.
+- This package does not embed its own Weaver Forge commit hash; commit identity is resolved from the annotated tag at execution/audit time.
+
+## Historical immutable releases
+
+| Tag | Commit | Audit performed | Verdict |
+|-----|--------|------------------|---------|
+| `grok-build-witness-v1.0.0-rc1` | `89127c78c3a11492892de7e3b5f0dee18d71775a` | Repeat public-entry-point blind audit | **NOT READY** |
+| `grok-build-witness-v1.0.0-rc2` | `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e` | Integrated four-batch static blind audit | **NOT READY** |
+
+Both tags are immutable and must not be moved, deleted, or force-updated. Later `main`-branch status/audit records are outside the rc3 tagged snapshot; see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md).
 
 ## Owner artifact hashes (historical only)
 

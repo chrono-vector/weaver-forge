@@ -1,0 +1,15 @@
+phase=C2E-4A
+closure=RC3_SELF_REFERENCE_CORRECTION
+original_self_reference_risk=CANONICAL_WEAVER_FORGE_EXPECTED_COMMIT=PLACEHOLDER_UNTIL_RC3_TAGGED with a post-tag step to fill the package's own commit into a tracked file
+why_embedding_future_commit_is_invalid=editing the tagged tree to insert its own commit hash produces a different commit hash; the fixed rc3 tagged package must not require embedding its own future commit
+tag_resolution_authority=refs/tags/grok-build-witness-v1.0.0-rc3^{commit}
+detached_head_enforcement=HEAD must equal resolved tag commit; package_clone_detached=yes required
+package_clone_clean_enforcement=required after detached checkout
+embedded_expected_commit_removed=YES
+optional_external_expected_commit=WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT (additional only; mismatch fatal when supplied; absence does not weaken tag-to-HEAD checks; not stored as placeholder in tagged package)
+noncanonical_does_not_bypass_tag_head_integrity=YES
+immutable_tag_policy=rc3 must not be moved/amended/recreated/force-updated after publication; rc1 and rc2 remain immutable historical tags
+post_tag_main_status_record_distinction=later main status/audit records may observe the published tag target but are not part of the rc3 tagged snapshot; repeat blind audit inspects the rc3 tag not floating main
+package_status=NOT READY
+c014=NOT_STARTED
+overall=PARTIAL

@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=AUTHORITATIVE_SCHEMA
+normative=templates/
+aligned=generators; templates; WITNESS_PACKAGE_MANIFEST.md; validator; VALIDATOR.md; unit tests
+evidence_schema_version=1
+raw_logs_exempt=CONTAINER_STDOUT; CONTAINER_STDERR; BUILD_STDOUT; BUILD_STDERR
+status=CLOSED_IN_DRAFT

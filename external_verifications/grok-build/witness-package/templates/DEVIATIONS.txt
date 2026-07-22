@@ -1,6 +1,29 @@
-# DEVIATIONS.txt — required fields
-deviations_none=yes|no
-deviation_list=
+# DEVIATIONS.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
+
+# deviation_state must be exactly NONE or PRESENT.
+deviation_state=NONE
+
+# If deviation_state=PRESENT, enumerate each deviation with a unique index
+# <n> (e.g. 1, 2, 3, ...) and provide all four fields below for every index:
+#
+#   deviation_<n>_description=<what changed from the canonical procedure>
+#   deviation_<n>_severity=NONE|NONMATERIAL_DISCLOSED|MATERIAL_NONCANONICAL|PROHIBITED
+#   deviation_<n>_canonical_identity_impact=yes|no
+#   deviation_<n>_verdict_ceiling=PASS|PARTIAL|FAIL|INDETERMINATE
+#
+# Ceiling consistency enforced by the validator:
+#   severity=PROHIBITED            -> verdict_ceiling must be FAIL
+#   severity=MATERIAL_NONCANONICAL -> verdict_ceiling must not be PASS
+#   severity=NONMATERIAL_DISCLOSED or NONE -> no forced ceiling restriction
+#
+# Example (delete if deviation_state=NONE):
+# deviation_1_description=Used cargo -j 2 instead of default parallelism
+# deviation_1_severity=NONMATERIAL_DISCLOSED
+# deviation_1_canonical_identity_impact=no
+# deviation_1_verdict_ceiling=PASS
+
+# Non-validated context fields (kept for human review; not schema-required):
 canonical_build_command=cargo build -p xai-grok-pager-bin --locked
 cargo_incremental=0
 jobs_flag_used=no

@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=REDACTION_POLICY
+file=witness-package/WITNESS_SECURITY_AND_REDACTION.md
+nonmaterial_private_path_only_with_marker_and_log=YES
+absolute_rule=No redaction may hide, alter, or soften a material defect, deviation, mismatch, failure or independence conflict.
+status=CLOSED_IN_DRAFT

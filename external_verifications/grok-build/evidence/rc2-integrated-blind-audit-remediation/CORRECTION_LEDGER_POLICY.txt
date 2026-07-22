@@ -1,0 +1,7 @@
+﻿phase=C2E-4
+closure=CORRECTION_LEDGER
+file=witness-package/CORRECTION_LEDGER.md
+append_only=YES
+never_erase_original_negative_evidence=YES
+fields=original commit; original manifest sha256; correction commit; corrected manifest sha256; reason; affected files; supersession
+status=CLOSED_IN_DRAFT

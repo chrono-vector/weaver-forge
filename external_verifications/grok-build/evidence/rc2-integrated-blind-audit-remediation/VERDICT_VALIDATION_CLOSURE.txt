@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=VERDICT_VALIDATION
+exact_lines=Witness proposed verdict: PASS|PARTIAL|FAIL|INDETERMINATE
+case=exact uppercase only
+surrounding=run ID; package tag; Weaver Forge commit; Grok Build commit; product_executed=NO; ldd_used=NO; maintainer intake pending
+status=CLOSED_IN_DRAFT

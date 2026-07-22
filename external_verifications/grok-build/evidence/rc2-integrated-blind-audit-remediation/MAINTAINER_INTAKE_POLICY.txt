@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=MAINTAINER_INTAKE_POLICY
+file=witness-package/MAINTAINER_INTAKE_POLICY.md
+witness_verdict_distinct_from_intake=YES
+c014_transition_rule=documented
+status=CLOSED_IN_DRAFT

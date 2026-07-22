@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=CARGO_LOCK_ENFORCEMENT
+expected_sha256=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421
+before_docker=direct hash compare; nonzero stop on mismatch
+after_docker=repeat enforce unchanged; source HEAD and clean status unchanged
+status=CLOSED_IN_DRAFT

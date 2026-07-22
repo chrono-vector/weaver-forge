@@ -1,0 +1,6 @@
+﻿phase=C2E-4
+closure=DOCKER_EXIT_SCHEMA
+required_fields=docker_started_utc; docker_finished_utc; docker_exit_code; container_platform; network_mode; product_executed; ldd_used; outcome; failure_stage; evidence_schema_version
+bare_numeric_line=REJECTED
+BUILD_TIMING=docker and cargo timestamps; exits; outcome
+status=CLOSED_IN_DRAFT

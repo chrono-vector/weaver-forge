@@ -1,11 +1,14 @@
-# CLEAN_TARGET_PROOF.txt — required fields
+# CLEAN_TARGET_PROOF.txt — required fields (evidence_schema_version=1)
+evidence_schema_version=1
 cargo_target_dir_absolute=
-creation_utc_host=
-creation_utc_container=
 required_entry_count=0
 observed_entry_count_host=
 observed_entry_count_container=
+proof_failed=yes|no
+
+# Non-validated context fields (kept for human review; not schema-required):
+creation_utc_host=
+creation_utc_container=
 host_ls_la=
 host_find=
 container_find=
-proof_failed=yes|no

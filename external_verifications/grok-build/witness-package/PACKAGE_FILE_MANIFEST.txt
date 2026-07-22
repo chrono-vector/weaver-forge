@@ -1,5 +1,7 @@
 # Witness package file manifest (package-relative paths)
-# Version 1.0.0-rc2 — excludes binaries, caches, generated build artifacts
+# Version 1.0.0-rc3 — excludes binaries, caches, generated build artifacts
+# NOT READY: pending fixed-tag repeat blind audit and readiness gates; C-014 NOT_STARTED.
+# Canonical package tag: grok-build-witness-v1.0.0-rc3 (availability verified by tag resolution)
 
 README.md
 WITNESS_PACKAGE_VERSION.md
@@ -10,6 +12,9 @@ WITNESS_SUBMISSION.md
 WITNESS_SECURITY_AND_REDACTION.md
 WITNESS_PACKAGE_MANIFEST.md
 PACKAGE_FILE_MANIFEST.txt
+PACKAGE_READINESS_POLICY.md
+MAINTAINER_INTAKE_POLICY.md
+CORRECTION_LEDGER.md
 scripts/run_witness_narrow_build.sh
 scripts/container_narrow_build.sh
 scripts/validate_witness_evidence.py
@@ -35,6 +40,16 @@ templates/WITNESS_STATEMENT.md
 templates/WITNESS_VERDICT.md
 templates/REDACTIONS.md
 
-# Release tag policy: grok-build-witness-v1.0.0-rc2 (proposed; human-created after C2E-3 review)
-# rc1 tag grok-build-witness-v1.0.0-rc1 fixed at 89127c78c3a11492892de7e3b5f0dee18d71775a — NOT READY repeat audit
-# Evidence submissions require EVIDENCE_MANIFEST.sha256 + structural validator PASS
+# Release tag policy: canonical package tag grok-build-witness-v1.0.0-rc3
+#   (availability verified by annotated-tag resolution; package commit authority =
+#   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated
+#   after publication; later main status/audit records are outside the tagged snapshot)
+# rc2 tag grok-build-witness-v1.0.0-rc2 fixed at 255b357c9ee33c4a9e34b5d9b6e396c53cfe494e —
+#   NOT READY integrated four-batch static blind audit (immutable historical release)
+# rc1 tag grok-build-witness-v1.0.0-rc1 fixed at 89127c78c3a11492892de7e3b5f0dee18d71775a —
+#   NOT READY repeat audit (immutable historical release)
+# Evidence submissions require EVIDENCE_MANIFEST.sha256 (final, after manual files) + structural
+#   validator PASS (validator output captured outside EVIDENCE_DIR); see WITNESS_PACKAGE_MANIFEST.md
+# Package-level readiness: see PACKAGE_READINESS_POLICY.md (current: NOT READY)
+# Maintainer review of any submission: see MAINTAINER_INTAKE_POLICY.md
+# Corrections to accepted submissions: append-only via CORRECTION_LEDGER.md; never edit/erase originals

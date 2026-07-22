@@ -1,0 +1,14 @@
+﻿phase=C2E-4A
+closure=CANONICAL_IDENTITY_ENFORCEMENT
+canonical_tag=grok-build-witness-v1.0.0-rc3
+package_commit_authority=annotated_tag_resolution
+canonical_weaver_expected_commit_embedded=NO
+canonical_grok_build_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+canonical_rust_image=docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+noncanonical_requires=--noncanonical-deviation
+silent_env_override=REJECTED
+canonical_run_flag=YES|NO
+verdict_ceiling_noncanonical=PARTIAL_or_FAIL
+tag_to_head_integrity_not_bypassable_by_noncanonical=YES
+optional_external_expected_commit=WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT
+status=CLOSED_IN_DRAFT

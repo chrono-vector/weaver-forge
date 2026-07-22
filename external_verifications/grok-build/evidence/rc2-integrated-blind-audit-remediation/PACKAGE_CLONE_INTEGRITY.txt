@@ -1,0 +1,8 @@
+﻿phase=C2E-4A
+closure=PACKAGE_CLONE_INTEGRITY
+after_detach=record HEAD; clean status required; requested tag; resolved commit from annotated tag; detached state
+enforcement=HEAD must equal refs/tags/<tag>^{commit}; clean tree required
+rc3_embedded_expected_commit=NO
+optional_external_expected_commit=WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT (additional only)
+fields_in=WEAVER_FORGE_PACKAGE_IDENTITY.txt; SOURCE_ACQUISITION.txt
+status=CLOSED_IN_DRAFT
