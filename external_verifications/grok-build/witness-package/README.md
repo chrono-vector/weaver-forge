@@ -2,9 +2,9 @@
 
 | Field | Value |
 |-------|-------|
-| Package version | **1.0.0-rc1** |
-| Proposed release tag | **`grok-build-witness-v1.0.0-rc1`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
-| **Current package status** | **WITNESS PACKAGE NOT READY — EXECUTABILITY REMEDIATION IN PROGRESS** |
+| Package version | **1.0.0-rc2** |
+| Proposed release tag | **`grok-build-witness-v1.0.0-rc2`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
+| **Current package status** | **NOT READY** — rc2 tag pending; rc1 repeat blind audit **NOT READY** |
 | Historical C2E-1 status (superseded for readiness) | READY WITH LIMITATIONS — see blind audit intake |
 | Independent Witness (C-014) | **`NOT_STARTED`** |
 | Scope | Narrow clean rebuild of `xai-grok-pager-bin` only |
@@ -16,7 +16,7 @@
 
 An independent person (not the package owner) who rebuilds `xai-grok-pager` from public pins on **their own** Linux or WSL2 host using **linux/amd64** Docker.
 
-**PowerShell-native Witness execution is not canonical for 1.0.0-rc1.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
+**PowerShell-native Witness execution is not canonical for 1.0.0-rc2.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
 
 ## Canonical entry points
 

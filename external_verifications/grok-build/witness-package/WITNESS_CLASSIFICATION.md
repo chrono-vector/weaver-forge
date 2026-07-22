@@ -1,4 +1,4 @@
-# Witness classification — precedence (1.0.0-rc1)
+# Witness classification — precedence (1.0.0-rc2)
 
 Apply rules **in order**; first matching row governs the **proposed Witness verdict**. Maintainers assign **intake verdict** separately; disagreements stay visible.
 

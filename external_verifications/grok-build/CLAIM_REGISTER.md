@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; C-013/C-018/C-020–C-021/C-023 PASS; C-022 HISTORICAL PASS / CURRENT READINESS SUPERSEDED; C-019 PARTIAL; C-014 Independent Witness NOT_STARTED; Witness package NOT READY (executability); overall PARTIAL |
-| Register status | C-022 historical PASS superseded for readiness; C-023 audit intake PASS; C-014 still NOT_STARTED; C-019 PARTIAL; C-015 BLOCKED |
+| Current verification state | Windows BLOCKED; C-013/C-018/C-020–C-021/C-023/C-024 PASS; C-022 HISTORICAL PASS / CURRENT READINESS SUPERSEDED; C-019 PARTIAL; C-014 Independent Witness NOT_STARTED; Witness package NOT READY (rc1 repeat audit NOT READY; rc2 drafting); overall PARTIAL |
+| Register status | C-022 historical PASS superseded for readiness; C-023 prior blind-audit intake PASS; C-024 rc1 repeat audit intake PASS (audit verdict NOT READY); C-014 still NOT_STARTED; C-019 PARTIAL; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-22` (C2E-2) |
+| Last updated | `2026-07-22` (C2E-3) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -43,6 +43,7 @@
 | C-021 | Static variance between C2B-4 and C2D-1 artifacts is analyzed without product execution | `source_code_observation` | `PASS` |
 | C-022 | Independent Witness package readiness for public narrow rebuild | `publisher_statement` | `HISTORICAL PASS` / `CURRENT READINESS SUPERSEDED` |
 | C-023 | Public-entry-point blind audit of Witness package | `publisher_statement` | `PASS` |
+| C-024 | RC1 repeat public-entry-point blind audit | `publisher_statement` | `PASS` |
 
 ---
 
@@ -377,6 +378,19 @@
 | Evidence | `evidence/public-blind-audit/*`; `evidence/witness-runbook-executability-closure/*` |
 | What the result does not establish | Independent Witness; build success; that remediation closed all gaps without re-audit |
 
+### C-024 — RC1 repeat public-entry-point blind audit
+
+| Field | Value |
+|-------|-------|
+| Exact claim | A repeat public-entry-point blind audit reviewed the Witness package at immutable tag **`grok-build-witness-v1.0.0-rc1`** (commit `89127c78c3a11492892de7e3b5f0dee18d71775a`). The audit recorded material clean-target, evidence-generation, and validator gaps. |
+| Source of claim | C2E-3 static review; `evidence/rc1-repeat-blind-audit/` |
+| Evidence class | `publisher_statement` (documentation + static script review) |
+| Verification method | Record provenance, scope, findings, blockers; no build or script execution |
+| Actual result | Audit verdict **NOT READY**; C-014 remains **`NOT_STARTED`** |
+| Status | **`PASS`** (repeat audit completion and recording only — **not** package READY; **not** Independent Witness reproduction) |
+| Evidence | `evidence/rc1-repeat-blind-audit/*`; `evidence/rc1-blind-audit-defect-closure/*` |
+| What the result does not establish | Package readiness PASS; rc2 readiness; Independent Witness PASS |
+
 ### C-017 — Isolated container bootstrap (packages, DotSlash, protoc)
 
 | Field | Value |
@@ -401,12 +415,12 @@
 |--------|------:|
 | `NOT_STARTED` | 2 (C-012 full/release, C-014 Independent Witness) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 18 (11 docs + C-013 + C-016 + C-017 + C-018 + C-020 + C-021 + C-023) |
+| `PASS` | 19 (11 docs + C-013 + C-016 + C-017 + C-018 + C-020 + C-021 + C-023 + C-024) |
 | `HISTORICAL PASS` / `CURRENT READINESS SUPERSEDED` | 1 (C-022 C2E-1 audit only; current package readiness NOT READY) |
 | `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | 0 |
-| **Total** | 23 |
+| **Total** | 24 |
 
 Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL. C-012 remains for broader build claims. C-015 Windows BLOCKED. C-022 is counted only under historical superseded status, not as a current effective package-readiness PASS.
 
@@ -432,6 +446,7 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 - **C-021** static artifact variance analysis **`PASS`** (`.text` differs; path metadata supported contributor; Build ID difference is identifier not cause; unique full root cause not established).
 - **C-022** C2E-1 Witness package readiness audit **`HISTORICAL PASS` / `CURRENT READINESS SUPERSEDED`** (READY WITH LIMITATIONS **historical**); **current effective readiness NOT READY** (C2E-2 / C-023).
 - **C-023** Blind audit intake **`PASS`** (recording only); does not establish reproduction.
+- **C-024** RC1 repeat blind audit intake **`PASS`** (recording only; audit verdict **NOT READY**); does not establish package readiness.
 - **C-014 Independent Witness remains NOT_STARTED**.
 - C-012 full/release and functional claims remain open/unstarted.
 
@@ -460,7 +475,7 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 | 2026-07-22 | Phase C2D-2: C-021 artifact variance analysis `PASS` | Weaver Forge documentation package author |
 | 2026-07-22 | C2D-2 wording precision: Build ID not a root cause; `.text` not attributed to incremental-vs-clean alone | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2E-1: C-022 Witness package readiness PASS; C-014 remains NOT_STARTED | Weaver Forge documentation package author |
-| 2026-07-22 | Phase C2E-2: executability closure; C-023 blind audit intake; readiness corrected to NOT READY | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-3: rc1 repeat audit intake C-024; rc2 defect closure drafting; package NOT READY | Weaver Forge documentation package author |
 
 ---
 

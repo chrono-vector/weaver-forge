@@ -8,6 +8,7 @@ CANONICAL_BUILD_CMD="${CANONICAL_BUILD_CMD:-cargo build -p xai-grok-pager-bin --
 
 CARGO_HOME="/work/cargo-home"
 CARGO_TARGET_DIR="/work/cargo-target"
+BOOTSTRAP_CARGO_TARGET_DIR="/work/bootstrap-cargo-target"
 DOTSLASH_CACHE="/work/dotslash-cache"
 HOME="/work/home"
 BOOTSTRAP_DIR="/work/bootstrap"
@@ -29,6 +30,7 @@ record_env() {
     echo "HOME=${HOME}"
     echo "CARGO_HOME=${CARGO_HOME}"
     echo "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
+    echo "BOOTSTRAP_CARGO_TARGET_DIR=${BOOTSTRAP_CARGO_TARGET_DIR}"
     echo "CARGO_INCREMENTAL=${CARGO_INCREMENTAL:-unset}"
     echo "DOTSLASH_CACHE=${DOTSLASH_CACHE}"
     echo "PROTOC=${PROTOC:-unset}"
@@ -38,6 +40,27 @@ record_env() {
     echo "mounts=/src:ro,/work:rw,/evidence:rw,/witness/container_narrow_build.sh:ro"
     echo "working_directory=/src"
   } > "${EVIDENCE}/BUILD_ENVIRONMENT.txt"
+}
+
+append_clean_target_proof() {
+  local label="$1"
+  local target_dir="$2"
+  local count listing find_out
+  count="$(find "${target_dir}" -mindepth 1 2>/dev/null | wc -l | tr -d ' ')"
+  listing="$(ls -la "${target_dir}" 2>&1 || true)"
+  find_out="$(find "${target_dir}" -mindepth 1 -print 2>/dev/null || true)"
+  {
+    echo "--- ${label} ---"
+    echo "cargo_target_dir_absolute=${target_dir}"
+    echo "check_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "required_entry_count=0"
+    echo "observed_entry_count=${count}"
+    echo "--- ls -la ---"
+    echo "${listing}"
+    echo "--- find ---"
+    echo "${find_out}"
+  } >> "${EVIDENCE}/CLEAN_TARGET_PROOF.txt"
+  echo "${count}"
 }
 
 fail_bootstrap() {
@@ -53,31 +76,35 @@ fail_bootstrap() {
   exit 1
 }
 
-mkdir -p "${BOOTSTRAP_DIR}" "${CARGO_HOME}" "${CARGO_TARGET_DIR}" "${DOTSLASH_CACHE}" "${HOME}"
+fail_pre_grok_cargo() {
+  local stage="$1"
+  {
+    echo "cargo_started=NO"
+    echo "build_status=BUILD_NOT_STARTED"
+    echo "failing_pre_build_stage=${stage}"
+  } > "${EVIDENCE}/BUILD_EXIT_CODE.txt"
+  echo "BUILD_NOT_STARTED" > "${EVIDENCE}/BUILD_TIMING.txt"
+  : > "${EVIDENCE}/BUILD_STDOUT.txt"
+  : > "${EVIDENCE}/BUILD_STDERR.txt"
+  exit 1
+}
+
+mkdir -p "${BOOTSTRAP_DIR}" "${CARGO_HOME}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE}" "${HOME}"
 
 # Record RUSTUP_HOME without overriding image toolchain.
 if [[ -n "${RUSTUP_HOME:-}" ]]; then
   echo "RUSTUP_HOME is set in container env: ${RUSTUP_HOME} (not overridden by Witness script)" >> "${EVIDENCE}/BUILD_ENVIRONMENT.txt" || true
 fi
 
-# Empty target proof inside container (immediate pre-bootstrap).
-TARGET_COUNT="$(find "${CARGO_TARGET_DIR}" -mindepth 1 | wc -l | tr -d ' ')"
-{
-  echo "cargo_target_dir_absolute=${CARGO_TARGET_DIR}"
-  echo "check_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "required_entry_count=0"
-  echo "observed_entry_count=${TARGET_COUNT}"
-  echo "--- find ---"
-  find "${CARGO_TARGET_DIR}" -mindepth 1 -print 2>/dev/null || true
-} >> "${EVIDENCE}/CLEAN_TARGET_PROOF.txt"
-
+# Empty Grok Build target proof inside container (immediate pre-bootstrap).
+TARGET_COUNT="$(append_clean_target_proof "container_pre_bootstrap_grok_target" "${CARGO_TARGET_DIR}")"
 if [[ "${TARGET_COUNT}" != "0" ]]; then
-  echo "container target not empty" >&2
-  fail_bootstrap "empty_target_precheck"
+  echo "container Grok Build target not empty before bootstrap" >&2
+  fail_bootstrap "empty_grok_target_precheck"
 fi
 
 export DEBIAN_FRONTEND=noninteractive
-export CARGO_HOME CARGO_TARGET_DIR DOTSLASH_CACHE HOME
+export CARGO_HOME DOTSLASH_CACHE HOME
 export CARGO_INCREMENTAL=0
 
 # --- Bootstrap: apt packages (versions unpinned; record as limitation) ---
@@ -101,16 +128,19 @@ if ! apt-get install -y --no-install-recommends "${APT_PACKAGES[@]}"; then
 fi
 
 {
+  echo "bootstrap_cargo_target_dir=${BOOTSTRAP_CARGO_TARGET_DIR}"
+  echo "grok_build_cargo_target_dir=${CARGO_TARGET_DIR}"
   echo "--- apt policy (unpinned) ---"
   dpkg-query -W -f='${Package} ${Version}\n' "${APT_PACKAGES[@]}" 2>/dev/null || true
 } > "${EVIDENCE}/BOOTSTRAP.txt"
 
-# --- DotSlash 0.5.7 into isolated CARGO_HOME ---
-if ! cargo install dotslash --version 0.5.7 --locked --root "${CARGO_HOME}"; then
+# --- DotSlash 0.5.7 into isolated CARGO_HOME; install uses bootstrap target only ---
+if ! CARGO_TARGET_DIR="${BOOTSTRAP_CARGO_TARGET_DIR}" cargo install dotslash --version 0.5.7 --locked --root "${CARGO_HOME}"; then
   fail_bootstrap "dotslash_install"
 fi
 DOTSLASH_BIN="${CARGO_HOME}/bin/dotslash"
 {
+  echo "dotslash_cargo_target_dir_used=${BOOTSTRAP_CARGO_TARGET_DIR}"
   echo "dotslash_binary_path=${DOTSLASH_BIN}"
   echo "--- dotslash --version ---"
   "${DOTSLASH_BIN}" --version 2>&1 || true
@@ -148,6 +178,8 @@ if [[ "${PROTOC_VER_EXIT}" -ne 0 ]]; then
   fail_bootstrap "protoc_version_probe"
 fi
 
+# Grok Build operations use /work/cargo-target only (never bootstrap target).
+export CARGO_TARGET_DIR="/work/cargo-target"
 record_env
 
 # Record toolchain / OS (author commands executed during Witness run only).
@@ -181,6 +213,13 @@ fi
   echo "cargo_incremental=0"
   echo "cargo_fetch_separate_step=OMITTED (deps acquired during locked build; fresh CARGO_HOME)"
 } > "${EVIDENCE}/BUILD_COMMAND.txt"
+
+# Immediate pre-build empty Grok Build target recheck (required before cargo build).
+TARGET_COUNT="$(append_clean_target_proof "container_pre_grok_cargo_build" "${CARGO_TARGET_DIR}")"
+if [[ "${TARGET_COUNT}" != "0" ]]; then
+  echo "container Grok Build target not empty immediately before cargo build" >&2
+  fail_pre_grok_cargo "pre_build_empty_target_recheck"
+fi
 
 BUILD_START_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 BUILD_START_SEC="$(date +%s)"

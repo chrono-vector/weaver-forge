@@ -1,0 +1,7 @@
+RC2_RELEASE_IDENTITY_POLICY — C2E-3
+package_version=1.0.0-rc2
+proposed_tag=grok-build-witness-v1.0.0-rc2
+tag_created=NO
+rc1_fixed=89127c78c3a11492892de7e3b5f0dee18d71775a
+rc1_repeat_audit=NOT_READY
+package_ready=NO until rc2 committed tagged repeat_audited

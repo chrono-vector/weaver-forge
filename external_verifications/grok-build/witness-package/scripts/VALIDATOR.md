@@ -21,15 +21,29 @@ Exit code `0` means **structural PASS** only.
 - Truthfulness of logs or hashes
 - Independent Witness (C-014) completion
 
+## Required files
+
+Must match [WITNESS_PACKAGE_MANIFEST.md](../WITNESS_PACKAGE_MANIFEST.md), including `SOURCE_ACQUISITION.txt`, `IMAGE_IDENTITY.txt`, and `ENVIRONMENT.txt`.
+
 ## EVIDENCE_MANIFEST.sha256
 
-After collecting evidence files, generate from within the evidence directory:
+The host helper may write a **preliminary** manifest. After all mandatory evidence files are finalized, regenerate from within the evidence directory:
 
 ```bash
-find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+cd /path/to/evidence/run-id && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
 ```
 
-The host helper performs an equivalent step automatically.
+The validator **recomputes** SHA-256 for every manifest line, requires each mandatory file to be listed, rejects duplicate or unsafe paths, rejects listing the manifest itself, and **fails** on unlisted regular evidence files. `HOST_RUN_METADATA.txt` is optional in the manifest (host-only auxiliary).
+
+## WITNESS_VERDICT.md
+
+Exactly one selection line must appear:
+
+```text
+Witness proposed verdict: PASS
+```
+
+(or `PARTIAL`, `FAIL`, `INDETERMINATE`). Explanatory uses of those words elsewhere are ignored.
 
 ## Tests
 

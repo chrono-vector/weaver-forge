@@ -1,4 +1,4 @@
-# Witness submission — Grok Build (1.0.0-rc1)
+# Witness submission — Grok Build (1.0.0-rc2)
 
 ## Run ID
 
@@ -30,10 +30,10 @@ Independent Grok Build Witness: <run-id>
 
 | Field | Required |
 |-------|----------|
-| Package tag | e.g. `grok-build-witness-v1.0.0-rc1` |
+| Package tag | e.g. `grok-build-witness-v1.0.0-rc2` |
 | Resolved Weaver Forge commit | 40-char commit from tag |
 | Grok Build source commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Proposed verdict | PASS / PARTIAL / FAIL / INDETERMINATE |
+| Proposed verdict | Single selected line in `WITNESS_VERDICT.md`: `Witness proposed verdict: PASS|PARTIAL|FAIL|INDETERMINATE` |
 | `product_executed` | `NO` |
 | `ldd_used` | `NO` |
 | Deviations | Summary or pointer to `DEVIATIONS.txt` |
@@ -43,6 +43,9 @@ Independent Grok Build Witness: <run-id>
 - `EVIDENCE_MANIFEST.sha256`
 - `WEAVER_FORGE_PACKAGE_IDENTITY.txt`
 - `SOURCE_IDENTITY.txt`
+- `SOURCE_ACQUISITION.txt`
+- `IMAGE_IDENTITY.txt`
+- `ENVIRONMENT.txt`
 - Full set per [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md)
 - `REDACTIONS.md`
 
@@ -54,6 +57,16 @@ python external_verifications/grok-build/witness-package/scripts/validate_witnes
 ```
 
 Structural PASS does not prove execution or independence.
+
+## Final evidence manifest
+
+After all mandatory files (including `WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`) are complete, regenerate:
+
+```bash
+cd external_verifications/grok-build/witness-submissions/<run-id> && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+```
+
+Do not include `EVIDENCE_MANIFEST.sha256` in its own hash list. Re-run the structural validator against the final manifest.
 
 ## Corrections policy
 

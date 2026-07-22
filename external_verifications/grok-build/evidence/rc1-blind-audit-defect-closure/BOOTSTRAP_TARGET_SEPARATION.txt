@@ -1,0 +1,6 @@
+BOOTSTRAP_TARGET_SEPARATION — C2E-3
+BOOTSTRAP_CARGO_TARGET_DIR=/work/bootstrap-cargo-target
+GROK_CARGO_TARGET_DIR=/work/cargo-target
+dotslash_install_uses=bootstrap target only via CARGO_TARGET_DIR override
+recorded_in=BOOTSTRAP.txt,BUILD_ENVIRONMENT.txt
+host_work_root_dir=bootstrap-cargo-target under WORK_ROOT

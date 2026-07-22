@@ -1,6 +1,6 @@
-# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc1)
+# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc2)
 
-**Package status:** NOT READY until annotated tag `grok-build-witness-v1.0.0-rc1` exists and re-audit passes. This runbook is the canonical procedure once the tag is published.
+**Package status:** **NOT READY** until annotated tag `grok-build-witness-v1.0.0-rc2` is committed, published on `origin`, and passes repeat blind audit. Tag **`grok-build-witness-v1.0.0-rc1`** remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a` (repeat audit verdict **NOT READY**).
 
 **Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`, `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must not** be run.
 
@@ -12,7 +12,7 @@
 |-------|--------|
 | Linux x86_64 host + Docker | **Canonical** |
 | WSL2 Linux shell + Docker Desktop (Linux containers) | **Canonical** |
-| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc1 |
+| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc2 |
 | Windows-native `cargo` | **BLOCKED** |
 | macOS Docker | **Unvalidated / noncanonical** |
 
@@ -26,7 +26,7 @@ Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and
 
 ```bash
 export WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc1"
+export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc2"
 export GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
 export GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 export RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
@@ -72,7 +72,8 @@ Copy completed templates + logs into submission path per [WITNESS_SUBMISSION.md]
 | `WF_DIR` | `weaver-forge/` (fresh clone; resolves tag) |
 | `SRC_DIR` | `grok-build-src/` (fresh clone at pin) |
 | `CARGO_HOME_DIR` | `cargo-home/` |
-| `CARGO_TARGET_DIR` | `cargo-target/` (must start empty) |
+| `CARGO_TARGET_DIR` | `cargo-target/` (Grok Build only; must be empty before build) |
+| `BOOTSTRAP_CARGO_TARGET_DIR` | `bootstrap-cargo-target/` (DotSlash `cargo install` only) |
 | `DOTSLASH_CACHE_DIR` | `dotslash-cache/` |
 | `HOME_DIR` | `home/` |
 | `BOOTSTRAP_DIR` | `bootstrap/` (LF protoc descriptor copy) |
@@ -96,7 +97,8 @@ The host script runs **one** disposable container:
 | `-w` | `/src` |
 | `HOME` | `/work/home` |
 | `CARGO_HOME` | `/work/cargo-home` |
-| `CARGO_TARGET_DIR` | `/work/cargo-target` |
+| `CARGO_TARGET_DIR` | `/work/cargo-target` (Grok Build Cargo only) |
+| `BOOTSTRAP_CARGO_TARGET_DIR` | `/work/bootstrap-cargo-target` (DotSlash install only) |
 | `CARGO_INCREMENTAL` | `0` |
 | `DOTSLASH_CACHE` | `/work/dotslash-cache` |
 | `PATH` | `/work/cargo-home/bin:` + image cargo paths |
@@ -115,8 +117,11 @@ The host script runs **one** disposable container:
 | `BUILD_TIMING.txt` | UTC start/end, elapsed, command |
 | `CLEAN_TARGET_PROOF.txt` | Host + container empty-target proof |
 | `WEAVER_FORGE_PACKAGE_IDENTITY.txt` | Tag + resolved Weaver commit |
+| `SOURCE_ACQUISITION.txt` | Clone/fetch/checkout commands and UTC times |
+| `IMAGE_IDENTITY.txt` | Digest-pinned pull + docker inspect |
+| `ENVIRONMENT.txt` | Host + container environment |
 | `SOURCE_IDENTITY.txt` | Grok pin + Cargo.lock hash |
-| `EVIDENCE_MANIFEST.sha256` | Checksum manifest |
+| `EVIDENCE_MANIFEST.sha256` | Checksum manifest (**final** after manual files) |
 | `REDACTIONS.md` | Redaction log |
 
 See [WITNESS_PACKAGE_MANIFEST.md](WITNESS_PACKAGE_MANIFEST.md) for the full list.
@@ -131,7 +136,7 @@ Noninteractive `apt-get install` (versions **not** pinned — record observed):
 
 | Component | Pin |
 |-----------|-----|
-| DotSlash | `cargo install dotslash --version 0.5.7 --locked` into isolated `CARGO_HOME` |
+| DotSlash | `CARGO_TARGET_DIR=/work/bootstrap-cargo-target cargo install dotslash --version 0.5.7 --locked` into isolated `CARGO_HOME` (must **not** write to `/work/cargo-target`) |
 | protoc | Copy `/src/bin/protoc` → writable LF file under `/work/bootstrap/`; `chmod +x`; `export PROTOC=<that path>`; version probe via descriptor only |
 
 **Do not** modify `/src`. **Do not** run the product binary.
@@ -157,7 +162,7 @@ Separate `cargo fetch --locked` is **omitted**; fresh `CARGO_HOME` still require
 | Missing `WEAVER_FORGE_TAG` on origin | Host script **exit 3** with clear message |
 | Non-empty `WORK_ROOT` | Refused unless `--allow-nonempty-work-root` |
 | Unsafe `WORK_ROOT` (`/`, `$HOME`, Weaver repo) | **exit 2** |
-| Non-empty target before build | Stop; record failure; no Cargo |
+| Non-empty Grok Build target before build | Stop; record failure; `BUILD_NOT_STARTED`; no Grok Build Cargo |
 | Bootstrap failure | `cargo_started=NO`, `BUILD_NOT_STARTED`, container exit ≠ 0 |
 | Source / lock change | FAIL classification per [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md) |
 
@@ -172,3 +177,17 @@ Manual step-by-step Docker without the host script is **unvalidated**. Owner his
 ## Static inspection (after successful build only)
 
 Record path, size, SHA-256, `file`, `readelf -h`, `readelf -n`, `readelf -d`, `objdump -f`. **Never execute** the artifact. **`ldd` forbidden.**
+
+---
+
+## Evidence manifest lifecycle
+
+The host orchestrator writes a **preliminary** `EVIDENCE_MANIFEST.sha256` when automated capture finishes. Manual Witness files (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`) may still be incomplete.
+
+After **all** mandatory evidence files are finalized, regenerate the manifest from inside the evidence directory (excludes the manifest file itself):
+
+```bash
+cd "${EVIDENCE_DIR}" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+```
+
+Run the structural validator only against the **final** manifest. The validator recomputes SHA-256 for every listed file and fails on mismatch, missing entries, unsafe paths, duplicates, or unlisted regular evidence files (see [scripts/VALIDATOR.md](scripts/VALIDATOR.md)).

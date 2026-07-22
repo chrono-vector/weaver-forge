@@ -1,0 +1,7 @@
+FINAL_MANIFEST_LIFECYCLE — C2E-3
+preliminary=host orchestrator first manifest
+final_required_after=WITNESS_STATEMENT.md,WITNESS_VERDICT.md,DEVIATIONS.txt,REDACTIONS.md
+regenerate_command=cd "${EVIDENCE_DIR}" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+exclude_self=yes
+validator_verifies_final=yes
+documented_in=WITNESS_RUNBOOK.md,WITNESS_PACKAGE_MANIFEST.md,WITNESS_SUBMISSION.md,scripts/VALIDATOR.md

@@ -1,0 +1,7 @@
+RC1_AUDIT_INTAKE — C2E-3
+source=evidence/rc1-repeat-blind-audit/
+tag=grok-build-witness-v1.0.0-rc1
+tag_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
+verdict=NOT_READY
+c014=NOT_STARTED
+execution=documentation_and_static_scripts_only

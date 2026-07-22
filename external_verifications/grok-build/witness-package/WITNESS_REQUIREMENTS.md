@@ -1,4 +1,4 @@
-# Witness requirements — Grok Build narrow rebuild (1.0.0-rc1)
+# Witness requirements — Grok Build narrow rebuild (1.0.0-rc2)
 
 ## Current package status
 
@@ -8,7 +8,7 @@ C2E-1 recorded **READY WITH LIMITATIONS** (superseded for current readiness). C-
 
 ## Canonical platform
 
-| Environment | Witness 1.0.0-rc1 |
+| Environment | Witness 1.0.0-rc2 |
 |-------------|---------------------|
 | Linux x86_64 + Docker | **Canonical** |
 | WSL2 bash + Docker Desktop Linux containers | **Canonical** |
@@ -24,7 +24,7 @@ Container platform: **`linux/amd64`**.
 |-------------|------|
 | Person | Not the owner / package author |
 | Host | Witness-owned machine, VM, or cloud |
-| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc1` (once published) |
+| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc2` (once published) |
 | Grok source | Fresh clone at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Target | New empty `CARGO_TARGET_DIR` |
 | Owner caches | **Forbidden** as inputs |

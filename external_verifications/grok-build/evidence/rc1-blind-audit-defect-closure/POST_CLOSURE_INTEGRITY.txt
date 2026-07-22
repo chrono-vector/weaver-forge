@@ -1,0 +1,11 @@
+POST_CLOSURE_INTEGRITY — C2E-3
+rc1_tag_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
+rc1_tag_moved=NO
+rc2_tag_created=NO
+docker_run=NO
+cargo_run=NO
+witness_scripts_run=NO
+commit=NO
+push=NO
+c014=NOT_STARTED
+package_status=NOT_READY

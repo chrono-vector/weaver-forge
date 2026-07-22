@@ -1,4 +1,4 @@
-# Security and redaction — Witness package (1.0.0-rc1)
+# Security and redaction — Witness package (1.0.0-rc2)
 
 ## Before staging or opening a PR
 

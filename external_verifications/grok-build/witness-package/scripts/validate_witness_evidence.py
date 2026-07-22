@@ -16,14 +16,23 @@ from pathlib import Path
 COMMIT_RE = re.compile(r"(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 VERDICT_VALUES = frozenset({"PASS", "PARTIAL", "FAIL", "INDETERMINATE"})
+VERDICT_LINE_RE = re.compile(
+    r"^Witness proposed verdict:\s*(\S+)\s*$",
+    re.MULTILINE,
+)
 FORBIDDEN_PLACEHOLDERS = ("TODO", "FILL_ME", "<replace-me>")
 
 EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 EXACT_BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
+MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
+
+# Optional host-only files not required in manifest (documented in VALIDATOR.md).
+MANIFEST_OPTIONAL_EVIDENCE = frozenset({"HOST_RUN_METADATA.txt"})
 
 REQUIRED_FILES = (
     "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+    "SOURCE_ACQUISITION.txt",
     "SOURCE_IDENTITY.txt",
     "IMAGE_IDENTITY.txt",
     "ENVIRONMENT.txt",
@@ -42,7 +51,7 @@ REQUIRED_FILES = (
     "STATIC_ARTIFACT_INSPECTION.txt",
     "POST_BUILD_INTEGRITY.txt",
     "DEVIATIONS.txt",
-    "EVIDENCE_MANIFEST.sha256",
+    MANIFEST_NAME,
     "REDACTIONS.md",
     "WITNESS_STATEMENT.md",
     "WITNESS_VERDICT.md",
@@ -59,6 +68,104 @@ def fail(errors: list[str], msg: str) -> None:
 
 def find_commit(text: str) -> list[str]:
     return COMMIT_RE.findall(text.lower())
+
+
+def normalize_manifest_path(raw: str) -> str | None:
+    """Return safe relative path from sha256sum line, or None if unsafe."""
+    path = raw.strip()
+    if not path:
+        return None
+    if path.startswith("./"):
+        path = path[2:]
+    if path.startswith("/") or re.match(r"^[A-Za-z]:", path):
+        return None
+    if ".." in path.split("/"):
+        return None
+    if path == MANIFEST_NAME:
+        return None
+    if not re.match(r"^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*$", path):
+        return None
+    return path
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def parse_verdict_selection(text: str) -> tuple[list[str], list[str]]:
+    """Return (matches, errors) for Witness proposed verdict line."""
+    errors: list[str] = []
+    matches = VERDICT_LINE_RE.findall(text)
+    if not matches:
+        errors.append("Missing or invalid 'Witness proposed verdict:' selection line")
+    elif len(matches) > 1:
+        errors.append("Duplicate 'Witness proposed verdict:' selection lines")
+    else:
+        value = matches[0].upper()
+        if value not in VERDICT_VALUES:
+            errors.append(f"Invalid witness proposed verdict value: {value}")
+        matches = [value if value in VERDICT_VALUES else matches[0]]
+    return matches, errors
+
+
+def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
+    manifest_path = evidence_dir / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return
+
+    listed: dict[str, str] = {}
+    for line_no, line in enumerate(read_text(manifest_path).splitlines(), start=1):
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            fail(errors, f"{MANIFEST_NAME}:{line_no}: malformed line")
+            continue
+        digest, raw_path = parts[0], parts[-1]
+        if not SHA256_RE.match(digest):
+            fail(errors, f"{MANIFEST_NAME}:{line_no}: hash not 64-char lowercase hex")
+            continue
+        rel = normalize_manifest_path(raw_path)
+        if rel is None:
+            fail(errors, f"{MANIFEST_NAME}:{line_no}: unsafe or forbidden path {raw_path!r}")
+            continue
+        if rel in listed:
+            fail(errors, f"{MANIFEST_NAME}: duplicate entry for {rel}")
+            continue
+        listed[rel] = digest
+
+    for req in REQUIRED_FILES:
+        if req == MANIFEST_NAME:
+            continue
+        if req not in listed:
+            fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
+
+    for rel, expected in listed.items():
+        target = evidence_dir / rel
+        if not target.is_file():
+            fail(errors, f"{MANIFEST_NAME}: listed file missing on disk: {rel}")
+            continue
+        actual = sha256_file(target)
+        if actual != expected:
+            fail(errors, f"{MANIFEST_NAME}: hash mismatch for {rel}")
+
+    for path in evidence_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(evidence_dir).as_posix()
+        if rel == MANIFEST_NAME:
+            continue
+        if rel in MANIFEST_OPTIONAL_EVIDENCE:
+            continue
+        if rel not in listed:
+            fail(
+                errors,
+                f"Unlisted regular evidence file (policy: structural FAIL): {rel}",
+            )
 
 
 def validate_dir(evidence_dir: Path) -> list[str]:
@@ -109,8 +216,9 @@ def validate_dir(evidence_dir: Path) -> list[str]:
     verdict_path = evidence_dir / "WITNESS_VERDICT.md"
     if verdict_path.is_file():
         vt = read_text(verdict_path)
-        if not any(v in vt for v in VERDICT_VALUES):
-            fail(errors, "WITNESS_VERDICT.md lacks PASS/PARTIAL/FAIL/INDETERMINATE")
+        _, verdict_errors = parse_verdict_selection(vt)
+        for e in verdict_errors:
+            fail(errors, e)
 
     for name in ("SOURCE_IDENTITY.txt", "WEAVER_FORGE_PACKAGE_IDENTITY.txt"):
         p = evidence_dir / name
@@ -119,13 +227,7 @@ def validate_dir(evidence_dir: Path) -> list[str]:
             if not commits:
                 fail(errors, f"No 40-char commit in {name}")
 
-    manifest = evidence_dir / "EVIDENCE_MANIFEST.sha256"
-    if manifest.is_file() and manifest.stat().st_size > 0:
-        for line in read_text(manifest).splitlines():
-            parts = line.split()
-            if len(parts) >= 1 and parts[0] and not SHA256_RE.match(parts[0]):
-                fail(errors, "EVIDENCE_MANIFEST.sha256 contains non-SHA256 line")
-                break
+    validate_manifest(evidence_dir, errors)
 
     return errors
 

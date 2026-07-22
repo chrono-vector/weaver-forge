@@ -1,0 +1,4 @@
+MANIFEST_HASH_VALIDATION_CLOSURE — C2E-3
+validator=validate_witness_evidence.py
+checks=parse_lines,64hex,safe_relative_paths,no_absolute,no_parent_traversal,no_duplicates,no_self_hash,mandatory_entries,recompute_sha256,missing_file,mismatch,unlisted_regular_files_fail
+tests=valid_manifest,wrong_hash,missing_entry,duplicate,unsafe_path

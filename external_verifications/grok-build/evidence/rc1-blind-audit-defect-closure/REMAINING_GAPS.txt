@@ -1,0 +1,7 @@
+REMAINING_GAPS — C2E-3
+1=rc2 tag not created
+2=rc2 changes not committed (C2E-3 staged only)
+3=repeat blind audit of rc2 not performed
+4=C-014 Independent Witness NOT_STARTED
+5=actual witness run not executed in this phase
+6=READY not claimed

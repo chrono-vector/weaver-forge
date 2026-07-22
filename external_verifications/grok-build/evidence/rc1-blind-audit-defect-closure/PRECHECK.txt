@@ -1,0 +1,15 @@
+PHASE=C2E-3 RC1 BLIND-AUDIT DEFECT CLOSURE
+utc_recorded=2026-07-22T10:00:00Z
+working_directory=C:/dev/weaver-forge
+branch=main
+head_full=89127c78c3a11492892de7e3b5f0dee18d71775a
+origin_main=89127c78c3a11492892de7e3b5f0dee18d71775a
+working_tree=clean
+local_rc1_tag_object=373059ae259370ded2d598dfece1596c8c99d126
+local_rc1_tag_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
+remote_rc1_tag_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
+expected_head=89127c78c3a11492892de7e3b5f0dee18d71775a
+precheck_result=PASS
+docker_executed=NO
+cargo_executed=NO
+witness_scripts_executed=NO

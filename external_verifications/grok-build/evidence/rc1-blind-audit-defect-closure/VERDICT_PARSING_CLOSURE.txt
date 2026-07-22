@@ -1,0 +1,6 @@
+VERDICT_PARSING_CLOSURE — C2E-3
+field=Witness proposed verdict: PASS|PARTIAL|FAIL|INDETERMINATE
+exactly_one=yes
+validator_ignores=narrative PASS/PARTIAL/FAIL/INDETERMINATE elsewhere
+template_updated=WITNESS_VERDICT.md
+tests=valid,missing,duplicate,invalid_value

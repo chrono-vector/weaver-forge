@@ -1,0 +1,6 @@
+PRE_BUILD_EMPTY_TARGET_RECHECK — C2E-3
+stage=container_pre_grok_cargo_build
+proof_file=CLEAN_TARGET_PROOF.txt
+required_entry_count=0
+on_failure=BUILD_NOT_STARTED,no_grok_build_cargo
+fields=absolute_path,utc,ls,find,entry_count

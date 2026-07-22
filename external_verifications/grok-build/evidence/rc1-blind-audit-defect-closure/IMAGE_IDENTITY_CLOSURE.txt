@@ -1,0 +1,6 @@
+IMAGE_IDENTITY_CLOSURE — C2E-3
+generator=run_witness_narrow_build.sh
+output=IMAGE_IDENTITY.txt
+fields=utc_acquisition,requested_image,requested_digest,pull_exit,docker_versions,image_id,repo_digests,os,arch,platform,inspect_command
+digest_pin=sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e
+docker_executed_during_c2e3=NO

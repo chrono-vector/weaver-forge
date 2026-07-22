@@ -1,0 +1,5 @@
+CLEAN_TARGET_DEFECT_CLOSURE — C2E-3
+defect=DotSlash cargo install shared Grok Build CARGO_TARGET_DIR at rc1
+correction=bootstrap target isolated; Grok target rechecked before cargo build
+scripts_updated=container_narrow_build.sh,run_witness_narrow_build.sh
+docker_executed=NO

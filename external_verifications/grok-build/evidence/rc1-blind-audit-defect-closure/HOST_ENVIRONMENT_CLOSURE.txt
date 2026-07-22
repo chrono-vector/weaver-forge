@@ -1,0 +1,6 @@
+HOST_ENVIRONMENT_CLOSURE — C2E-3
+generator=run_witness_narrow_build.sh record_host_environment
+output=ENVIRONMENT.txt
+optional_missing=explicit UNKNOWN
+fields=utc,host_os,kernel,arch,cpu,ram,disk,docker_client_server,context,platform,wsl2_indicator
+container_portion=appended by container script during witness run

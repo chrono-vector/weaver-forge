@@ -1,5 +1,5 @@
 # Witness package file manifest (package-relative paths)
-# Version 1.0.0-rc1 — excludes binaries, caches, generated build artifacts
+# Version 1.0.0-rc2 — excludes binaries, caches, generated build artifacts
 
 README.md
 WITNESS_PACKAGE_VERSION.md
@@ -35,5 +35,6 @@ templates/WITNESS_STATEMENT.md
 templates/WITNESS_VERDICT.md
 templates/REDACTIONS.md
 
-# Release tag policy: grok-build-witness-v1.0.0-rc1 (human-created after review)
+# Release tag policy: grok-build-witness-v1.0.0-rc2 (proposed; human-created after C2E-3 review)
+# rc1 tag grok-build-witness-v1.0.0-rc1 fixed at 89127c78c3a11492892de7e3b5f0dee18d71775a — NOT READY repeat audit
 # Evidence submissions require EVIDENCE_MANIFEST.sha256 + structural validator PASS
