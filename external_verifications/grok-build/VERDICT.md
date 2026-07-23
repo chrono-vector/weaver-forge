@@ -65,7 +65,7 @@ A numerical PASS rollup that includes C-023–C-027 must **not** be read as pack
 
 ## C2E-5 status (historical phase label)
 
-**HISTORICAL (C2E-5 contemporaneous banner, retained for chronology):**  
+**HISTORICAL (C2E-5 contemporaneous banner, retained for chronology):**
 `RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT`
 
 That banner described the pre-publication / pre-rc4-audit state. It is **not** current status.
