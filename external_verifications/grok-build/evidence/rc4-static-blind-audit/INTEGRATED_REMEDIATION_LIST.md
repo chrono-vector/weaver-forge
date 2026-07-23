@@ -1,6 +1,6 @@
 # RC4 static blind audit — integrated remediation list
 
-Preserved from `RC4_BATCH_4_FINAL_INTEGRATED.md` sections 14–15. This is a remediation **plan** derived from the static audit. Unless explicitly marked otherwise, remediation items remain **NOT_STARTED**. Documentation-only remediation associated with RC4B-001, RC4B-002, and RC4B-003 is **REMEDIATED_ON_MAIN_PENDING_REAUDIT**. Phase 2A host preflight work on `main` advances RC4B-004 and RC4B-008 to **REMEDIATED_ON_MAIN_PENDING_REAUDIT** after Cursor and Pi both executed the 18-test suite successfully (Pi fourth limited read-only recheck PASS); that status is **not** final closure. RC4B-005 and RC4B-009 remain **OPEN** with implementation notes. **No blocker is CLOSED.** Final closure requires a future fixed candidate and repeat static audit. Every item maps to one or more `RC4B` IDs.
+Preserved from `RC4_BATCH_4_FINAL_INTEGRATED.md` sections 14–15. This is a remediation **plan** derived from the static audit. Unless explicitly marked otherwise, remediation items remain **NOT_STARTED**. Documentation-only remediation associated with RC4B-001, RC4B-002, and RC4B-003 is **REMEDIATED_ON_MAIN_PENDING_REAUDIT**. Phase 2A host preflight work on `main` advances RC4B-004 and RC4B-008 to **REMEDIATED_ON_MAIN_PENDING_REAUDIT** after Cursor and Pi both executed the 18-test suite successfully (Pi fourth limited read-only recheck PASS); that status is **not** final closure. Phase 2B source-mount isolation on `main` advances RC4B-010 to **REMEDIATED_ON_MAIN_PENDING_REAUDIT** after Pi corrected-suite read-only recheck PASS (22/22 Phase 2B + 18/18 Phase 2A; prior Pi first corroboration PASS WITH CORRECTIONS REQUIRED BEFORE COMMIT preserved; **not CLOSED**). **REMEDIATED_ON_MAIN_PENDING_REAUDIT is not final closure**; final closure requires a future fixed candidate and repeat static audit. RC4B-005 and RC4B-009 remain **OPEN** with implementation notes (Phase 2B adds only a mount-plan behavioral subset for RC4B-009). **No blocker is CLOSED.** Every item maps to one or more `RC4B` IDs.
 
 No new candidate tag should be created before the mandatory sequence is complete.
 
@@ -22,7 +22,7 @@ No new candidate tag should be created before the mandatory sequence is complete
 |-------|-------|
 | Actions | remove the `/work/grok-build` writable source alias; mount only narrow writable directories; move every Docker call after identity closure; enforce raw annotated-tag type |
 | Maps to RC4B IDs | `RC4B-004`, `RC4B-005`, `RC4B-010`, `RC4B-019` |
-| Status | **PARTIAL (Phase 2A + Pi fourth limited read-only recheck PASS):** `RC4B-004` → **REMEDIATED_ON_MAIN_PENDING_REAUDIT** — every Docker CLI is structurally after complete identity closure; pre-gate failure evidence is truthful; Cursor and Pi both executed the 18-test suite successfully in their respective environments. **REMEDIATED_ON_MAIN_PENDING_REAUDIT is not final closure**; final closure requires a future fixed candidate and repeat static audit. `RC4B-005` → **OPEN** (raw `git cat-file -t` equals `tag` enforced; normative exact evidence-schema field integration deferred to Phase 4). `RC4B-010` / mount isolation → **not addressed** (reserved for Phase 2B). `RC4B-019` unchanged. **None CLOSED.** |
+| Status | **PARTIAL (Phase 2A + Phase 2B staged on main):** `RC4B-004` → **REMEDIATED_ON_MAIN_PENDING_REAUDIT** — every Docker CLI is structurally after complete identity closure; pre-gate failure evidence is truthful; Cursor and Pi both executed the 18-test suite successfully in their respective environments. **REMEDIATED_ON_MAIN_PENDING_REAUDIT is not final closure**; final closure requires a future fixed candidate and repeat static audit. `RC4B-005` → **OPEN** (raw `git cat-file -t` equals `tag` enforced; normative exact evidence-schema field integration deferred to Phase 4). `RC4B-010` → **REMEDIATED_ON_MAIN_PENDING_REAUDIT** (Phase 2B): broad `WORK_ROOT`→`/work` writable mount removed; Grok Build source mounted exactly once at `/src` read-only; no writable source alias remains; mount validator is load-bearing; comma/CR/LF mount fields fail closed; missing/canonicalization/overlap failures fail before Docker; pre/post source HEAD and clean-tree checks prevent successful acceptance after mutation; corrected Phase 2B suite passed in Cursor and Pi environments (Pi corrected-suite read-only recheck PASS; prior Pi first corroboration PASS WITH CORRECTIONS REQUIRED BEFORE COMMIT preserved). **REMEDIATED_ON_MAIN_PENDING_REAUDIT is not final closure**; final closure requires a future fixed candidate and repeat static audit; not CLOSED. `RC4B-019` unchanged. **None CLOSED.** |
 
 ### 3. Correct evidence-directory atomicity and run provenance
 
@@ -86,7 +86,7 @@ No new candidate tag should be created before the mandatory sequence is complete
 |-------|-------|
 | Actions | Test: every supported outcome; all failure finalizers; exact schema output; mount isolation; run provenance; mixed-run rejection; full manifest closure; PASS prevention; correction/intake lifecycle |
 | Maps to RC4B IDs | `RC4B-009`, `RC4B-018`, `RC4B-040`, `RC4B-019` |
-| Status | **PARTIAL (Phase 2A + third limited correction):** `RC4B-009` remains **OPEN** — host-safety subset for RC4B-004/005/008 retained after third limited repository-local workspace correction; broader generator-backed outcome/schema/mount/manifest/PASS/correction tests remain outstanding. |
+| Status | **PARTIAL (Phase 2A + Phase 2B):** `RC4B-009` remains **OPEN** — Phase 2A host-safety subset for RC4B-004/005/008 retained; Phase 2B adds a **subset** of required behavioral coverage (mount-plan isolation / writable-alias rejection / argv boundary / pre-post source integrity only). Broader generator-backed outcome/schema/manifest/PASS/correction tests remain outstanding. |
 
 ### 11. Correct all public claims and rollups
 
@@ -134,9 +134,9 @@ Related RC4B themes (hardening supports, does not close): `RC4B-005`, `RC4B-007`
 | Check | Result |
 |-------|--------|
 | Every RC4B ID appears in at least one mandatory item | Yes (`RC4B-001`–`RC4B-040`) |
-| Remediation implementation begun | Phase 1 documentation/status-truthfulness (RC4B-001/002/003); Phase 2A host preflight (RC4B-004/008 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi 18/18; RC4B-005/009 remain OPEN with notes; **not CLOSED**) |
+| Remediation implementation begun | Phase 1 documentation/status-truthfulness (RC4B-001/002/003); Phase 2A host preflight (RC4B-004/008 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi 18/18; RC4B-005/009 remain OPEN with notes; **not CLOSED**); Phase 2B source-mount isolation (RC4B-010 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi corrected-suite PASS; **not CLOSED**) |
 | Technical implementation remediation (scripts/validator/tests/templates/execution controls) begun | **Yes — Phase 2A host preflight only** (not container/validator/templates/fixtures golden set) |
 | Blockers CLOSED | **0** |
-| Blockers REMEDIATED_ON_MAIN_PENDING_REAUDIT | RC4B-001, RC4B-002, RC4B-003, RC4B-004, RC4B-008 |
+| Blockers REMEDIATED_ON_MAIN_PENDING_REAUDIT | RC4B-001, RC4B-002, RC4B-003, RC4B-004, RC4B-008, RC4B-010 |
 | Blockers OPEN_PENDING_CROSS_ENV_CORROBORATION | *(none)* |
 | Independent Witness / C-014 advanced | **No** / `NOT_STARTED` |

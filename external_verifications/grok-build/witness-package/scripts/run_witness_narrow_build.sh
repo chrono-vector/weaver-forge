@@ -162,6 +162,9 @@ FAILURE_STAGE="none"
 
 WF_TAG_RAW_OBJECT_TYPE=""
 EVIDENCE_DIR=""
+# Pre-Docker source integrity snapshot (Phase 2B); filled before docker run.
+PRE_DOCKER_SRC_HEAD=""
+PRE_DOCKER_SRC_CLEAN=""
 # Load-bearing gate: every Docker CLI invocation (including docker version /
 # docker context show metadata) is refused until identity closure sets this to
 # exactly "yes" (RC4B-004 / Phase 2A).
@@ -335,6 +338,385 @@ close_identity_gate() {
       echo "identity_gate_closed=yes"
       echo "identity_gate_closed_utc=$(utc_now)"
       echo "identity_gate_requires_before_any_docker_cli=yes"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Phase 2B source-mount isolation (RC4B-010 / RC4B-009 mount-plan subset).
+# Structured mount plan + fail-closed validation before docker run.
+# ---------------------------------------------------------------------------
+
+# Canonicalize an existing path (resolve symlinks/junctions where supported).
+# Prints the canonical path on success; returns nonzero on failure.
+# Never falls back to an unresolved textual path when resolution fails.
+canonicalize_existing_path() {
+  local p="$1"
+  if [[ -z "${p}" ]]; then
+    return 1
+  fi
+  if [[ ! -e "${p}" && ! -L "${p}" ]]; then
+    return 1
+  fi
+  # Broken symlink: present as a link but not resolvable — fail closed.
+  if [[ -L "${p}" && ! -e "${p}" ]]; then
+    return 1
+  fi
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -- "${p}" 2>/dev/null && return 0
+    # Resolution failed; do not fall back to unresolved text.
+    return 1
+  fi
+  if [[ -d "${p}" ]]; then
+    (cd "${p}" && pwd -P) 2>/dev/null && return 0
+    return 1
+  fi
+  if [[ -e "${p}" ]]; then
+    local parent base parent_real
+    parent="$(dirname -- "${p}")"
+    base="$(basename -- "${p}")"
+    parent_real="$(cd "${parent}" 2>/dev/null && pwd -P)" || return 1
+    printf '%s/%s\n' "${parent_real}" "${base}"
+    return 0
+  fi
+  return 1
+}
+
+# Normalize a container absolute path for component-safe comparison.
+normalize_container_path() {
+  local p="$1"
+  # Collapse duplicate slashes; strip trailing slash except for root.
+  p="$(printf '%s' "${p}" | sed -e 's://*:/:g')"
+  if [[ "${p}" != "/" ]]; then
+    p="${p%/}"
+  fi
+  printf '%s' "${p}"
+}
+
+# True iff child is strictly inside parent (component-safe; not textual prefix).
+path_is_strictly_inside() {
+  local child="$1" parent="$2"
+  if [[ "${parent}" == "/" ]]; then
+    [[ "${child}" != "/" && "${child}" == /* ]]
+    return $?
+  fi
+  [[ "${child}" == "${parent}/"* ]]
+}
+
+# True iff ancestor is a strict ancestor of descendant.
+path_is_strict_ancestor_of() {
+  local ancestor="$1" descendant="$2"
+  if [[ "${ancestor}" == "/" ]]; then
+    [[ "${descendant}" != "/" ]]
+    return $?
+  fi
+  [[ "${descendant}" == "${ancestor}/"* ]]
+}
+
+# MOUNT_PLAN entries: "ro<US>src<US>dst" or "rw<US>src<US>dst" (US = ASCII unit separator).
+readonly _MOUNT_US=$'\x1f'
+declare -a MOUNT_PLAN=()
+declare -a DOCKER_MOUNT_ARGV=()
+
+clear_mount_plan() {
+  MOUNT_PLAN=()
+  DOCKER_MOUNT_ARGV=()
+}
+
+append_mount_plan() {
+  local mode="$1" src="$2" dst="$3"
+  if [[ "${mode}" != "ro" && "${mode}" != "rw" ]]; then
+    echo "FATAL[mount-plan]: mode must be ro or rw (got '${mode}')" >&2
+    return 1
+  fi
+  if [[ -z "${src}" || -z "${dst}" ]]; then
+    echo "FATAL[mount-plan]: src and dst must be non-empty" >&2
+    return 1
+  fi
+  if [[ "${dst}" != /* ]]; then
+    echo "FATAL[mount-plan]: container dst must be absolute (got '${dst}')" >&2
+    return 1
+  fi
+  MOUNT_PLAN+=("${mode}${_MOUNT_US}${src}${_MOUNT_US}${dst}")
+}
+
+# Construct the production bind-mount plan (no broad WORK_ROOT -> /work).
+build_canonical_mount_plan() {
+  clear_mount_plan
+  # Read-only source exactly once.
+  append_mount_plan "ro" "${SRC_DIR}" "/src"
+  # Smallest necessary package content: the container runner file only.
+  append_mount_plan "ro" "${HOST_CONTAINER_SCRIPT}" "/witness/container_narrow_build.sh"
+  # Explicit narrow writable children (none contain either checkout).
+  append_mount_plan "rw" "${CARGO_TARGET_DIR}" "/work/cargo-target"
+  append_mount_plan "rw" "${BOOTSTRAP_CARGO_TARGET_DIR}" "/work/bootstrap-cargo-target"
+  append_mount_plan "rw" "${CARGO_HOME_DIR}" "/work/cargo-home"
+  append_mount_plan "rw" "${HOME_DIR}" "/work/home"
+  append_mount_plan "rw" "${DOTSLASH_CACHE_DIR}" "/work/dotslash-cache"
+  append_mount_plan "rw" "${BOOTSTRAP_DIR}" "/work/bootstrap"
+  append_mount_plan "rw" "${TMP_DIR}" "/work/tmp"
+  append_mount_plan "rw" "${EVIDENCE_DIR}" "/evidence"
+}
+
+# Reject comma/CR/LF in a Docker --mount field before argv construction.
+# Spaces are allowed (remain one argv element via Bash arrays). No escaping.
+validate_docker_mount_field() {
+  local field_name="$1"
+  local value="$2"
+  if [[ "${value}" == *","* ]]; then
+    echo "FATAL[mount-plan]: Docker --mount ${field_name} must not contain comma" >&2
+    return 1
+  fi
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    echo "FATAL[mount-plan]: Docker --mount ${field_name} must not contain CR or LF" >&2
+    return 1
+  fi
+  return 0
+}
+
+_mount_plan_fail() {
+  local stage="$1"
+  local message="$2"
+  if [[ -n "${EVIDENCE_DIR:-}" && -d "${EVIDENCE_DIR:-}" ]]; then
+    finalize_pre_docker_infrastructure_failure "${stage}" 7 "${message}"
+  fi
+  return 1
+}
+
+# Convert MOUNT_PLAN into a Bash argv array of --mount entries (one arg each).
+# Call only after validate_mount_plan succeeds. Re-checks field syntax fail-closed.
+build_docker_mount_argv() {
+  DOCKER_MOUNT_ARGV=()
+  local entry mode src dst
+  local us="${_MOUNT_US}"
+  for entry in "${MOUNT_PLAN[@]}"; do
+    mode="${entry%%"${us}"*}"
+    src="${entry#*"${us}"}"
+    dst="${src#*"${us}"}"
+    src="${src%%"${us}"*}"
+    validate_docker_mount_field "mode" "${mode}" || return 1
+    validate_docker_mount_field "src" "${src}" || return 1
+    validate_docker_mount_field "dst" "${dst}" || return 1
+    if [[ "${mode}" == "ro" ]]; then
+      DOCKER_MOUNT_ARGV+=(--mount "type=bind,src=${src},dst=${dst},readonly")
+    else
+      DOCKER_MOUNT_ARGV+=(--mount "type=bind,src=${src},dst=${dst}")
+    fi
+  done
+}
+
+# Fail-closed mount-plan validator (RC4B-010). Does not invoke Docker.
+# Order (explicit, fail-closed):
+#   1. mount record structurally present
+#   2. source/destination/mode field syntax (comma/CR/LF rejected; spaces allowed)
+#   3. required source exists (distinct from canonicalization failure)
+#   4. source canonicalization succeeds (no unresolved textual fallback)
+#   5. checkout overlap relationships validated
+#   6. destination overlap validated
+#   7. duplicate destination and ro/rw conflicts validated
+# (8–9: structured Docker argv + docker invoke happen only after this returns 0)
+# On failure: writes infrastructure-failure evidence via finalize_pre_docker_infrastructure_failure
+# when EVIDENCE_DIR is available; otherwise returns nonzero for harnesses.
+# Does not create missing mount source directories.
+validate_mount_plan() {
+  local gb_canon="" wf_canon="" wr_canon=""
+  local entry mode src dst src_canon dst_norm
+  local us="${_MOUNT_US}"
+  local -A seen_dst=()
+  local -A src_modes=()
+  local prior_mode=""
+
+  # 1. mount record structurally present
+  if [[ "${#MOUNT_PLAN[@]}" -eq 0 ]]; then
+    echo "FATAL[mount-plan]: mount plan is empty" >&2
+    _mount_plan_fail "mount_plan_empty" "Mount-plan validation failed: empty plan"
+    return 1
+  fi
+
+  # Reference paths for overlap checks (must canonicalize; no textual fallback).
+  if ! gb_canon="$(canonicalize_existing_path "${SRC_DIR}")"; then
+    echo "FATAL[mount-plan]: cannot canonicalize GROK_BUILD_DIR/SRC_DIR='${SRC_DIR}'" >&2
+    _mount_plan_fail "mount_plan_canonicalize_src" \
+      "Mount-plan validation failed: cannot canonicalize SRC_DIR=${SRC_DIR}"
+    return 1
+  fi
+  if ! wf_canon="$(canonicalize_existing_path "${WF_DIR}")"; then
+    echo "FATAL[mount-plan]: cannot canonicalize WF_DIR='${WF_DIR}'" >&2
+    _mount_plan_fail "mount_plan_canonicalize_wf" \
+      "Mount-plan validation failed: cannot canonicalize WF_DIR=${WF_DIR}"
+    return 1
+  fi
+  if ! wr_canon="$(canonicalize_existing_path "${WORK_ROOT}")"; then
+    echo "FATAL[mount-plan]: cannot canonicalize WORK_ROOT='${WORK_ROOT}'" >&2
+    _mount_plan_fail "mount_plan_canonicalize_work_root" \
+      "Mount-plan validation failed: cannot canonicalize WORK_ROOT=${WORK_ROOT}"
+    return 1
+  fi
+
+  for entry in "${MOUNT_PLAN[@]}"; do
+    mode="${entry%%"${us}"*}"
+    src="${entry#*"${us}"}"
+    dst="${src#*"${us}"}"
+    src="${src%%"${us}"*}"
+
+    # 2. field syntax valid (comma / CR / LF rejected; ordinary spaces allowed)
+    if ! validate_docker_mount_field "mode" "${mode}"; then
+      _mount_plan_fail "mount_plan_field_syntax_mode" \
+        "Mount-plan validation failed: invalid mode field syntax"
+      return 1
+    fi
+    if ! validate_docker_mount_field "src" "${src}"; then
+      _mount_plan_fail "mount_plan_field_syntax_src" \
+        "Mount-plan validation failed: invalid src field syntax"
+      return 1
+    fi
+    if ! validate_docker_mount_field "dst" "${dst}"; then
+      _mount_plan_fail "mount_plan_field_syntax_dst" \
+        "Mount-plan validation failed: invalid dst field syntax"
+      return 1
+    fi
+    if [[ "${mode}" != "ro" && "${mode}" != "rw" ]]; then
+      echo "FATAL[mount-plan]: mode must be ro or rw (got '${mode}')" >&2
+      _mount_plan_fail "mount_plan_invalid_mode" \
+        "Mount-plan validation failed: mode must be ro or rw"
+      return 1
+    fi
+    if [[ -z "${src}" || -z "${dst}" ]]; then
+      echo "FATAL[mount-plan]: src and dst must be non-empty" >&2
+      _mount_plan_fail "mount_plan_empty_field" \
+        "Mount-plan validation failed: empty src or dst"
+      return 1
+    fi
+    if [[ "${dst}" != /* ]]; then
+      echo "FATAL[mount-plan]: container dst must be absolute (got '${dst}')" >&2
+      _mount_plan_fail "mount_plan_dst_not_absolute" \
+        "Mount-plan validation failed: dst not absolute"
+      return 1
+    fi
+    dst_norm="$(normalize_container_path "${dst}")"
+
+    # 3. required source exists (distinct from later canonicalization failure)
+    if [[ ! -e "${src}" && ! -L "${src}" ]]; then
+      echo "FATAL[mount-plan]: required mount source does not exist: ${src}" >&2
+      _mount_plan_fail "mount_plan_source_missing" \
+        "Mount-plan validation failed: source missing ${src}"
+      return 1
+    fi
+
+    # 4. source canonicalization succeeds (never fall back to unresolved text)
+    if ! src_canon="$(canonicalize_existing_path "${src}")"; then
+      echo "FATAL[mount-plan]: cannot canonicalize mount source '${src}'" >&2
+      _mount_plan_fail "mount_plan_canonicalize_mount_source" \
+        "Mount-plan validation failed: cannot canonicalize mount source ${src}"
+      return 1
+    fi
+
+    # 5–6. checkout overlap + destination overlap (writable sources/targets)
+    # Prefer alias/overlap diagnostics over generic duplicate/mode-conflict.
+    if [[ "${mode}" == "rw" ]]; then
+      if [[ "${src_canon}" == "${wr_canon}" ]]; then
+        echo "FATAL[mount-plan]: WORK_ROOT itself must not be mounted writable" >&2
+        _mount_plan_fail "mount_plan_work_root_writable" \
+          "Mount-plan validation failed: WORK_ROOT mounted writable"
+        return 1
+      fi
+      if [[ "${src_canon}" == "${gb_canon}" ]] \
+        || path_is_strictly_inside "${src_canon}" "${gb_canon}" \
+        || path_is_strict_ancestor_of "${src_canon}" "${gb_canon}"; then
+        echo "FATAL[mount-plan]: writable host source aliases GROK_BUILD_DIR ('${src_canon}' vs '${gb_canon}')" >&2
+        _mount_plan_fail "mount_plan_writable_aliases_grok_build" \
+          "Mount-plan validation failed: writable source aliases GROK_BUILD_DIR"
+        return 1
+      fi
+      if [[ "${src_canon}" == "${wf_canon}" ]] \
+        || path_is_strictly_inside "${src_canon}" "${wf_canon}" \
+        || path_is_strict_ancestor_of "${src_canon}" "${wf_canon}"; then
+        echo "FATAL[mount-plan]: writable host source aliases WF_DIR ('${src_canon}' vs '${wf_canon}')" >&2
+        _mount_plan_fail "mount_plan_writable_aliases_wf" \
+          "Mount-plan validation failed: writable source aliases WF_DIR"
+        return 1
+      fi
+      if [[ "${dst_norm}" == "/src" ]] \
+        || path_is_strictly_inside "${dst_norm}" "/src" \
+        || path_is_strict_ancestor_of "${dst_norm}" "/src"; then
+        echo "FATAL[mount-plan]: writable container target overlaps /src ('${dst_norm}')" >&2
+        _mount_plan_fail "mount_plan_writable_target_overlaps_src" \
+          "Mount-plan validation failed: writable target overlaps /src (${dst_norm})"
+        return 1
+      fi
+    fi
+
+    # 7. duplicate destination and ro/rw conflicts
+    if [[ -n "${seen_dst[${dst_norm}]+x}" ]]; then
+      echo "FATAL[mount-plan]: duplicate container target '${dst_norm}'" >&2
+      _mount_plan_fail "mount_plan_duplicate_target" \
+        "Mount-plan validation failed: duplicate container target ${dst_norm}"
+      return 1
+    fi
+    seen_dst["${dst_norm}"]=1
+
+    prior_mode="${src_modes[${src_canon}]:-}"
+    if [[ -n "${prior_mode}" && "${prior_mode}" != "${mode}" ]]; then
+      echo "FATAL[mount-plan]: host source '${src_canon}' mounted both '${prior_mode}' and '${mode}'" >&2
+      _mount_plan_fail "mount_plan_source_mode_conflict" \
+        "Mount-plan validation failed: source ${src_canon} mounted both ${prior_mode} and ${mode}"
+      return 1
+    fi
+    src_modes["${src_canon}"]="${mode}"
+  done
+
+  if [[ -n "${EVIDENCE_DIR:-}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "mount_plan_validated=yes"
+      echo "mount_plan_validated_utc=$(utc_now)"
+      echo "mount_plan_broad_work_root_mount=prohibited"
+      echo "mount_plan_entry_count=${#MOUNT_PLAN[@]}"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+  return 0
+}
+
+# Record pre-Docker source identity snapshot used for post-container integrity.
+record_pre_docker_source_integrity_snapshot() {
+  PRE_DOCKER_SRC_HEAD="${SRC_HEAD}"
+  PRE_DOCKER_SRC_CLEAN="yes"
+  if [[ -n "${SRC_STATUS:-}" ]]; then
+    PRE_DOCKER_SRC_CLEAN="no"
+  fi
+  if [[ -n "${EVIDENCE_DIR:-}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "pre_docker_source_head=${PRE_DOCKER_SRC_HEAD}"
+      echo "pre_docker_source_clean=${PRE_DOCKER_SRC_CLEAN}"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+}
+
+# After docker returns: HEAD/clean mismatch is an integrity failure (not PASS-capable).
+enforce_post_docker_source_integrity_boundary() {
+  local head_ok="$1" clean_ok="$2"
+  if [[ "${head_ok}" == "yes" && "${clean_ok}" == "yes" ]]; then
+    return 0
+  fi
+  OUTCOME="INFRASTRUCTURE_FAILURE"
+  FAILURE_STAGE="post_docker_source_integrity"
+  POST_BUILD_INTEGRITY_OK="no"
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=INFRASTRUCTURE_FAILURE"
+    echo "cargo_started=${CARGO_STARTED:-NO}"
+    echo "build_status=INFRASTRUCTURE_FAILURE"
+    echo "cargo_exit_code=NOT_APPLICABLE"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "reason=post_docker_source_head_or_clean_tree_mismatch"
+    echo "source_head_unchanged=${head_ok}"
+    echo "source_clean_after=${clean_ok}"
+  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "post_docker_source_integrity_failed=yes"
+      echo "post_docker_source_head_unchanged=${head_ok}"
+      echo "post_docker_source_clean_after=${clean_ok}"
     } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
   fi
 }
@@ -859,6 +1241,7 @@ work_root_managed_targets() {
   echo "${DOTSLASH_CACHE_DIR}"
   echo "${HOME_DIR}"
   echo "${BOOTSTRAP_DIR}"
+  echo "${TMP_DIR}"
 }
 
 # Requires explicit typed confirmation OR --force-work-root-reset for a
@@ -1119,6 +1502,7 @@ BOOTSTRAP_CARGO_TARGET_DIR="${WORK_ROOT}/bootstrap-cargo-target"
 DOTSLASH_CACHE_DIR="${WORK_ROOT}/dotslash-cache"
 HOME_DIR="${WORK_ROOT}/home"
 BOOTSTRAP_DIR="${WORK_ROOT}/bootstrap"
+TMP_DIR="${WORK_ROOT}/tmp"
 EVIDENCE_DIR=""
 
 # STEP 5: WORK_ROOT reset confirmation
@@ -1556,10 +1940,10 @@ record_docker_environment_metadata
 # STEP 14: Isolated writable directories + host/container clean target proof
 # ---------------------------------------------------------------------------
 mark_stage "step14_isolated_directory_setup"
-for _managed_dir in "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}"; do
+for _managed_dir in "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}" "${TMP_DIR}"; do
   safe_reset_managed_path "${_managed_dir}"
 done
-mkdir -p "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}"
+mkdir -p "${CARGO_HOME_DIR}" "${CARGO_TARGET_DIR}" "${BOOTSTRAP_CARGO_TARGET_DIR}" "${DOTSLASH_CACHE_DIR}" "${HOME_DIR}" "${BOOTSTRAP_DIR}" "${TMP_DIR}"
 
 mark_stage "step14_clean_target_proof"
 TARGET_CREATED_UTC="$(utc_now)"
@@ -1717,37 +2101,47 @@ if [[ "${II_STATUS}" != "OK" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# STEP 17: Docker invocation (exact contract)
+# STEP 17: Docker invocation — structured mount plan (RC4B-010 Phase 2B).
+# No broad WORK_ROOT -> /work writable mount. Validate before docker run.
 # ---------------------------------------------------------------------------
 mark_stage "step17_docker_run"
 DOCKER_STDOUT="${EVIDENCE_DIR}/CONTAINER_STDOUT.txt"
 DOCKER_STDERR="${EVIDENCE_DIR}/CONTAINER_STDERR.txt"
 
+record_pre_docker_source_integrity_snapshot
+build_canonical_mount_plan
+validate_mount_plan
+build_docker_mount_argv
+
+declare -a DOCKER_RUN_ARGV=(
+  run --rm
+  --platform linux/amd64
+  --network bridge
+)
+DOCKER_RUN_ARGV+=("${DOCKER_MOUNT_ARGV[@]}")
+DOCKER_RUN_ARGV+=(
+  -e HOME=/work/home
+  -e CARGO_HOME=/work/cargo-home
+  -e CARGO_TARGET_DIR=/work/cargo-target
+  -e CARGO_INCREMENTAL=0
+  -e DOTSLASH_CACHE=/work/dotslash-cache
+  -e TMPDIR=/work/tmp
+  -e PATH=/work/cargo-home/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  -e GROK_BUILD_COMMIT="${EFFECTIVE_GROK_BUILD_COMMIT}"
+  -e EXPECTED_CARGO_LOCK_SHA256="${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
+  -e CANONICAL_BUILD_CMD="${EFFECTIVE_BUILD_CMD}"
+  -e EXPECTED_RUSTC_VERSION="${EFFECTIVE_EXPECTED_RUSTC_VERSION}"
+  -e EXPECTED_DOTSLASH_VERSION="${EFFECTIVE_EXPECTED_DOTSLASH_VERSION}"
+  -e RUST_IMAGE="${EFFECTIVE_RUST_IMAGE}"
+  -w /src
+  "${EFFECTIVE_RUST_IMAGE}"
+  bash /witness/container_narrow_build.sh
+)
+
 DOCKER_STARTED_UTC="$(utc_now)"
 DOCKER_STARTED_EPOCH="$(date +%s)"
 set +e
-docker run --rm \
-  --platform linux/amd64 \
-  --network bridge \
-  -v "${SRC_DIR}:/src:ro" \
-  -v "${WORK_ROOT}:/work" \
-  -v "${EVIDENCE_DIR}:/evidence" \
-  -v "${HOST_CONTAINER_SCRIPT}:/witness/container_narrow_build.sh:ro" \
-  -e HOME=/work/home \
-  -e CARGO_HOME=/work/cargo-home \
-  -e CARGO_TARGET_DIR=/work/cargo-target \
-  -e CARGO_INCREMENTAL=0 \
-  -e DOTSLASH_CACHE=/work/dotslash-cache \
-  -e PATH=/work/cargo-home/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-  -e GROK_BUILD_COMMIT="${EFFECTIVE_GROK_BUILD_COMMIT}" \
-  -e EXPECTED_CARGO_LOCK_SHA256="${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" \
-  -e CANONICAL_BUILD_CMD="${EFFECTIVE_BUILD_CMD}" \
-  -e EXPECTED_RUSTC_VERSION="${EFFECTIVE_EXPECTED_RUSTC_VERSION}" \
-  -e EXPECTED_DOTSLASH_VERSION="${EFFECTIVE_EXPECTED_DOTSLASH_VERSION}" \
-  -e RUST_IMAGE="${EFFECTIVE_RUST_IMAGE}" \
-  -w /src \
-  "${EFFECTIVE_RUST_IMAGE}" \
-  bash /witness/container_narrow_build.sh \
+docker "${DOCKER_RUN_ARGV[@]}" \
   >"${DOCKER_STDOUT}" 2>"${DOCKER_STDERR}"
 DOCKER_EXIT=$?
 set -e
@@ -1947,6 +2341,10 @@ POST_BUILD_INTEGRITY_OK="yes"
 if [[ "${SOURCE_HEAD_UNCHANGED}" != "yes" || "${CARGO_LOCK_UNCHANGED}" != "yes" || "${CARGO_LOCK_POST_MATCHES_EXPECTED}" != "yes" || "${SOURCE_CLEAN_AFTER}" != "yes" ]]; then
   POST_BUILD_INTEGRITY_OK="no"
 fi
+
+# Phase 2B: HEAD or clean-tree drift after Docker is an integrity failure and
+# must not leave a PASS-capable / successful package outcome accepted.
+enforce_post_docker_source_integrity_boundary "${SOURCE_HEAD_UNCHANGED}" "${SOURCE_CLEAN_AFTER}"
 
 ARTIFACT_PATH="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
 ARTIFACT_EXISTS="no"

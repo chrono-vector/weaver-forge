@@ -128,7 +128,7 @@ Optional additional verification input only: `WEAVER_FORGE_EXTERNAL_EXPECTED_COM
 ## Host preflight identity closure (Phase 2A on `main`)
 
 Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.** The
-rc4 tag is unchanged. This does **not** claim that rc4 was corrected.
+rc4 tag is unchanged. This does **not** claim that rc4 was corrected. **No rc5 tag exists.**
 
 Before **any** Docker CLI invocation (including `docker version` / `docker context show`
 metadata), the host orchestrator must close an explicit identity gate after all of:
@@ -146,6 +146,30 @@ may remain informational `UNKNOWN`. Final `EVIDENCE_DIR` must be created atomica
 `mkdir` of a never-before-existing run directory under an optional `mkdir -p` parent). A
 preexisting selected directory is never merged, reused, reset, or overwritten; collision either
 retries with a new run ID or aborts before writing evidence.
+
+## Source-mount isolation (Phase 2B on `main`)
+
+Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.**
+**No rc5 tag exists.** This does **not** claim final closure before repeat static audit.
+
+- The Grok Build checkout is mounted **exactly once**, read-only, at `/src`.
+- A broad `WORK_ROOT` → `/work` writable mount is **prohibited**.
+- Writable mount **sources** must not equal, contain, or be contained by either the Grok Build
+  checkout or the Weaver Forge package checkout (`WF_DIR`).
+- Writable mount **targets** must not equal `/src`, lie inside `/src`, or be an ancestor of `/src`.
+- Writable cargo-target, bootstrap-target, HOME/`CARGO_HOME`, TMPDIR, bootstrap, DotSlash cache,
+  and evidence mounts are **explicit and narrowly scoped**.
+- Mount-plan validation runs **before** `docker run` (fail closed; no Docker run on failure).
+- Docker `--mount` encoding is comma-delimited (`type=bind,src=...,dst=...,readonly`). Source,
+  destination, and mode field values must not contain comma, CR, or LF. Ordinary spaces remain
+  supported via Bash array argument preservation (one argv element per `--mount` value). This
+  package does not escape comma-bearing values; such fields are rejected before argv construction.
+- Required mount sources must **already exist** before validation. The validator does not create
+  missing bind sources. Absence is distinct from canonicalization failure.
+- Source canonicalization failure is **fatal**. Unresolved textual paths are never used as a
+  fallback. All such failures occur before Docker is invoked.
+- Pre- and post-container source `HEAD` and clean-tree checks are required; post-Docker `HEAD`
+  drift or a dirty tree is an infrastructure/integrity failure and is not PASS-capable.
 
 ## RUSTUP_HOME policy
 
@@ -194,3 +218,4 @@ on `xai-grok-pager` / `grok`.
 | 1.0.0-rc3 | Added evidence-schema-version section; outcome model and outcome-sensitivity table; explicit failure-submissions-supported policy; `WITNESS_ID`/`WORK_ROOT` safety rules matching the host orchestrator; image-pull-is-fatal policy; canonical-constants table reconciled with `scripts/run_witness_narrow_build.sh` |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; no Independent Witness reproduction |
 | main (Phase 2A; not an rc5 release) | Host preflight: no Docker CLI before identity closure; raw annotated-tag type `tag` mandatory; atomic fresh `EVIDENCE_DIR`. **Does not** correct or re-tag rc4; **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 2B; not an rc5 release) | Source-mount isolation: no broad `WORK_ROOT`→`/work`; `/src` read-only once; fail-closed mount-plan validation before Docker; comma/CR/LF mount-field rejection; required sources must pre-exist; canonicalization failure fatal with no textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |

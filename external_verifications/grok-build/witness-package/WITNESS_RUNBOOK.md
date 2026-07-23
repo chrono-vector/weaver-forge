@@ -234,17 +234,26 @@ no mandatory file is ever silently absent because a later stage never ran.
 
 ## Docker contract (single container run)
 
-The host script runs **one** disposable container:
+The host script runs **one** disposable container. Mounts are a structured Bash argv of
+`--mount` bind entries (argument boundaries preserved; no `eval`). Mount-plan validation runs
+**before** `docker run`.
 
 | Flag / mount | Value |
 |--------------|--------|
 | `--rm` | yes |
 | `--platform` | `linux/amd64` |
 | `--network` | `bridge` |
-| Source | `-v ${SRC_DIR}:/src:ro` |
-| Work | `-v ${WORK_ROOT}:/work` |
-| Evidence | `-v ${EVIDENCE_DIR}:/evidence` |
-| Script | `-v .../container_narrow_build.sh:/witness/container_narrow_build.sh:ro` |
+| Source (exactly once, read-only) | `--mount type=bind,src=${SRC_DIR},dst=/src,readonly` |
+| Package runner (read-only file) | `--mount type=bind,src=.../container_narrow_build.sh,dst=/witness/container_narrow_build.sh,readonly` |
+| Cargo target (rw) | `--mount type=bind,src=${CARGO_TARGET_DIR},dst=/work/cargo-target` |
+| Bootstrap cargo target (rw) | `--mount type=bind,src=${BOOTSTRAP_CARGO_TARGET_DIR},dst=/work/bootstrap-cargo-target` |
+| Cargo home (rw) | `--mount type=bind,src=${CARGO_HOME_DIR},dst=/work/cargo-home` |
+| HOME (rw) | `--mount type=bind,src=${HOME_DIR},dst=/work/home` |
+| DotSlash cache (rw) | `--mount type=bind,src=${DOTSLASH_CACHE_DIR},dst=/work/dotslash-cache` |
+| Bootstrap dir (rw) | `--mount type=bind,src=${BOOTSTRAP_DIR},dst=/work/bootstrap` |
+| TMPDIR (rw) | `--mount type=bind,src=${TMP_DIR},dst=/work/tmp` |
+| Evidence (rw) | `--mount type=bind,src=${EVIDENCE_DIR},dst=/evidence` |
+| Broad `WORK_ROOT` → `/work` | **prohibited** |
 | `-w` | `/src` |
 | `HOME` | `/work/home` |
 | `CARGO_HOME` | `/work/cargo-home` |
@@ -252,14 +261,29 @@ The host script runs **one** disposable container:
 | `BOOTSTRAP_CARGO_TARGET_DIR` | `/work/bootstrap-cargo-target` (DotSlash install only) |
 | `CARGO_INCREMENTAL` | `0` |
 | `DOTSLASH_CACHE` | `/work/dotslash-cache` |
+| `TMPDIR` | `/work/tmp` |
 | `PATH` | `/work/cargo-home/bin:` + image cargo paths |
 | `RUSTUP_HOME` | **Do not** set to empty work dir — preserve image toolchain; record effective value |
+
+Writable mount **sources** must not equal, contain, or be contained by either checkout.
+Writable mount **targets** must not overlap `/src`. Pre/post source `HEAD` and clean-tree
+checks are required after Docker returns.
+
+Docker `--mount` values are comma-delimited. Source, destination, and mode fields must not
+contain comma, CR, or LF; ordinary spaces remain supported through Bash array argument
+preservation. Comma-bearing values are rejected before Docker argv construction (no escaping).
+Required mount sources must already exist before validation; the validator does not create
+missing bind sources. Canonicalization failure is fatal; unresolved textual paths are never
+used as fallback. All mount-plan failures occur before Docker is invoked.
 
 **Docker image pull is fatal.** `docker pull --platform linux/amd64 <image>` failure of any kind
 aborts the run with `IMAGE_IDENTITY.txt` recording `status=FAILED`, outcome
 `INFRASTRUCTURE_FAILURE`, and **no** fallback to a cached/local image. Image identity (digest,
 platform) is also re-verified via `docker inspect` immediately before `docker run`; a mismatch
 aborts before the container starts.
+
+Phase 2B implementation is on `main` toward a possible future rc5 candidate. **RC4 remains NOT
+READY.** **No rc5 tag exists.** Final closure requires repeat static audit.
 
 ---
 
@@ -452,3 +476,4 @@ identity above, statically audited **NOT READY** (C-027).
 | 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; annotated-tag resolution wording. **Historical note:** contemporaneous change-log text claimed removal of normative pre-tag “tag exists/pending” assertions; the rc4 static blind audit later found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 documentation on `main` corrects those current-facing statements without altering this tagged snapshot. |
 | main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
