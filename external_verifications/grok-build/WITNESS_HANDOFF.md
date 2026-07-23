@@ -3,13 +3,13 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 package content under preparation; Independent Witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc4` / fixed tag `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; rc4 static disposition NOT READY (40 blockers); Phase 1 documentation remediation on `main`; technical implementation remediation NOT YET BEGUN; rc5 tag does not exist; Independent Witness NOT_STARTED** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
-| Prepared date | `2026-07-22` |
-| Verification-plan version / date | Phase C2E-5 2026-07-22 |
-| Current package version | `1.0.0-rc4` (canonical package tag `grok-build-witness-v1.0.0-rc4`; availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops; package commit authority = annotated_tag_resolution, no embedded future rc4 commit) |
-| Immutable historical releases | `grok-build-witness-v1.0.0-rc1` → NOT READY repeat audit (C-024); `grok-build-witness-v1.0.0-rc2` → NOT READY integrated four-batch static audit (C-025); `grok-build-witness-v1.0.0-rc3` → NOT READY integrated four-batch static audit (C-026; audit preserved under evidence/rc3-static-blind-audit/) |
+| Prepared date | `2026-07-23` |
+| Verification-plan version / date | RC5 Phase 1 2026-07-23 |
+| Current package version | `1.0.0-rc4` (canonical package tag `grok-build-witness-v1.0.0-rc4` → commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops; package commit authority = annotated_tag_resolution) |
+| Immutable releases | `rc1` → NOT READY (C-024); `rc2` → NOT READY (C-025); `rc3` → NOT READY (C-026); `rc4` → NOT READY (C-027; 40 blockers; evidence/rc4-static-blind-audit/); Independent Witness reproduction NOT_PERFORMED; C-014 NOT_STARTED |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 | **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
@@ -160,13 +160,17 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **C2E-4 done (owner-side audit intake; rc3 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc2` (commit `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; C-025) was recorded. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc2` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake.
 
-**C2E-4B (tagged-snapshot wording finalization):** Normative release-facing documents use time-stable identity language so the fixed tagged snapshot does not assert “tag absent/pending” as a current fact. Later `main`-branch status/audit records remain outside the tagged snapshot.
+**C2E-4B (tagged-snapshot wording finalization — historical intent):** Normative release-facing documents were intended to use time-stable identity language so a fixed tagged snapshot would not assert “tag absent/pending” as a current fact. **Narrow truth:** specific source-text/documentation changes were implemented for that intent; the later rc4 static blind audit still found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 on `main` corrects those current-facing statements. Later `main`-branch status/audit records remain outside the tagged snapshot.
 
-**C2E-5 done (owner-side audit intake; rc4 package content prepared):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc3` (commit `77221a224bbd6194cfafb81f6ecb58c800e5bc13`; C-026) was recorded, preserved under `evidence/rc3-static-blind-audit/`. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc3` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake. Package version is **`1.0.0-rc4`**; canonical package tag is **`grok-build-witness-v1.0.0-rc4`** (availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops). Package commit authority is `annotated_tag_resolution` with no embedded future rc4 commit. **Independent Witness (C-014) remains `NOT_STARTED`.**
+**C2E-5 done (owner-side audit intake; historical “rc4 package content prepared” label):** An integrated four-batch static blind audit against immutable tag `grok-build-witness-v1.0.0-rc3` (commit `77221a224bbd6194cfafb81f6ecb58c800e5bc13`; C-026) was recorded, preserved under `evidence/rc3-static-blind-audit/`. Audit verdict **NOT READY**. `grok-build-witness-v1.0.0-rc3` is preserved as an **immutable historical release**. No Docker, cargo, rustc, rustup, DotSlash, protoc, `ldd`, witness scripts, or product execution occurred during this audit intake. Contemporaneous text advanced package version/tag names to **`1.0.0-rc4`** / **`grok-build-witness-v1.0.0-rc4`** while still describing rc4 prospectively. **Independent Witness (C-014) remains `NOT_STARTED`.**
+
+**RC5 Phase 0 done (owner-side audit recording):** rc4 static blind audit intake recorded as C-027 (`claim_scope=AUDIT_RECORDING`); final static disposition **NOT READY**; 40 integrated blockers; evidence under `evidence/rc4-static-blind-audit/`. Independent Witness reproduction **NOT PERFORMED**.
+
+**RC5 Phase 1 (current — documentation/status truthfulness on `main`):** rc4 is fixed and immutable at `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; static disposition remains **NOT READY**; current-facing prospective wording is corrected; technical implementation remediation of scripts/schemas/validators/tests/execution controls (RC4B-004–040) has **not** begun; **rc5 tag does not exist**.
 
 ### HISTORICAL PRE-TAG STATE
 
-Prior wording described rc3 package content as prepared pending its repeat blind audit. That audit has since completed (NOT READY, C-026); rc3 is now immutable history and rc4 is the package content under preparation.
+Prior wording described rc3 package content as prepared pending its repeat blind audit. That audit has since completed (NOT READY, C-026); rc3 is now immutable history. Separately, pre-publication wording described rc4 as the package content under preparation; that prospective wording is superseded by the Phase 0/Phase 1 current-state statements above.
 
 ---
 

@@ -1,13 +1,19 @@
 # Witness package file manifest (package-relative paths)
 # Version 1.0.0-rc4 — excludes binaries, caches, generated build artifacts
-# NOT READY: rc4 package content under preparation; remains NOT READY until rc4 committed,
-#   tagged, and repeat-audited; C-014 NOT_STARTED; overall PARTIAL.
+# NOT READY: rc4 fixed immutable at grok-build-witness-v1.0.0-rc4 →
+#   039b46737c5968a81fb756d7a6d1d0dd57b6ad96; static blind audit COMPLETE; final disposition
+#   NOT READY (40 integrated blockers); Phase 0 audit intake COMPLETE; Phase 1 documentation
+#   and release/status remediation on main; technical implementation remediation of scripts,
+#   schemas, validators, tests, and execution controls NOT YET BEGUN; main prepared toward
+#   possible future rc5 candidate; rc5 tag does not exist; Independent Witness reproduction
+#   NOT PERFORMED; Independent Witness PASS NONE; C-014 NOT_STARTED; overall PARTIAL.
 # Canonical package tag: grok-build-witness-v1.0.0-rc4
 #   (availability verified by annotated-tag resolution; canonical execution requires successful
-#   resolution; if resolution fails, canonical execution stops; after publication, tag immutable;
-#   package_commit_authority=annotated_tag_resolution; no embedded future rc4 commit)
-# Banner: RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION —
-#   NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT
+#   resolution; if resolution fails, canonical execution stops; tag immutable;
+#   package_commit_authority=annotated_tag_resolution; resolved commit is fixed rc4 identity)
+# Banner: RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY
+#   (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES
+#   NOT EXIST — C-014 NOT_STARTED
 
 README.md
 WITNESS_PACKAGE_VERSION.md

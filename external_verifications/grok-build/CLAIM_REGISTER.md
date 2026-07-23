@@ -7,11 +7,11 @@
 | Brand string (primary sources) | SpaceXAI (distinct from GitHub org `xai-org` and Cargo authors `"xAI"`) |
 | Claimed canonical repository | https://github.com/xai-org/grok-build |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
-| Current verification state | Windows BLOCKED; C-013/C-018/C-020–C-021/C-023/C-024/C-025/C-026/C-027 PASS (audit-recording only where noted); C-022 HISTORICAL PASS / CURRENT READINESS SUPERSEDED; C-019 PARTIAL; C-014 Independent Witness NOT_STARTED; Witness package NOT READY — package version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 static blind audit complete with final disposition NOT READY (40 integrated blockers; evidence/rc4-static-blind-audit/); no remediation started; no Independent Witness reproduction; rc1–rc4 preserved as immutable tags; overall PARTIAL |
-| Register status | C-022 historical PASS superseded for readiness; C-023–C-026 prior audit-intake PASS (each underlying audit NOT READY); C-027 rc4 integrated static blind audit intake PASS (claim_scope=AUDIT_RECORDING; audit verdict NOT READY; 40 blockers; evidence/rc4-static-blind-audit/); C-014 still NOT_STARTED; C-019 PARTIAL; C-015 BLOCKED |
+| Current verification state | Windows BLOCKED; C-013/C-018/C-020–C-021/C-023–C-027 PASS (audit-recording only where noted); C-022 HISTORICAL PASS / CURRENT READINESS SUPERSEDED; C-019 PARTIAL; C-014 Independent Witness NOT_STARTED; Witness package NOT READY — package version `1.0.0-rc4`; fixed tag `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; rc4 static blind audit complete with final disposition NOT READY (40 integrated blockers; evidence/rc4-static-blind-audit/); Phase 0 audit intake COMPLETE; Phase 1 documentation remediation on `main`; technical implementation remediation NOT YET BEGUN; `main` prepared toward possible future rc5 candidate (rc5 tag does not exist); Independent Witness reproduction NOT PERFORMED; overall PARTIAL |
+| Register status | C-022 historical PASS superseded for readiness; C-023–C-027 audit-intake PASS (each underlying audit NOT READY; C-027 claim_scope=AUDIT_RECORDING); Phase 1 docs remediation does not create package-readiness PASS; C-014 still NOT_STARTED; C-019 PARTIAL; C-015 BLOCKED |
 | Maintained by | Weaver Forge documentation package author |
 | Role | Owner-side (not independent witness) |
-| Last updated | `2026-07-23` (RC5 Phase 0 — RC4 audit intake) |
+| Last updated | `2026-07-23` (RC5 Phase 1 — release/status truthfulness) |
 | Independent witness evaluation of claims | `NOT_STARTED` |
 
 ---
@@ -470,7 +470,18 @@
 | `NOT_APPLICABLE` | 0 |
 | **Total** | 27 |
 
-Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL. C-012 remains for broader build claims. C-015 Windows BLOCKED. C-022 is counted only under historical superseded status, not as a current effective package-readiness PASS. C-024, C-025, C-026, and C-027 are audit-intake recordings only (display label `AUDIT_RECORDED`); their underlying audits all returned **NOT READY**. Audit-recording completion is counted separately from package readiness, remediation completion, and Independent Witness status — none of C-024–C-027 establish package readiness or Independent Witness completion.
+Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is static startup PARTIAL. C-012 remains for broader build claims. C-015 Windows BLOCKED. C-022 is counted only under historical superseded status, not as a current effective package-readiness PASS. C-024, C-025, C-026, and C-027 are audit-intake recordings only (display label `AUDIT_RECORDED`); their underlying audits all returned **NOT READY**.
+
+### Scope-separated aggregates (mandatory)
+
+| Scope | Status |
+|-------|--------|
+| Audit-recording claims | C-023–C-027 recorded (`AUDIT_RECORDED`); **not** package readiness |
+| Remediation-completion claims | **none** (Phase 1 documentation remediation is not a readiness claim and does not register technical-blocker closure) |
+| Package-readiness status | **NOT READY** (rc4 static disposition; 40 integrated blockers) |
+| Independent Witness status | C-014 **`NOT_STARTED`**; reproduction **NOT PERFORMED**; PASS **NONE** |
+
+A single aggregate PASS count that includes audit-recording claims is **unsafe** if read as package readiness.
 
 ## Claims Explicitly Not Registered as Proven
 
@@ -498,7 +509,7 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 - **C-025** RC2 integrated four-batch static blind audit intake **`PASS`** (recording only; audit verdict **NOT READY**); rc2 preserved as immutable historical release; does not establish package readiness.
 - **C-026** RC3 integrated four-batch static blind audit **`PASS`** (display label `AUDIT_RECORDED`; recording only; audit verdict **NOT READY**; audit preserved under `evidence/rc3-static-blind-audit/`); rc3 preserved as immutable historical release; does not establish package readiness.
 - **C-027** RC4 integrated four-batch static blind audit **`PASS`** (display label `AUDIT_RECORDED`; claim_scope=`AUDIT_RECORDING`; recording only; `final_static_disposition=NOT_READY`; `integrated_blockers=40`; `package_readiness_effect=NONE`; `independent_witness_effect=NONE`; `c014_effect=NONE`; audit preserved under `evidence/rc4-static-blind-audit/`); does **not** establish package readiness, Independent Witness execution, reproduction, or PASS.
-- Package version is **`1.0.0-rc4`**; canonical package tag is **`grok-build-witness-v1.0.0-rc4`**. Fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. Package remains **NOT READY** (rc4 static blind audit disposition). No remediation started under Phase 0.
+- Package version is **`1.0.0-rc4`**; canonical package tag is **`grok-build-witness-v1.0.0-rc4`**. Fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. Package remains **NOT READY** (rc4 static blind audit disposition). Phase 0 audit intake is complete. Phase 1 documentation/status-truthfulness remediation is being performed on `main`. Technical implementation remediation of scripts, schemas, validators, tests, and execution controls (RC4B-004–040) has not begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
 - **C-014 Independent Witness remains NOT_STARTED**.
 - C-012 full/release and functional claims remain open/unstarted.
 
@@ -530,8 +541,9 @@ Note: C-013/C-018/C-020 are **narrow** owner-side check/build only. C-019 is sta
 | 2026-07-22 | Phase C2E-3: rc1 repeat audit intake C-024; rc2 defect closure drafting; package NOT READY | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2E-4: rc2 integrated four-batch static blind audit intake C-025 (verdict NOT READY); rc1 and rc2 preserved as immutable historical releases, each with a recorded NOT READY audit; package version `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; C-014 still NOT_STARTED; aggregate counts recalculated to 25 | Weaver Forge documentation package author |
 | 2026-07-22 | Phase C2E-4B: tagged-snapshot release-wording finalization (time-stable rc3 identity language) | Weaver Forge documentation package author |
-| 2026-07-22 | Phase C2E-5: rc3 integrated four-batch static blind audit intake C-026 (verdict NOT READY; audit preserved under evidence/rc3-static-blind-audit/); rc1, rc2, and rc3 preserved as immutable historical releases, each with a recorded NOT READY audit; package version `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; C-014 still NOT_STARTED; aggregate counts recalculated to 26 (PASS 21); time-stable rc4 identity wording applied | Weaver Forge documentation package author |
-| 2026-07-23 | RC5 Phase 0: rc4 integrated four-batch static blind audit intake C-027 (claim_scope=AUDIT_RECORDING; verdict NOT READY; 40 integrated blockers; audit preserved under evidence/rc4-static-blind-audit/); no remediation started; no Independent Witness reproduction; C-014 still NOT_STARTED; aggregate counts recalculated to 27 (PASS 22) | Weaver Forge documentation package author |
+| 2026-07-22 | Phase C2E-5: rc3 integrated four-batch static blind audit intake C-026 (verdict NOT READY; audit preserved under evidence/rc3-static-blind-audit/); rc1, rc2, and rc3 preserved as immutable historical releases, each with a recorded NOT READY audit; package version `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; C-014 still NOT_STARTED; aggregate counts recalculated to 26 (PASS 21). **Historical closure overclaim noted:** contemporaneous changelog said “time-stable rc4 identity wording applied”; rc4 static audit later found remaining prospective/pending banners (RC4B-001/002/003). | Weaver Forge documentation package author |
+| 2026-07-23 | RC5 Phase 0: rc4 integrated four-batch static blind audit intake C-027 (claim_scope=AUDIT_RECORDING; verdict NOT READY; 40 integrated blockers; audit preserved under evidence/rc4-static-blind-audit/); no Independent Witness reproduction; C-014 still NOT_STARTED; aggregate counts recalculated to 27 (PASS 22) | Weaver Forge documentation package author |
+| 2026-07-23 | RC5 Phase 1: release/status truthfulness remediation on `main` — current-facing prospective rc4 wording corrected; rc4 recorded as FIXED_IMMUTABLE with static disposition NOT READY; C-027 remains AUDIT_RECORDING only; scope-separated rollups reinforced; RC4B-001/002/003 marked REMEDIATED_ON_MAIN_PENDING_REAUDIT after docs pass; technical implementation remediation NOT YET BEGUN; rc5 tag does not exist | Weaver Forge documentation package author |
 
 ---
 

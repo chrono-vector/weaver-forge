@@ -1,6 +1,6 @@
 # RC4 static blind audit — integrated remediation list
 
-Preserved from `RC4_BATCH_4_FINAL_INTEGRATED.md` sections 14–15. This is a remediation **plan** derived from the static audit. **No remediation implementation has begun.** Every item maps to one or more `RC4B` IDs. Status of every remediation item below: **NOT_STARTED**.
+Preserved from `RC4_BATCH_4_FINAL_INTEGRATED.md` sections 14–15. This is a remediation **plan** derived from the static audit. Unless explicitly marked otherwise, remediation items remain **NOT_STARTED**. Documentation-only remediation associated with RC4B-001, RC4B-002, and RC4B-003 is **REMEDIATED_ON_MAIN_PENDING_REAUDIT**. No blocker is **CLOSED**. All technical implementation remediation (host/container scripts, validator, templates/schemas, fixtures/tests, and execution-safety controls) remains **NOT_STARTED**. Final closure requires a future fixed candidate and repeat static audit. Every item maps to one or more `RC4B` IDs.
 
 No new candidate tag should be created before the mandatory sequence is complete.
 
@@ -14,7 +14,7 @@ No new candidate tag should be created before the mandatory sequence is complete
 |-------|-------|
 | Actions | update all current banners; record rc4 as fixed immutable history; narrow closure claims; correct claim-register and rollup semantics |
 | Maps to RC4B IDs | `RC4B-001`, `RC4B-002`, `RC4B-003` |
-| Status | NOT_STARTED |
+| Status | REMEDIATED_ON_MAIN_PENDING_REAUDIT (Phase 1 documentation/status-truthfulness on `main`; **not CLOSED**; final closure requires future fixed candidate + repeat static audit) |
 
 ### 2. Correct host filesystem and source-mount safety
 
@@ -94,7 +94,7 @@ No new candidate tag should be created before the mandatory sequence is complete
 |-------|-------|
 | Actions | distinguish audit completion from readiness; distinguish readiness from Independent Witness reproduction; keep C-014 unchanged; record this rc4 static disposition as NOT READY |
 | Maps to RC4B IDs | `RC4B-001`, `RC4B-002`, `RC4B-003` (claim/rollup truthfulness); Phase 0 intake records disposition without claiming readiness |
-| Status | Phase 0 audit-recording portion in progress via claim intake only; underlying wording remediation **NOT_STARTED** |
+| Status | REMEDIATED_ON_MAIN_PENDING_REAUDIT for public-claim/rollup wording associated with RC4B-001/002/003 (Phase 1); C-027 remains `AUDIT_RECORDING` only; underlying wording remediation for technical readiness remains outside this item |
 
 ### 12. Create and re-audit a new fixed candidate
 
@@ -134,6 +134,8 @@ Related RC4B themes (hardening supports, does not close): `RC4B-005`, `RC4B-007`
 | Check | Result |
 |-------|--------|
 | Every RC4B ID appears in at least one mandatory item | Yes (`RC4B-001`–`RC4B-040`) |
-| Remediation implementation begun | **No** |
-| Blockers closed by this list | **0** |
+| Remediation implementation begun | Phase 1 documentation/status-truthfulness only (RC4B-001/002/003) |
+| Technical implementation remediation (scripts/validator/tests/templates/execution controls) begun | **No** |
+| Blockers CLOSED | **0** |
+| Blockers REMEDIATED_ON_MAIN_PENDING_REAUDIT | RC4B-001, RC4B-002, RC4B-003 |
 | Independent Witness / C-014 advanced | **No** / `NOT_STARTED` |

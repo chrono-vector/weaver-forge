@@ -1,15 +1,20 @@
 # Witness classification — precedence (1.0.0-rc4)
 
 Applies to package version **1.0.0-rc4** (canonical package tag
-`grok-build-witness-v1.0.0-rc4`; package commit authority =
-`annotated_tag_resolution`; no embedded future rc4 commit).
+`grok-build-witness-v1.0.0-rc4`; fixed tagged commit
+`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package commit authority =
+`annotated_tag_resolution`; resolved commit is the fixed rc4 release identity).
 Superseded rc3 text (tag `grok-build-witness-v1.0.0-rc3`, commit
 `77221a224bbd6194cfafb81f6ecb58c800e5bc13`), rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
 `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
-history at those tags; this file states **current** policy only. rc1/rc2/rc3 audits were each
-**NOT READY**. C-014 remains **NOT_STARTED**. Overall package status remains **PARTIAL** /
-**NOT READY** until rc4 is committed, tagged, and repeat-audited.
+history at those tags; this file states **current** policy only. rc1/rc2/rc3/rc4 audits were each
+**NOT READY**. Independent Witness reproduction **NOT PERFORMED**. Independent Witness PASS
+**NONE**. C-014 remains **NOT_STARTED**. Overall package status remains **PARTIAL** /
+**NOT READY** (rc4 static disposition; 40 integrated blockers). Phase 0 audit intake is complete.
+Phase 1 documentation and release/status remediation is being performed on `main`. Technical
+implementation remediation of scripts, schemas, validators, tests, and execution controls has not
+begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
 
 Apply rules **in order**; the first matching row governs the **proposed Witness verdict**
 recorded in `WITNESS_VERDICT.md`. Maintainers assign an **intake verdict** separately, using

@@ -1,19 +1,27 @@
 # Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc4)
 
-**Package status:** **RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT**
+**Package status:** **RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED**
 
-Canonical package tag: `grok-build-witness-v1.0.0-rc4` (`canonical_package_tag=grok-build-witness-v1.0.0-rc4`).
-Availability verified by annotated-tag resolution; canonical execution requires successful
-resolution; if resolution fails, canonical execution stops. After publication, the tag is
-immutable. `package_commit_authority=annotated_tag_resolution` (no embedded future rc4 commit).
+Canonical package tag: `grok-build-witness-v1.0.0-rc4` → fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`
+(`canonical_package_tag=grok-build-witness-v1.0.0-rc4`). Availability verified by annotated-tag
+resolution; canonical execution requires successful resolution; if resolution fails, canonical
+execution stops. The tag is immutable. `package_commit_authority=annotated_tag_resolution`
+(resolved commit is the fixed rc4 release identity).
+`grok-build-witness-v1.0.0-rc4` static blind audit is **COMPLETE** with final disposition
+**NOT READY** (40 integrated blockers; C-027; `evidence/rc4-static-blind-audit/`).
 `grok-build-witness-v1.0.0-rc3` remains fixed at `77221a224bbd6194cfafb81f6ecb58c800e5bc13`
 (integrated four-batch static audit verdict **NOT READY**; audit preserved under
 `evidence/rc3-static-blind-audit/`).
 `grok-build-witness-v1.0.0-rc2` remains fixed at `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`
 (integrated four-batch static blind audit verdict **NOT READY**).
 `grok-build-witness-v1.0.0-rc1` remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a`
-(repeat audit verdict **NOT READY**). rc1, rc2, and rc3 are **immutable historical releases** and
-must not be moved, deleted, or force-updated. C-014 **NOT_STARTED**. Overall **PARTIAL**.
+(repeat audit verdict **NOT READY**). rc1–rc4 are **immutable releases** and must not be moved,
+deleted, or force-updated. Phase 0 audit intake is complete. Phase 1 documentation and
+release/status remediation is being performed on `main`. Technical implementation remediation of
+scripts, schemas, validators, tests, and execution controls has not begun. `main` is being
+prepared toward a possible future rc5 candidate; **no rc5 tag exists**. Independent Witness
+reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **NOT_STARTED**. Overall
+**PARTIAL**.
 
 **Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`,
 `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must
@@ -391,23 +399,29 @@ after the final manifest has been generated.
 
 ---
 
-## Package remains NOT READY until rc4 commit, tag, and re-audit
+## Package remains NOT READY (rc4 static disposition)
 
-This runbook describes the **procedure** a Witness would follow once the package is ready to
-execute. The package itself remains **NOT READY** until rc4 is committed, tagged, and
-repeat-audited.
+This runbook describes the **procedure** a Witness would follow once a candidate package is
+suitable for Independent Witness handoff. The fixed rc4 package itself remains **NOT READY**
+(static disposition; 40 integrated blockers). Phase 0 audit intake is complete. Phase 1
+documentation and release/status remediation is being performed on `main`. Technical
+implementation remediation of scripts, schemas, validators, tests, and execution controls has not
+begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
+Independent Witness reproduction has **NOT** been performed. C-014 remains **`NOT_STARTED`**.
 
 Canonical execution requires successful annotated-tag resolution of
-`grok-build-witness-v1.0.0-rc4`. If resolution fails, canonical execution stops (host script
-`exit 3` by design). After publication, the tag is immutable. Later `main`-branch status/audit
-records are outside the tagged snapshot.
+`grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. If resolution
+fails, canonical execution stops (host script `exit 3` by design). The tag is immutable. Later
+`main`-branch status/audit/remediation records are outside the tagged snapshot.
 
 ### HISTORICAL PRE-TAG STATE
 
 Earlier revisions of this section used “until/before/after rc3 tag exists” and “do not attempt a
 live run against `main` before the rc3 tag exists” as current normative identity language. That
-language is superseded: rc3 was tagged and audited **NOT READY** (C-026), and rc4 is now the
-package content under preparation.
+language is superseded: rc3 was tagged and audited **NOT READY** (C-026). Separately,
+pre-publication wording described rc4 as “package content under preparation” / “pending commit,
+tag, and re-audit.” That prospective wording is superseded: rc4 is fixed and immutable at the
+identity above, statically audited **NOT READY** (C-027).
 
 ## Change log
 
@@ -415,4 +429,4 @@ package content under preparation.
 |---------|--------|
 | 1.0.0-rc2 | Prior canonical-platform, host-block, directory-layout, Docker-contract, bootstrap, build-command, failure-behavior, and manifest-lifecycle sections |
 | 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |
-| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; removed normative pre-tag “tag exists/pending” assertions from current text |
+| 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; annotated-tag resolution wording. **Historical note:** contemporaneous change-log text claimed removal of normative pre-tag “tag exists/pending” assertions; the rc4 static blind audit later found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 documentation on `main` corrects those current-facing statements without altering this tagged snapshot. |

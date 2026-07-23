@@ -95,8 +95,13 @@ annotation after ledgered supersession) `SUPERSEDED`. This intake value is recor
 maintainer in a follow-up commit, never by editing the Witness's original submission.
 
 Current package identity: version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`;
-package remains **NOT READY** until rc4 is committed, tagged, and repeat-audited; C-014
-**NOT_STARTED**; overall **PARTIAL**; no Independent Witness reproduction.
+fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package remains **NOT READY** (rc4
+static disposition; 40 integrated blockers); Phase 0 audit intake is complete; Phase 1
+documentation and release/status remediation is being performed on `main`; technical
+implementation remediation of scripts, schemas, validators, tests, and execution controls has not
+begun; `main` is being prepared toward a possible future rc5 candidate (**no rc5 tag exists**);
+Independent Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014
+**NOT_STARTED**; overall **PARTIAL**.
 
 ## Corrections policy
 

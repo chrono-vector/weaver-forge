@@ -1,6 +1,6 @@
 # RC4 static blind audit — integrated blockers
 
-Consolidated list of every material blocker identified across Batches 1–4 of the RC4 static blind audit of tag `grok-build-witness-v1.0.0-rc4` (commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`, tree `071c4c1f4ed1b3e3a9164709c79ea9f5235ec2e9`). Extracted from `RC4_BATCH_4_FINAL_INTEGRATED.md` Blockers 5.1–5.40. Static owner-side review only; no execution performed. All 40 items below are material blockers to a READY verdict. **None are closed.** Status of every blocker: **OPEN**.
+Consolidated list of every material blocker identified across Batches 1–4 of the RC4 static blind audit of tag `grok-build-witness-v1.0.0-rc4` (commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`, tree `071c4c1f4ed1b3e3a9164709c79ea9f5235ec2e9`). Extracted from `RC4_BATCH_4_FINAL_INTEGRATED.md` Blockers 5.1–5.40. Static owner-side review only; no execution performed. All 40 items below are material blockers to a READY verdict. **None are CLOSED.** Phase 1 documentation remediation on `main` may mark RC4B-001/002/003 as `REMEDIATED_ON_MAIN_PENDING_REAUDIT` only; RC4B-004–RC4B-040 remain `OPEN`. Final closure of any blocker requires a future fixed candidate and repeat static audit.
 
 Stable ID mapping: Blocker 5.N → RC4B-00N (zero-padded to three digits).
 
@@ -19,7 +19,7 @@ Stable ID mapping: Blocker 5.N → RC4B-00N (zero-padded to three digits).
 | Evidence | wording still says rc4 is under preparation, pending commit/tag, or not yet published |
 | Readiness-policy consequence | the fixed package is internally inconsistent and cannot truthfully describe its own release state |
 | Mandatory correction | replace prospective wording with time-stable text identifying the already-fixed tag and commit while keeping readiness unresolved |
-| Status | OPEN (not closed) |
+| Status | REMEDIATED_ON_MAIN_PENDING_REAUDIT (Phase 1 documentation/status-truthfulness on `main`; **not CLOSED**; final closure requires a future fixed candidate and repeat static audit) |
 
 ## RC4B-002 — Closure statements contradict current content
 
@@ -34,7 +34,7 @@ Stable ID mapping: Blocker 5.N → RC4B-00N (zero-padded to three digits).
 | Evidence | statements say pending wording or related defects were closed while contradictory text and untested paths remain |
 | Readiness-policy consequence | public audit records overstate remediation |
 | Mandatory correction | change each claim to the exact narrow remediation actually implemented and leave unresolved controls open |
-| Status | OPEN (not closed) |
+| Status | REMEDIATED_ON_MAIN_PENDING_REAUDIT (Phase 1 documentation/status-truthfulness on `main`; **not CLOSED**; final closure requires a future fixed candidate and repeat static audit) |
 
 ## RC4B-003 — rc4 is not recorded as the already-published immutable release
 
@@ -49,7 +49,7 @@ Stable ID mapping: Blocker 5.N → RC4B-00N (zero-padded to three digits).
 | Evidence | rc1–rc3 history is represented, but rc4 remains prospective |
 | Readiness-policy consequence | release history and current identity disagree |
 | Mandatory correction | append the rc4 tag, commit, and fixed-under-audit status without claiming readiness |
-| Status | OPEN (not closed) |
+| Status | REMEDIATED_ON_MAIN_PENDING_REAUDIT (Phase 1 documentation/status-truthfulness on `main`; **not CLOSED**; final closure requires a future fixed candidate and repeat static audit) |
 
 ## RC4B-004 — Docker metadata is invoked before identity closure
 
@@ -618,7 +618,9 @@ Stable ID mapping: Blocker 5.N → RC4B-00N (zero-padded to three digits).
 | Total material blockers | 40 (`RC4B-001`–`RC4B-040`) |
 | Contiguous unique IDs | Yes |
 | Every Blocker 5.1–5.40 appears exactly once | Yes |
-| Closed blockers | 0 |
+| CLOSED blockers | 0 |
+| REMEDIATED_ON_MAIN_PENDING_REAUDIT | RC4B-001, RC4B-002, RC4B-003 (Phase 1 docs only; final closure requires future fixed candidate + repeat static audit) |
+| OPEN blockers | RC4B-004–RC4B-040 (37) |
 | Final static disposition | **NOT READY** |
 | C-014 status | `NOT_STARTED` (unaffected by this audit) |
 | Remediation mapping | See `INTEGRATED_REMEDIATION_LIST.md` |

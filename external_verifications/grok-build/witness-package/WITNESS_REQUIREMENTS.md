@@ -2,19 +2,26 @@
 
 ## Current package status
 
-**RC3 INTEGRATED STATIC BLIND-AUDIT RECORDED — RC4 PACKAGE CONTENT UNDER PREPARATION — NOT READY PENDING RC4 COMMIT, TAG AND RE-AUDIT**
+**RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED**
 
-Package version `1.0.0-rc4`; `canonical_package_tag=grok-build-witness-v1.0.0-rc4`;
-`package_commit_authority=annotated_tag_resolution` (no embedded future rc4 commit). Tag
-availability is verified by annotated-tag resolution; canonical execution requires successful
-resolution; if resolution fails, canonical execution stops. After publication, the tag is
-immutable. `grok-build-witness-v1.0.0-rc1` (`89127c78c3a11492892de7e3b5f0dee18d71775a`),
-`grok-build-witness-v1.0.0-rc2` (`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and
+Package version `1.0.0-rc4`; `canonical_package_tag=grok-build-witness-v1.0.0-rc4`; fixed tagged
+commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`;
+`package_commit_authority=annotated_tag_resolution` (resolved commit is the fixed rc4 release
+identity). Tag availability is verified by annotated-tag resolution; canonical execution requires
+successful resolution; if resolution fails, canonical execution stops. The tag is immutable.
+`grok-build-witness-v1.0.0-rc1` (`89127c78c3a11492892de7e3b5f0dee18d71775a`),
+`grok-build-witness-v1.0.0-rc2` (`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`),
 `grok-build-witness-v1.0.0-rc3` (`77221a224bbd6194cfafb81f6ecb58c800e5bc13`; audit preserved under
-`evidence/rc3-static-blind-audit/`) are preserved as **immutable historical releases**, each with
-its own recorded **NOT READY** audit verdict. C-014 (Independent Witness) remains
-**`NOT_STARTED`**. Overall **PARTIAL**. Package remains **NOT READY** until rc4 is committed,
-tagged, and repeat-audited.
+`evidence/rc3-static-blind-audit/`), and `grok-build-witness-v1.0.0-rc4`
+(`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; audit preserved under
+`evidence/rc4-static-blind-audit/`; 40 blockers) are preserved as **immutable releases**, each with
+its own recorded **NOT READY** audit verdict. Independent Witness reproduction **NOT PERFORMED**.
+Independent Witness PASS **NONE**. C-014 (Independent Witness) remains **`NOT_STARTED`**. Overall
+**PARTIAL**. Package remains **NOT READY** (rc4 static disposition). Phase 0 audit intake is
+complete. Phase 1 documentation and release/status remediation is being performed on `main`.
+Technical implementation remediation of scripts, schemas, validators, tests, and execution
+controls has not begun. `main` is being prepared toward a possible future rc5 candidate; **no
+rc5 tag exists**.
 
 ## Evidence schema
 
