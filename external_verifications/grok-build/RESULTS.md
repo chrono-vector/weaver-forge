@@ -3,10 +3,10 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Results status | **owner-side through C2D-2 PASS axes; Witness package NOT READY (`1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; rc4 package content under preparation); Independent Witness NOT_STARTED; overall PARTIAL** |
+| Results status | **owner-side through C2D-2 PASS axes; Witness package NOT READY (`1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`); rc4 static blind audit COMPLETE with final disposition NOT READY (40 integrated blockers recorded; evidence/rc4-static-blind-audit/); no remediation started; Independent Witness NOT_STARTED / no Independent Witness reproduction; overall PARTIAL** |
 | Compiled by | Weaver Forge documentation package author |
 | Role | Owner-side inspector (not independent witness) |
-| Compilation date | `2026-07-22` (C2E-5) |
+| Compilation date | `2026-07-23` (RC5 Phase 0 — RC4 audit intake) |
 | Linked reproduction run ID | C2E-1 `run-20260722-witness-package-readiness` |
 | Linked claim register | `CLAIM_REGISTER.md` |
 | Pinned commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
@@ -42,6 +42,7 @@
 | Phase C2E-3 (rc1 repeat blind audit intake) | **NOT READY** (audit intake recorded; rc1 preserved immutable) |
 | Phase C2E-4 (rc2 integrated four-batch static blind audit intake; rc3 package content) | **NOT READY** (audit intake recorded; rc2 preserved immutable; package version `1.0.0-rc3`; canonical tag `grok-build-witness-v1.0.0-rc3`) |
 | Phase C2E-5 (rc3 integrated four-batch static audit intake; rc4 package content) | **NOT READY** (audit intake recorded; audit preserved under `evidence/rc3-static-blind-audit/`; rc3 preserved immutable; package version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`) |
+| RC5 Phase 0 (rc4 integrated four-batch static blind audit intake) | **NOT READY** (audit complete and recorded under `evidence/rc4-static-blind-audit/`; 40 integrated blockers; no remediation started; no Independent Witness reproduction; C-014 remains `NOT_STARTED`) |
 
 ## 2. Per-Claim Results
 
@@ -73,6 +74,7 @@
 | C-024 | RC1 repeat blind audit intake | `PASS` (recording only; audit verdict **NOT READY**) | evidence/rc1-repeat-blind-audit/ |
 | C-025 | RC2 integrated four-batch static blind audit intake | `PASS` (recording only; audit verdict **NOT READY**) | evidence/rc2-static-blind-audit/; evidence/rc2-integrated-blind-audit-remediation/ |
 | C-026 | RC3 integrated four-batch static blind audit | `PASS` (display label `AUDIT_RECORDED`; recording only; audit verdict **NOT READY**) | evidence/rc3-static-blind-audit/ |
+| C-027 | RC4 integrated four-batch static blind audit | `PASS` (display label `AUDIT_RECORDED`; claim_scope=`AUDIT_RECORDING`; recording only; final disposition **NOT READY**; 40 blockers; package_readiness_effect=`NONE`; independent_witness_effect=`NONE`; c014=`NOT_STARTED`) | evidence/rc4-static-blind-audit/ |
 
 ## 3. Build Results
 
@@ -151,12 +153,14 @@
 |--------|-------:|
 | `NOT_STARTED` | 2 (C-012, C-014) |
 | `BLOCKED` | 1 (C-015) |
-| `PASS` | 21 (docs + C-013 + C-016–C-018 + C-020 + C-021 + C-023 + C-024 + C-025 + C-026) |
+| `PASS` | 22 (docs + C-013 + C-016–C-018 + C-020 + C-021 + C-023 + C-024 + C-025 + C-026 + C-027) |
 | `HISTORICAL SUPERSEDED` | 1 (C-022) |
 | `PARTIAL` | 1 (C-019) |
 | `FAIL` | 0 |
 | `NOT_APPLICABLE` | integrity sub-checks as above |
-| **Total** | **26** |
+| **Total** | **27** |
+
+Note: C-027 is audit-recording completion only and does not count as package readiness, remediation completion, or Independent Witness status.
 
 ## 10. Owner-Side vs Independent Witness
 
@@ -249,6 +253,7 @@
 | 2026-07-22 | Phase C2E-4: rc2 integrated four-batch static blind audit (C-025) recorded; verdict NOT READY; rc1 and rc2 preserved as immutable historical releases; package version `1.0.0-rc3` / canonical tag `grok-build-witness-v1.0.0-rc3`; C-014 still NOT_STARTED; per-claim table de-duplicated and reordered; aggregate counts recalculated to 25 | |
 | 2026-07-22 | Phase C2E-4B: tagged-snapshot release-wording finalization (time-stable rc3 identity language; no normative “tag absent/pending” assertions) | |
 | 2026-07-22 | Phase C2E-5: rc3 integrated four-batch static blind audit (C-026) recorded; verdict NOT READY; audit preserved under `evidence/rc3-static-blind-audit/`; rc1, rc2, and rc3 preserved as immutable historical releases; package version `1.0.0-rc4` / canonical tag `grok-build-witness-v1.0.0-rc4`; C-014 still NOT_STARTED; aggregate counts recalculated to 26; time-stable rc4 identity wording applied (no normative “tag absent/pending” assertions) | |
+| 2026-07-23 | RC5 Phase 0: rc4 integrated four-batch static blind audit (C-027) recorded; final disposition NOT READY; 40 integrated blockers; audit preserved under `evidence/rc4-static-blind-audit/`; no remediation started; no Independent Witness reproduction; C-014 still NOT_STARTED; aggregate counts recalculated to 27 | |
 
 ---
 
