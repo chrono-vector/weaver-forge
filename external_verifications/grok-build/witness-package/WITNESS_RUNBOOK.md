@@ -156,15 +156,16 @@ bash external_verifications/grok-build/witness-package/scripts/run_witness_narro
   YOUR_WITNESS_ID
 ```
 
-If the requested `WEAVER_FORGE_TAG` cannot be resolved on `origin`, the host script fails clearly
-with `exit 3` and records `WEAVER_FORGE_PACKAGE_IDENTITY.txt` with
-`reason=requested_tag_not_present_on_origin` plus the list of any `grok-build-witness-*` tags
-that **are** present. Canonical execution requires successful resolution; if resolution fails,
-canonical execution stops.
+If the requested `WEAVER_FORGE_TAG` cannot be resolved on `origin`, or its raw object type is not
+exactly `tag`, the host script fails clearly with `exit 3` and records
+`WEAVER_FORGE_PACKAGE_IDENTITY.txt` accordingly (missing tag:
+`reason=requested_tag_not_present_on_origin`; non-annotated:
+`reason=package_tag_raw_object_type_not_annotated_tag`). Canonical execution requires successful
+annotated-tag resolution; if resolution fails, canonical execution stops.
 
 ### Run ID and evidence directory
 
-Format: `<witness-id>-<UTC-YYYYMMDD>-<short-run-id>`
+Format: `<witness-id>-<UTC-YYYYMMDD>-<strong-random-suffix>`
 
 Evidence directory (host helper default):
 
@@ -172,9 +173,29 @@ Evidence directory (host helper default):
 ${WORK_ROOT}/evidence/<run-id>/
 ```
 
+**Atomic freshness (Phase 2A on `main`):** the evidence parent may be created with `mkdir -p`,
+but the final `EVIDENCE_DIR` is created with plain `mkdir` so the selected run directory did not
+previously exist. Collisions are retried with a new run ID or abort before any evidence write.
+Existing evidence directories are never merged, reset, reused, or partially overwritten. The
+allocated basename is the actual `run_id` recorded by the host. (Full run-ID propagation into
+every evidence file remains open for later phases.)
+
 Copy completed templates + logs into the submission path per [WITNESS_SUBMISSION.md](WITNESS_SUBMISSION.md).
 
----
+### Identity closure before any Docker CLI (Phase 2A on `main`)
+
+Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.** This
+does **not** claim rc4 was corrected.
+
+No Docker CLI invocation — including `docker version` and `docker context show` — occurs until
+package tag existence, **raw annotated-tag object type `tag`**, tag→commit resolution, package
+detached/`HEAD`/clean checks, Grok Build detached/`HEAD`/clean checks, and pre-Docker
+`Cargo.lock` hash equality have all succeeded and `IDENTITY_GATE_CLOSED=yes` is set. Non-Docker
+host OS/shell facts may be recorded earlier.
+
+If the requested `WEAVER_FORGE_TAG` is missing, is not raw object type `tag` (for example a
+lightweight tag), or fails later identity checks, the run aborts as pre-Docker infrastructure
+failure **without** invoking Docker.
 
 ## Directory layout (host helper)
 
@@ -430,3 +451,4 @@ identity above, statically audited **NOT READY** (C-027).
 | 1.0.0-rc2 | Prior canonical-platform, host-block, directory-layout, Docker-contract, bootstrap, build-command, failure-behavior, and manifest-lifecycle sections |
 | 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; annotated-tag resolution wording. **Historical note:** contemporaneous change-log text claimed removal of normative pre-tag “tag exists/pending” assertions; the rc4 static blind audit later found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 documentation on `main` corrects those current-facing statements without altering this tagged snapshot. |
+| main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **RC4 remains NOT READY**; **rc5 tag does not exist** |

@@ -160,7 +160,12 @@ DOCKER_EXIT=""
 OUTCOME="BUILD_NOT_STARTED"
 FAILURE_STAGE="none"
 
+WF_TAG_RAW_OBJECT_TYPE=""
 EVIDENCE_DIR=""
+# Load-bearing gate: every Docker CLI invocation (including docker version /
+# docker context show metadata) is refused until identity closure sets this to
+# exactly "yes" (RC4B-004 / Phase 2A).
+IDENTITY_GATE_CLOSED="no"
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -239,6 +244,102 @@ is_allowed_outcome() {
 }
 
 # ---------------------------------------------------------------------------
+# Phase 2A host preflight helpers (RC4B-004 / RC4B-005 / RC4B-008).
+# Defined before main so unit tests may source this file (BASH_SOURCE != $0)
+# without executing the pipeline.
+# ---------------------------------------------------------------------------
+
+# Strong random suffix for run IDs (not second-resolution timestamps alone).
+random_run_suffix() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 8
+    return 0
+  fi
+  if [[ -r /dev/urandom ]]; then
+    # 16 hex chars from urandom; portable when openssl is absent.
+    od -An -N8 -tx1 /dev/urandom | tr -d ' \n'
+    return 0
+  fi
+  # Last-resort unique-ish token; still combined with mkdir atomicity below.
+  printf '%s%05d' "$(date -u +%H%M%S)" "${RANDOM:-0}"
+}
+
+# Atomically create a fresh EVIDENCE_DIR. Parent may use mkdir -p; the final
+# selected run directory MUST be created with plain mkdir (no -p) so a
+# preexisting directory is never merged, reused, or overwritten (RC4B-008).
+allocate_atomic_evidence_dir() {
+  local evidence_parent="${WORK_ROOT}/evidence"
+  local max_attempts=32
+  local attempt=0
+  local suffix=""
+  local candidate_id=""
+  local candidate_dir=""
+
+  mkdir -p "${evidence_parent}"
+
+  while [[ "${attempt}" -lt "${max_attempts}" ]]; do
+    attempt=$((attempt + 1))
+    UTC_DATE="$(date -u +%Y%m%d)"
+    suffix="$(random_run_suffix)"
+    candidate_id="${WITNESS_ID}-${UTC_DATE}-${suffix}"
+    candidate_dir="${evidence_parent}/${candidate_id}"
+    # Plain mkdir: fails if candidate_dir already exists (including as a file).
+    if mkdir "${candidate_dir}" 2>/dev/null; then
+      RUN_ID="${candidate_id}"
+      EVIDENCE_DIR="${candidate_dir}"
+      return 0
+    fi
+  done
+
+  echo "FATAL[stage=${CURRENT_STAGE}]: could not allocate a fresh atomic EVIDENCE_DIR under ${evidence_parent} after ${max_attempts} attempts; refusing to merge or reuse any preexisting evidence directory" >&2
+  exit 2
+}
+
+# Require raw annotated-tag object type before checkout acceptance and before
+# any Docker CLI invocation (RC4B-005). Accepted value is exactly "tag".
+assert_raw_annotated_package_tag_type() {
+  local tag_ref="refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}"
+  local observed=""
+  observed="$(git -C "${WF_DIR}" cat-file -t "${tag_ref}" 2>/dev/null || true)"
+  WF_TAG_RAW_OBJECT_TYPE="${observed}"
+
+  if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "weaver_forge_tag_ref=${tag_ref}"
+      echo "weaver_forge_tag_raw_object_type=${WF_TAG_RAW_OBJECT_TYPE:-<empty>}"
+      echo "weaver_forge_tag_raw_object_type_required=tag"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+
+  if [[ "${observed}" != "tag" ]]; then
+    {
+      echo "evidence_schema_version=1"
+      echo "status=FAILED"
+      echo "reason=package_tag_raw_object_type_not_annotated_tag"
+      echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
+      echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
+      echo "package_version=${PACKAGE_VERSION}"
+      echo "weaver_forge_tag_raw_object_type_observed=${observed:-<empty>}"
+      echo "weaver_forge_tag_raw_object_type_required=tag"
+    } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    finalize_pre_docker_infrastructure_failure "weaver_forge_tag_raw_object_type" 3 \
+      "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} raw object type must be 'tag' (annotated); observed='${observed:-<empty>}'"
+  fi
+}
+
+# Close the identity gate only after the required pre-Docker identity checks.
+close_identity_gate() {
+  IDENTITY_GATE_CLOSED="yes"
+  if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "identity_gate_closed=yes"
+      echo "identity_gate_closed_utc=$(utc_now)"
+      echo "identity_gate_requires_before_any_docker_cli=yes"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Single deterministic verdict-ceiling function (RC3B-024). This is the ONLY
 # place VERDICT_CEILING is computed; nothing else in this script independently
 # derives it. The canonical-identity field list below MUST equal the
@@ -299,14 +400,45 @@ finalize_pre_docker_infrastructure_failure() {
   OUTCOME="INFRASTRUCTURE_FAILURE"
   FAILURE_STAGE="${stage}"
 
-  # Any mandatory file still holding its initial NOT_REACHED placeholder is
-  # finalized here to a truthful, non-placeholder INFRASTRUCTURE_FAILURE
-  # record. Files that already carry specific failure content (written by the
-  # caller before invoking this function) are left untouched.
-  local f path
-  for f in "${MANDATORY_EVIDENCE_FILES[@]}"; do
+  # Pre-gate-sensitive mandatory files: ALWAYS rewrite on pre-Docker failure,
+  # even when an earlier writer published status=OK (Phase 2A truthfulness).
+  # Uses only schema-permitted failure/not-reached style fields.
+  local pre_gate_sensitive=(
+    ENVIRONMENT.txt
+    WEAVER_FORGE_PACKAGE_IDENTITY.txt
+    SOURCE_IDENTITY.txt
+    SOURCE_ACQUISITION.txt
+  )
+  local f path is_pre_gate
+  for f in "${pre_gate_sensitive[@]}"; do
     path="${EVIDENCE_DIR}/${f}"
-    if [[ ! -s "${path}" ]] || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null; then
+    {
+      echo "evidence_schema_version=1"
+      echo "status=FAILED"
+      echo "outcome=INFRASTRUCTURE_FAILURE"
+      echo "applicable=no"
+      echo "inspection_applicable=no"
+      echo "artifact_present=no"
+      echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+      echo "failure_stage=${stage}"
+      echo "cargo_started=NO"
+      echo "product_executed=NO"
+      echo "ldd_used=NO"
+    } > "${path}"
+  done
+
+  # Remaining mandatory files: rewrite empty/NOT_REACHED, and also any
+  # provisional status=OK that appeared before identity-gate closure.
+  for f in "${MANDATORY_EVIDENCE_FILES[@]}"; do
+    is_pre_gate=0
+    for path in "${pre_gate_sensitive[@]}"; do
+      [[ "${f}" == "${path}" ]] && is_pre_gate=1 && break
+    done
+    [[ "${is_pre_gate}" -eq 1 ]] && continue
+    path="${EVIDENCE_DIR}/${f}"
+    if [[ ! -s "${path}" ]] \
+      || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null \
+      || { [[ "${IDENTITY_GATE_CLOSED}" != "yes" ]] && grep -q '^status=OK$' "${path}" 2>/dev/null; }; then
       {
         echo "evidence_schema_version=1"
         echo "status=FAILED"
@@ -505,7 +637,6 @@ on_err() {
       "Unexpected failure after Docker started, at stage=${failing_stage}"
   fi
 }
-trap on_err ERR
 
 usage() {
   cat <<EOF
@@ -781,6 +912,147 @@ confirm_work_root_reset_if_needed() {
 }
 
 # ---------------------------------------------------------------------------
+# Host ENVIRONMENT writers (Phase 2A / RC4B-004): non-Docker host facts may be
+# collected early into diagnostics only; ENVIRONMENT.txt status=OK is published
+# only after IDENTITY_GATE_CLOSED=yes and Docker metadata collection.
+# ---------------------------------------------------------------------------
+collect_host_environment_facts() {
+  HOST_ENV_UTC="$(utc_now)"
+  HOST_ENV_OS="$(uname -s 2>/dev/null || echo UNKNOWN)"
+  HOST_ENV_KERNEL="$(uname -r 2>/dev/null || echo UNKNOWN)"
+  HOST_ENV_ARCH="$(uname -m 2>/dev/null || echo UNKNOWN)"
+  if command -v lscpu >/dev/null 2>&1; then
+    HOST_ENV_CPU_SUMMARY="$(lscpu 2>/dev/null | head -n 20 || echo UNKNOWN)"
+    HOST_ENV_CPU_MODEL="$(lscpu 2>/dev/null | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
+  else
+    HOST_ENV_CPU_SUMMARY="UNKNOWN"
+    HOST_ENV_CPU_MODEL=""
+  fi
+  [[ -z "${HOST_ENV_CPU_MODEL}" ]] && HOST_ENV_CPU_MODEL="UNKNOWN"
+  if command -v free >/dev/null 2>&1; then
+    HOST_ENV_RAM="$(free -h 2>/dev/null | head -n 5 || echo UNKNOWN)"
+    HOST_ENV_RAM_GIB="$(free -g 2>/dev/null | awk '/^Mem:/{print $2; exit}')"
+  else
+    HOST_ENV_RAM="UNKNOWN"
+    HOST_ENV_RAM_GIB=""
+  fi
+  [[ -z "${HOST_ENV_RAM_GIB}" ]] && HOST_ENV_RAM_GIB="UNKNOWN"
+  if command -v df >/dev/null 2>&1; then
+    HOST_ENV_DISK="$(df -h "${WORK_ROOT}" 2>/dev/null || echo UNKNOWN)"
+    HOST_ENV_DISK_FREE_GB="$(df -BG "${WORK_ROOT}" 2>/dev/null | awk 'NR==2{gsub(/G/,"",$4); print $4; exit}')"
+  else
+    HOST_ENV_DISK="UNKNOWN"
+    HOST_ENV_DISK_FREE_GB=""
+  fi
+  [[ -z "${HOST_ENV_DISK_FREE_GB}" ]] && HOST_ENV_DISK_FREE_GB="UNKNOWN"
+  HOST_ENV_PLATFORM="linux/amd64"
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    HOST_ENV_WSL="likely_WSL2"
+  else
+    HOST_ENV_WSL="UNKNOWN"
+  fi
+  # Leave ENVIRONMENT.txt as NOT_REACHED until post-gate publication.
+  # Record non-schema diagnostics only.
+  if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "host_env_facts_collected_utc=${HOST_ENV_UTC}"
+      echo "host_env_facts_collected_pre_identity_gate=yes"
+      echo "host_os_observed=${HOST_ENV_OS}"
+      echo "host_arch_observed=${HOST_ENV_ARCH}"
+      echo "environment_schema_status_pending_identity_gate=yes"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+}
+
+# Docker CLI metadata + ENVIRONMENT publication. Refuses unless gate is yes.
+# Failures remain informational UNKNOWN after identity closure (not a hard abort).
+record_docker_environment_metadata() {
+  if [[ "${IDENTITY_GATE_CLOSED}" != "yes" ]]; then
+    echo "FATAL[stage=${CURRENT_STAGE}]: record_docker_environment_metadata refused because IDENTITY_GATE_CLOSED='${IDENTITY_GATE_CLOSED}' (required: yes); no Docker CLI may run before identity closure" >&2
+    exit 2
+  fi
+
+  local docker_client="UNKNOWN" docker_server="UNKNOWN" docker_ctx="UNKNOWN"
+  if command -v docker >/dev/null 2>&1; then
+    docker_client="$(docker version --format '{{.Client.Version}}' 2>/dev/null || echo UNKNOWN)"
+    docker_server="$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo UNKNOWN)"
+    docker_ctx="$(docker context show 2>/dev/null || echo UNKNOWN)"
+  fi
+  [[ -z "${docker_client}" ]] && docker_client="UNKNOWN"
+  [[ -z "${docker_server}" ]] && docker_server="UNKNOWN"
+  [[ -z "${docker_ctx}" ]] && docker_ctx="UNKNOWN"
+
+  {
+    echo "# record_utc=${HOST_ENV_UTC:-$(utc_now)}"
+    echo "BEGIN_SCHEMA_BLOCK ENVIRONMENT"
+    echo "evidence_schema_version=1"
+    echo "status=OK"
+    echo "outcome=BUILD_NOT_STARTED"
+    echo "witness_id=${WITNESS_ID}"
+    echo "host_os=${HOST_ENV_OS:-UNKNOWN}"
+    echo "host_kernel=${HOST_ENV_KERNEL:-UNKNOWN}"
+    echo "host_arch=${HOST_ENV_ARCH:-UNKNOWN}"
+    echo "host_cpu=${HOST_ENV_CPU_MODEL:-UNKNOWN}"
+    echo "host_ram_gib=${HOST_ENV_RAM_GIB:-UNKNOWN}"
+    echo "host_free_disk_gb=${HOST_ENV_DISK_FREE_GB:-UNKNOWN}"
+    echo "docker_client_version=${docker_client}"
+    echo "docker_server_version=${docker_server}"
+    echo "docker_context=${docker_ctx}"
+    echo "canonical_platform=${HOST_ENV_PLATFORM:-linux/amd64}"
+    echo "wsl2_indicator=${HOST_ENV_WSL:-UNKNOWN}"
+    echo "ai_assistance_used=see_WITNESS_STATEMENT.md"
+    echo "ai_assistance_detail=recorded_in_WITNESS_STATEMENT.md"
+    echo "human_review_completed=pending"
+    echo "product_executed=NO"
+    echo "upstream_product_commands_not_run=yes"
+    echo "ldd_used=NO"
+    echo "END_SCHEMA_BLOCK"
+    echo "# --- non-validated context fields (human review only) ---"
+    echo "# host_cpu_summary<<EOF"
+    echo "# ${HOST_ENV_CPU_SUMMARY:-UNKNOWN}"
+    echo "# EOF"
+    echo "# host_ram<<EOF"
+    echo "# ${HOST_ENV_RAM:-UNKNOWN}"
+    echo "# EOF"
+    echo "# host_available_disk<<EOF"
+    echo "# ${HOST_ENV_DISK:-UNKNOWN}"
+    echo "# EOF"
+    echo "# docker_metadata_status=recorded_after_identity_closure"
+    echo "# --- container-appended toolchain facts follow below this line ---"
+  } > "${EVIDENCE_DIR}/ENVIRONMENT.txt"
+
+  if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "docker_metadata_recorded_after_identity_gate=yes"
+      echo "docker_client_version=${docker_client}"
+      echo "docker_server_version=${docker_server}"
+      echo "docker_context=${docker_ctx}"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Main pipeline (executed only when this file is run as a script)
+# ---------------------------------------------------------------------------
+run_witness_narrow_build_main() {
+# Production initialization: reset load-bearing gate (ignore any inherited env).
+IDENTITY_GATE_CLOSED="no"
+SPECIFIC_FAILURE_RECORDED=0
+CURRENT_STAGE="startup"
+OUTCOME="BUILD_NOT_STARTED"
+FAILURE_STAGE="none"
+CARGO_STARTED="NO"
+DOCKER_STARTED_UTC=""
+DOCKER_FINISHED_UTC=""
+DOCKER_STARTED_EPOCH=""
+DOCKER_FINISHED_EPOCH=""
+DOCKER_EXIT=""
+EVIDENCE_DIR=""
+RUN_ID=""
+WF_TAG_RAW_OBJECT_TYPE=""
+trap on_err ERR
+
+# ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
@@ -834,18 +1106,11 @@ validate_work_root "${WORK_ROOT}"
 # ---------------------------------------------------------------------------
 # STEP 4: Run identity / directory layout
 # ---------------------------------------------------------------------------
-short_run_id() {
-  if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 3
-  else
-    date -u +%H%M%S
-  fi
-}
-
 mark_stage "step4_run_identity_and_layout"
 UTC_DATE="$(date -u +%Y%m%d)"
-RUN_ID="${WITNESS_ID}-${UTC_DATE}-$(short_run_id)"
-
+# RUN_ID / EVIDENCE_DIR are assigned atomically in allocate_atomic_evidence_dir
+# (STEP 6). Placeholders until then.
+RUN_ID=""
 WF_DIR="${WORK_ROOT}/weaver-forge"
 SRC_DIR="${WORK_ROOT}/grok-build-src"
 CARGO_HOME_DIR="${WORK_ROOT}/cargo-home"
@@ -854,15 +1119,16 @@ BOOTSTRAP_CARGO_TARGET_DIR="${WORK_ROOT}/bootstrap-cargo-target"
 DOTSLASH_CACHE_DIR="${WORK_ROOT}/dotslash-cache"
 HOME_DIR="${WORK_ROOT}/home"
 BOOTSTRAP_DIR="${WORK_ROOT}/bootstrap"
-EVIDENCE_DIR="${WORK_ROOT}/evidence/${RUN_ID}"
+EVIDENCE_DIR=""
 
 # STEP 5: WORK_ROOT reset confirmation
 mark_stage "step5_work_root_reset_confirmation"
 confirm_work_root_reset_if_needed
 
-# STEP 6: Directory setup
+# STEP 6: Directory setup — WORK_ROOT may mkdir -p; EVIDENCE_DIR is atomic.
 mark_stage "step6_directory_setup"
-mkdir -p "${WORK_ROOT}" "${EVIDENCE_DIR}"
+mkdir -p "${WORK_ROOT}"
+allocate_atomic_evidence_dir
 
 # ---------------------------------------------------------------------------
 # STEP 7: Evidence initialization — BEFORE any fallible host/container operation.
@@ -918,6 +1184,8 @@ mark_stage "step8_host_run_metadata_and_deviations"
   echo "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
   echo "BOOTSTRAP_CARGO_TARGET_DIR=${BOOTSTRAP_CARGO_TARGET_DIR}"
   echo "EVIDENCE_DIR=${EVIDENCE_DIR}"
+  echo "evidence_dir_allocation=atomic_mkdir"
+  echo "evidence_dir_atomic=yes"
   echo "--- closed auxiliary-file allow-list (RC3B-021) ---"
   echo "allowed_aux_evidence_files=${ALLOWED_AUX_EVIDENCE_FILES[*]}"
   echo "--- validator output policy ---"
@@ -978,99 +1246,13 @@ write_docker_exit_code_authoritative() {
 }
 
 # ---------------------------------------------------------------------------
-# STEP 10: Host-side ENVIRONMENT.txt generator (RC3B-012, RC3B-013).
-# ENVIRONMENT.txt is dual-owned: this host block is written BEFORE Docker
-# runs, wrapped in BEGIN/END_SCHEMA_BLOCK ENVIRONMENT; the container appends
-# its own toolchain-facts block below via `>>` (see container_narrow_build.sh
-# init_evidence(), which detects this file is already non-empty and does not
-# clobber it).
+# STEP 10: Host-side ENVIRONMENT fact collection (RC3B-012, RC3B-013, RC4B-004).
+# Non-Docker host facts are collected here without publishing status=OK.
+# ENVIRONMENT.txt remains NOT_REACHED until close_identity_gate +
+# record_docker_environment_metadata (after STEP 13).
 # ---------------------------------------------------------------------------
-record_host_environment() {
-  local utc now_os now_kernel now_arch cpu ram disk docker_client docker_server docker_ctx platform wsl
-  utc="$(utc_now)"
-  now_os="$(uname -s 2>/dev/null || echo UNKNOWN)"
-  now_kernel="$(uname -r 2>/dev/null || echo UNKNOWN)"
-  now_arch="$(uname -m 2>/dev/null || echo UNKNOWN)"
-  local cpu_model ram_gib disk_free_gb
-  if command -v lscpu >/dev/null 2>&1; then
-    cpu="$(lscpu 2>/dev/null | head -n 20 || echo UNKNOWN)"
-    cpu_model="$(lscpu 2>/dev/null | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
-  else
-    cpu="UNKNOWN"
-    cpu_model=""
-  fi
-  [[ -z "${cpu_model}" ]] && cpu_model="UNKNOWN"
-  if command -v free >/dev/null 2>&1; then
-    ram="$(free -h 2>/dev/null | head -n 5 || echo UNKNOWN)"
-    ram_gib="$(free -g 2>/dev/null | awk '/^Mem:/{print $2; exit}')"
-  else
-    ram="UNKNOWN"
-    ram_gib=""
-  fi
-  [[ -z "${ram_gib}" ]] && ram_gib="UNKNOWN"
-  if command -v df >/dev/null 2>&1; then
-    disk="$(df -h "${WORK_ROOT}" 2>/dev/null || echo UNKNOWN)"
-    disk_free_gb="$(df -BG "${WORK_ROOT}" 2>/dev/null | awk 'NR==2{gsub(/G/,"",$4); print $4; exit}')"
-  else
-    disk="UNKNOWN"
-    disk_free_gb=""
-  fi
-  [[ -z "${disk_free_gb}" ]] && disk_free_gb="UNKNOWN"
-  if command -v docker >/dev/null 2>&1; then
-    docker_client="$(docker version --format '{{.Client.Version}}' 2>/dev/null || echo UNKNOWN)"
-    docker_server="$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo UNKNOWN)"
-    docker_ctx="$(docker context show 2>/dev/null || echo UNKNOWN)"
-  else
-    docker_client="UNKNOWN"
-    docker_server="UNKNOWN"
-    docker_ctx="UNKNOWN"
-  fi
-  platform="linux/amd64"
-  if grep -qi microsoft /proc/version 2>/dev/null; then
-    wsl="likely_WSL2"
-  else
-    wsl="UNKNOWN"
-  fi
-  {
-    echo "# record_utc=${utc}"
-    echo "BEGIN_SCHEMA_BLOCK ENVIRONMENT"
-    echo "evidence_schema_version=1"
-    echo "status=OK"
-    echo "outcome=BUILD_NOT_STARTED"
-    echo "witness_id=${WITNESS_ID}"
-    echo "host_os=${now_os}"
-    echo "host_kernel=${now_kernel}"
-    echo "host_arch=${now_arch}"
-    echo "host_cpu=${cpu_model}"
-    echo "host_ram_gib=${ram_gib}"
-    echo "host_free_disk_gb=${disk_free_gb}"
-    echo "docker_client_version=${docker_client}"
-    echo "docker_server_version=${docker_server}"
-    echo "docker_context=${docker_ctx}"
-    echo "canonical_platform=${platform}"
-    echo "wsl2_indicator=${wsl}"
-    echo "ai_assistance_used=see_WITNESS_STATEMENT.md"
-    echo "ai_assistance_detail=recorded_in_WITNESS_STATEMENT.md"
-    echo "human_review_completed=pending"
-    echo "product_executed=NO"
-    echo "upstream_product_commands_not_run=yes"
-    echo "ldd_used=NO"
-    echo "END_SCHEMA_BLOCK"
-    echo "# --- non-validated context fields (human review only) ---"
-    echo "# host_cpu_summary<<EOF"
-    echo "# ${cpu}"
-    echo "# EOF"
-    echo "# host_ram<<EOF"
-    echo "# ${ram}"
-    echo "# EOF"
-    echo "# host_available_disk<<EOF"
-    echo "# ${disk}"
-    echo "# EOF"
-    echo "# --- container-appended toolchain facts follow below this line ---"
-  } > "${EVIDENCE_DIR}/ENVIRONMENT.txt"
-}
 mark_stage "step10_host_environment_recording"
-record_host_environment
+collect_host_environment_facts
 
 # ---------------------------------------------------------------------------
 # STEP 11: Weaver Forge package clone + tag resolution + clean/commit enforcement
@@ -1084,7 +1266,7 @@ git clone "${EFFECTIVE_WEAVER_FORGE_URL}" "${WF_DIR}"
 git -C "${WF_DIR}" fetch --tags origin
 WF_CLONE_END="$(utc_now)"
 
-if ! git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}^{commit}" >/dev/null 2>&1; then
+if ! git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}" >/dev/null 2>&1; then
   {
     echo "evidence_schema_version=1"
     echo "status=FAILED"
@@ -1099,6 +1281,11 @@ if ! git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}^{comm
   finalize_pre_docker_infrastructure_failure "weaver_forge_tag_resolution" 3 \
     "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} is not present on origin; canonical execution requires successful annotated-tag resolution and stops here"
 fi
+
+# RC4B-005: enforce raw annotated-tag object type BEFORE commit peel / checkout
+# and BEFORE any Docker CLI invocation.
+assert_raw_annotated_package_tag_type
+
 WEAVER_FORGE_RESOLVED_COMMIT="$(git -C "${WF_DIR}" rev-parse "refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}^{commit}")"
 if [[ ! "${WEAVER_FORGE_RESOLVED_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
   {
@@ -1150,6 +1337,52 @@ if [[ -n "${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT}" ]]; then
   fi
 fi
 
+# Enforce package identity BEFORE publishing status=OK.
+if [[ "${WF_DETACHED}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=weaver_forge_not_detached"
+    echo "package_clone_detached=${WF_DETACHED}"
+    echo "package_clone_head=${WF_HEAD}"
+    echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
+  } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_detached_head_check" 3 \
+    "Weaver Forge package clone is not in detached HEAD state after tag checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
+fi
+if [[ "${TAG_HEAD_MATCH}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=weaver_forge_tag_head_mismatch"
+    echo "package_clone_head=${WF_HEAD}"
+    echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
+    echo "tag_head_match=${TAG_HEAD_MATCH}"
+  } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_head_mismatch" 3 \
+    "Detached HEAD (${WF_HEAD}) does not equal resolved tag commit (${WEAVER_FORGE_RESOLVED_COMMIT})"
+fi
+if [[ "${WF_CLEAN}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=weaver_forge_dirty_clone"
+    echo "package_clone_clean_status=${WF_CLEAN}"
+  } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_dirty_clone" 3 \
+    "Weaver Forge package clone tree is not clean after detached checkout"
+fi
+if [[ "${EXTERNAL_EXPECTED_SUPPLIED}" == "yes" && "${EXTERNAL_EXPECTED_MATCH}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=weaver_forge_external_expected_commit_mismatch"
+    echo "external_expected_commit_match=${EXTERNAL_EXPECTED_MATCH}"
+  } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "weaver_forge_external_expected_commit_mismatch" 3 \
+    "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT mismatch: external=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT} resolved_tag=${WEAVER_FORGE_RESOLVED_COMMIT} head=${WF_HEAD}"
+fi
+
 {
   echo "evidence_schema_version=1"
   echo "status=OK"
@@ -1191,23 +1424,6 @@ fi
   echo "package_commit_authority=annotated_tag_resolution"
 } > "${EVIDENCE_DIR}/SOURCE_ACQUISITION.txt"
 
-if [[ "${WF_DETACHED}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "weaver_forge_detached_head_check" 3 \
-    "Weaver Forge package clone is not in detached HEAD state after tag checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
-fi
-if [[ "${TAG_HEAD_MATCH}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_head_mismatch" 3 \
-    "Detached HEAD (${WF_HEAD}) does not equal resolved tag commit (${WEAVER_FORGE_RESOLVED_COMMIT})"
-fi
-if [[ "${WF_CLEAN}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "weaver_forge_dirty_clone" 3 \
-    "Weaver Forge package clone tree is not clean after detached checkout"
-fi
-if [[ "${EXTERNAL_EXPECTED_SUPPLIED}" == "yes" && "${EXTERNAL_EXPECTED_MATCH}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "weaver_forge_external_expected_commit_mismatch" 3 \
-    "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT mismatch: external=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT} resolved_tag=${WEAVER_FORGE_RESOLVED_COMMIT} head=${WF_HEAD}"
-fi
-
 HOST_CONTAINER_SCRIPT="${WF_DIR}/external_verifications/grok-build/witness-package/scripts/container_narrow_build.sh"
 if [[ ! -f "${HOST_CONTAINER_SCRIPT}" ]]; then
   finalize_pre_docker_infrastructure_failure "container_script_missing" 3 \
@@ -1235,6 +1451,67 @@ CARGO_LOCK_BEFORE="$(sha256_of "${SRC_DIR}/Cargo.lock")"
 GB_DETACHED="yes"
 if git -C "${SRC_DIR}" symbolic-ref -q HEAD >/dev/null 2>&1; then
   GB_DETACHED="no"
+fi
+
+# Enforce source identity + Cargo.lock BEFORE publishing status=OK.
+if [[ "${GB_DETACHED}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=grok_build_not_detached"
+    echo "grok_build_detached_head=${GB_DETACHED}"
+  } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "grok_build_detached_head_check" 4 \
+    "Grok Build source clone is not in detached HEAD state after checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
+fi
+if [[ "${SRC_HEAD}" != "${EFFECTIVE_GROK_BUILD_COMMIT}" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=grok_build_commit_mismatch"
+    echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
+    echo "grok_build_commit_observed=${SRC_HEAD}"
+  } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "grok_build_commit_mismatch" 4 \
+    "Grok Build source commit mismatch: observed=${SRC_HEAD} expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
+fi
+if [[ -n "${SRC_STATUS}" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=grok_build_dirty_clone"
+  } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "grok_build_dirty_clone" 4 \
+    "Grok Build source tree not clean after detached checkout"
+fi
+
+# ---------------------------------------------------------------------------
+# STEP 13: Cargo.lock direct enforcement — BEFORE Docker
+# ---------------------------------------------------------------------------
+mark_stage "step13_cargo_lock_pre_docker"
+CARGO_LOCK_PRE_MATCH="no"
+[[ "${CARGO_LOCK_BEFORE}" == "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" ]] && CARGO_LOCK_PRE_MATCH="yes"
+{
+  echo "evidence_schema_version=1"
+  echo "status=CHECKED"
+  echo "stage=pre_docker"
+  echo "cargo_lock_sha256_expected=${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
+  echo "cargo_lock_sha256_observed=${CARGO_LOCK_BEFORE}"
+  echo "match=${CARGO_LOCK_PRE_MATCH}"
+} > "${EVIDENCE_DIR}/CARGO_LOCK_INTEGRITY.txt"
+
+if [[ "${CARGO_LOCK_PRE_MATCH}" != "yes" ]]; then
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "reason=cargo_lock_pre_docker_mismatch"
+    echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
+    echo "grok_build_commit_observed=${SRC_HEAD}"
+    echo "cargo_lock_sha256_observed=${CARGO_LOCK_BEFORE}"
+    echo "cargo_lock_sha256_expected=${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
+  } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
+  finalize_pre_docker_infrastructure_failure "cargo_lock_pre_docker_mismatch" 4 \
+    "Cargo.lock SHA-256 mismatch BEFORE Docker (expected ${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}, observed ${CARGO_LOCK_BEFORE})"
 fi
 
 {
@@ -1267,38 +1544,13 @@ fi
   echo "status=OK"
 } >> "${EVIDENCE_DIR}/SOURCE_ACQUISITION.txt"
 
-if [[ "${GB_DETACHED}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "grok_build_detached_head_check" 4 \
-    "Grok Build source clone is not in detached HEAD state after checkout (git symbolic-ref -q HEAD unexpectedly succeeded)"
-fi
-if [[ "${SRC_HEAD}" != "${EFFECTIVE_GROK_BUILD_COMMIT}" ]]; then
-  finalize_pre_docker_infrastructure_failure "grok_build_commit_mismatch" 4 \
-    "Grok Build source commit mismatch: observed=${SRC_HEAD} expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
-fi
-if [[ -n "${SRC_STATUS}" ]]; then
-  finalize_pre_docker_infrastructure_failure "grok_build_dirty_clone" 4 \
-    "Grok Build source tree not clean after detached checkout"
-fi
-
-# ---------------------------------------------------------------------------
-# STEP 13: Cargo.lock direct enforcement — BEFORE Docker
-# ---------------------------------------------------------------------------
-mark_stage "step13_cargo_lock_pre_docker"
-CARGO_LOCK_PRE_MATCH="no"
-[[ "${CARGO_LOCK_BEFORE}" == "${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}" ]] && CARGO_LOCK_PRE_MATCH="yes"
-{
-  echo "evidence_schema_version=1"
-  echo "status=CHECKED"
-  echo "stage=pre_docker"
-  echo "cargo_lock_sha256_expected=${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
-  echo "cargo_lock_sha256_observed=${CARGO_LOCK_BEFORE}"
-  echo "match=${CARGO_LOCK_PRE_MATCH}"
-} > "${EVIDENCE_DIR}/CARGO_LOCK_INTEGRITY.txt"
-
-if [[ "${CARGO_LOCK_PRE_MATCH}" != "yes" ]]; then
-  finalize_pre_docker_infrastructure_failure "cargo_lock_pre_docker_mismatch" 4 \
-    "Cargo.lock SHA-256 mismatch BEFORE Docker (expected ${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}, observed ${CARGO_LOCK_BEFORE})"
-fi
+# Identity closure complete (RC4B-004): package tag exists + raw type=tag +
+# resolves to one commit + package detached/HEAD/clean + Grok Build
+# detached/HEAD/clean + pre-Docker Cargo.lock match. Only now may Docker CLI
+# run (metadata first; pull/run follow later steps).
+mark_stage "step13b_identity_gate_close_and_docker_metadata"
+close_identity_gate
+record_docker_environment_metadata
 
 # ---------------------------------------------------------------------------
 # STEP 14: Isolated writable directories + host/container clean target proof
@@ -1798,3 +2050,9 @@ echo "Validator stdout/stderr must be captured OUTSIDE the evidence directory."
 echo "Submit evidence per WITNESS_SUBMISSION.md after redaction review and manifest finalization."
 
 exit "${FINAL_EXIT_CODE}"
+}
+
+# Standard Bash sourced-file detection: sourcing defines helpers only.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  run_witness_narrow_build_main "$@"
+fi

@@ -81,7 +81,7 @@ Container platform: **`linux/amd64`**.
 |-------------|------|
 | Person | Not the owner / package author |
 | Host | Witness-owned machine, VM, or cloud |
-| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc4` (publication verified by tag resolution; canonical execution stops if resolution fails) |
+| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc4` (publication verified by tag resolution; raw object type must be `tag`; canonical execution stops if resolution or type check fails) |
 | Grok source | Fresh clone at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Target | New empty `CARGO_TARGET_DIR` |
 | Owner caches | **Forbidden** as inputs |
@@ -97,7 +97,7 @@ the explicit `--noncanonical-deviation` flag; without it the host orchestrator r
 |------|----------------|
 | `WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
 | `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc4` |
-| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). |
+| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}` only after `git cat-file -t refs/tags/grok-build-witness-v1.0.0-rc4` equals `tag`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). |
 | `GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -124,6 +124,28 @@ Optional additional verification input only: `WEAVER_FORGE_EXTERNAL_EXPECTED_COM
   `--allow-nonempty-work-root` plus either typed confirmation of the exact resolved path or
   `--force-work-root-reset` for non-interactive sessions. The exact managed deletion targets are
   disclosed before any deletion occurs.
+
+## Host preflight identity closure (Phase 2A on `main`)
+
+Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.** The
+rc4 tag is unchanged. This does **not** claim that rc4 was corrected.
+
+Before **any** Docker CLI invocation (including `docker version` / `docker context show`
+metadata), the host orchestrator must close an explicit identity gate after all of:
+
+1. exact package tag ref exists
+2. raw tag object type is exactly `tag` (`git cat-file -t refs/tags/<tag>` — annotated only;
+   lightweight tags whose peeled type is `commit` are rejected)
+3. tag resolves to one commit
+4. package checkout detached; package `HEAD` equals resolved tag commit; package tree clean
+5. Grok Build checkout detached; `HEAD` equals pinned commit; tree clean
+6. direct pre-Docker `Cargo.lock` hash equals the canonical expected hash
+
+Ordinary non-Docker host facts may be recorded earlier. Docker metadata failures after the gate
+may remain informational `UNKNOWN`. Final `EVIDENCE_DIR` must be created atomically (plain
+`mkdir` of a never-before-existing run directory under an optional `mkdir -p` parent). A
+preexisting selected directory is never merged, reused, reset, or overwritten; collision either
+retries with a new run ID or aborts before writing evidence.
 
 ## RUSTUP_HOME policy
 
@@ -171,3 +193,4 @@ on `xai-grok-pager` / `grok`.
 | 1.0.0-rc2 | Prior canonical-platform, independence, fixed-identity, bootstrap, and network sections |
 | 1.0.0-rc3 | Added evidence-schema-version section; outcome model and outcome-sensitivity table; explicit failure-submissions-supported policy; `WITNESS_ID`/`WORK_ROOT` safety rules matching the host orchestrator; image-pull-is-fatal policy; canonical-constants table reconciled with `scripts/run_witness_narrow_build.sh` |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; no Independent Witness reproduction |
+| main (Phase 2A; not an rc5 release) | Host preflight: no Docker CLI before identity closure; raw annotated-tag type `tag` mandatory; atomic fresh `EVIDENCE_DIR`. **Does not** correct or re-tag rc4; **RC4 remains NOT READY**; **rc5 tag does not exist** |
