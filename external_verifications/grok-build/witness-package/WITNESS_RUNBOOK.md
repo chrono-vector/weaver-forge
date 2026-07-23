@@ -310,9 +310,12 @@ and completely documented, is a valid Witness submission.
 
 Normative contract: [AUTHORITATIVE_OUTCOME_CONTRACT.json](AUTHORITATIVE_OUTCOME_CONTRACT.json).
 It locks vocabulary, ownership, result tuple, and no-inference/no-overwrite rules for future rc5
-work. **Do not treat current scripts as compliant yet** — identified gaps remain (validator
-inference; host overwrite of container outcome; incomplete success gating). Implementation
-continues in Phases 3C–3F. **RC4 remains NOT READY. No rc5 tag exists.**
+work. **Phase 3C on `main` implements container terminal finalization** per that contract: every
+supported container terminal path finalizes container-owned evidence; no final provisional values
+are allowed in applicable container-owned fields. **Host ingestion remains noncompliant until
+Phase 3D.** Validator and `POST_BUILD` remain unchanged. **Do not treat the full stack as
+compliant yet** — identified host overwrite and validator inference gaps remain. **RC4 remains
+NOT READY. No rc5 tag exists.** Do not claim end-to-end compliance from Phase 3C alone.
 
 ---
 
@@ -485,3 +488,4 @@ identity above, statically audited **NOT READY** (C-027).
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; annotated-tag resolution wording. **Historical note:** contemporaneous change-log text claimed removal of normative pre-tag “tag exists/pending” assertions; the rc4 static blind audit later found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 documentation on `main` corrects those current-facing statements without altering this tagged snapshot. |
 | main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 3C; not an rc5 release) | Document container terminal finalization on `main` per Phase 3B contract; host ingestion still noncompliant until Phase 3D; validator/`POST_BUILD` unchanged. **RC4 remains NOT READY**; **rc5 tag does not exist** |

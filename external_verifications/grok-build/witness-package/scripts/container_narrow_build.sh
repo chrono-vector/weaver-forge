@@ -8,6 +8,12 @@
 # the bootstrap-vs-grok Cargo target separation, and guarantees every
 # required evidence file exists and is truthful on every exit path.
 #
+# Phase 3C: every supported terminal container path routes through
+# finalize_container_terminal_outcome, which atomically terminalizes
+# container-owned evidence exactly once. Host-owned files
+# (POST_BUILD_INTEGRITY.txt, DOCKER_EXIT_CODE.txt) are never written here.
+# The validator is never invoked from this script.
+#
 # Static inspection failure contract (artifact present, a required probe fails):
 #   - outcome remains CARGO_SUCCEEDED_ARTIFACT_PRESENT
 #   - STATIC_ARTIFACT_INSPECTION status=FAILED, inspection_complete=no
@@ -20,6 +26,10 @@
 # Do NOT write BOOTSTRAP_PROTOC_VERSION.txt under EVIDENCE_DIR. Protoc version
 # output is captured to a shell variable (or /work/bootstrap/) and recorded as
 # BOOTSTRAP.txt fields protoc_version_output / protoc_version_exit_code.
+#
+# Writer-failure boundary: if the evidence directory is not writable, this
+# script cannot produce a complete evidence package. Best-effort stderr is
+# emitted; EVIDENCE_FINALIZED is never set to YES; exit is nonzero.
 set -Eeuo pipefail
 
 # --- Identity expectations (env override; defaults match host canonical) ---
@@ -56,6 +66,8 @@ CURRENT_STAGE="script_init"
 CARGO_STARTED="NO"
 CARGO_EXIT_CODE=""
 EVIDENCE_FINALIZED="NO"
+FINALIZING_IN_PROGRESS="NO"
+CONTAINER_MAIN_ACTIVE="NO"
 CARGO_START_UTC=""
 CARGO_END_UTC=""
 CARGO_ELAPSED_SECONDS=""
@@ -76,6 +88,15 @@ CT_PROOF_FAILED="no"
 CT_FAILURE_STAGE="NOT_REACHED"
 CT_LISTINGS=""
 
+# Phase 3C contract terminal vocabulary (exact five).
+TERMINAL_CONTAINER_OUTCOMES=(
+  BUILD_NOT_STARTED
+  CARGO_FAILED
+  CARGO_SUCCEEDED_ARTIFACT_MISSING
+  CARGO_SUCCEEDED_ARTIFACT_PRESENT
+  INFRASTRUCTURE_FAILURE
+)
+
 ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 set_stage() { CURRENT_STAGE="$1"; }
@@ -87,6 +108,17 @@ escape_oneline() {
   s="${s//$'\r'/}"
   s="${s//$'\n'/\\n}"
   printf '%s' "${s}"
+}
+
+# Reject CR/LF in dynamically generated single-line field values.
+reject_field_newlines() {
+  local label="$1"
+  local value="$2"
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    echo "FATAL: field ${label} contains CR/LF; refusing to write" >&2
+    return 1
+  fi
+  return 0
 }
 
 # Read first matching key=value from a file (value may be empty).
@@ -103,6 +135,82 @@ read_kv() {
   printf '%s' "${default}"
 }
 
+is_terminal_container_outcome() {
+  local candidate="$1"
+  local o
+  for o in "${TERMINAL_CONTAINER_OUTCOMES[@]}"; do
+    if [[ "${candidate}" == "${o}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# --- Atomic evidence writer -------------------------------------------------
+# Writes stdin to a same-directory temporary file, then renames into place.
+# On ordinary write failure the final path is not truncated; temp is removed.
+write_evidence_file_atomic() {
+  local dest="$1"
+  local dir base tmp
+  if [[ -z "${dest}" ]]; then
+    echo "write_evidence_file_atomic: empty destination" >&2
+    return 1
+  fi
+  dir="$(dirname -- "${dest}")"
+  base="$(basename -- "${dest}")"
+  if [[ ! -d "${dir}" ]]; then
+    echo "write_evidence_file_atomic: evidence directory missing: ${dir}" >&2
+    return 1
+  fi
+  tmp="${dir}/.tmp.${base}.$$.${RANDOM}"
+  if ! cat > "${tmp}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_evidence_file_atomic: write failed for ${dest}" >&2
+    return 1
+  fi
+  if ! mv -f -- "${tmp}" "${dest}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_evidence_file_atomic: rename failed for ${dest}" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Atomically rewrite a file replacing the first key= line (or append if absent).
+replace_kv_file_atomic() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local tmp line replaced=0
+  reject_field_newlines "${key}" "${value}" || return 1
+  if [[ ! -f "${file}" ]]; then
+    printf '%s=%s\n' "${key}" "${value}" | write_evidence_file_atomic "${file}"
+    return $?
+  fi
+  tmp="${file}.repl.$$.${RANDOM}"
+  {
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      if [[ "${replaced}" -eq 0 && "${line}" == "${key}="* ]]; then
+        printf '%s=%s\n' "${key}" "${value}"
+        replaced=1
+      else
+        printf '%s\n' "${line}"
+      fi
+    done < "${file}"
+    if [[ "${replaced}" -eq 0 ]]; then
+      printf '%s=%s\n' "${key}" "${value}"
+    fi
+  } > "${tmp}" || {
+    rm -f -- "${tmp}" 2>/dev/null || true
+    return 1
+  }
+  if ! mv -f -- "${tmp}" "${file}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    return 1
+  fi
+  return 0
+}
+
 # --- Evidence writers -------------------------------------------------------
 
 # Writes BUILD_EXIT_CODE.txt and BUILD_TIMING.txt with rc4 schema field names.
@@ -112,36 +220,40 @@ write_outcome_evidence() {
   local docker_exit_code="$5" failure_stage="$6" status="$7"
   local cargo_started_utc="$8" cargo_finished_utc="$9" cargo_elapsed_seconds="${10}"
 
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=${status}"
-    echo "outcome=${outcome}"
-    echo "cargo_started=${cargo_started}"
-    echo "build_status=${build_status}"
-    echo "cargo_exit_code=${cargo_exit_code}"
-    echo "failure_stage=${failure_stage}"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_EXIT_CODE.txt"
+  reject_field_newlines "outcome" "${outcome}" || return 1
+  reject_field_newlines "failure_stage" "${failure_stage}" || return 1
+  reject_field_newlines "cargo_exit_code" "${cargo_exit_code}" || return 1
 
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_TIMING"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=${status}"
-    echo "outcome=${outcome}"
-    # Docker wall-clock is host-owned; container records NOT_APPLICABLE.
-    echo "docker_started_utc=NOT_APPLICABLE"
-    echo "docker_finished_utc=NOT_APPLICABLE"
-    echo "docker_elapsed_seconds=NOT_APPLICABLE"
-    echo "cargo_started_utc=${cargo_started_utc}"
-    echo "cargo_finished_utc=${cargo_finished_utc}"
-    echo "cargo_elapsed_seconds=${cargo_elapsed_seconds}"
-    echo "cargo_started=${cargo_started}"
-    echo "cargo_exit_code=${cargo_exit_code}"
-    echo "docker_exit_code=${docker_exit_code}"
-    echo "failure_stage=${failure_stage}"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_TIMING.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_EXIT_CODE.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=${status}
+outcome=${outcome}
+cargo_started=${cargo_started}
+build_status=${build_status}
+cargo_exit_code=${cargo_exit_code}
+failure_stage=${failure_stage}
+END_SCHEMA_BLOCK
+EOF
+
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_TIMING.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_TIMING
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=${status}
+outcome=${outcome}
+docker_started_utc=NOT_APPLICABLE
+docker_finished_utc=NOT_APPLICABLE
+docker_elapsed_seconds=NOT_APPLICABLE
+cargo_started_utc=${cargo_started_utc}
+cargo_finished_utc=${cargo_finished_utc}
+cargo_elapsed_seconds=${cargo_elapsed_seconds}
+cargo_started=${cargo_started}
+cargo_exit_code=${cargo_exit_code}
+docker_exit_code=${docker_exit_code}
+failure_stage=${failure_stage}
+END_SCHEMA_BLOCK
+EOF
+  return 0
 }
 
 # Truthful "no artifact" ARTIFACT_IDENTITY.txt / STATIC_ARTIFACT_INSPECTION.txt.
@@ -151,129 +263,134 @@ write_no_artifact_evidence() {
   local reason="$1"
   local applicable="${2:-no}"
   local outcome="${3:-BUILD_NOT_STARTED}"
-  {
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "outcome=${outcome}"
-    echo "applicable=${applicable}"
-    echo "artifact_present=no"
-    echo "reason=${reason}"
-    echo "product_executed=NO"
-    echo "ldd_used=NO"
-  } > "${EVIDENCE}/ARTIFACT_IDENTITY.txt"
-  {
-    echo "BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_APPLICABLE"
-    echo "outcome=${outcome}"
-    echo "applicable=no"
-    echo "artifact_present=no"
-    echo "artifact_path=NOT_APPLICABLE"
-    echo "sha256sum_command=NOT_APPLICABLE"
-    echo "sha256sum_output=NOT_APPLICABLE"
-    echo "sha256sum_exit_code=NOT_APPLICABLE"
-    echo "stat_command=NOT_APPLICABLE"
-    echo "stat_output=NOT_APPLICABLE"
-    echo "stat_exit_code=NOT_APPLICABLE"
-    echo "file_command=NOT_APPLICABLE"
-    echo "file_output=NOT_APPLICABLE"
-    echo "file_exit_code=NOT_APPLICABLE"
-    echo "readelf_h_command=NOT_APPLICABLE"
-    echo "readelf_h_output=NOT_APPLICABLE"
-    echo "readelf_h_exit_code=NOT_APPLICABLE"
-    echo "readelf_n_command=NOT_APPLICABLE"
-    echo "readelf_n_output=NOT_APPLICABLE"
-    echo "readelf_n_exit_code=NOT_APPLICABLE"
-    echo "readelf_d_command=NOT_APPLICABLE"
-    echo "readelf_d_output=NOT_APPLICABLE"
-    echo "readelf_d_exit_code=NOT_APPLICABLE"
-    echo "objdump_f_command=NOT_APPLICABLE"
-    echo "objdump_f_output=NOT_APPLICABLE"
-    echo "objdump_f_exit_code=NOT_APPLICABLE"
-    echo "inspection_complete=no"
-    echo "failure_stage=NONE"
-    echo "reason=${reason}"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt"
+  reject_field_newlines "reason" "$(escape_oneline "${reason}")" || return 1
+  local reason_esc
+  reason_esc="$(escape_oneline "${reason}")"
+
+  write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+outcome=${outcome}
+applicable=${applicable}
+artifact_present=no
+reason=${reason_esc}
+product_executed=NO
+ldd_used=NO
+EOF
+
+  write_evidence_file_atomic "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_APPLICABLE
+outcome=${outcome}
+applicable=no
+artifact_present=no
+artifact_path=NOT_APPLICABLE
+sha256sum_command=NOT_APPLICABLE
+sha256sum_output=NOT_APPLICABLE
+sha256sum_exit_code=NOT_APPLICABLE
+stat_command=NOT_APPLICABLE
+stat_output=NOT_APPLICABLE
+stat_exit_code=NOT_APPLICABLE
+file_command=NOT_APPLICABLE
+file_output=NOT_APPLICABLE
+file_exit_code=NOT_APPLICABLE
+readelf_h_command=NOT_APPLICABLE
+readelf_h_output=NOT_APPLICABLE
+readelf_h_exit_code=NOT_APPLICABLE
+readelf_n_command=NOT_APPLICABLE
+readelf_n_output=NOT_APPLICABLE
+readelf_n_exit_code=NOT_APPLICABLE
+readelf_d_command=NOT_APPLICABLE
+readelf_d_output=NOT_APPLICABLE
+readelf_d_exit_code=NOT_APPLICABLE
+objdump_f_command=NOT_APPLICABLE
+objdump_f_output=NOT_APPLICABLE
+objdump_f_exit_code=NOT_APPLICABLE
+inspection_complete=no
+failure_stage=NONE
+reason=${reason_esc}
+END_SCHEMA_BLOCK
+EOF
+  return 0
 }
 
-# Best-effort (non-fallible) artifact record used only from the generic ERR
-# trap, when the normal artifact-evidence path never ran to completion.
+# Best-effort (non-fallible preferred) artifact record used when cargo ran but
+# the normal artifact-evidence path never completed.
 write_artifact_evidence_best_effort() {
   local stage="$1"
   if [[ -f "${ARTIFACT}" ]]; then
-    {
-      echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-      echo "applicable=yes"
-      echo "artifact_present=yes"
-      echo "artifact_path=${ARTIFACT}"
-      echo "note=unexpected script failure at stage=${stage}; full identity capture not completed"
-      echo "product_executed=NO"
-      echo "ldd_used=NO"
-    } > "${EVIDENCE}/ARTIFACT_IDENTITY.txt"
-    {
-      echo "BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION"
-      echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-      echo "status=FAILED"
-      echo "outcome=NOT_APPLICABLE"
-      echo "applicable=yes"
-      echo "artifact_present=yes"
-      echo "artifact_path=${ARTIFACT}"
-      echo "sha256sum_command="
-      echo "sha256sum_output="
-      echo "sha256sum_exit_code="
-      echo "stat_command="
-      echo "stat_output="
-      echo "stat_exit_code="
-      echo "file_command="
-      echo "file_output="
-      echo "file_exit_code="
-      echo "readelf_h_command="
-      echo "readelf_h_output="
-      echo "readelf_h_exit_code="
-      echo "readelf_n_command="
-      echo "readelf_n_output="
-      echo "readelf_n_exit_code="
-      echo "readelf_d_command="
-      echo "readelf_d_output="
-      echo "readelf_d_exit_code="
-      echo "objdump_f_command="
-      echo "objdump_f_output="
-      echo "objdump_f_exit_code="
-      echo "inspection_complete=no"
-      echo "failure_stage=${stage}"
-      echo "reason=unexpected script failure at stage=${stage} before static inspection completed"
-      echo "END_SCHEMA_BLOCK"
-    } > "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt"
+    write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+applicable=yes
+artifact_present=yes
+artifact_path=${ARTIFACT}
+note=unexpected script failure at stage=${stage}; full identity capture not completed
+product_executed=NO
+ldd_used=NO
+EOF
+    write_evidence_file_atomic "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=FAILED
+outcome=NOT_APPLICABLE
+applicable=yes
+artifact_present=yes
+artifact_path=${ARTIFACT}
+sha256sum_command=
+sha256sum_output=
+sha256sum_exit_code=
+stat_command=
+stat_output=
+stat_exit_code=
+file_command=
+file_output=
+file_exit_code=
+readelf_h_command=
+readelf_h_output=
+readelf_h_exit_code=
+readelf_n_command=
+readelf_n_output=
+readelf_n_exit_code=
+readelf_d_command=
+readelf_d_output=
+readelf_d_exit_code=
+objdump_f_command=
+objdump_f_output=
+objdump_f_exit_code=
+inspection_complete=no
+failure_stage=${stage}
+reason=unexpected script failure at stage=${stage} before static inspection completed
+END_SCHEMA_BLOCK
+EOF
   else
-    write_no_artifact_evidence "unexpected script failure at stage=${stage}; artifact not present at check time" "no" "INFRASTRUCTURE_FAILURE"
+    write_no_artifact_evidence "unexpected script failure at stage=${stage}; artifact not present at check time" "no" "INFRASTRUCTURE_FAILURE" || return 1
   fi
+  return 0
 }
 
 # Rewrite CLEAN_TARGET_PROOF schema block; listings are labelled human-review
 # sections (not duplicate structured keys).
 flush_clean_target_proof() {
-  {
-    echo "BEGIN_SCHEMA_BLOCK CLEAN_TARGET"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=${CT_STATUS}"
-    echo "outcome=${CT_OUTCOME}"
-    echo "target_path_host=${CT_TARGET_PATH_HOST}"
-    echo "proof_utc_host=${CT_PROOF_UTC_HOST}"
-    echo "observed_entry_count_host=${CT_OBS_HOST}"
-    echo "target_path_container_prebootstrap=${CT_TARGET_PREBOOT}"
-    echo "proof_utc_container_prebootstrap=${CT_UTC_PREBOOT}"
-    echo "observed_entry_count_container_prebootstrap=${CT_OBS_PREBOOT}"
-    echo "target_path_container_precargo=${CT_TARGET_PRECARGO}"
-    echo "proof_utc_container_precargo=${CT_UTC_PRECARGO}"
-    echo "observed_entry_count_container=${CT_OBS_CONTAINER}"
-    echo "proof_failed=${CT_PROOF_FAILED}"
-    echo "failure_stage=${CT_FAILURE_STAGE}"
-    echo "END_SCHEMA_BLOCK"
-    if [[ -n "${CT_LISTINGS}" ]]; then
-      echo "# --- listings ---"
-      printf '%s' "${CT_LISTINGS}"
-    fi
-  } > "${EVIDENCE}/CLEAN_TARGET_PROOF.txt"
+  write_evidence_file_atomic "${EVIDENCE}/CLEAN_TARGET_PROOF.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK CLEAN_TARGET
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=${CT_STATUS}
+outcome=${CT_OUTCOME}
+target_path_host=${CT_TARGET_PATH_HOST}
+proof_utc_host=${CT_PROOF_UTC_HOST}
+observed_entry_count_host=${CT_OBS_HOST}
+target_path_container_prebootstrap=${CT_TARGET_PREBOOT}
+proof_utc_container_prebootstrap=${CT_UTC_PREBOOT}
+observed_entry_count_container_prebootstrap=${CT_OBS_PREBOOT}
+target_path_container_precargo=${CT_TARGET_PRECARGO}
+proof_utc_container_precargo=${CT_UTC_PRECARGO}
+observed_entry_count_container=${CT_OBS_CONTAINER}
+proof_failed=${CT_PROOF_FAILED}
+failure_stage=${CT_FAILURE_STAGE}
+END_SCHEMA_BLOCK
+$(if [[ -n "${CT_LISTINGS}" ]]; then printf '# --- listings ---\n%s' "${CT_LISTINGS}"; fi)
+EOF
+  return 0
 }
 
 # Append a labelled human-review listing for one clean-target check.
@@ -306,46 +423,46 @@ init_evidence() {
   # appends toolchain facts). Guarantee non-empty even if the host did not
   # pre-init it, without clobbering any host content that is already there.
   if [[ ! -s "${EVIDENCE}/ENVIRONMENT.txt" ]]; then
-    {
-      echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-      echo "status=pending_container_toolchain_capture"
-    } > "${EVIDENCE}/ENVIRONMENT.txt"
+    write_evidence_file_atomic "${EVIDENCE}/ENVIRONMENT.txt" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=pending_container_toolchain_capture
+EOF
   fi
 
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_REACHED"
-    echo "outcome=NOT_REACHED"
-    echo "cargo_started=NO"
-    echo "build_status=NOT_REACHED"
-    echo "cargo_exit_code=NOT_REACHED"
-    echo "failure_stage=NOT_REACHED"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_EXIT_CODE.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_EXIT_CODE.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_REACHED
+outcome=NOT_REACHED
+cargo_started=NO
+build_status=NOT_REACHED
+cargo_exit_code=NOT_REACHED
+failure_stage=NOT_REACHED
+END_SCHEMA_BLOCK
+EOF
 
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_TIMING"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_REACHED"
-    echo "outcome=NOT_REACHED"
-    echo "docker_started_utc=NOT_REACHED"
-    echo "docker_finished_utc=NOT_REACHED"
-    echo "docker_elapsed_seconds=NOT_REACHED"
-    echo "cargo_started_utc=NOT_REACHED"
-    echo "cargo_finished_utc=NOT_REACHED"
-    echo "cargo_elapsed_seconds=NOT_REACHED"
-    echo "cargo_started=NO"
-    echo "cargo_exit_code=NOT_REACHED"
-    echo "docker_exit_code=NOT_REACHED"
-    echo "failure_stage=NOT_REACHED"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_TIMING.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_TIMING.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_TIMING
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_REACHED
+outcome=NOT_REACHED
+docker_started_utc=NOT_REACHED
+docker_finished_utc=NOT_REACHED
+docker_elapsed_seconds=NOT_REACHED
+cargo_started_utc=NOT_REACHED
+cargo_finished_utc=NOT_REACHED
+cargo_elapsed_seconds=NOT_REACHED
+cargo_started=NO
+cargo_exit_code=NOT_REACHED
+docker_exit_code=NOT_REACHED
+failure_stage=NOT_REACHED
+END_SCHEMA_BLOCK
+EOF
 
-  {
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_REACHED"
-  } > "${EVIDENCE}/BOOTSTRAP.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BOOTSTRAP.txt" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_REACHED
+EOF
 
   # Preserve host-prewritten CLEAN_TARGET host fields when present.
   local existing="${EVIDENCE}/CLEAN_TARGET_PROOF.txt"
@@ -375,44 +492,391 @@ init_evidence() {
   CT_PROOF_FAILED="no"
   CT_FAILURE_STAGE="NOT_REACHED"
   CT_LISTINGS=""
-  flush_clean_target_proof
+  flush_clean_target_proof || return 1
 
-  {
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_REACHED"
-    echo "exact_build_command=${CANONICAL_BUILD_CMD}"
-    echo "cargo_incremental=0"
-    echo "working_directory=/src"
-    echo "product_executed=NO"
-  } > "${EVIDENCE}/BUILD_COMMAND.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_COMMAND.txt" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_REACHED
+exact_build_command=${CANONICAL_BUILD_CMD}
+cargo_incremental=0
+working_directory=/src
+product_executed=NO
+EOF
 
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_ENVIRONMENT"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=NOT_REACHED"
-    echo "outcome=NOT_REACHED"
-    echo "docker_platform=linux/amd64"
-    echo "network_mode=bridge"
-    echo "rust_image=${RUST_IMAGE}"
-    echo "workdir=/src"
-    echo "home=${HOME}"
-    echo "cargo_home=${CARGO_HOME}"
-    echo "cargo_target_dir=${CARGO_TARGET_DIR_GROK}"
-    echo "bootstrap_cargo_target_dir=${BOOTSTRAP_CARGO_TARGET_DIR}"
-    echo "cargo_incremental=0"
-    echo "dotslash_cache=${DOTSLASH_CACHE}"
-    echo "path=NOT_REACHED"
-    echo "grok_build_commit=${GROK_BUILD_COMMIT}"
-    echo "expected_cargo_lock_sha256=${EXPECTED_CARGO_LOCK_SHA256}"
-    echo "canonical_build_command=${CANONICAL_BUILD_CMD}"
-    echo "mount_src=/src:ro"
-    echo "mount_work=broad_WORK_ROOT_mount_prohibited"
-    echo "mount_evidence=/evidence:rw"
-    echo "mount_container_script=/witness/container_narrow_build.sh:ro"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_ENVIRONMENT.txt"
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_ENVIRONMENT.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_ENVIRONMENT
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_REACHED
+outcome=NOT_REACHED
+docker_platform=linux/amd64
+network_mode=bridge
+rust_image=${RUST_IMAGE}
+workdir=/src
+home=${HOME}
+cargo_home=${CARGO_HOME}
+cargo_target_dir=${CARGO_TARGET_DIR_GROK}
+bootstrap_cargo_target_dir=${BOOTSTRAP_CARGO_TARGET_DIR}
+cargo_incremental=0
+dotslash_cache=${DOTSLASH_CACHE}
+path=NOT_REACHED
+grok_build_commit=${GROK_BUILD_COMMIT}
+expected_cargo_lock_sha256=${EXPECTED_CARGO_LOCK_SHA256}
+canonical_build_command=${CANONICAL_BUILD_CMD}
+mount_src=/src:ro
+mount_work=broad_WORK_ROOT_mount_prohibited
+mount_evidence=/evidence:rw
+mount_container_script=/witness/container_narrow_build.sh:ro
+END_SCHEMA_BLOCK
+EOF
 
-  write_no_artifact_evidence "container run in progress; artifact not yet built" "no" "BUILD_NOT_STARTED"
+  write_no_artifact_evidence "container run in progress; artifact not yet built" "no" "BUILD_NOT_STARTED" || return 1
+}
+
+record_build_environment() {
+  write_evidence_file_atomic "${EVIDENCE}/BUILD_ENVIRONMENT.txt" <<EOF || return 1
+BEGIN_SCHEMA_BLOCK BUILD_ENVIRONMENT
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=OK
+outcome=RECORDED
+docker_platform=linux/amd64
+network_mode=bridge
+rust_image=${RUST_IMAGE}
+workdir=/src
+home=${HOME}
+cargo_home=${CARGO_HOME}
+cargo_target_dir=${CARGO_TARGET_DIR_GROK}
+bootstrap_cargo_target_dir=${BOOTSTRAP_CARGO_TARGET_DIR}
+cargo_incremental=0
+dotslash_cache=${DOTSLASH_CACHE}
+path=${PATH}
+grok_build_commit=${GROK_BUILD_COMMIT}
+expected_cargo_lock_sha256=${EXPECTED_CARGO_LOCK_SHA256}
+canonical_build_command=${CANONICAL_BUILD_CMD}
+mount_src=/src:ro
+mount_work=broad_WORK_ROOT_mount_prohibited
+mount_evidence=/evidence:rw
+mount_container_script=/witness/container_narrow_build.sh:ro
+END_SCHEMA_BLOCK
+EOF
+}
+
+# --- Phase 3C centralized terminal finalization ----------------------------
+
+_terminalize_bootstrap_file() {
+  local outcome="$1"
+  local stage="$2"
+  local f="${EVIDENCE}/BOOTSTRAP.txt"
+  local status body
+  [[ -f "${f}" ]] || return 0
+  status="$(read_kv "${f}" "status" "")"
+  if [[ "${status}" == "bootstrap_complete" ]]; then
+    replace_kv_file_atomic "${f}" "status" "OK" || return 1
+    return 0
+  fi
+  if [[ "${status}" == "pending" || "${status}" == "pending_container_toolchain_capture" ]]; then
+    replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+    return 0
+  fi
+  if [[ "${status}" == "NOT_REACHED" ]]; then
+    # Early pre-bootstrap failure: NOT_REACHED remains the schema-permitted
+    # placeholder terminal for PLACEHOLDER_ELIGIBLE BOOTSTRAP.txt.
+    # Partial bootstrap content without completion: mark FAILED.
+    if grep -qE '^(apt_packages|dotslash_|protoc_)' "${f}" 2>/dev/null; then
+      replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+    fi
+    return 0
+  fi
+  if [[ -z "${status}" ]]; then
+    # Bootstrap body written without a status key (mid-bootstrap failure path).
+    body="$(cat "${f}")"$'\n'"status=FAILED"$'\n'"failure_stage=${stage}"$'\n'"outcome=${outcome}"
+    printf '%s\n' "${body}" | write_evidence_file_atomic "${f}" || return 1
+  fi
+  return 0
+}
+
+_terminalize_build_command_file() {
+  local outcome="$1"
+  local f="${EVIDENCE}/BUILD_COMMAND.txt"
+  local status
+  [[ -f "${f}" ]] || return 0
+  status="$(read_kv "${f}" "status" "")"
+  if [[ "${status}" == "NOT_REACHED" || "${status}" == "pending" ]]; then
+    if [[ "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_PRESENT" || "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_MISSING" || "${outcome}" == "CARGO_FAILED" ]]; then
+      replace_kv_file_atomic "${f}" "status" "RECORDED" || return 1
+    else
+      # Early failure: FAILED is a truthful terminal alternative to NOT_REACHED
+      # when exact_build_command facts are already present from init.
+      replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+    fi
+  fi
+  return 0
+}
+
+_terminalize_build_environment_file() {
+  local outcome="$1"
+  local f="${EVIDENCE}/BUILD_ENVIRONMENT.txt"
+  local status
+  [[ -f "${f}" ]] || return 0
+  status="$(read_kv "${f}" "status" "")"
+  # status vocabulary is OK|RECORDED|NOT_REACHED only — no FAILED alternative.
+  if [[ "${status}" == "NOT_REACHED" ]]; then
+    replace_kv_file_atomic "${f}" "outcome" "${outcome}" || return 1
+    local path_val
+    path_val="$(read_kv "${f}" "path" "")"
+    if [[ "${path_val}" == "NOT_REACHED" ]]; then
+      replace_kv_file_atomic "${f}" "path" "NOT_APPLICABLE" || return 1
+    fi
+  fi
+  return 0
+}
+
+_terminalize_environment_file() {
+  local outcome="$1"
+  local f="${EVIDENCE}/ENVIRONMENT.txt"
+  [[ -f "${f}" ]] || return 0
+  if grep -q '^status=pending_container_toolchain_capture$' "${f}" 2>/dev/null; then
+    replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+  fi
+  # Do not invent host-owned keys; only clear container provisional status.
+  if ! grep -q "^outcome=" "${f}" 2>/dev/null; then
+    # Append container-visible outcome note only when absent (host may own outcome).
+    :
+  fi
+  return 0
+}
+
+_terminalize_clean_target_state() {
+  local outcome="$1"
+  local stage="$2"
+  if [[ "${CT_STATUS}" == "pending" || "${CT_STATUS}" == "NOT_REACHED" ]]; then
+    CT_STATUS="FAILED"
+  fi
+  if [[ "${CT_OUTCOME}" == "NOT_REACHED" || "${CT_OUTCOME}" == "pending" ]]; then
+    CT_OUTCOME="${outcome}"
+  fi
+  if [[ "${CT_FAILURE_STAGE}" == "NOT_REACHED" && "${CT_STATUS}" == "FAILED" ]]; then
+    CT_FAILURE_STAGE="${stage}"
+  fi
+  flush_clean_target_proof || return 1
+  return 0
+}
+
+# Ensure raw cargo streams exist (may be empty — truthful when cargo never ran).
+_ensure_build_streams() {
+  [[ -f "${EVIDENCE}/BUILD_STDOUT.txt" ]] || : > "${EVIDENCE}/BUILD_STDOUT.txt" || return 1
+  [[ -f "${EVIDENCE}/BUILD_STDERR.txt" ]] || : > "${EVIDENCE}/BUILD_STDERR.txt" || return 1
+  return 0
+}
+
+# Centralized, idempotent terminal finalization boundary.
+# Args:
+#   1: terminal outcome (exact contract vocabulary)
+#   2: container/build exit code
+#   3: failure_stage
+#   4: exit_status for BUILD_EXIT_CODE status field (OK|FAILED); default FAILED
+#   5: build_status field; default derived from outcome
+#   6: artifact_mode: none | preserve | best_effort | missing_applicable
+#
+# Never infers a different outcome from secondary facts.
+# Never writes POST_BUILD_INTEGRITY.txt or DOCKER_EXIT_CODE.txt.
+# Never invokes the validator.
+# Sets EVIDENCE_FINALIZED=YES only after required final writes succeed.
+finalize_container_terminal_outcome() {
+  local outcome="$1"
+  local exit_code="$2"
+  local failure_stage="$3"
+  local exit_status="${4:-FAILED}"
+  local build_status="${5:-}"
+  local artifact_mode="${6:-}"
+
+  local cargo_started_field cargo_exit_field
+  local cargo_started_utc cargo_finished_utc cargo_elapsed
+  local existing_outcome
+  local write_rc=0
+  local artifact_reason=""
+
+  _finalize_end() {
+    FINALIZING_IN_PROGRESS="NO"
+    if [[ "${CONTAINER_MAIN_ACTIVE}" == "YES" ]]; then
+      trap on_err ERR
+    else
+      trap - ERR
+    fi
+  }
+
+  if [[ "${FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    echo "finalize_container_terminal_outcome: recursion prevented" >&2
+    return 1
+  fi
+  FINALIZING_IN_PROGRESS="YES"
+
+  # Disable ERR trap recursion for the duration of finalization (no eval).
+  trap - ERR
+  set +e
+
+  if [[ -z "${EVIDENCE:-}" || ! -d "${EVIDENCE}" ]]; then
+    echo "finalize_container_terminal_outcome: evidence directory unavailable; cannot complete evidence package" >&2
+    _finalize_end
+    return 1
+  fi
+
+  if ! is_terminal_container_outcome "${outcome}"; then
+    echo "finalize_container_terminal_outcome: unsupported outcome=${outcome}" >&2
+    _finalize_end
+    return 1
+  fi
+
+  reject_field_newlines "failure_stage" "${failure_stage}" || {
+    _finalize_end
+    return 1
+  }
+
+  # Idempotent / fail-closed on conflicting repeat finalization.
+  if [[ "${EVIDENCE_FINALIZED}" == "YES" ]]; then
+    existing_outcome="$(read_kv "${EVIDENCE}/BUILD_EXIT_CODE.txt" "outcome" "")"
+    if [[ "${existing_outcome}" == "${outcome}" ]]; then
+      _finalize_end
+      return 0
+    fi
+    echo "finalize_container_terminal_outcome: conflicting repeat finalization existing=${existing_outcome} requested=${outcome}" >&2
+    _finalize_end
+    return 1
+  fi
+
+  # Derive tuple fields from the explicit outcome (never from secondary inference
+  # that would replace the caller-supplied outcome).
+  case "${outcome}" in
+    BUILD_NOT_STARTED)
+      cargo_started_field="NO"
+      cargo_exit_field="NOT_APPLICABLE"
+      cargo_started_utc="NOT_APPLICABLE"
+      cargo_finished_utc="NOT_APPLICABLE"
+      cargo_elapsed="NOT_APPLICABLE"
+      [[ -n "${build_status}" ]] || build_status="BUILD_NOT_STARTED"
+      [[ -n "${artifact_mode}" ]] || artifact_mode="none"
+      exit_status="FAILED"
+      ;;
+    CARGO_FAILED)
+      cargo_started_field="YES"
+      if [[ -n "${CARGO_EXIT_CODE}" ]]; then
+        cargo_exit_field="${CARGO_EXIT_CODE}"
+      else
+        cargo_exit_field="${exit_code}"
+      fi
+      cargo_started_utc="${CARGO_START_UTC:-NOT_APPLICABLE}"
+      cargo_finished_utc="${CARGO_END_UTC:-$(ts)}"
+      cargo_elapsed="${CARGO_ELAPSED_SECONDS:-NOT_APPLICABLE}"
+      [[ -n "${build_status}" ]] || build_status="FAILED"
+      [[ -n "${artifact_mode}" ]] || artifact_mode="none"
+      exit_status="FAILED"
+      ;;
+    CARGO_SUCCEEDED_ARTIFACT_MISSING)
+      cargo_started_field="YES"
+      cargo_exit_field="0"
+      cargo_started_utc="${CARGO_START_UTC:-NOT_APPLICABLE}"
+      cargo_finished_utc="${CARGO_END_UTC:-$(ts)}"
+      cargo_elapsed="${CARGO_ELAPSED_SECONDS:-NOT_APPLICABLE}"
+      [[ -n "${build_status}" ]] || build_status="COMPLETE"
+      [[ -n "${artifact_mode}" ]] || artifact_mode="missing_applicable"
+      exit_status="FAILED"
+      ;;
+    CARGO_SUCCEEDED_ARTIFACT_PRESENT)
+      cargo_started_field="YES"
+      cargo_exit_field="0"
+      cargo_started_utc="${CARGO_START_UTC:-NOT_APPLICABLE}"
+      cargo_finished_utc="${CARGO_END_UTC:-$(ts)}"
+      cargo_elapsed="${CARGO_ELAPSED_SECONDS:-NOT_APPLICABLE}"
+      [[ -n "${build_status}" ]] || build_status="COMPLETE"
+      [[ -n "${artifact_mode}" ]] || artifact_mode="preserve"
+      # exit_status remains caller-supplied (OK on static success, FAILED on static failure)
+      ;;
+    INFRASTRUCTURE_FAILURE)
+      cargo_started_field="${CARGO_STARTED}"
+      if [[ -n "${CARGO_EXIT_CODE}" ]]; then
+        cargo_exit_field="${CARGO_EXIT_CODE}"
+      else
+        cargo_exit_field="NOT_APPLICABLE"
+      fi
+      if [[ "${CARGO_STARTED}" == "YES" ]]; then
+        cargo_started_utc="${CARGO_START_UTC:-NOT_APPLICABLE}"
+        cargo_finished_utc="${CARGO_END_UTC:-$(ts)}"
+        cargo_elapsed="${CARGO_ELAPSED_SECONDS:-NOT_APPLICABLE}"
+        [[ -n "${artifact_mode}" ]] || artifact_mode="best_effort"
+      else
+        cargo_started_utc="NOT_APPLICABLE"
+        cargo_finished_utc="NOT_APPLICABLE"
+        cargo_elapsed="NOT_APPLICABLE"
+        [[ -n "${artifact_mode}" ]] || artifact_mode="none"
+      fi
+      [[ -n "${build_status}" ]] || build_status="INFRASTRUCTURE_FAILURE"
+      exit_status="FAILED"
+      ;;
+  esac
+
+  _ensure_build_streams || write_rc=1
+
+  case "${artifact_mode}" in
+    none)
+      case "${outcome}" in
+        BUILD_NOT_STARTED)
+          artifact_reason="cargo never started (failing_stage=${failure_stage})"
+          ;;
+        CARGO_FAILED)
+          artifact_reason="cargo build exited nonzero (${cargo_exit_field})"
+          ;;
+        INFRASTRUCTURE_FAILURE)
+          artifact_reason="unexpected infrastructure failure at stage=${failure_stage}; cargo never started"
+          ;;
+        *)
+          artifact_reason="artifact not applicable (outcome=${outcome}; stage=${failure_stage})"
+          ;;
+      esac
+      write_no_artifact_evidence "${artifact_reason}" "no" "${outcome}" || write_rc=1
+      ;;
+    missing_applicable)
+      write_no_artifact_evidence \
+        "cargo exited 0 but expected artifact ${ARTIFACT} is missing" \
+        "yes" "${outcome}" || write_rc=1
+      ;;
+    preserve)
+      # Caller already wrote ARTIFACT_IDENTITY / STATIC_ARTIFACT_INSPECTION.
+      if [[ ! -f "${EVIDENCE}/ARTIFACT_IDENTITY.txt" || ! -f "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt" ]]; then
+        echo "finalize_container_terminal_outcome: preserve mode missing artifact evidence files" >&2
+        write_rc=1
+      fi
+      ;;
+    best_effort)
+      write_artifact_evidence_best_effort "${failure_stage}" || write_rc=1
+      ;;
+    *)
+      echo "finalize_container_terminal_outcome: unknown artifact_mode=${artifact_mode}" >&2
+      write_rc=1
+      ;;
+  esac
+
+  _terminalize_clean_target_state "${outcome}" "${failure_stage}" || write_rc=1
+  _terminalize_bootstrap_file "${outcome}" "${failure_stage}" || write_rc=1
+  _terminalize_build_command_file "${outcome}" || write_rc=1
+  _terminalize_build_environment_file "${outcome}" || write_rc=1
+  _terminalize_environment_file "${outcome}" || write_rc=1
+
+  write_outcome_evidence \
+    "${outcome}" "${cargo_started_field}" "${build_status}" "${cargo_exit_field}" \
+    "${exit_code}" "${failure_stage}" "${exit_status}" \
+    "${cargo_started_utc}" "${cargo_finished_utc}" "${cargo_elapsed}" || write_rc=1
+
+  # Explicitly do not create or modify host-owned POST_BUILD_INTEGRITY.txt
+  # or DOCKER_EXIT_CODE.txt.
+
+  if [[ "${write_rc}" -ne 0 ]]; then
+    echo "finalize_container_terminal_outcome: one or more mandatory final writes failed; evidence incomplete; EVIDENCE_FINALIZED remains NO" >&2
+    _finalize_end
+    return 1
+  fi
+
+  EVIDENCE_FINALIZED="YES"
+  _finalize_end
+  return 0
 }
 
 # --- Failure handlers --------------------------------------------------------
@@ -421,51 +885,19 @@ init_evidence() {
 fail_build_not_started() {
   local stage="$1"
   local exit_code="${2:-1}"
-  EVIDENCE_FINALIZED="YES"
-  CT_STATUS="FAILED"
-  CT_OUTCOME="BUILD_NOT_STARTED"
-  if [[ "${CT_PROOF_FAILED}" != "yes" ]]; then
-    CT_FAILURE_STAGE="${stage}"
+  if ! finalize_container_terminal_outcome "BUILD_NOT_STARTED" "${exit_code}" "${stage}"; then
+    echo "BUILD_NOT_STARTED: finalizer failed at stage=${stage}; evidence not claimed complete" >&2
   fi
-  flush_clean_target_proof
-  write_outcome_evidence \
-    "BUILD_NOT_STARTED" "NO" "BUILD_NOT_STARTED" "NOT_APPLICABLE" \
-    "${exit_code}" "${stage}" "FAILED" \
-    "NOT_APPLICABLE" "NOT_APPLICABLE" "NOT_APPLICABLE"
-  write_no_artifact_evidence "cargo never started (failing_stage=${stage})" "no" "BUILD_NOT_STARTED"
   echo "BUILD_NOT_STARTED: failing_stage=${stage} exit_code=${exit_code}" >&2
   exit "${exit_code}"
 }
 
-# INFRASTRUCTURE_FAILURE: generic catch-all via ERR trap.
+# INFRASTRUCTURE_FAILURE: generic catch-all via ERR trap / explicit infra faults.
 fail_infrastructure() {
   local stage="$1"
   local exit_code="${2:-1}"
-  EVIDENCE_FINALIZED="YES"
-  local cargo_exit_field="NOT_APPLICABLE"
-  local cargo_started_utc="NOT_APPLICABLE"
-  local cargo_finished_utc="NOT_APPLICABLE"
-  local cargo_elapsed="NOT_APPLICABLE"
-  if [[ -n "${CARGO_EXIT_CODE}" ]]; then
-    cargo_exit_field="${CARGO_EXIT_CODE}"
-  fi
-  if [[ "${CARGO_STARTED}" == "YES" ]]; then
-    cargo_started_utc="${CARGO_START_UTC:-NOT_APPLICABLE}"
-    cargo_finished_utc="$(ts)"
-    cargo_elapsed="${CARGO_ELAPSED_SECONDS:-NOT_APPLICABLE}"
-  fi
-  CT_STATUS="FAILED"
-  CT_OUTCOME="INFRASTRUCTURE_FAILURE"
-  CT_FAILURE_STAGE="${stage}"
-  flush_clean_target_proof
-  write_outcome_evidence \
-    "INFRASTRUCTURE_FAILURE" "${CARGO_STARTED}" "INFRASTRUCTURE_FAILURE" "${cargo_exit_field}" \
-    "${exit_code}" "${stage}" "FAILED" \
-    "${cargo_started_utc}" "${cargo_finished_utc}" "${cargo_elapsed}"
-  if [[ "${CARGO_STARTED}" == "YES" ]]; then
-    write_artifact_evidence_best_effort "${stage}"
-  else
-    write_no_artifact_evidence "unexpected infrastructure failure at stage=${stage}; cargo never started" "no" "INFRASTRUCTURE_FAILURE"
+  if ! finalize_container_terminal_outcome "INFRASTRUCTURE_FAILURE" "${exit_code}" "${stage}"; then
+    echo "INFRASTRUCTURE_FAILURE: finalizer failed at stage=${stage}; evidence not claimed complete" >&2
   fi
   echo "INFRASTRUCTURE_FAILURE: stage=${stage} exit_code=${exit_code}" >&2
   exit "${exit_code}"
@@ -473,41 +905,27 @@ fail_infrastructure() {
 
 on_err() {
   local ec=$?
-  if [[ "${EVIDENCE_FINALIZED}" == "YES" ]]; then
+  if [[ "${EVIDENCE_FINALIZED}" == "YES" || "${FINALIZING_IN_PROGRESS}" == "YES" ]]; then
     exit "${ec}"
   fi
   echo "ERROR: container script failed unexpectedly at line ${BASH_LINENO[0]} (exit ${ec}) during stage=${CURRENT_STAGE}" >&2
   fail_infrastructure "${CURRENT_STAGE}" "${ec}"
 }
-trap on_err ERR
 
-record_build_environment() {
-  {
-    echo "BEGIN_SCHEMA_BLOCK BUILD_ENVIRONMENT"
-    echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-    echo "status=OK"
-    echo "outcome=RECORDED"
-    echo "docker_platform=linux/amd64"
-    echo "network_mode=bridge"
-    echo "rust_image=${RUST_IMAGE}"
-    echo "workdir=/src"
-    echo "home=${HOME}"
-    echo "cargo_home=${CARGO_HOME}"
-    echo "cargo_target_dir=${CARGO_TARGET_DIR_GROK}"
-    echo "bootstrap_cargo_target_dir=${BOOTSTRAP_CARGO_TARGET_DIR}"
-    echo "cargo_incremental=0"
-    echo "dotslash_cache=${DOTSLASH_CACHE}"
-    echo "path=${PATH}"
-    echo "grok_build_commit=${GROK_BUILD_COMMIT}"
-    echo "expected_cargo_lock_sha256=${EXPECTED_CARGO_LOCK_SHA256}"
-    echo "canonical_build_command=${CANONICAL_BUILD_CMD}"
-    echo "mount_src=/src:ro"
-    echo "mount_work=broad_WORK_ROOT_mount_prohibited"
-    echo "mount_evidence=/evidence:rw"
-    echo "mount_container_script=/witness/container_narrow_build.sh:ro"
-    echo "END_SCHEMA_BLOCK"
-  } > "${EVIDENCE}/BUILD_ENVIRONMENT.txt"
-}
+# ---------------------------------------------------------------------------
+# Main pipeline (executed only when this file is run as a script)
+# ---------------------------------------------------------------------------
+container_narrow_build_main() {
+CURRENT_STAGE="script_init"
+CARGO_STARTED="NO"
+CARGO_EXIT_CODE=""
+EVIDENCE_FINALIZED="NO"
+FINALIZING_IN_PROGRESS="NO"
+CONTAINER_MAIN_ACTIVE="YES"
+CARGO_START_UTC=""
+CARGO_END_UTC=""
+CARGO_ELAPSED_SECONDS=""
+trap on_err ERR
 
 # --- Begin execution ---------------------------------------------------------
 
@@ -839,23 +1257,15 @@ CARGO_ELAPSED_SECONDS=$((CARGO_END_SEC - CARGO_START_SEC))
 set_stage "post_cargo_classification"
 
 if [[ "${CARGO_EXIT_CODE}" -ne 0 ]]; then
-  EVIDENCE_FINALIZED="YES"
-  write_outcome_evidence \
-    "CARGO_FAILED" "YES" "FAILED" "${CARGO_EXIT_CODE}" \
-    "${CARGO_EXIT_CODE}" "cargo_build" "FAILED" \
-    "${CARGO_START_UTC}" "${CARGO_END_UTC}" "${CARGO_ELAPSED_SECONDS}"
-  write_no_artifact_evidence "cargo build exited nonzero (${CARGO_EXIT_CODE})" "no" "CARGO_FAILED"
+  finalize_container_terminal_outcome "CARGO_FAILED" "${CARGO_EXIT_CODE}" "cargo_build" \
+    "FAILED" "FAILED" "none" || true
   exit "${CARGO_EXIT_CODE}"
 fi
 
 set_stage "artifact_presence_check"
 if [[ ! -f "${ARTIFACT}" ]]; then
-  EVIDENCE_FINALIZED="YES"
-  write_outcome_evidence \
-    "CARGO_SUCCEEDED_ARTIFACT_MISSING" "YES" "COMPLETE" "0" \
-    "${ARTIFACT_MISSING_EXIT}" "artifact_presence_check" "FAILED" \
-    "${CARGO_START_UTC}" "${CARGO_END_UTC}" "${CARGO_ELAPSED_SECONDS}"
-  write_no_artifact_evidence "cargo exited 0 but expected artifact ${ARTIFACT} is missing" "yes" "CARGO_SUCCEEDED_ARTIFACT_MISSING"
+  finalize_container_terminal_outcome "CARGO_SUCCEEDED_ARTIFACT_MISSING" "${ARTIFACT_MISSING_EXIT}" \
+    "artifact_presence_check" "FAILED" "COMPLETE" "missing_applicable" || true
   echo "CARGO_SUCCEEDED_ARTIFACT_MISSING: cargo exit 0 but artifact absent at ${ARTIFACT}" >&2
   exit "${ARTIFACT_MISSING_EXIT}"
 fi
@@ -913,40 +1323,40 @@ else
   INSPECTION_REASON="one or more required static inspection commands failed; outcome remains CARGO_SUCCEEDED_ARTIFACT_PRESENT; verdict ceiling PARTIAL (PASS prohibited — host/validator)"
 fi
 
-{
-  echo "BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION"
-  echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-  echo "status=${STATIC_STATUS}"
-  echo "outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT"
-  echo "applicable=yes"
-  echo "artifact_present=yes"
-  echo "artifact_path=${ARTIFACT}"
-  echo "sha256sum_command=${SHA256_CMD}"
-  echo "sha256sum_output=$(escape_oneline "${SHA256_OUT}")"
-  echo "sha256sum_exit_code=${SHA256_EC}"
-  echo "stat_command=${STAT_CMD}"
-  echo "stat_output=$(escape_oneline "${STAT_OUT}")"
-  echo "stat_exit_code=${STAT_EC}"
-  echo "file_command=${FILE_CMD}"
-  echo "file_output=$(escape_oneline "${FILE_OUT}")"
-  echo "file_exit_code=${FILE_EC}"
-  echo "readelf_h_command=${READELF_H_CMD}"
-  echo "readelf_h_output=$(escape_oneline "${READELF_H_OUT}")"
-  echo "readelf_h_exit_code=${READELF_H_EC}"
-  echo "readelf_n_command=${READELF_N_CMD}"
-  echo "readelf_n_output=$(escape_oneline "${READELF_N_OUT}")"
-  echo "readelf_n_exit_code=${READELF_N_EC}"
-  echo "readelf_d_command=${READELF_D_CMD}"
-  echo "readelf_d_output=$(escape_oneline "${READELF_D_OUT}")"
-  echo "readelf_d_exit_code=${READELF_D_EC}"
-  echo "objdump_f_command=${OBJDUMP_F_CMD}"
-  echo "objdump_f_output=$(escape_oneline "${OBJDUMP_F_OUT}")"
-  echo "objdump_f_exit_code=${OBJDUMP_F_EC}"
-  echo "inspection_complete=${INSPECTION_COMPLETE}"
-  echo "failure_stage=${INSPECTION_FAILURE_STAGE}"
-  echo "reason=${INSPECTION_REASON}"
-  echo "END_SCHEMA_BLOCK"
-} > "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt"
+write_evidence_file_atomic "${EVIDENCE}/STATIC_ARTIFACT_INSPECTION.txt" <<EOF
+BEGIN_SCHEMA_BLOCK STATIC_ARTIFACT_INSPECTION
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=${STATIC_STATUS}
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+applicable=yes
+artifact_present=yes
+artifact_path=${ARTIFACT}
+sha256sum_command=${SHA256_CMD}
+sha256sum_output=$(escape_oneline "${SHA256_OUT}")
+sha256sum_exit_code=${SHA256_EC}
+stat_command=${STAT_CMD}
+stat_output=$(escape_oneline "${STAT_OUT}")
+stat_exit_code=${STAT_EC}
+file_command=${FILE_CMD}
+file_output=$(escape_oneline "${FILE_OUT}")
+file_exit_code=${FILE_EC}
+readelf_h_command=${READELF_H_CMD}
+readelf_h_output=$(escape_oneline "${READELF_H_OUT}")
+readelf_h_exit_code=${READELF_H_EC}
+readelf_n_command=${READELF_N_CMD}
+readelf_n_output=$(escape_oneline "${READELF_N_OUT}")
+readelf_n_exit_code=${READELF_N_EC}
+readelf_d_command=${READELF_D_CMD}
+readelf_d_output=$(escape_oneline "${READELF_D_OUT}")
+readelf_d_exit_code=${READELF_D_EC}
+objdump_f_command=${OBJDUMP_F_CMD}
+objdump_f_output=$(escape_oneline "${OBJDUMP_F_OUT}")
+objdump_f_exit_code=${OBJDUMP_F_EC}
+inspection_complete=${INSPECTION_COMPLETE}
+failure_stage=${INSPECTION_FAILURE_STAGE}
+reason=${INSPECTION_REASON}
+END_SCHEMA_BLOCK
+EOF
 
 if [[ "${SHA256_EC}" -eq 0 ]]; then
   ART_SHA="$(printf '%s\n' "${SHA256_OUT}" | awk '{print $1}')"
@@ -966,22 +1376,21 @@ else
   GNU_BUILD_ID="UNAVAILABLE_COMMAND_FAILED"
 fi
 
-{
-  echo "evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}"
-  echo "outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT"
-  echo "applicable=yes"
-  echo "artifact_present=yes"
-  echo "artifact_path=${ARTIFACT}"
-  echo "artifact_filename=xai-grok-pager"
-  echo "artifact_size_bytes=${ART_SIZE}"
-  echo "artifact_sha256=${ART_SHA}"
-  echo "gnu_build_id=${GNU_BUILD_ID}"
-  echo "static_inspection_complete=${INSPECTION_COMPLETE}"
-  echo "product_executed=NO"
-  echo "ldd_used=NO"
-} > "${EVIDENCE}/ARTIFACT_IDENTITY.txt"
+write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+applicable=yes
+artifact_present=yes
+artifact_path=${ARTIFACT}
+artifact_filename=xai-grok-pager
+artifact_size_bytes=${ART_SIZE}
+artifact_sha256=${ART_SHA}
+gnu_build_id=${GNU_BUILD_ID}
+static_inspection_complete=${INSPECTION_COMPLETE}
+product_executed=NO
+ldd_used=NO
+EOF
 
-EVIDENCE_FINALIZED="YES"
 if [[ "${STATIC_INSPECTION_OK}" == "YES" ]]; then
   FINAL_EXIT=0
   EXIT_STATUS="OK"
@@ -993,10 +1402,13 @@ else
   echo "One or more required static inspection commands failed; inspection_complete=no; outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT; exit=${FINAL_EXIT}; verdict ceiling PARTIAL (PASS prohibited)." >&2
 fi
 
-write_outcome_evidence \
-  "CARGO_SUCCEEDED_ARTIFACT_PRESENT" "YES" "COMPLETE" "0" \
-  "${FINAL_EXIT}" "${EXIT_FAILURE_STAGE}" "${EXIT_STATUS}" \
-  "${CARGO_START_UTC}" "${CARGO_END_UTC}" "${CARGO_ELAPSED_SECONDS}"
+finalize_container_terminal_outcome "CARGO_SUCCEEDED_ARTIFACT_PRESENT" "${FINAL_EXIT}" \
+  "${EXIT_FAILURE_STAGE}" "${EXIT_STATUS}" "COMPLETE" "preserve" || true
 
 # Container exits with the classified status (Docker preserves it on host).
 exit "${FINAL_EXIT}"
+} # end container_narrow_build_main
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  container_narrow_build_main "$@"
+fi

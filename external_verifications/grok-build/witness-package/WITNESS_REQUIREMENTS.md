@@ -61,10 +61,14 @@ Normative machine contract: [AUTHORITATIVE_OUTCOME_CONTRACT.json](AUTHORITATIVE_
 
 That contract defines terminal outcome vocabulary, producer ownership, the complete authoritative
 result tuple, no-inference / no-overwrite rules, and success eligibility for **future** rc5
-remediation (Phases 3C–3F). **Current host, container, and validator implementations remain
-noncompliant in identified areas** (validator outcome inference; host overwrite of container
-`BUILD_EXIT_CODE.txt`; incomplete host tuple gating). Technical implementation continues in
-Phases 3C–3F. **RC4 remains NOT READY. No rc5 tag exists.**
+remediation (Phases 3C–3F). **Phase 3C on `main` implements container terminal finalization**
+(`finalize_container_terminal_outcome`): every supported container terminal path must finalize
+container-owned evidence with no final provisional values in applicable container-owned fields.
+**Host ingestion remains noncompliant until Phase 3D.** Validator semantics and `POST_BUILD`
+generation are unchanged. **Current host and validator implementations remain noncompliant in
+identified areas** (validator outcome inference; host overwrite of container `BUILD_EXIT_CODE.txt`;
+incomplete host tuple gating). **RC4 remains NOT READY. No rc5 tag exists.** Do not claim
+end-to-end outcome-preservation compliance from Phase 3C alone.
 
 ## Failure submissions are supported and expected
 
