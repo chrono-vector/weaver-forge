@@ -54,6 +54,18 @@ evidence file is initialized to a `status=NOT_REACHED` placeholder **before** an
 host/container operation begins, so a run that fails early still produces a complete, honest
 evidence set rather than missing files.
 
+## Authoritative outcome ownership (Phase 3B contract)
+
+Normative machine contract: [AUTHORITATIVE_OUTCOME_CONTRACT.json](AUTHORITATIVE_OUTCOME_CONTRACT.json)
+(see also [PHASE_3B_OUTCOME_OWNERSHIP_CONTRACT.md](../evidence/rc5-remediation/PHASE_3B_OUTCOME_OWNERSHIP_CONTRACT.md)).
+
+That contract defines terminal outcome vocabulary, producer ownership, the complete authoritative
+result tuple, no-inference / no-overwrite rules, and success eligibility for **future** rc5
+remediation (Phases 3C–3F). **Current host, container, and validator implementations remain
+noncompliant in identified areas** (validator outcome inference; host overwrite of container
+`BUILD_EXIT_CODE.txt`; incomplete host tuple gating). Technical implementation continues in
+Phases 3C–3F. **RC4 remains NOT READY. No rc5 tag exists.**
+
 ## Failure submissions are supported and expected
 
 A truthful Witness submission recording `BUILD_NOT_STARTED`, `CARGO_FAILED`,

@@ -54,7 +54,7 @@ No new candidate tag should be created before the mandatory sequence is complete
 |-------|-------|
 | Actions | remove outcome inference; enforce one full cross-file tuple; require all post-build integrity fields; write truthful status; gate host zero on complete structural validity |
 | Maps to RC4B IDs | `RC4B-013`, `RC4B-014`, `RC4B-015`, `RC4B-017`, `RC4B-022`, `RC4B-023`, `RC4B-019` |
-| Status | NOT_STARTED |
+| Status | **PARTIAL (Phase 3B contract only):** `RC4B-014`, `RC4B-022`, and `RC4B-023` → **CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING** — normative machine contract at `witness-package/AUTHORITATIVE_OUTCOME_CONTRACT.json` plus `evidence/rc5-remediation/PHASE_3B_OUTCOME_OWNERSHIP_CONTRACT.md` define terminal vocabulary, producer ownership, complete result tuple, no-inference, no-overwrite, and success-eligibility rules. **Contract definition alone does not remediate runtime behavior.** Host/container/validator semantics are unchanged in Phase 3B; known violations remain recorded as unresolved. Closure requires implementation (Phases 3C–3F) plus future fixed candidate and repeat static audit. **Not** `REMEDIATED_ON_MAIN_PENDING_REAUDIT`. **Not CLOSED.** `RC4B-013`, `RC4B-015`, `RC4B-017` unchanged (NOT_STARTED for runtime). `RC4B-019` remains **OPEN**. |
 
 ### 7. Cryptographically close the full object inventory
 
@@ -134,9 +134,10 @@ Related RC4B themes (hardening supports, does not close): `RC4B-005`, `RC4B-007`
 | Check | Result |
 |-------|--------|
 | Every RC4B ID appears in at least one mandatory item | Yes (`RC4B-001`–`RC4B-040`) |
-| Remediation implementation begun | Phase 1 documentation/status-truthfulness (RC4B-001/002/003); Phase 2A host preflight (RC4B-004/008 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi 18/18; RC4B-005/009 remain OPEN with notes; **not CLOSED**); Phase 2B source-mount isolation (RC4B-010 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi corrected-suite PASS; **not CLOSED**) |
-| Technical implementation remediation (scripts/validator/tests/templates/execution controls) begun | **Yes — Phase 2A host preflight only** (not container/validator/templates/fixtures golden set) |
+| Remediation implementation begun | Phase 1 documentation/status-truthfulness (RC4B-001/002/003); Phase 2A host preflight (RC4B-004/008 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi 18/18; RC4B-005/009 remain OPEN with notes; **not CLOSED**); Phase 2B source-mount isolation (RC4B-010 REMEDIATED_ON_MAIN_PENDING_REAUDIT after Cursor + Pi corrected-suite PASS; **not CLOSED**); Phase 3B authoritative outcome ownership contract (RC4B-014/022/023 → **CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING** only; runtime unchanged; **not CLOSED**; contract alone does not remediate) |
+| Technical implementation remediation (scripts/validator/tests/templates/execution controls) begun | **Yes — Phase 2A host preflight + Phase 2B mount isolation** (Phase 3B is contract/docs/tests only; not container/validator/templates/fixtures semantic change) |
 | Blockers CLOSED | **0** |
 | Blockers REMEDIATED_ON_MAIN_PENDING_REAUDIT | RC4B-001, RC4B-002, RC4B-003, RC4B-004, RC4B-008, RC4B-010 |
+| Blockers CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING | RC4B-014, RC4B-022, RC4B-023 |
 | Blockers OPEN_PENDING_CROSS_ENV_CORROBORATION | *(none)* |
 | Independent Witness / C-014 advanced | **No** / `NOT_STARTED` |

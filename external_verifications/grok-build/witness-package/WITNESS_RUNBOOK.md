@@ -306,6 +306,14 @@ how each outcome maps to a proposed verdict. **Truthful failure submissions are 
 expected** — a `BUILD_NOT_STARTED`, `CARGO_FAILED`, or `INFRASTRUCTURE_FAILURE` outcome, correctly
 and completely documented, is a valid Witness submission.
 
+### Authoritative outcome ownership (Phase 3B contract)
+
+Normative contract: [AUTHORITATIVE_OUTCOME_CONTRACT.json](AUTHORITATIVE_OUTCOME_CONTRACT.json).
+It locks vocabulary, ownership, result tuple, and no-inference/no-overwrite rules for future rc5
+work. **Do not treat current scripts as compliant yet** — identified gaps remain (validator
+inference; host overwrite of container outcome; incomplete success gating). Implementation
+continues in Phases 3C–3F. **RC4 remains NOT READY. No rc5 tag exists.**
+
 ---
 
 ## Evidence filenames (required)

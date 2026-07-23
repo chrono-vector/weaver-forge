@@ -1,0 +1,471 @@
+{
+  "contract_version": "1.0.0-phase3b",
+  "contract_status": "CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING",
+  "contract_phase": "3B",
+  "contract_scope": "Authoritative outcome vocabulary, producer ownership, result tuple, no-inference, and no-overwrite rules. Normative for future rc5 remediation. Does not claim current runtime compliance.",
+  "base_commit": "24a329c5fca4f9ee2ec974509ea589ecb402f876",
+  "terminal_outcomes": [
+    {
+      "value": "BUILD_NOT_STARTED",
+      "meaning": "Container execution began but cargo was never invoked.",
+      "terminal": true,
+      "success_capable": false,
+      "cargo_started": "NO",
+      "cargo_exit_class": "NOT_APPLICABLE",
+      "artifact_requirement": "ABSENT",
+      "permitted_primary_producer": "container",
+      "host_may_replace": false,
+      "validator_may_infer": false,
+      "tuple_consistency": {
+        "cargo_started": "NO",
+        "artifact_present": "NO",
+        "success_capable": false
+      }
+    },
+    {
+      "value": "CARGO_FAILED",
+      "meaning": "Cargo started and exited nonzero.",
+      "terminal": true,
+      "success_capable": false,
+      "cargo_started": "YES",
+      "cargo_exit_class": "NONZERO",
+      "artifact_requirement": "ABSENT_OR_UNUSABLE_PARTIAL_ONLY_IF_EXPLICITLY_DOCUMENTED",
+      "permitted_primary_producer": "container",
+      "host_may_replace": false,
+      "validator_may_infer": false,
+      "tuple_consistency": {
+        "cargo_started": "YES",
+        "cargo_exit_code": "nonzero",
+        "artifact_present": "NO_unless_explicitly_documented_unusable_partial",
+        "success_capable": false
+      }
+    },
+    {
+      "value": "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+      "meaning": "Cargo exited 0 but the expected artifact is absent.",
+      "terminal": true,
+      "success_capable": false,
+      "cargo_started": "YES",
+      "cargo_exit_class": "ZERO",
+      "artifact_requirement": "ABSENT",
+      "permitted_primary_producer": "container",
+      "host_may_replace": false,
+      "validator_may_infer": false,
+      "tuple_consistency": {
+        "cargo_started": "YES",
+        "cargo_exit_code": "0",
+        "artifact_present": "NO",
+        "success_capable": false
+      }
+    },
+    {
+      "value": "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+      "meaning": "Cargo exited 0 and the expected artifact is present. Success-capable only; not itself sufficient for PASS or host exit 0.",
+      "terminal": true,
+      "success_capable": true,
+      "cargo_started": "YES",
+      "cargo_exit_class": "ZERO",
+      "artifact_requirement": "PRESENT",
+      "permitted_primary_producer": "container",
+      "host_may_replace": false,
+      "validator_may_infer": false,
+      "tuple_consistency": {
+        "cargo_started": "YES",
+        "cargo_exit_code": "0",
+        "artifact_present": "YES",
+        "success_capable": true,
+        "additional_success_gates_required": [
+          "artifact_identity_complete",
+          "static_inspection_complete",
+          "host_infrastructure_status",
+          "host_source_integrity_status",
+          "post_build_integrity_status",
+          "evidence_completeness_status",
+          "validator_status",
+          "machine_verdict_ceiling"
+        ]
+      }
+    },
+    {
+      "value": "INFRASTRUCTURE_FAILURE",
+      "meaning": "An infrastructure or environment fault prevented a trustworthy build result. Failure owner/stage must be identified. cargo_started may be YES or NO depending on failure timing; container-owned cargo facts remain preserved when cargo already ran.",
+      "terminal": true,
+      "success_capable": false,
+      "cargo_started": "YES_OR_NO",
+      "cargo_exit_class": "PRESERVE_CONTAINER_FACTS",
+      "artifact_requirement": "CONTEXT_DEPENDENT",
+      "permitted_primary_producer": "container_or_host_infrastructure_owner",
+      "host_may_replace": false,
+      "validator_may_infer": false,
+      "tuple_consistency": {
+        "success_capable": false,
+        "cargo_started": "YES_OR_NO",
+        "must_identify_infrastructure_failure_owner_or_stage": true,
+        "must_not_impose_universal_cargo_started_NO": true,
+        "preserve_container_cargo_facts_when_cargo_already_ran": true
+      }
+    }
+  ],
+  "nonterminal_sentinels": [
+    {
+      "value": "NOT_REACHED",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "NOT_STARTED",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "NOT_APPLICABLE",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "RECORDED",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "CHECKED",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "pending",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "pending_container_toolchain_capture",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    },
+    {
+      "value": "bootstrap_complete",
+      "class": "nonterminal_sentinel",
+      "may_be_terminal_outcome": false
+    }
+  ],
+  "producer_ownership": {
+    "rules": [
+      "Container owns the build execution outcome after container execution begins.",
+      "Host owns only host infrastructure and orchestration facts.",
+      "Host must not overwrite a valid container authoritative outcome merely because a later host integrity gate fails.",
+      "A later host integrity failure must be represented in a separate host-owned result field.",
+      "Missing, empty, duplicate, malformed, or unsupported authoritative outcome must fail closed.",
+      "Validator must not infer the authoritative outcome from cargo_started, build_status, artifact fields, or exit codes.",
+      "Terminal outcome must be explicitly present exactly once.",
+      "Nonterminal sentinels must not be accepted as terminal outcomes.",
+      "CARGO_SUCCEEDED_ARTIFACT_PRESENT is only success-capable; it is not itself sufficient for PASS or host exit 0.",
+      "Every failure-only outcome is permanently ineligible for PASS."
+    ],
+    "container_owns": [
+      "container_outcome",
+      "cargo_started",
+      "cargo_exit_code",
+      "artifact_present",
+      "artifact_identity_complete",
+      "static_inspection_complete"
+    ],
+    "host_owns": [
+      "container_exit_code",
+      "host_infrastructure_status",
+      "host_source_integrity_status",
+      "post_build_integrity_status",
+      "evidence_completeness_status"
+    ],
+    "validator_owns": [
+      "validator_status",
+      "machine_verdict_ceiling"
+    ],
+    "shared_identity": [
+      "schema_version",
+      "run_id"
+    ],
+    "container_outcome_owner": "container",
+    "host_may_replace_container_outcome": false,
+    "validator_may_infer_container_outcome": false
+  },
+  "consumer_rules": {
+    "missing_empty_duplicate_malformed_unsupported_outcome": "fail_closed",
+    "nonterminal_sentinel_as_terminal_outcome": "reject",
+    "contradictory_tuple_values": "reject_not_normalize",
+    "missing_required_tuple_members": "reject",
+    "success_acceptance": "requires_every_declared_success_requirement",
+    "no_component_may_overwrite_foreign_owned_field": true
+  },
+  "authoritative_result_tuple": {
+    "description": "Minimum complete machine result tuple. Contradictory values are rejected, not normalized. Missing required members are rejected.",
+    "fields": [
+      {
+        "name": "schema_version",
+        "owner": "shared",
+        "required_producer": "shared_identity",
+        "terminally_required": true,
+        "permitted_values": ["1"],
+        "success_requirement": "present_and_supported",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "run_id",
+        "owner": "shared",
+        "required_producer": "shared_identity",
+        "terminally_required": true,
+        "permitted_values": ["nonempty_run_id"],
+        "success_requirement": "present_and_consistent_across_evidence",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "container_outcome",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": [
+          "BUILD_NOT_STARTED",
+          "CARGO_FAILED",
+          "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+          "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+          "INFRASTRUCTURE_FAILURE"
+        ],
+        "success_requirement": "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "container_exit_code",
+        "owner": "host",
+        "required_producer": "host",
+        "terminally_required": true,
+        "permitted_values": ["numeric_docker_process_exit"],
+        "success_requirement": "0",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "cargo_started",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": ["YES", "NO"],
+        "success_requirement": "YES",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "cargo_exit_code",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": ["0", "nonzero_numeric", "NOT_APPLICABLE"],
+        "success_requirement": "0",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "artifact_present",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": ["YES", "NO"],
+        "success_requirement": "YES",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "artifact_identity_complete",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": ["YES", "NO", "NOT_APPLICABLE"],
+        "success_requirement": "YES",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "static_inspection_complete",
+        "owner": "container",
+        "required_producer": "container",
+        "terminally_required": true,
+        "permitted_values": ["YES", "NO", "NOT_APPLICABLE"],
+        "success_requirement": "YES",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "host_infrastructure_status",
+        "owner": "host",
+        "required_producer": "host",
+        "terminally_required": true,
+        "permitted_values": ["OK", "FAILED"],
+        "success_requirement": "OK",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "host_source_integrity_status",
+        "owner": "host",
+        "required_producer": "host",
+        "terminally_required": true,
+        "permitted_values": ["OK", "FAILED"],
+        "success_requirement": "OK",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "post_build_integrity_status",
+        "owner": "host",
+        "required_producer": "host",
+        "terminally_required": true,
+        "permitted_values": ["OK", "FAILED"],
+        "success_requirement": "OK",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "evidence_completeness_status",
+        "owner": "host",
+        "required_producer": "host",
+        "terminally_required": true,
+        "permitted_values": ["COMPLETE", "INCOMPLETE", "FAILED"],
+        "success_requirement": "COMPLETE",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "validator_status",
+        "owner": "validator",
+        "required_producer": "validator",
+        "terminally_required": true,
+        "permitted_values": ["PASS", "FAILED"],
+        "success_requirement": "PASS",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      },
+      {
+        "name": "machine_verdict_ceiling",
+        "owner": "validator",
+        "required_producer": "validator",
+        "terminally_required": true,
+        "permitted_values": ["PASS", "PARTIAL", "FAIL", "INDETERMINATE"],
+        "success_requirement": "permits_PASS",
+        "host_may_recompute": false,
+        "validator_may_infer": false
+      }
+    ]
+  },
+  "overwrite_rules": {
+    "host_may_replace_valid_container_outcome": false,
+    "prohibited_replacement_triggers": [
+      "source_HEAD_mismatch",
+      "source_dirty_tree_detection",
+      "post_build_integrity_failure",
+      "evidence_completeness_failure",
+      "validator_failure"
+    ],
+    "required_future_representation": {
+      "container_outcome": "unchanged",
+      "host_owned_fields_on_failure": {
+        "host_source_integrity_status": "FAILED",
+        "post_build_integrity_status": "FAILED",
+        "evidence_completeness_status": "FAILED",
+        "validator_status": "FAILED"
+      },
+      "effect": "Any such failure makes success impossible without altering the container outcome."
+    },
+    "known_current_violation": {
+      "id": "HOST_OVERWRITES_CONTAINER_BUILD_EXIT_CODE",
+      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "remediation_phase": "3D",
+      "description": "Current host script may overwrite container BUILD_EXIT_CODE.txt / outcome after post-Docker source integrity or invalid-outcome handling. Contract prohibits this; implementation remains noncompliant until Phase 3D."
+    }
+  },
+  "inference_rules": {
+    "validator_may_infer_container_outcome": false,
+    "prohibited_derivation_sources": [
+      "cargo_started",
+      "build_status",
+      "artifact_present",
+      "cargo_exit_code",
+      "docker_exit_code"
+    ],
+    "prohibited_replacement": "Replacing a missing outcome with INFRASTRUCTURE_FAILURE merely to make a package structurally valid is prohibited as an outcome inference/normalization.",
+    "allowed_on_missing_or_invalid_outcome": [
+      "Record a separate host infrastructure failure status.",
+      "Retain the original missing/invalid container outcome as missing/invalid.",
+      "Success must be impossible."
+    ],
+    "fail_closed": true,
+    "known_current_violation": {
+      "id": "VALIDATOR_DETERMINE_OUTCOME_INFERENCE",
+      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "remediation_phase": "later_validator_slice",
+      "description": "validate_witness_evidence.determine_outcome currently infers outcome from cargo_started/build_status when explicit outcome is absent/invalid. Contract prohibits inference; implementation remains noncompliant until a later slice removes it."
+    }
+  },
+  "success_eligibility": {
+    "preliminary_success_possible_only_when_all_true": [
+      "explicit_terminal_container_outcome_is_CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+      "docker_container_exit_code_is_zero",
+      "cargo_started_YES",
+      "cargo_exit_code_0",
+      "artifact_present_YES",
+      "artifact_identity_complete",
+      "static_inspection_complete_and_successful",
+      "host_infrastructure_status_OK",
+      "host_source_integrity_status_OK",
+      "post_build_integrity_status_OK",
+      "evidence_completeness_status_COMPLETE",
+      "validator_status_PASS",
+      "machine_verdict_ceiling_permits_PASS"
+    ],
+    "single_false_missing_duplicate_malformed_or_sentinel_in_required_success_field_prevents_success": true,
+    "rejected_success_field_sentinels": [
+      "NOT_REACHED",
+      "NOT_STARTED",
+      "NOT_APPLICABLE"
+    ],
+    "CARGO_SUCCEEDED_ARTIFACT_PRESENT_alone_insufficient": true,
+    "implementation_status": "contract_only_host_gating_not_yet_implemented"
+  },
+  "failure_rules": {
+    "failure_only_outcomes": [
+      "BUILD_NOT_STARTED",
+      "CARGO_FAILED",
+      "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+      "INFRASTRUCTURE_FAILURE"
+    ],
+    "failure_only_outcomes_permanently_ineligible_for_PASS": true,
+    "only_success_capable_outcome": "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+    "missing_invalid_outcome": "fail_closed_with_separate_host_infrastructure_failure_record"
+  },
+  "known_implementation_violations": [
+    {
+      "id": "VALIDATOR_DETERMINE_OUTCOME_INFERENCE",
+      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "component": "validate_witness_evidence.py",
+      "symbol": "determine_outcome",
+      "remediation_phase": "later_validator_slice",
+      "acceptable": false
+    },
+    {
+      "id": "HOST_OVERWRITES_CONTAINER_BUILD_EXIT_CODE",
+      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "component": "run_witness_narrow_build.sh",
+      "symbol": "enforce_post_docker_source_integrity_boundary",
+      "remediation_phase": "3D",
+      "acceptable": false
+    }
+  ],
+  "later_remediation_slices": [
+    "Phase 3C container finalizers",
+    "Phase 3D host ingestion",
+    "Phase 3E POST_BUILD",
+    "Phase 3F validator-gated exit",
+    "Phase 3G generator-backed tests"
+  ],
+  "blocker_status_note": "RC4B-014, RC4B-022, and RC4B-023 advance only to CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING. Contract definition alone does not remediate runtime behavior. Closure requires implementation plus future fixed candidate and repeat static audit. RC4B-019, RC4B-005, and RC4B-009 remain OPEN. No blocker is CLOSED."
+}
