@@ -805,6 +805,12 @@ def _static_inspection(scenario: str) -> str:
 
 def _post_build_integrity(scenario: str) -> str:
     outcome = _outcome(scenario)
+    gate_note = (
+        "evidence_inventory_complete can only become yes after the Witness completes "
+        "WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the "
+        "FINAL manifest validates; the automated host run always records "
+        "evidence_inventory_complete=no"
+    )
     if scenario in _PRE_DOCKER:
         return _render(
             OrderedDict(
@@ -822,11 +828,26 @@ def _post_build_integrity(scenario: str) -> str:
                     ("cargo_lock_unchanged", "no"),
                     ("cargo_lock_post_matches_expected", "no"),
                     ("source_or_lock_changed", "yes"),
-                    ("evidence_inventory_complete", "no"),
+                    ("artifact_path", "NOT_REACHED"),
+                    ("artifact_exists", "no"),
+                    ("docker_exit_code", "NOT_STARTED"),
                     ("failure_stage", _infra_stage(scenario)),
+                    ("evidence_inventory_complete", "no"),
+                    ("full_integrity_gate_all_four_yes", "no"),
+                    ("full_integrity_gate_note", gate_note),
+                    ("post_build_integrity_ok", "no"),
                 ]
             )
         )
+    # Post-Docker fixtures: technical POST_BUILD gate passed (source/lock intact).
+    # Cargo/outcome failure is recorded elsewhere; POST_BUILD status tracks the
+    # integrity gate only (status=OK iff post_build_integrity_ok=yes).
+    artifact_exists = "yes" if scenario == "success-artifact-present" else "no"
+    docker_exit = "0"
+    if scenario == "cargo-failed":
+        docker_exit = "1"
+    elif scenario in ("infrastructure-failure", "build-not-started"):
+        docker_exit = "0"
     return _render(
         OrderedDict(
             [
@@ -843,8 +864,14 @@ def _post_build_integrity(scenario: str) -> str:
                 ("cargo_lock_unchanged", "yes"),
                 ("cargo_lock_post_matches_expected", "yes"),
                 ("source_or_lock_changed", "no"),
-                ("evidence_inventory_complete", "no"),
+                ("artifact_path", ARTIFACT_PATH),
+                ("artifact_exists", artifact_exists),
+                ("docker_exit_code", docker_exit),
                 ("failure_stage", "NONE"),
+                ("evidence_inventory_complete", "no"),
+                ("full_integrity_gate_all_four_yes", "no"),
+                ("full_integrity_gate_note", gate_note),
+                ("post_build_integrity_ok", "yes"),
             ]
         )
     )

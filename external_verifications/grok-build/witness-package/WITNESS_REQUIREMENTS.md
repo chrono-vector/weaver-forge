@@ -69,11 +69,18 @@ result tuple, records host-owned `HOST_OUTCOME_INGESTION.txt`, preserves valid c
 `BUILD_EXIT_CODE.txt` byte-for-byte after post-Docker host integrity failures, and fails closed on
 missing/invalid/contradictory container results without fabricating a replacement outcome.
 Host infrastructure and source-integrity failures are recorded in separate host-owned fields.
-`preliminary_success_eligible` remains `NO` in Phase 3D. **Validator semantics and `POST_BUILD`
-semantic alignment remain pending (Phases 3E/3F).** Validator outcome inference remains unresolved.
-The host ingestion record is preliminary and does **not** imply Witness PASS. **RC4 remains NOT
-READY. No rc5 tag exists.** Do not claim end-to-end outcome-preservation compliance from Phase 3D
-alone.
+`preliminary_success_eligible` remains `NO` in Phase 3D. **Phase 3E on `main` makes
+`POST_BUILD_INTEGRITY.txt` host-owned, complete, truthful, and schema-aligned**:
+`status=OK` if and only if `post_build_integrity_ok=yes`; all finalized failure paths use
+`status=FAILED` (never `NOT_APPLICABLE` as a final status); `HOST_OUTCOME_INGESTION.txt`
+`post_build_integrity_status` is synchronized with the final POST_BUILD record; the container
+remains a POST_BUILD non-writer; the validator is a schema consumer only during Phase 3E.
+`preliminary_success_eligible` remains `NO`. **Validator-gated host success remains Phase 3F.**
+Validator outcome inference remains unresolved. The host ingestion / POST_BUILD records are
+preliminary and do **not** imply Witness PASS. **RC4 remains NOT READY. No rc5 tag exists.**
+Do not claim end-to-end outcome-preservation or validator-gated success from Phase 3E alone.
+Independent Witness reproduction has not occurred; Independent Witness PASS is not claimed;
+C-014 remains `NOT_STARTED`.
 
 ## Failure submissions are supported and expected
 

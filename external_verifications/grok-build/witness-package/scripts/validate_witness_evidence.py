@@ -316,6 +316,21 @@ def require_fields(name: str, fields: dict[str, str], required: tuple[str, ...],
             fail(errors, f"{name}: missing required field '{key}'")
 
 
+def require_exact_field_set(
+    name: str, fields: dict[str, str], required: tuple[str, ...], errors: list[str]
+) -> None:
+    """Require exact key equality: no missing, unknown, or extra fields."""
+    required_set = set(required)
+    actual = set(fields)
+    for key in sorted(required_set - actual):
+        fail(errors, f"{name}: missing required field '{key}'")
+    for key in sorted(actual - required_set):
+        fail(errors, f"{name}: unknown/extra field '{key}'")
+    for key in required:
+        if key in fields and fields[key] == "":
+            fail(errors, f"{name}: missing required field '{key}'")
+
+
 def require_present(name: str, fields: dict[str, str], required: tuple[str, ...], errors: list[str]) -> None:
     """Like require_fields, but only checks that the key line exists (an
     explicit ``key=`` with an empty value is acceptable). Used for fields
@@ -604,8 +619,14 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "cargo_lock_unchanged",
         "cargo_lock_post_matches_expected",
         "source_or_lock_changed",
-        "evidence_inventory_complete",
+        "artifact_path",
+        "artifact_exists",
+        "docker_exit_code",
         "failure_stage",
+        "evidence_inventory_complete",
+        "full_integrity_gate_all_four_yes",
+        "full_integrity_gate_note",
+        "post_build_integrity_ok",
     ),
     "WITNESS_STATEMENT.md": (
         "evidence_schema_version",
@@ -864,8 +885,22 @@ def check_clean_target_proof(fields: dict[str, str], errors: list[str]) -> None:
 def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> None:
     name = "POST_BUILD_INTEGRITY.txt"
     status = fields.get("status", "")
-    if status and status not in ("OK", "FAILED", "NOT_REACHED"):
+    if status == "NOT_APPLICABLE":
+        fail(errors, f"{name}: status=NOT_APPLICABLE is prohibited as a final POST_BUILD status")
+    elif status and status not in ("OK", "FAILED", "NOT_REACHED"):
         fail(errors, f"{name}: status must be OK|FAILED|NOT_REACHED")
+    ok = fields.get("post_build_integrity_ok", "")
+    if ok and not is_yes_no(ok):
+        fail(errors, f"{name}: post_build_integrity_ok must be yes|no")
+    # status=OK iff post_build_integrity_ok=yes. NOT_REACHED must not qualify as success.
+    if status == "OK" and ok != "yes":
+        fail(errors, f"{name}: status=OK requires post_build_integrity_ok=yes")
+    if ok == "yes" and status not in ("OK",):
+        fail(errors, f"{name}: post_build_integrity_ok=yes requires status=OK")
+    if status == "NOT_REACHED" and ok == "yes":
+        fail(errors, f"{name}: status=NOT_REACHED cannot qualify as finalized success")
+    if status == "FAILED" and ok == "yes":
+        fail(errors, f"{name}: status=FAILED contradicts post_build_integrity_ok=yes")
     for key in ("source_head_before", "source_head_after"):
         value = fields.get(key, "")
         if value and value not in ("NOT_REACHED",) and not is_hex_commit(value):
@@ -882,6 +917,9 @@ def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> Non
         "cargo_lock_post_matches_expected",
         "source_or_lock_changed",
         "evidence_inventory_complete",
+        "full_integrity_gate_all_four_yes",
+        "artifact_exists",
+        "post_build_integrity_ok",
     ):
         value = fields.get(key, "")
         if value and not is_yes_no(value):
@@ -890,6 +928,14 @@ def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> Non
     outcome = fields.get("outcome", "")
     if outcome and outcome not in OUTCOME_VALUES:
         fail(errors, f"{name}: outcome must be one of {sorted(OUTCOME_VALUES)}")
+    note = fields.get("full_integrity_gate_note", "")
+    if note is not None and "full_integrity_gate_note" in fields and note == "":
+        fail(errors, f"{name}: full_integrity_gate_note must be non-empty when present")
+    docker_exit = fields.get("docker_exit_code", "")
+    if docker_exit and docker_exit not in ("NOT_REACHED", "NOT_STARTED", "NOT_APPLICABLE") and not is_numeric(
+        docker_exit
+    ):
+        fail(errors, f"{name}: docker_exit_code must be numeric or a NOT_REACHED/NOT_STARTED sentinel")
 
 
 def check_build_command(fields: dict[str, str], errors: list[str]) -> None:
@@ -1654,7 +1700,12 @@ def validate_dir(evidence_dir: Path) -> list[str]:
             check_schema_version(name, file_fields[name], errors)
             if placeholder_skip(name, file_fields[name], outcome):
                 continue
-            require_fields(name, file_fields[name], FILE_REQUIRED_FIELDS.get(name, ()), errors)
+            required = FILE_REQUIRED_FIELDS.get(name, ())
+            if name == "POST_BUILD_INTEGRITY.txt":
+                # Phase 3E: exact POST_BUILD field-set equality (no subset matching).
+                require_exact_field_set(name, file_fields[name], required, errors)
+            else:
+                require_fields(name, file_fields[name], required, errors)
 
     if "WEAVER_FORGE_PACKAGE_IDENTITY.txt" in file_fields:
         check_weaver_forge_package_identity(file_fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"], errors)

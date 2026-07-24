@@ -45,11 +45,16 @@ FIXTURES = Path(HERE) / "fixtures"
 # ---------------------------------------------------------------------------
 
 _KEY_RE = re.compile(r'echo\s+"([A-Za-z_][A-Za-z0-9_]*)=')
+_BARE_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=")
 
 
 def schema_block_keys(text: str, name: str) -> set[str]:
-    """Union of all `key=` names echoed inside every
-    `BEGIN_SCHEMA_BLOCK <name> ... END_SCHEMA_BLOCK` region."""
+    """Union of all `key=` names inside every
+    `BEGIN_SCHEMA_BLOCK <name> ... END_SCHEMA_BLOCK` region.
+
+    Supports both host ``echo "key=..."`` writers and container heredoc
+    ``key=${var}`` schema blocks.
+    """
     start_re = re.compile(r"BEGIN_SCHEMA_BLOCK\s+" + re.escape(name) + r"\b")
     keys: set[str] = set()
     inside = False
@@ -62,6 +67,10 @@ def schema_block_keys(text: str, name: str) -> set[str]:
             continue
         if inside:
             m = _KEY_RE.search(line)
+            if m:
+                keys.add(m.group(1))
+                continue
+            m = _BARE_KEY_RE.match(line.strip())
             if m:
                 keys.add(m.group(1))
     return keys
@@ -190,8 +199,8 @@ class ContractTests(unittest.TestCase):
     def test_host_generated_post_build_integrity_keys_match_schema(self):
         emitted = writer_block_keys(self.host, "POST_BUILD_INTEGRITY.txt")
         required = set(v.FILE_REQUIRED_FIELDS["POST_BUILD_INTEGRITY.txt"])
-        missing = required - emitted
-        self.assertEqual(missing, set(), f"host writer missing required keys: {missing}")
+        # Phase 3E: exact equality (not one-way required-subset inclusion).
+        self.assertEqual(emitted, required, f"host writer keys {emitted} != schema {required}")
 
     def test_image_identity_uses_rc4_key_names(self):
         keys = schema_block_keys(self.host, "IMAGE_IDENTITY")
@@ -686,12 +695,16 @@ class HostSafetyStaticTests(unittest.TestCase):
         self.assertIn('finalize_pre_docker_infrastructure_failure "grok_build_detached_head_check"', self.host)
 
     def test_host_preserves_container_outcome_authority(self):
-        self.assertIn("parse_container_outcome", self.host)
+        # Phase 3D: parse_container_result_tuple supersedes parse_container_outcome.
+        self.assertIn("parse_container_result_tuple", self.host)
         self.assertIn("invalid_or_missing_container_outcome", self.host)
         self.assertIn("outcome_field_missing", self.host)
         self.assertIn("outcome_field_duplicated", self.host)
-        self.assertIn("outcome_field_invalid_value_", self.host)
-        self.assertIn("cargo_started / artifact presence / raw Docker exit code alone", self.host)
+        self.assertIn("unsupported_outcome_", self.host)
+        self.assertIn(
+            "ordinary outcome from cargo_started/artifact-presence/raw Docker exit code alone",
+            self.host,
+        )
 
     def test_no_cached_image_fallback(self):
         self.assertIn("cached_image_fallback_used=NO", self.host)

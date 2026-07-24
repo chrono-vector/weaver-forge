@@ -147,6 +147,9 @@ readonly OUTCOME_NONTERMINAL_SENTINELS=(
 
 readonly HOST_OUTCOME_INGESTION_SCHEMA_VERSION="1"
 readonly HOST_OUTCOME_INGESTION_FILE_NAME="HOST_OUTCOME_INGESTION.txt"
+readonly POST_BUILD_INTEGRITY_FILE_NAME="POST_BUILD_INTEGRITY.txt"
+# Exact Phase 3E note string (must match template / fixtures / validator field set).
+readonly FULL_INTEGRITY_GATE_NOTE="evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no"
 
 readonly SYSTEM_PREFIXES=(
   /bin /boot /dev /etc /lib /lib64 /proc /root /run /sbin /sys
@@ -209,6 +212,18 @@ HOST_SOURCE_INTEGRITY_STATUS="OK"
 HOST_POST_BUILD_INTEGRITY_STATUS="OK"
 HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
 PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+POST_BUILD_INTEGRITY_OK="no"
+POST_BUILD_STATUS="NOT_REACHED"
+SOURCE_HEAD_UNCHANGED="no"
+SOURCE_CLEAN_BEFORE="no"
+SOURCE_CLEAN_AFTER="no"
+CARGO_LOCK_UNCHANGED="no"
+CARGO_LOCK_POST_MATCHES_EXPECTED="no"
+SOURCE_OR_LOCK_CHANGED="no"
+EVIDENCE_INVENTORY_COMPLETE="no"
+FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
+ARTIFACT_EXISTS="no"
+ARTIFACT_PATH=""
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -776,6 +791,144 @@ write_host_outcome_ingestion_record() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# Phase 3E: centralized host-owned POST_BUILD_INTEGRITY finalization.
+# Container is a non-writer. Validator is schema consumer only in Phase 3E.
+# status=OK iff post_build_integrity_ok=yes; otherwise status=FAILED.
+# NOT_APPLICABLE is prohibited as a final POST_BUILD status.
+# Exact ordered field set (must match template / validator / fixtures):
+#   evidence_schema_version, status, outcome, source_head_before,
+#   source_head_after, source_head_unchanged, source_clean_before,
+#   source_clean_after, cargo_lock_sha256_before, cargo_lock_sha256_after,
+#   cargo_lock_unchanged, cargo_lock_post_matches_expected,
+#   source_or_lock_changed, artifact_path, artifact_exists, docker_exit_code,
+#   failure_stage, evidence_inventory_complete,
+#   full_integrity_gate_all_four_yes, full_integrity_gate_note,
+#   post_build_integrity_ok
+# ---------------------------------------------------------------------------
+
+# Apply status vocabulary from the technical ok flag. Fail-closed.
+apply_host_post_build_status_policy() {
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  if [[ "${POST_BUILD_INTEGRITY_OK}" == "yes" ]]; then
+    POST_BUILD_STATUS="OK"
+    HOST_POST_BUILD_INTEGRITY_STATUS="OK"
+  else
+    POST_BUILD_INTEGRITY_OK="no"
+    POST_BUILD_STATUS="FAILED"
+    HOST_POST_BUILD_INTEGRITY_STATUS="FAILED"
+  fi
+}
+
+# Fill fail-closed defaults for incomplete measurement globals before a
+# FAILED POST_BUILD finalization (pre-Docker / post-Docker host failure paths).
+prepare_failed_host_post_build_defaults() {
+  POST_BUILD_INTEGRITY_OK="no"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  EVIDENCE_INVENTORY_COMPLETE="${EVIDENCE_INVENTORY_COMPLETE:-no}"
+  FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
+  SOURCE_HEAD_UNCHANGED="${SOURCE_HEAD_UNCHANGED:-no}"
+  SOURCE_CLEAN_BEFORE="${SOURCE_CLEAN_BEFORE:-no}"
+  SOURCE_CLEAN_AFTER="${SOURCE_CLEAN_AFTER:-no}"
+  CARGO_LOCK_UNCHANGED="${CARGO_LOCK_UNCHANGED:-no}"
+  CARGO_LOCK_POST_MATCHES_EXPECTED="${CARGO_LOCK_POST_MATCHES_EXPECTED:-no}"
+  if [[ -z "${SRC_HEAD:-}" ]]; then
+    SRC_HEAD="${PRE_DOCKER_SRC_HEAD:-NOT_REACHED}"
+  fi
+  if [[ -z "${SRC_HEAD_AFTER:-}" ]]; then
+    SRC_HEAD_AFTER="NOT_REACHED"
+  fi
+  if [[ -z "${CARGO_LOCK_BEFORE:-}" ]]; then
+    CARGO_LOCK_BEFORE="NOT_REACHED"
+  fi
+  if [[ -z "${CARGO_LOCK_AFTER:-}" ]]; then
+    CARGO_LOCK_AFTER="NOT_REACHED"
+  fi
+  if [[ -z "${ARTIFACT_PATH:-}" ]]; then
+    if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+      ARTIFACT_PATH="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
+    else
+      ARTIFACT_PATH="NOT_REACHED"
+    fi
+  fi
+  ARTIFACT_EXISTS="${ARTIFACT_EXISTS:-no}"
+  if [[ "${SOURCE_HEAD_UNCHANGED}" == "yes" && "${CARGO_LOCK_UNCHANGED}" == "yes" ]]; then
+    SOURCE_OR_LOCK_CHANGED="no"
+  else
+    SOURCE_OR_LOCK_CHANGED="yes"
+  fi
+  if [[ -z "${DOCKER_EXIT:-}" ]]; then
+    DOCKER_EXIT="NOT_STARTED"
+  fi
+  if [[ -z "${OUTCOME:-}" ]]; then
+    OUTCOME="INFRASTRUCTURE_FAILURE"
+  fi
+  if [[ -z "${FAILURE_STAGE:-}" || "${FAILURE_STAGE}" == "none" ]]; then
+    : # keep caller stage when set to a real stage; 'none' is valid for some paths
+  fi
+}
+
+# Write one complete host-owned POST_BUILD_INTEGRITY.txt. Fail-closed.
+# Never creates, replaces, or mutates BUILD_EXIT_CODE.txt.
+write_host_post_build_integrity_record() {
+  local dest
+  local source_or_lock_changed
+  if [[ -z "${EVIDENCE_DIR:-}" || ! -d "${EVIDENCE_DIR}" ]]; then
+    echo "write_host_post_build_integrity_record: evidence directory unavailable" >&2
+    return 1
+  fi
+  dest="${EVIDENCE_DIR}/${POST_BUILD_INTEGRITY_FILE_NAME}"
+  reject_field_newlines "outcome" "${OUTCOME:-}" || return 1
+  reject_field_newlines "failure_stage" "${FAILURE_STAGE:-none}" || return 1
+  reject_field_newlines "artifact_path" "${ARTIFACT_PATH:-}" || return 1
+
+  if [[ "${SOURCE_HEAD_UNCHANGED}" == "yes" && "${CARGO_LOCK_UNCHANGED}" == "yes" ]]; then
+    source_or_lock_changed="no"
+  else
+    source_or_lock_changed="yes"
+  fi
+  SOURCE_OR_LOCK_CHANGED="${source_or_lock_changed}"
+  apply_host_post_build_status_policy
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=${POST_BUILD_STATUS}"
+    echo "outcome=${OUTCOME}"
+    echo "source_head_before=${SRC_HEAD}"
+    echo "source_head_after=${SRC_HEAD_AFTER}"
+    echo "source_head_unchanged=${SOURCE_HEAD_UNCHANGED}"
+    echo "source_clean_before=${SOURCE_CLEAN_BEFORE}"
+    echo "source_clean_after=${SOURCE_CLEAN_AFTER}"
+    echo "cargo_lock_sha256_before=${CARGO_LOCK_BEFORE}"
+    echo "cargo_lock_sha256_after=${CARGO_LOCK_AFTER}"
+    echo "cargo_lock_unchanged=${CARGO_LOCK_UNCHANGED}"
+    echo "cargo_lock_post_matches_expected=${CARGO_LOCK_POST_MATCHES_EXPECTED}"
+    echo "source_or_lock_changed=${source_or_lock_changed}"
+    echo "artifact_path=${ARTIFACT_PATH}"
+    echo "artifact_exists=${ARTIFACT_EXISTS}"
+    echo "docker_exit_code=${DOCKER_EXIT}"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "evidence_inventory_complete=${EVIDENCE_INVENTORY_COMPLETE}"
+    echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
+    echo "full_integrity_gate_note=${FULL_INTEGRITY_GATE_NOTE}"
+    echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
+  } > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt" || {
+    echo "write_host_post_build_integrity_record: write failed for ${dest}" >&2
+    return 1
+  }
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  return 0
+}
+
+# Allow one HOST_OUTCOME_INGESTION refresh after final POST_BUILD so
+# post_build_integrity_status matches the finalized POST_BUILD record.
+sync_host_outcome_ingestion_post_build_status() {
+  local ingestion_status="$1"
+  HOST_OUTCOME_INGESTION_WRITTEN="NO"
+  HOST_OUTCOME_INGESTION_FINGERPRINT=""
+  write_host_outcome_ingestion_record "${ingestion_status}"
+}
+
 # Host-owned Docker exit evidence writer (safe to call from sourced tests).
 write_host_docker_exit_code() {
   local dest="${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
@@ -906,6 +1059,19 @@ finalize_post_docker_host_failure() {
     if [[ -n "${PARSED_CONTAINER_OUTCOME}" ]] && is_allowed_outcome "${PARSED_CONTAINER_OUTCOME}"; then
       OUTCOME="${PARSED_CONTAINER_OUTCOME}"
     fi
+  fi
+
+  # Phase 3E: host-owned POST_BUILD must be a complete truthful FAILED record on
+  # every post-Docker host finalization path (supersedes Phase 3D byte-preservation
+  # of POST_BUILD). Never mutates container-owned BUILD_EXIT_CODE.txt.
+  prepare_failed_host_post_build_defaults
+  if ! write_host_post_build_integrity_record; then
+    echo "ERROR: host-owned POST_BUILD_INTEGRITY.txt could not be written; fail-closed" >&2
+    HOST_FINALIZING_IN_PROGRESS="NO"
+    if [[ "${abort_after}" == "YES" ]]; then
+      abort "${exit_code}" "Host POST_BUILD integrity record write failed during post-Docker finalization (${message})"
+    fi
+    return "${exit_code}"
   fi
 
   if ! write_host_outcome_ingestion_record "${ingestion_status}"; then
@@ -1616,26 +1782,27 @@ finalize_pre_docker_infrastructure_failure() {
     echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
   } > "${EVIDENCE_DIR}/STATIC_ARTIFACT_INSPECTION.txt"
 
-  {
-    echo "evidence_schema_version=1"
-    echo "status=NOT_APPLICABLE"
-    echo "outcome=INFRASTRUCTURE_FAILURE"
-    echo "source_head_before=NOT_APPLICABLE"
-    echo "source_head_after=NOT_APPLICABLE"
-    echo "source_head_unchanged=no"
-    echo "source_clean_before=no"
-    echo "source_clean_after=no"
-    echo "cargo_lock_sha256_before=NOT_APPLICABLE"
-    echo "cargo_lock_sha256_after=NOT_APPLICABLE"
-    echo "cargo_lock_unchanged=no"
-    echo "cargo_lock_post_matches_expected=no"
-    echo "source_or_lock_changed=no"
-    echo "artifact_exists=no"
-    echo "evidence_inventory_complete=no"
-    echo "full_integrity_gate_all_four_yes=no"
-    echo "post_build_integrity_ok=no"
-    echo "failure_stage=${stage}"
-  } > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt"
+  # Phase 3E: complete host-owned FAILED POST_BUILD (never NOT_APPLICABLE final).
+  prepare_failed_host_post_build_defaults
+  OUTCOME="INFRASTRUCTURE_FAILURE"
+  FAILURE_STAGE="${stage}"
+  SRC_HEAD="${SRC_HEAD:-NOT_REACHED}"
+  SRC_HEAD_AFTER="NOT_REACHED"
+  CARGO_LOCK_BEFORE="${CARGO_LOCK_BEFORE:-NOT_REACHED}"
+  CARGO_LOCK_AFTER="NOT_REACHED"
+  SOURCE_HEAD_UNCHANGED="no"
+  SOURCE_CLEAN_BEFORE="no"
+  SOURCE_CLEAN_AFTER="no"
+  CARGO_LOCK_UNCHANGED="no"
+  CARGO_LOCK_POST_MATCHES_EXPECTED="no"
+  SOURCE_OR_LOCK_CHANGED="yes"
+  ARTIFACT_EXISTS="no"
+  DOCKER_EXIT="NOT_STARTED"
+  EVIDENCE_INVENTORY_COMPLETE="no"
+  FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
+  POST_BUILD_INTEGRITY_OK="no"
+  write_host_post_build_integrity_record || \
+    echo "ERROR: host-owned POST_BUILD_INTEGRITY.txt write failed during pre-Docker finalization" >&2
 
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
     {
@@ -1668,9 +1835,10 @@ finalize_post_docker_unexpected_failure() {
   fi
 
   # Fill incomplete host-owned artifact placeholders only when still NOT_REACHED;
-  # never rewrite BUILD_EXIT_CODE.txt.
+  # never rewrite BUILD_EXIT_CODE.txt. POST_BUILD is finalized by
+  # finalize_post_docker_host_failure via the centralized Phase 3E writer.
   local f path
-  for f in ARTIFACT_IDENTITY.txt STATIC_ARTIFACT_INSPECTION.txt POST_BUILD_INTEGRITY.txt; do
+  for f in ARTIFACT_IDENTITY.txt STATIC_ARTIFACT_INSPECTION.txt; do
     path="${EVIDENCE_DIR}/${f}"
     if [[ ! -s "${path}" ]] || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null; then
       {
@@ -2153,6 +2321,8 @@ HOST_SOURCE_INTEGRITY_STATUS="OK"
 HOST_POST_BUILD_INTEGRITY_STATUS="OK"
 HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
 PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+POST_BUILD_INTEGRITY_OK="no"
+POST_BUILD_STATUS="NOT_REACHED"
 trap on_err ERR
 
 # ---------------------------------------------------------------------------
@@ -3039,29 +3209,30 @@ ARTIFACT_PATH="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
 ARTIFACT_EXISTS="no"
 [[ -f "${ARTIFACT_PATH}" ]] && ARTIFACT_EXISTS="yes"
 
-{
-  echo "evidence_schema_version=1"
-  echo "status=OK"
-  echo "outcome=${OUTCOME}"
-  echo "source_head_before=${SRC_HEAD}"
-  echo "source_head_after=${SRC_HEAD_AFTER}"
-  echo "source_head_unchanged=${SOURCE_HEAD_UNCHANGED}"
-  echo "source_clean_before=${SOURCE_CLEAN_BEFORE}"
-  echo "source_clean_after=${SOURCE_CLEAN_AFTER}"
-  echo "cargo_lock_sha256_before=${CARGO_LOCK_BEFORE}"
-  echo "cargo_lock_sha256_after=${CARGO_LOCK_AFTER}"
-  echo "cargo_lock_unchanged=${CARGO_LOCK_UNCHANGED}"
-  echo "cargo_lock_post_matches_expected=${CARGO_LOCK_POST_MATCHES_EXPECTED}"
-  echo "source_or_lock_changed=$([[ "${CARGO_LOCK_UNCHANGED}" == "yes" && "${SOURCE_HEAD_UNCHANGED}" == "yes" ]] && echo no || echo yes)"
-  echo "artifact_path=${ARTIFACT_PATH}"
-  echo "artifact_exists=${ARTIFACT_EXISTS}"
-  echo "docker_exit_code=${DOCKER_EXIT}"
-  echo "failure_stage=${FAILURE_STAGE}"
-  echo "evidence_inventory_complete=${EVIDENCE_INVENTORY_COMPLETE}"
-  echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
-  echo "full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no"
-  echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
-} > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt"
+# Phase 3E: centralized host POST_BUILD finalization — status=OK iff
+# post_build_integrity_ok=yes; otherwise FAILED. Never unconditional OK.
+if [[ "${SOURCE_HEAD_UNCHANGED}" == "yes" && "${CARGO_LOCK_UNCHANGED}" == "yes" ]]; then
+  SOURCE_OR_LOCK_CHANGED="no"
+else
+  SOURCE_OR_LOCK_CHANGED="yes"
+fi
+write_host_post_build_integrity_record || \
+  finalize_post_docker_host_failure \
+    "post_build_integrity_write_failed" 10 \
+    "Host POST_BUILD_INTEGRITY.txt could not be written after technical gate" \
+    "${HOST_INFRASTRUCTURE_STATUS:-OK}" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "YES"
+
+# Refresh HOST_OUTCOME_INGESTION so post_build_integrity_status matches final
+# POST_BUILD. preliminary_success_eligible remains NO. No validator invocation.
+INGESTION_SYNC_STATUS="FAILED"
+if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
+  INGESTION_SYNC_STATUS="OK"
+fi
+sync_host_outcome_ingestion_post_build_status "${INGESTION_SYNC_STATUS}" || \
+  finalize_post_docker_host_failure \
+    "host_outcome_ingestion_post_build_sync_failed" 10 \
+    "HOST_OUTCOME_INGESTION.txt could not be refreshed after POST_BUILD finalization" \
+    "${HOST_INFRASTRUCTURE_STATUS:-FAILED}" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "YES"
 
 # ---------------------------------------------------------------------------
 # STEP 20: Closed auxiliary-file inventory check (RC3B-021)

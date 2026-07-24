@@ -11,5 +11,11 @@ cargo_lock_sha256_after=NOT_REACHED
 cargo_lock_unchanged=no
 cargo_lock_post_matches_expected=no
 source_or_lock_changed=yes
-evidence_inventory_complete=no
+artifact_path=NOT_REACHED
+artifact_exists=no
+docker_exit_code=NOT_STARTED
 failure_stage=repo_digest_mismatch
+evidence_inventory_complete=no
+full_integrity_gate_all_four_yes=no
+full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no
+post_build_integrity_ok=no

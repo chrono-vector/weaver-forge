@@ -11,5 +11,11 @@ cargo_lock_sha256_after=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d995891
 cargo_lock_unchanged=yes
 cargo_lock_post_matches_expected=yes
 source_or_lock_changed=no
-evidence_inventory_complete=no
+artifact_path=/work/cargo-target/debug/xai-grok-pager
+artifact_exists=yes
+docker_exit_code=0
 failure_stage=NONE
+evidence_inventory_complete=no
+full_integrity_gate_all_four_yes=no
+full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no
+post_build_integrity_ok=yes

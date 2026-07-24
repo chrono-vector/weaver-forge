@@ -1029,7 +1029,8 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), before)
 
     # ------------------------------------------------------------------
-    # 33–35. finalizer ownership / no validator / no POST_BUILD rewrite
+    # 33–35. finalizer ownership / no validator /
+    # Phase 3E supersession of POST_BUILD byte-preservation
     # ------------------------------------------------------------------
     def test_33_host_finalizer_writes_only_host_owned_files(self) -> None:
         original = "\n".join(
@@ -1087,15 +1088,22 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
         self._assert_no_prohibited()
 
-    def test_35_no_post_build_semantic_rewrite(self) -> None:
+    def test_35_phase3e_allows_truthful_post_build_rewrite_preserves_build_exit(self) -> None:
+        """Phase 3E supersession of Phase 3D test_35_no_post_build_semantic_rewrite.
+
+        Pre-3E rule: finalize must not rewrite POST_BUILD bytes.
+        Phase 3E: host finalization MUST replace host-owned POST_BUILD with one
+        complete truthful FAILED record when post_build_integrity_ok is not yes.
+        Container-owned BUILD_EXIT_CODE.txt remains byte-for-byte unchanged.
+        """
         post = self.evidence / "POST_BUILD_INTEGRITY.txt"
         post.write_text(
             "evidence_schema_version=1\nstatus=OK\noutcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT\n",
             encoding="utf-8",
             newline="\n",
         )
-        before = post.read_bytes()
-        self._write_build_exit(
+        before_post = post.read_bytes()
+        build_path = self._write_build_exit(
             self._valid_tuple_lines(
                 "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
                 cargo_started="YES",
@@ -1105,6 +1113,7 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
                 static_complete="YES",
             )
         )
+        before_build = build_path.read_bytes()
         body = textwrap.dedent(
             """\
             set +e
@@ -1116,7 +1125,13 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         )
         cp = self._run_sourced(body)
         self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
-        self.assertEqual(post.read_bytes(), before)
+        self.assertEqual(build_path.read_bytes(), before_build)
+        after_post = post.read_bytes()
+        self.assertNotEqual(after_post, before_post)
+        self.assertEqual(_read_kv(post, "status"), "FAILED")
+        self.assertEqual(_read_kv(post, "post_build_integrity_ok"), "no")
+        self.assertIsNotNone(_read_kv(post, "full_integrity_gate_note"))
+        self.assertEqual(_read_kv(self._ingestion(), "post_build_integrity_status"), "FAILED")
 
     # ------------------------------------------------------------------
     # 36–39. preliminary eligibility / nonzero

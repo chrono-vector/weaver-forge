@@ -1,15 +1,30 @@
-# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1, Phase 3E)
 #
 # Host-owned. Confirms the source tree and Cargo.lock were unchanged by the
-# build. source_head_before/after are 40-char lowercase hex commits (or
-# NOT_REACHED on a pre-build failure). cargo_lock_sha256_before/after are
+# build, and records the technical post-build integrity gate result.
+# status=OK if and only if post_build_integrity_ok=yes; otherwise status=FAILED.
+# NOT_APPLICABLE is prohibited as a final status. NOT_REACHED is transitional
+# only (pre-finalization placeholder) and must never remain as finalized success.
+# source_head_before/after are 40-char lowercase hex commits (or NOT_REACHED
+# when the measurement was not taken). cargo_lock_sha256_before/after are
 # 64-char lowercase hex (or NOT_REACHED). All *_unchanged / *_clean_* /
-# source_or_lock_changed / evidence_inventory_complete fields are yes|no.
-# outcome must equal the authoritative BUILD_EXIT_CODE.txt outcome.
+# source_or_lock_changed / evidence_inventory_complete /
+# full_integrity_gate_all_four_yes / post_build_integrity_ok / artifact_exists
+# fields are yes|no. outcome must equal the authoritative container outcome
+# when one exists.
 #
 # evidence_inventory_complete is ALWAYS no from the automated host run; it can
 # only become yes after the Witness completes the manual files and the FINAL
 # manifest validates.
+#
+# Exact ordered field set (writer / template / validator / fixtures must match):
+# evidence_schema_version, status, outcome, source_head_before, source_head_after,
+# source_head_unchanged, source_clean_before, source_clean_after,
+# cargo_lock_sha256_before, cargo_lock_sha256_after, cargo_lock_unchanged,
+# cargo_lock_post_matches_expected, source_or_lock_changed, artifact_path,
+# artifact_exists, docker_exit_code, failure_stage, evidence_inventory_complete,
+# full_integrity_gate_all_four_yes, full_integrity_gate_note,
+# post_build_integrity_ok
 evidence_schema_version=1
 status=OK
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
@@ -23,5 +38,11 @@ cargo_lock_sha256_after=1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d995891
 cargo_lock_unchanged=yes
 cargo_lock_post_matches_expected=yes
 source_or_lock_changed=no
-evidence_inventory_complete=no
+artifact_path=/work/cargo-target/debug/xai-grok-pager
+artifact_exists=yes
+docker_exit_code=0
 failure_stage=NONE
+evidence_inventory_complete=no
+full_integrity_gate_all_four_yes=no
+full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no
+post_build_integrity_ok=yes

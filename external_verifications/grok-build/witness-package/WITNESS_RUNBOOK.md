@@ -316,9 +316,14 @@ are allowed in applicable container-owned fields. **Phase 3D on `main` implement
 ingestion**: the host preserves valid container outcomes, records separate host infrastructure and
 source-integrity state in `HOST_OUTCOME_INGESTION.txt`, and fails closed on missing/invalid
 container results without fabrication. The host ingestion record is preliminary and does not imply
-PASS. **`POST_BUILD` semantic alignment and validator-gated host success remain pending
-(Phases 3E/3F).** Validator inference remains unresolved. **RC4 remains NOT READY. No rc5 tag
-exists.** Do not claim end-to-end compliance from Phase 3D alone.
+PASS. **Phase 3E on `main` makes `POST_BUILD_INTEGRITY.txt` host-owned, complete, truthful, and
+schema-aligned**: `status=OK` iff `post_build_integrity_ok=yes`; finalized failure paths use
+`status=FAILED`; `HOST_OUTCOME_INGESTION` `post_build_integrity_status` is synchronized; the
+container remains a POST_BUILD non-writer; the validator is a schema consumer only in Phase 3E;
+`preliminary_success_eligible` remains `NO`. **Validator-gated host success remains Phase 3F.**
+Validator inference remains unresolved. **RC4 remains NOT READY. No rc5 tag exists.** Independent
+Witness reproduction has not occurred; Independent Witness PASS is not claimed; C-014 remains
+`NOT_STARTED`. Do not claim end-to-end compliance from Phase 3E alone.
 
 ---
 
@@ -493,3 +498,4 @@ identity above, statically audited **NOT READY** (C-027).
 | main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3C; not an rc5 release) | Document container terminal finalization on `main` per Phase 3B contract; host ingestion still noncompliant until Phase 3D; validator/`POST_BUILD` unchanged. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3D; not an rc5 release) | Document host outcome ingestion / no-overwrite on `main`; host preserves valid container outcomes; separate host infrastructure/source-integrity fields; invalid/missing results fail closed without fabrication; ingestion record is preliminary and does not imply PASS; `POST_BUILD`/validator gating remain pending. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 3E; not an rc5 release) | Document host-owned complete truthful schema-aligned `POST_BUILD_INTEGRITY.txt` on `main`; `status=OK` iff `post_build_integrity_ok=yes`; finalized failures use `status=FAILED`; `HOST_OUTCOME_INGESTION` synchronized; container remains non-writer; validator is schema consumer only; validator-gated host success remains Phase 3F; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
