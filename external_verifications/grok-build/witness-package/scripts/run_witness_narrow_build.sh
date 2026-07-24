@@ -22,7 +22,10 @@
 # ordinary outcome from cargo_started/artifact-presence/raw Docker exit code alone, and NEVER
 # overwrites a valid container-owned BUILD_EXIT_CODE.txt after Docker. Missing/invalid container
 # results are recorded in host-owned HOST_OUTCOME_INGESTION.txt (see parse_container_result_tuple
-# and finalize_post_docker_host_failure). preliminary_success_eligible remains NO until Phase 3F.
+# and finalize_post_docker_host_failure). preliminary_success_eligible remains NO (Phase 3F-A/B).
+# Phase 3F-B: after preliminary manifest finalization the host invokes the repository validator in
+# --host-preliminary mode, records host-owned VALIDATOR_RESULT.txt outside EVIDENCE_DIR, and
+# requires validator process exit 0 plus exact STRUCTURAL VALIDATION: PASS before host exit 0.
 set -Eeuo pipefail
 
 # ---------------------------------------------------------------------------
@@ -148,6 +151,15 @@ readonly OUTCOME_NONTERMINAL_SENTINELS=(
 readonly HOST_OUTCOME_INGESTION_SCHEMA_VERSION="1"
 readonly HOST_OUTCOME_INGESTION_FILE_NAME="HOST_OUTCOME_INGESTION.txt"
 readonly POST_BUILD_INTEGRITY_FILE_NAME="POST_BUILD_INTEGRITY.txt"
+# Phase 3F-B host-owned validator observation (outside EVIDENCE_DIR; never in manifest).
+readonly VALIDATOR_RESULT_SCHEMA_VERSION="1"
+readonly VALIDATOR_RESULT_FILE_NAME="VALIDATOR_RESULT.txt"
+readonly VALIDATOR_STDOUT_FILE_NAME="VALIDATOR_STDOUT.txt"
+readonly VALIDATOR_STDERR_FILE_NAME="VALIDATOR_STDERR.txt"
+readonly VALIDATOR_HOST_DIR_NAME="host-validator"
+readonly VALIDATOR_STRUCTURAL_PASS_PREFIX="STRUCTURAL VALIDATION: PASS"
+readonly VALIDATOR_STRUCTURAL_FAIL_PREFIX="STRUCTURAL VALIDATION: FAIL"
+readonly VALIDATOR_GATE_EXIT_CODE=12
 # Exact Phase 3E note string (must match template / fixtures / validator field set).
 readonly FULL_INTEGRITY_GATE_NOTE="evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no"
 
@@ -214,6 +226,25 @@ HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
 PRELIMINARY_SUCCESS_ELIGIBLE="NO"
 POST_BUILD_INTEGRITY_OK="no"
 POST_BUILD_STATUS="NOT_REACHED"
+# Phase 3F-B host-owned validator gate state (safe defaults for sourced tests).
+HOST_VALIDATOR_DIR=""
+VALIDATOR_SCRIPT=""
+HOST_PYTHON=""
+VALIDATOR_PROCESS_EXIT_CODE=""
+VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+VALIDATOR_STRUCTURAL_PASS="no"
+VALIDATOR_FAILURE_STAGE="NOT_REACHED"
+VALIDATOR_ERROR_REASON="none"
+VALIDATOR_INVOCATION_STARTED_UTC=""
+VALIDATOR_INVOCATION_FINISHED_UTC=""
+VALIDATOR_STDOUT_PATH=""
+VALIDATOR_STDERR_PATH=""
+VALIDATOR_STDOUT_SHA256=""
+VALIDATOR_STDERR_SHA256=""
+VALIDATOR_MANIFEST_SHA256=""
+VALIDATOR_COMMAND=""
+VALIDATOR_RESULT_PATH=""
+HOST_VALIDATOR_GATE_OK="no"
 SOURCE_HEAD_UNCHANGED="no"
 SOURCE_CLEAN_BEFORE="no"
 SOURCE_CLEAN_AFTER="no"
@@ -927,6 +958,481 @@ sync_host_outcome_ingestion_post_build_status() {
   HOST_OUTCOME_INGESTION_WRITTEN="NO"
   HOST_OUTCOME_INGESTION_FINGERPRINT=""
   write_host_outcome_ingestion_record "${ingestion_status}"
+}
+
+# ---------------------------------------------------------------------------
+# Phase 3F-B: host-preliminary validator invocation + host-owned VALIDATOR_RESULT
+# Location decision: ${WORK_ROOT}/tmp/host-validator/ (or HOST_VALIDATOR_DIR override
+# for isolated tests). Outside EVIDENCE_DIR; never listed in EVIDENCE_MANIFEST.sha256.
+# No separate schema template: field set is defined here, matching inline host-owned
+# record conventions (HOST_OUTCOME_INGESTION / POST_BUILD), not HOST_RUN_METADATA.
+# ---------------------------------------------------------------------------
+resolve_host_validator_dir() {
+  if [[ -n "${HOST_VALIDATOR_DIR:-}" ]]; then
+    printf '%s' "${HOST_VALIDATOR_DIR}"
+    return 0
+  fi
+  if [[ -n "${TMP_DIR:-}" ]]; then
+    printf '%s' "${TMP_DIR}/${VALIDATOR_HOST_DIR_NAME}"
+    return 0
+  fi
+  if [[ -n "${WORK_ROOT:-}" ]]; then
+    printf '%s' "${WORK_ROOT}/tmp/${VALIDATOR_HOST_DIR_NAME}"
+    return 0
+  fi
+  echo "resolve_host_validator_dir: WORK_ROOT/TMP_DIR/HOST_VALIDATOR_DIR unset" >&2
+  return 1
+}
+
+resolve_validator_script() {
+  if [[ -n "${VALIDATOR_SCRIPT:-}" ]]; then
+    printf '%s' "${VALIDATOR_SCRIPT}"
+    return 0
+  fi
+  printf '%s' "${SCRIPT_DIR}/validate_witness_evidence.py"
+}
+
+resolve_host_python() {
+  if [[ -n "${HOST_PYTHON:-}" ]]; then
+    printf '%s' "${HOST_PYTHON}"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  return 1
+}
+
+# Atomic write for host-owned files outside EVIDENCE_DIR (same rename pattern).
+write_host_file_atomic() {
+  local dest="$1"
+  local dir base tmp
+  if [[ -z "${dest}" ]]; then
+    echo "write_host_file_atomic: empty destination" >&2
+    return 1
+  fi
+  dir="$(dirname -- "${dest}")"
+  base="$(basename -- "${dest}")"
+  if [[ ! -d "${dir}" ]]; then
+    echo "write_host_file_atomic: directory missing: ${dir}" >&2
+    return 1
+  fi
+  tmp="${dir}/.tmp.${base}.$$.${RANDOM}"
+  if ! cat > "${tmp}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_host_file_atomic: write failed for ${dest}" >&2
+    return 1
+  fi
+  if ! mv -f -- "${tmp}" "${dest}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_host_file_atomic: rename failed for ${dest}" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Remove/invalidate stale validator result and capture files before each invocation.
+invalidate_host_validator_artifacts() {
+  local dir
+  if ! dir="$(resolve_host_validator_dir)"; then
+    return 1
+  fi
+  mkdir -p "${dir}" || return 1
+  HOST_VALIDATOR_DIR="${dir}"
+  rm -f -- \
+    "${dir}/${VALIDATOR_RESULT_FILE_NAME}" \
+    "${dir}/${VALIDATOR_STDOUT_FILE_NAME}" \
+    "${dir}/${VALIDATOR_STDERR_FILE_NAME}"
+  # Invalidate any leftover atomic temp fragments for this basename.
+  rm -f -- "${dir}/.tmp.${VALIDATOR_RESULT_FILE_NAME}."* 2>/dev/null || true
+  VALIDATOR_RESULT_PATH="${dir}/${VALIDATOR_RESULT_FILE_NAME}"
+  VALIDATOR_STDOUT_PATH="${dir}/${VALIDATOR_STDOUT_FILE_NAME}"
+  VALIDATOR_STDERR_PATH="${dir}/${VALIDATOR_STDERR_FILE_NAME}"
+  VALIDATOR_STDOUT_SHA256=""
+  VALIDATOR_STDERR_SHA256=""
+  VALIDATOR_PROCESS_EXIT_CODE=""
+  VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+  VALIDATOR_STRUCTURAL_PASS="no"
+  VALIDATOR_FAILURE_STAGE="NOT_REACHED"
+  VALIDATOR_ERROR_REASON="none"
+  VALIDATOR_INVOCATION_STARTED_UTC=""
+  VALIDATOR_INVOCATION_FINISHED_UTC=""
+  VALIDATOR_MANIFEST_SHA256=""
+  VALIDATOR_COMMAND=""
+  HOST_VALIDATOR_GATE_OK="no"
+  return 0
+}
+
+# Exact PASS parse rule (Phase 3F-B):
+# - Accept only definitive final structural result lines whose text begins with
+#   exactly "STRUCTURAL VALIDATION: PASS" (covers both plain PASS and the
+#   committed host-preliminary PASS note suffix).
+# - Reject any line beginning with "STRUCTURAL VALIDATION: FAIL".
+# - Require exactly one PASS line and zero FAIL lines in the current-run stdout.
+# - Do not accept arbitrary text containing the word PASS.
+parse_validator_structural_stdout() {
+  local stdout_file="$1"
+  local line pass_count=0 fail_count=0
+  VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+  VALIDATOR_STRUCTURAL_PASS="no"
+  if [[ ! -f "${stdout_file}" ]]; then
+    VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+    VALIDATOR_ERROR_REASON="stdout_capture_missing"
+    return 1
+  fi
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    if [[ "${line}" == "${VALIDATOR_STRUCTURAL_FAIL_PREFIX}"* ]]; then
+      fail_count=$((fail_count + 1))
+    elif [[ "${line}" == "${VALIDATOR_STRUCTURAL_PASS_PREFIX}"* ]]; then
+      pass_count=$((pass_count + 1))
+    fi
+  done < "${stdout_file}"
+  if [[ "${fail_count}" -gt 0 && "${pass_count}" -gt 0 ]]; then
+    VALIDATOR_STRUCTURAL_STATUS="CONTRADICTORY"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    VALIDATOR_ERROR_REASON="contradictory_pass_fail"
+    return 1
+  fi
+  if [[ "${fail_count}" -gt 0 ]]; then
+    VALIDATOR_STRUCTURAL_STATUS="FAIL"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    VALIDATOR_ERROR_REASON="structural_fail"
+    return 1
+  fi
+  if [[ "${pass_count}" -eq 0 ]]; then
+    VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    VALIDATOR_ERROR_REASON="structural_pass_missing"
+    return 1
+  fi
+  if [[ "${pass_count}" -ne 1 ]]; then
+    VALIDATOR_STRUCTURAL_STATUS="CONTRADICTORY"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    VALIDATOR_ERROR_REASON="multiple_structural_pass"
+    return 1
+  fi
+  VALIDATOR_STRUCTURAL_STATUS="PASS"
+  VALIDATOR_STRUCTURAL_PASS="yes"
+  return 0
+}
+
+_host_validator_result_body() {
+  printf '%s\n' "schema_version=${VALIDATOR_RESULT_SCHEMA_VERSION}"
+  printf '%s\n' "record_owner=host"
+  printf '%s\n' "run_id=${RUN_ID:-}"
+  printf '%s\n' "validator_command=${VALIDATOR_COMMAND:-}"
+  printf '%s\n' "validator_script_path=${VALIDATOR_SCRIPT:-}"
+  printf '%s\n' "evidence_dir=${EVIDENCE_DIR:-}"
+  printf '%s\n' "preliminary_manifest_path=${EVIDENCE_DIR:-}/EVIDENCE_MANIFEST.sha256"
+  printf '%s\n' "preliminary_manifest_sha256=${VALIDATOR_MANIFEST_SHA256:-}"
+  printf '%s\n' "validator_process_exit_code=${VALIDATOR_PROCESS_EXIT_CODE:-}"
+  printf '%s\n' "structural_status=${VALIDATOR_STRUCTURAL_STATUS:-ABSENT}"
+  printf '%s\n' "structural_pass=${VALIDATOR_STRUCTURAL_PASS:-no}"
+  printf '%s\n' "explicit_outcome_observed=${OUTCOME:-}"
+  printf '%s\n' "machine_verdict_ceiling=${VERDICT_CEILING:-}"
+  printf '%s\n' "stdout_capture_path=${VALIDATOR_STDOUT_PATH:-}"
+  printf '%s\n' "stdout_capture_sha256=${VALIDATOR_STDOUT_SHA256:-}"
+  printf '%s\n' "stderr_capture_path=${VALIDATOR_STDERR_PATH:-}"
+  printf '%s\n' "stderr_capture_sha256=${VALIDATOR_STDERR_SHA256:-}"
+  printf '%s\n' "invocation_started_utc=${VALIDATOR_INVOCATION_STARTED_UTC:-}"
+  printf '%s\n' "invocation_finished_utc=${VALIDATOR_INVOCATION_FINISHED_UTC:-}"
+  printf '%s\n' "failure_stage=${VALIDATOR_FAILURE_STAGE:-NOT_REACHED}"
+  printf '%s\n' "error_reason=${VALIDATOR_ERROR_REASON:-none}"
+}
+
+write_host_validator_result_record() {
+  local dest="${VALIDATOR_RESULT_PATH}"
+  if [[ -z "${dest}" ]]; then
+    if ! dest="$(resolve_host_validator_dir)/${VALIDATOR_RESULT_FILE_NAME}"; then
+      return 1
+    fi
+    VALIDATOR_RESULT_PATH="${dest}"
+  fi
+  mkdir -p "$(dirname -- "${dest}")" || return 1
+  if ! _host_validator_result_body | write_host_file_atomic "${dest}"; then
+    echo "write_host_validator_result_record: atomic write failed for ${dest}" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Verify fresh VALIDATOR_RESULT matches current run bindings (stale/spoof resistance).
+verify_host_validator_result_bindings() {
+  local result_path="${VALIDATOR_RESULT_PATH}"
+  local v_run v_manifest v_script v_evidence v_cmd v_stdout_hash v_stderr_hash
+  if [[ -z "${result_path}" || ! -f "${result_path}" ]]; then
+    VALIDATOR_ERROR_REASON="validator_result_missing"
+    return 1
+  fi
+  if [[ ! -f "${VALIDATOR_STDOUT_PATH:-}" || ! -f "${VALIDATOR_STDERR_PATH:-}" ]]; then
+    VALIDATOR_ERROR_REASON="capture_missing_after_invocation"
+    return 1
+  fi
+  v_run="$(read_kv_strict "${result_path}" "run_id")"
+  v_manifest="$(read_kv_strict "${result_path}" "preliminary_manifest_sha256")"
+  v_script="$(read_kv_strict "${result_path}" "validator_script_path")"
+  v_evidence="$(read_kv_strict "${result_path}" "evidence_dir")"
+  v_cmd="$(read_kv_strict "${result_path}" "validator_command")"
+  v_stdout_hash="$(read_kv_strict "${result_path}" "stdout_capture_sha256")"
+  v_stderr_hash="$(read_kv_strict "${result_path}" "stderr_capture_sha256")"
+  if [[ "${v_run}" != "${RUN_ID}" ]]; then
+    VALIDATOR_ERROR_REASON="run_id_mismatch"
+    return 1
+  fi
+  if [[ "${v_manifest}" != "${VALIDATOR_MANIFEST_SHA256}" ]]; then
+    VALIDATOR_ERROR_REASON="manifest_hash_mismatch"
+    return 1
+  fi
+  if [[ "${v_script}" != "${VALIDATOR_SCRIPT}" ]]; then
+    VALIDATOR_ERROR_REASON="validator_identity_mismatch"
+    return 1
+  fi
+  if [[ "${v_evidence}" != "${EVIDENCE_DIR}" ]]; then
+    VALIDATOR_ERROR_REASON="evidence_dir_mismatch"
+    return 1
+  fi
+  if [[ "${v_cmd}" != "${VALIDATOR_COMMAND}" ]]; then
+    VALIDATOR_ERROR_REASON="validator_command_mismatch"
+    return 1
+  fi
+  if [[ "${v_stdout_hash}" != "${VALIDATOR_STDOUT_SHA256}" || -z "${v_stdout_hash}" ]]; then
+    VALIDATOR_ERROR_REASON="stdout_hash_mismatch"
+    return 1
+  fi
+  if [[ "${v_stderr_hash}" != "${VALIDATOR_STDERR_SHA256}" || -z "${v_stderr_hash}" ]]; then
+    VALIDATOR_ERROR_REASON="stderr_hash_mismatch"
+    return 1
+  fi
+  if [[ "$(sha256_of "${VALIDATOR_STDOUT_PATH}")" != "${VALIDATOR_STDOUT_SHA256}" ]]; then
+    VALIDATOR_ERROR_REASON="stdout_capture_altered"
+    return 1
+  fi
+  if [[ "$(sha256_of "${VALIDATOR_STDERR_PATH}")" != "${VALIDATOR_STDERR_SHA256}" ]]; then
+    VALIDATOR_ERROR_REASON="stderr_capture_altered"
+    return 1
+  fi
+  return 0
+}
+
+# Invoke repository validator in host-preliminary mode after preliminary manifest.
+# Always attempts to write VALIDATOR_RESULT (errexit cannot bypass recording).
+# Does not modify EVIDENCE_DIR after invocation. Never called from failure finalizers.
+invoke_host_preliminary_validator() {
+  local py script manifest_path saved_errexit=0
+  HOST_VALIDATOR_GATE_OK="no"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+
+  if ! invalidate_host_validator_artifacts; then
+    VALIDATOR_FAILURE_STAGE="validator_workspace"
+    VALIDATOR_ERROR_REASON="validator_workspace_unavailable"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  if ! script="$(resolve_validator_script)"; then
+    VALIDATOR_FAILURE_STAGE="validator_script"
+    VALIDATOR_ERROR_REASON="validator_script_unresolved"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    write_host_validator_result_record || true
+    return 1
+  fi
+  VALIDATOR_SCRIPT="${script}"
+
+  if [[ ! -f "${VALIDATOR_SCRIPT}" ]]; then
+    VALIDATOR_FAILURE_STAGE="validator_script"
+    VALIDATOR_ERROR_REASON="validator_script_missing"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    VALIDATOR_COMMAND="missing:${VALIDATOR_SCRIPT} --host-preliminary ${EVIDENCE_DIR}"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  if [[ -z "${EVIDENCE_DIR:-}" || ! -d "${EVIDENCE_DIR}" ]]; then
+    VALIDATOR_FAILURE_STAGE="evidence_dir"
+    VALIDATOR_ERROR_REASON="evidence_dir_missing"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  manifest_path="${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
+  if [[ ! -f "${manifest_path}" ]]; then
+    VALIDATOR_FAILURE_STAGE="preliminary_manifest"
+    VALIDATOR_ERROR_REASON="preliminary_manifest_missing"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    write_host_validator_result_record || true
+    return 1
+  fi
+  VALIDATOR_MANIFEST_SHA256="$(sha256_of "${manifest_path}")"
+
+  if ! py="$(resolve_host_python)"; then
+    VALIDATOR_FAILURE_STAGE="python_interpreter"
+    VALIDATOR_ERROR_REASON="python_missing"
+    VALIDATOR_PROCESS_EXIT_CODE="not_started"
+    VALIDATOR_COMMAND="python3 ${VALIDATOR_SCRIPT} --host-preliminary ${EVIDENCE_DIR}"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  VALIDATOR_COMMAND="${py} ${VALIDATOR_SCRIPT} --host-preliminary ${EVIDENCE_DIR}"
+  VALIDATOR_FAILURE_STAGE="validator_invocation"
+  VALIDATOR_INVOCATION_STARTED_UTC="$(utc_now)"
+
+  # Capture exit even under set -e; always record result afterward.
+  if [[ $- == *e* ]]; then
+    saved_errexit=1
+    set +e
+  fi
+  "${py}" "${VALIDATOR_SCRIPT}" --host-preliminary "${EVIDENCE_DIR}" \
+    >"${VALIDATOR_STDOUT_PATH}" 2>"${VALIDATOR_STDERR_PATH}"
+  VALIDATOR_PROCESS_EXIT_CODE="$?"
+  if [[ "${saved_errexit}" -eq 1 ]]; then
+    set -e
+  fi
+  VALIDATOR_INVOCATION_FINISHED_UTC="$(utc_now)"
+
+  if [[ ! -f "${VALIDATOR_STDOUT_PATH}" ]]; then
+    VALIDATOR_ERROR_REASON="stdout_capture_missing"
+    VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    write_host_validator_result_record || true
+    return 1
+  fi
+  if [[ ! -f "${VALIDATOR_STDERR_PATH}" ]]; then
+    VALIDATOR_ERROR_REASON="stderr_capture_missing"
+    VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+    VALIDATOR_STRUCTURAL_PASS="no"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  VALIDATOR_STDOUT_SHA256="$(sha256_of "${VALIDATOR_STDOUT_PATH}")"
+  VALIDATOR_STDERR_SHA256="$(sha256_of "${VALIDATOR_STDERR_PATH}")"
+
+  if ! parse_validator_structural_stdout "${VALIDATOR_STDOUT_PATH}"; then
+    if [[ "${VALIDATOR_FAILURE_STAGE}" == "validator_invocation" ]]; then
+      VALIDATOR_FAILURE_STAGE="structural_parse"
+    fi
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  if [[ "${VALIDATOR_PROCESS_EXIT_CODE}" != "0" ]]; then
+    VALIDATOR_STRUCTURAL_PASS="no"
+    VALIDATOR_ERROR_REASON="validator_process_nonzero"
+    VALIDATOR_FAILURE_STAGE="validator_process_exit"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  VALIDATOR_ERROR_REASON="none"
+  VALIDATOR_FAILURE_STAGE="none"
+  if ! write_host_validator_result_record; then
+    VALIDATOR_ERROR_REASON="validator_result_write_failed"
+    VALIDATOR_FAILURE_STAGE="validator_result_write"
+    return 1
+  fi
+
+  if ! verify_host_validator_result_bindings; then
+    VALIDATOR_FAILURE_STAGE="validator_result_verify"
+    write_host_validator_result_record || true
+    return 1
+  fi
+
+  # Structural PASS recorded; eligibility remains NO. Gate OK decided by evaluate_*.
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  return 0
+}
+
+# Pi-adjudicated host exit 0 rule. Sets HOST_VALIDATOR_GATE_OK=yes only when all
+# required conditions hold. preliminary_success_eligible remains NO always here.
+evaluate_host_automated_structural_gate() {
+  local host_status container_valid container_outcome post_status post_ok
+  HOST_VALIDATOR_GATE_OK="no"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+
+  if [[ "${DOCKER_EXIT}" != "0" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-docker_exit_nonzero}"
+    return 1
+  fi
+  if [[ "${CONTAINER_RESULT_VALID}" != "YES" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-container_result_valid_not_yes}"
+    return 1
+  fi
+
+  host_status="$(read_kv_strict "${EVIDENCE_DIR}/HOST_OUTCOME_INGESTION.txt" "status")"
+  container_valid="$(read_kv_strict "${EVIDENCE_DIR}/HOST_OUTCOME_INGESTION.txt" "container_result_valid")"
+  container_outcome="$(read_kv_strict "${EVIDENCE_DIR}/HOST_OUTCOME_INGESTION.txt" "container_outcome")"
+  if [[ "${host_status}" != "OK" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-host_outcome_status_not_ok}"
+    return 1
+  fi
+  if [[ "${container_valid}" != "YES" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-host_outcome_container_result_valid_not_yes}"
+    return 1
+  fi
+  if [[ "${container_outcome}" != "CARGO_SUCCEEDED_ARTIFACT_PRESENT" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-explicit_outcome_not_success_artifact_present}"
+    return 1
+  fi
+  if [[ "${OUTCOME}" != "CARGO_SUCCEEDED_ARTIFACT_PRESENT" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-shell_outcome_not_success_artifact_present}"
+    return 1
+  fi
+  if [[ "${HOST_INFRASTRUCTURE_STATUS}" != "OK" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-host_infrastructure_status_not_ok}"
+    return 1
+  fi
+  if [[ "${HOST_SOURCE_INTEGRITY_STATUS}" != "OK" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-host_source_integrity_status_not_ok}"
+    return 1
+  fi
+  if [[ "${HOST_POST_BUILD_INTEGRITY_STATUS}" != "OK" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-host_post_build_integrity_status_not_ok}"
+    return 1
+  fi
+
+  post_status="$(read_kv_strict "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt" "status")"
+  post_ok="$(read_kv_strict "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt" "post_build_integrity_ok")"
+  if [[ "${post_status}" != "OK" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-post_build_status_not_ok}"
+    return 1
+  fi
+  if [[ "${post_ok}" != "yes" || "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-post_build_integrity_ok_not_yes}"
+    return 1
+  fi
+
+  if [[ "${VALIDATOR_PROCESS_EXIT_CODE}" != "0" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-validator_process_nonzero}"
+    return 1
+  fi
+  if [[ "${VALIDATOR_STRUCTURAL_PASS}" != "yes" || "${VALIDATOR_STRUCTURAL_STATUS}" != "PASS" ]]; then
+    VALIDATOR_ERROR_REASON="${VALIDATOR_ERROR_REASON:-structural_pass_not_yes}"
+    return 1
+  fi
+  if ! verify_host_validator_result_bindings; then
+    return 1
+  fi
+  if [[ "$(read_kv_strict "${VALIDATOR_RESULT_PATH}" "structural_pass")" != "yes" ]]; then
+    VALIDATOR_ERROR_REASON="validator_result_structural_pass_not_yes"
+    return 1
+  fi
+  if [[ "$(read_kv_strict "${EVIDENCE_DIR}/HOST_OUTCOME_INGESTION.txt" "preliminary_success_eligible")" != "NO" ]]; then
+    VALIDATOR_ERROR_REASON="preliminary_success_eligible_not_no"
+    return 1
+  fi
+
+  HOST_VALIDATOR_GATE_OK="yes"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  return 0
 }
 
 # Host-owned Docker exit evidence writer (safe to call from sourced tests).
@@ -2323,6 +2829,24 @@ HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
 PRELIMINARY_SUCCESS_ELIGIBLE="NO"
 POST_BUILD_INTEGRITY_OK="no"
 POST_BUILD_STATUS="NOT_REACHED"
+HOST_VALIDATOR_DIR=""
+VALIDATOR_SCRIPT=""
+HOST_PYTHON=""
+VALIDATOR_PROCESS_EXIT_CODE=""
+VALIDATOR_STRUCTURAL_STATUS="ABSENT"
+VALIDATOR_STRUCTURAL_PASS="no"
+VALIDATOR_FAILURE_STAGE="NOT_REACHED"
+VALIDATOR_ERROR_REASON="none"
+VALIDATOR_INVOCATION_STARTED_UTC=""
+VALIDATOR_INVOCATION_FINISHED_UTC=""
+VALIDATOR_STDOUT_PATH=""
+VALIDATOR_STDERR_PATH=""
+VALIDATOR_STDOUT_SHA256=""
+VALIDATOR_STDERR_SHA256=""
+VALIDATOR_MANIFEST_SHA256=""
+VALIDATOR_COMMAND=""
+VALIDATOR_RESULT_PATH=""
+HOST_VALIDATOR_GATE_OK="no"
 trap on_err ERR
 
 # ---------------------------------------------------------------------------
@@ -3223,7 +3747,7 @@ write_host_post_build_integrity_record || \
     "${HOST_INFRASTRUCTURE_STATUS:-OK}" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "YES"
 
 # Refresh HOST_OUTCOME_INGESTION so post_build_integrity_status matches final
-# POST_BUILD. preliminary_success_eligible remains NO. No validator invocation.
+# POST_BUILD. preliminary_success_eligible remains NO.
 INGESTION_SYNC_STATUS="FAILED"
 if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
   INGESTION_SYNC_STATUS="OK"
@@ -3279,12 +3803,40 @@ mark_stage "step21_manifest_generation"
 } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
 
 # ---------------------------------------------------------------------------
+# STEP 21b (Phase 3F-B): host-preliminary validator after preliminary manifest.
+# Captures stdout/stderr + VALIDATOR_RESULT outside EVIDENCE_DIR. Does not
+# modify evidence after invocation. Not invoked from failure finalizers.
+# ---------------------------------------------------------------------------
+mark_stage "step21b_host_preliminary_validator"
+PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+invoke_host_preliminary_validator || true
+# Always reaffirm eligibility remains NO regardless of structural PASS.
+PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+if ! evaluate_host_automated_structural_gate; then
+  HOST_VALIDATOR_GATE_OK="no"
+  # Refresh host-owned result with the gate failure reason when a record exists.
+  if [[ -n "${VALIDATOR_RESULT_PATH:-}" ]]; then
+    write_host_validator_result_record || true
+  fi
+fi
+PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+
+# ---------------------------------------------------------------------------
 # STEP 22: Summary + exit code
 # ---------------------------------------------------------------------------
 mark_stage "step22_summary_and_exit"
-FINAL_EXIT_CODE="${DOCKER_EXIT}"
-if [[ "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then
+# Phase 3F-B: host exit 0 requires the complete Pi-adjudicated automated gate
+# (Docker/outcome/HOST_OUTCOME/POST_BUILD + validator exit 0 + exact structural
+# PASS + fresh VALIDATOR_RESULT bindings). Exit 0 means only automated host
+# package structural validation succeeded — not final success eligibility and
+# not Independent Witness PASS. preliminary_success_eligible remains NO.
+FINAL_EXIT_CODE="${VALIDATOR_GATE_EXIT_CODE}"
+if [[ "${HOST_VALIDATOR_GATE_OK}" == "yes" ]]; then
+  FINAL_EXIT_CODE=0
+elif [[ "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then
   FINAL_EXIT_CODE=9
+elif [[ "${DOCKER_EXIT}" != "0" && -n "${DOCKER_EXIT}" ]]; then
+  FINAL_EXIT_CODE="${DOCKER_EXIT}"
 fi
 
 echo "--- Witness host summary (conservative) ---"
@@ -3301,10 +3853,16 @@ echo "failure_stage=${FAILURE_STAGE}"
 echo "artifact_exists=${ARTIFACT_EXISTS}"
 echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
 echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES} (evidence_inventory_complete is always 'no' from an automated host run; re-evaluate after manual Witness files + final manifest validation)"
+echo "preliminary_success_eligible=${PRELIMINARY_SUCCESS_ELIGIBLE}"
+echo "host_validator_gate_ok=${HOST_VALIDATOR_GATE_OK}"
+echo "validator_process_exit_code=${VALIDATOR_PROCESS_EXIT_CODE}"
+echo "validator_structural_pass=${VALIDATOR_STRUCTURAL_PASS}"
+echo "validator_result_path=${VALIDATOR_RESULT_PATH}"
 echo "evidence_dir=${EVIDENCE_DIR}"
 echo "product_executed=NO (orchestrator)"
 echo "ldd_used=NO (orchestrator)"
-echo "Validator stdout/stderr must be captured OUTSIDE the evidence directory."
+echo "host_exit_0_meaning=AUTOMATED HOST PACKAGE STRUCTURAL VALIDATION SUCCEEDED (not final success eligibility; not Independent Witness PASS)"
+echo "Validator stdout/stderr and VALIDATOR_RESULT.txt are captured OUTSIDE the evidence directory."
 echo "Submit evidence per WITNESS_SUBMISSION.md after redaction review and manifest finalization."
 
 exit "${FINAL_EXIT_CODE}"

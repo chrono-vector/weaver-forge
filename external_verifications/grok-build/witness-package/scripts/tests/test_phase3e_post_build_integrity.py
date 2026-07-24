@@ -724,21 +724,22 @@ class Phase3EPostBuildIntegrityTests(unittest.TestCase):
         self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
         self._assert_no_prohibited()
 
-    def test_21_host_exit_not_validator_gated(self) -> None:
+    def test_21_host_exit_validator_gated_after_phase3f_b(self) -> None:
         text = HOST_SCRIPT.read_text(encoding="utf-8")
-        # Phase 3E must not introduce validator-gated exit-zero behavior.
-        self.assertIsNone(
-            re.search(
-                r"FINAL_EXIT_CODE=0.*validate_witness_evidence|validate_witness_evidence.*FINAL_EXIT_CODE=0",
-                text,
-                flags=re.S,
-            )
-        )
-        # Ordinary technical gate still drives nonzero exit on integrity failure.
+        # Historical fact: Phase 3E itself did not implement validator-gated exit.
+        # Phase 3E writers remain non-invokers (covered by test_20).
+        # Current source after Phase 3F-B: host exit 0 is validator-gated.
+        self.assertIn("invoke_host_preliminary_validator", text)
+        self.assertIn("evaluate_host_automated_structural_gate", text)
+        self.assertIn("--host-preliminary", text)
+        self.assertIn("VALIDATOR_RESULT", text)
+        self.assertIn('mark_stage "step21b_host_preliminary_validator"', text)
+        # Ordinary technical integrity failure still maps to nonzero exit class.
         self.assertIn('if [[ "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then', text)
         self.assertIn("FINAL_EXIT_CODE=9", text)
-        # No Phase 3F validator PASS gate.
-        self.assertNotIn("validator_pass", text.lower())
+        # Host gate OK is required for exit 0.
+        self.assertIn('if [[ "${HOST_VALIDATOR_GATE_OK}" == "yes" ]]; then', text)
+        self.assertIn("FINAL_EXIT_CODE=0", text)
 
     def test_22_no_real_workflow_tools_invoked(self) -> None:
         body = textwrap.dedent(

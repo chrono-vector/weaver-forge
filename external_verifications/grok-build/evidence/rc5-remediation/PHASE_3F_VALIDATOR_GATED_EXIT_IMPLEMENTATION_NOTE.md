@@ -2,23 +2,33 @@
 
 ## Scope of this note
 
-This note records **Phase 3F-A only** (Pi-adjudicated validator prerequisites).
-Phase 3F-B (host invokes validator, captures result, writes host-owned
-`VALIDATOR_RESULT.txt` outside `EVIDENCE_DIR`, and makes host exit 0
-validator-gated) is **not** implemented here and must not begin until
-Phase 3F-A receives Pi conformance PASS and is committed and pushed.
+This note records **Phase 3F-A** (Pi-adjudicated validator prerequisites) and
+**Phase 3F-B** (Pi-adjudicated host validator gating).
 
 Owner Option A remained in force: `CLAIM_REGISTER.md` and broad public-status
 documents were not modified.
 
 ## Repository base
 
+### Phase 3F-A
+
 | Item | Value |
 |------|-------|
 | Branch | `main` |
 | HEAD (pre-change base) | `c576f2d865e8c297f3caf2a9392bdeafc2270f4c` |
 | origin/main (pre-change) | `c576f2d865e8c297f3caf2a9392bdeafc2270f4c` |
-| Prior phase | Phase 3E at same HEAD |
+| Commit | `f62de7b36a567b39a00bcede2a34912c43aa4d4c` |
+| rc5 | absent |
+| Historical tags | `grok-build-witness-v1.0.0-rc1` … `rc4` present; unchanged |
+
+### Phase 3F-B
+
+| Item | Value |
+|------|-------|
+| Branch | `main` |
+| HEAD (pre-change base) | `f62de7b36a567b39a00bcede2a34912c43aa4d4c` |
+| origin/main (pre-change) | `f62de7b36a567b39a00bcede2a34912c43aa4d4c` |
+| Prior phase | Phase 3F-A at same HEAD |
 | rc5 | absent |
 | Historical tags | `grok-build-witness-v1.0.0-rc1` … `rc4` present; unchanged |
 
@@ -42,14 +52,19 @@ validator result + host gate deferred to 3F-B).
 
 Pi and Cursor agreed on the fixed two-stage plan:
 
-1. **Phase 3F-A (this task):** remove validator outcome inference; require
+1. **Phase 3F-A (complete at `f62de7b…`):** remove validator outcome inference; require
    explicit authoritative outcome; add and structurally validate
    `HOST_OUTCOME_INGESTION.txt`; align closed auxiliary inventory; implement
    the automatable RC4B-017 structural subset; update directly affected
    validator tests/fixtures/docs/ledger/note.
-2. **Phase 3F-B (later, not authorized now):** host invokes validator; host
-   captures validator result; host writes host-owned `VALIDATOR_RESULT.txt`
-   outside `EVIDENCE_DIR`; host exit 0 becomes validator-gated.
+2. **Phase 3F-B (this task):** host invokes validator after automated evidence and
+   preliminary manifest finalization; host captures validator stdout/stderr outside
+   `EVIDENCE_DIR`; host writes host-owned `VALIDATOR_RESULT.txt` outside
+   `EVIDENCE_DIR`; host exit 0 becomes validator-gated per the adjudicated rule.
+
+---
+
+# Phase 3F-A record (preserved)
 
 ## Exact files changed (Phase 3F-A)
 
@@ -82,7 +97,7 @@ Pi and Cursor agreed on the fixed two-stage plan:
 
 - `external_verifications/grok-build/evidence/rc5-remediation/PHASE_3F_VALIDATOR_GATED_EXIT_IMPLEMENTATION_NOTE.md`
 
-### Explicitly unchanged (prohibited / deferred)
+### Explicitly unchanged in Phase 3F-A (prohibited / deferred)
 
 - `run_witness_narrow_build.sh`, `container_narrow_build.sh`
 - `AUTHORITATIVE_OUTCOME_CONTRACT.json`
@@ -171,7 +186,6 @@ inventory protections remain intact.
 - `evidence_inventory_complete=yes` is not required
 - `preliminary_success_eligible` must remain `NO`
 - Requires `HOST_OUTCOME_INGESTION.txt` and the automatable RC4B-017 subset
-- Exposed for isolated tests in Phase 3F-A; host does not invoke it yet
 
 ## Automatable RC4B-017 subset
 
@@ -200,12 +214,7 @@ Not required (and not claimed as full RC4B-017 remediation):
 ## Validator no-write boundary
 
 Validator writes only to stdout/stderr. It never writes into the evidence
-directory. No durable `VALIDATOR_RESULT.txt` is created in Phase 3F-A.
-
-## Host invocation / exit gating deferred to 3F-B
-
-`run_witness_narrow_build.sh` is unchanged. No host call to the validator.
-No validator-gated `FINAL_EXIT_CODE=0`. No `VALIDATOR_RESULT.txt` writer.
+directory. No durable `VALIDATOR_RESULT.txt` is created by the validator.
 
 ## Phase 3B test_23 supersession
 
@@ -216,11 +225,11 @@ No validator-gated `FINAL_EXIT_CODE=0`. No `VALIDATOR_RESULT.txt` writer.
 - `AUTHORITATIVE_OUTCOME_CONTRACT.json` and Phase 3B note unchanged
 - Unrelated Phase 3B tests preserved
 
-## Exact new test count discovered
+## Exact Phase 3F-A test count
 
 `test_phase3f_validator_prerequisites.py`: **25** tests discovered / 25 run / 25 pass / 0 fail / 0 error / 0 skip.
 
-## Exact regression results
+## Exact Phase 3F-A regression results
 
 | Suite | Discovered | Run | Pass | Fail | Error | Skip |
 |-------|------------|-----|------|------|-------|------|
@@ -232,33 +241,251 @@ No validator-gated `FINAL_EXIT_CODE=0`. No `VALIDATOR_RESULT.txt` writer.
 | `test_phase2b_mount_isolation` | 22 | 22 | 22 | 0 | 0 | 0 |
 | `test_phase2a_host_preflight` | 18 | 18 | 18 | 0 | 0 | 0 |
 
-Phase 3C was **not** run (container script prohibited from modification; ownership guarantee unchanged).
-Phase 3F-B host-gating tests were **not** run (not implemented).
+Phase 3C was **not** run (container script prohibited from modification).
 
-Temp residue after all suites: **none** matching `phase2a_test_*` … `phase3f_test_*`.
+---
 
-## Blocker-status treatment
+# Phase 3F-B record
 
-| ID | Status after Phase 3F-A |
+## Exact files changed (Phase 3F-B)
+
+### Host runtime
+
+- `external_verifications/grok-build/witness-package/scripts/run_witness_narrow_build.sh`
+
+### New Phase 3F-B focused tests
+
+- `external_verifications/grok-build/witness-package/scripts/tests/test_phase3f_host_validator_gate.py` (**new**, 32 tests)
+
+### Direct supersession of stale current-source expectations
+
+- `external_verifications/grok-build/witness-package/scripts/tests/test_phase3e_post_build_integrity.py`
+  (`test_21_host_exit_not_validator_gated` → `test_21_host_exit_validator_gated_after_phase3f_b`)
+- `external_verifications/grok-build/witness-package/scripts/tests/test_phase3f_validator_prerequisites.py`
+  (`test_22_no_host_invocation_or_exit_gating_in_3f_a` → `test_22_host_gating_deferred_from_3f_a_implemented_in_3f_b`)
+
+### Current-status and guidance
+
+- `external_verifications/grok-build/evidence/rc4-static-blind-audit/INTEGRATED_REMEDIATION_LIST.md`
+- `external_verifications/grok-build/witness-package/WITNESS_REQUIREMENTS.md`
+- `external_verifications/grok-build/witness-package/WITNESS_RUNBOOK.md`
+
+### This note
+
+- `external_verifications/grok-build/evidence/rc5-remediation/PHASE_3F_VALIDATOR_GATED_EXIT_IMPLEMENTATION_NOTE.md`
+
+### Explicitly unchanged (prohibited)
+
+- `validate_witness_evidence.py` / Phase 3F-A validator behavior / `determine_outcome`
+- Validator fixtures / manifests / `test_validate_witness_evidence.py`
+- `test_phase3b_outcome_contract.py`
+- `container_narrow_build.sh` / `BUILD_EXIT_CODE.txt` ownership
+- `AUTHORITATIVE_OUTCOME_CONTRACT.json`
+- Historical Phase 3B/3C/3D/3E notes
+- `CLAIM_REGISTER.md` / broad public-status documents
+- Phase 3G / rc5 packaging / Independent Witness / C-014
+
+### Schema template decision
+
+**No separate `VALIDATOR_RESULT` template/schema document was created.**
+Rationale: host-owned records in this package (`HOST_OUTCOME_INGESTION`,
+`POST_BUILD_INTEGRITY`) define ordered field sets inline in the host script;
+`HOST_RUN_METADATA.txt` remains schema-less auxiliary evidence. Adding a new
+template would be inconsistent with that convention and unnecessary for Phase 3F-B.
+Exact ordered field set is recorded below and enforced by focused tests.
+
+## Exact validator invocation lifecycle
+
+Required order (success path reaching automated completion):
+
+1. container execution finalized
+2. `BUILD_EXIT_CODE.txt` parsed and validated
+3. `HOST_OUTCOME_INGESTION.txt` finalized
+4. host source-integrity checks finalized
+5. `POST_BUILD_INTEGRITY.txt` finalized
+6. `HOST_OUTCOME` post-build status synchronized
+7. permitted closed auxiliary evidence finalized
+8. preliminary `EVIDENCE_MANIFEST.sha256` finalized
+9. **host-preliminary validator invocation** (`step21b_host_preliminary_validator`)
+10. **fresh host-owned `VALIDATOR_RESULT` record**
+11. final summary
+12. final host exit
+
+Pre-Docker and post-Docker failure finalizers do **not** invoke the validator.
+
+Exact command identity:
+
+```text
+${HOST_PYTHON_OR_python3} ${SCRIPT_DIR}/validate_witness_evidence.py --host-preliminary ${EVIDENCE_DIR}
+```
+
+Stdout → `${WORK_ROOT}/tmp/host-validator/VALIDATOR_STDOUT.txt` (or `HOST_VALIDATOR_DIR`)
+Stderr → `${WORK_ROOT}/tmp/host-validator/VALIDATOR_STDERR.txt`
+Result → `${WORK_ROOT}/tmp/host-validator/VALIDATOR_RESULT.txt`
+
+Evidence is not modified after validator invocation. Errexit cannot bypass
+result recording (`set +e` around the process; result write always attempted).
+
+## Exact PASS parse rule
+
+Accepted definitive final structural result line:
+
+- Line text begins with exactly `STRUCTURAL VALIDATION: PASS`
+  (covers plain PASS and the committed host-preliminary PASS note suffix)
+- Require **exactly one** such PASS line in current-run stdout
+- Require **zero** lines beginning with `STRUCTURAL VALIDATION: FAIL`
+- Reject contradictory PASS+FAIL, multiple PASS lines, absent PASS, or
+  arbitrary text containing the word `PASS`
+
+## Exact VALIDATOR_RESULT path
+
+`${WORK_ROOT}/tmp/host-validator/VALIDATOR_RESULT.txt`
+
+(or `${HOST_VALIDATOR_DIR}/VALIDATOR_RESULT.txt` for isolated sourced tests)
+
+Outside `EVIDENCE_DIR`; never listed in `EVIDENCE_MANIFEST.sha256`; host-owned;
+never written by the validator.
+
+## Exact ordered VALIDATOR_RESULT field set
+
+1. `schema_version`
+2. `record_owner` (= `host`)
+3. `run_id`
+4. `validator_command`
+5. `validator_script_path`
+6. `evidence_dir`
+7. `preliminary_manifest_path`
+8. `preliminary_manifest_sha256`
+9. `validator_process_exit_code`
+10. `structural_status`
+11. `structural_pass`
+12. `explicit_outcome_observed`
+13. `machine_verdict_ceiling`
+14. `stdout_capture_path`
+15. `stdout_capture_sha256`
+16. `stderr_capture_path`
+17. `stderr_capture_sha256`
+18. `invocation_started_utc`
+19. `invocation_finished_utc`
+20. `failure_stage`
+21. `error_reason`
+
+No final-success-eligibility fields. No Independent Witness verdict fields.
+
+## Stale/spoof resistance
+
+Before invocation:
+
+- delete prior `VALIDATOR_RESULT.txt` / stdout / stderr in the disposable host-validator dir
+- bind new record to current `run_id`, preliminary manifest SHA-256, validator
+  script path, validator command, and evidence directory
+
+After invocation:
+
+- hash captures from current files
+- reject missing/altered captures
+- reject result whose run_id / manifest hash / command / script / evidence dir
+  do not match the current run
+- do not trust a pre-existing `VALIDATOR_RESULT` record
+
+No cryptographic signing / Phase 4 work.
+
+## Exact host exit 0 rule
+
+Host exit 0 requires **all** of:
+
+1. Docker exit code = 0
+2. explicit container outcome = `CARGO_SUCCEEDED_ARTIFACT_PRESENT`
+3. `container_result_valid=YES`
+4. `HOST_OUTCOME_INGESTION` `status=OK`
+5. `host_infrastructure_status=OK`
+6. `host_source_integrity_status=OK`
+7. `post_build_integrity_status=OK`
+8. `POST_BUILD_INTEGRITY.txt` `status=OK`
+9. `post_build_integrity_ok=yes`
+10. validator process exit code = 0
+11. explicit host-preliminary structural PASS
+12. no validator inference (guaranteed by committed Phase 3F-A)
+13. fresh `VALIDATOR_RESULT` matches current run, manifest, validator identity,
+    evidence directory, and captures
+
+Otherwise host exit is nonzero. Failure is recorded truthfully in host-owned
+validator-result metadata. Container evidence is not rewritten. Missing evidence
+is not fabricated. Automated structural success is not claimed.
+
+Host exit 0 meaning only:
+`AUTOMATED HOST PACKAGE STRUCTURAL VALIDATION SUCCEEDED`
+
+## preliminary_success_eligible treatment
+
+`preliminary_success_eligible=NO` before invocation, after structural PASS, and
+when host exit is 0. HOST_OUTCOME is not modified to YES. No validator-owned
+fields are added to HOST_OUTCOME.
+
+## Phase 3E supersession
+
+- Suite count unchanged: **22** tests
+- Changed method: `test_21_host_exit_not_validator_gated` →
+  `test_21_host_exit_validator_gated_after_phase3f_b`
+- Preserves: Phase 3E writers still do not invoke validator (`test_20`);
+  POST_BUILD ownership / field-set / sync / fail-closed / no-overwrite coverage
+- Requires current host source to contain Phase 3F-B invocation and gate
+
+## Phase 3F-A test_22 supersession
+
+- Suite count unchanged: **25** tests
+- Changed method: `test_22_no_host_invocation_or_exit_gating_in_3f_a` →
+  `test_22_host_gating_deferred_from_3f_a_implemented_in_3f_b`
+- Preserves Phase 3F-A fact that validator writes no `VALIDATOR_RESULT`
+- Requires current host source to contain Phase 3F-B gating
+
+## Exact new Phase 3F-B test count
+
+`test_phase3f_host_validator_gate.py`: **32** tests discovered / 32 run / 32 pass /
+0 fail / 0 error / 0 skip.
+
+## Exact Phase 3F-B regression results
+
+| Suite | Discovered | Run | Pass | Fail | Error | Skip |
+|-------|------------|-----|------|------|-------|------|
+| `test_phase3f_host_validator_gate` | 32 | 32 | 32 | 0 | 0 | 0 |
+| `test_phase3f_validator_prerequisites` | 25 | 25 | 25 | 0 | 0 | 0 |
+| `test_validate_witness_evidence` | 65 | 65 | 65 | 0 | 0 | 0 |
+| `test_phase3b_outcome_contract` | 25 | 25 | 25 | 0 | 0 | 0 |
+| `test_phase3e_post_build_integrity` | 22 | 22 | 22 | 0 | 0 | 0 |
+| `test_phase3d_host_outcome_ingestion` | 50 | 50 | 50 | 0 | 0 | 0 |
+| `test_phase2b_mount_isolation` | 22 | 22 | 22 | 0 | 0 | 0 |
+| `test_phase2a_host_preflight` | 18 | 18 | 18 | 0 | 0 | 0 |
+
+Phase 3C was **not** run (container script prohibited / unchanged).
+
+Expected `phase*_test_*` residue after all suites: **none**.
+
+**Staging stop:** unexpected non-test residue was created under
+`witness-package/scripts/` by the Windows `py` launcher during the first failed
+mock-interpreter attempt (before `HOST_PYTHON=sys.executable` was fixed). Per
+Task 17 these paths were **not** silently deleted and staging was **not**
+performed while they remain. See final report.
+
+## Blocker-status treatment (after Phase 3F-B)
+
+| ID | Status after Phase 3F-B |
 |----|-------------------------|
+| RC4B-013 | `IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT` (not CLOSED) |
 | RC4B-022 | `IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT` (not CLOSED) |
 | RC4B-017 | `OPEN` with automatable host-preliminary subset only (not CLOSED) |
-| RC4B-013 | `OPEN` (host invocation / exit gating = Phase 3F-B) |
 | RC4B-012 | `OPEN` |
 | RC4B-029 | `OPEN` |
 | RC4B-019 | `OPEN` |
 | Any blocker CLOSED | **No** |
 
-## Remaining gaps (Phase 3F-B and later)
+## Remaining gaps
 
-- Host invokes validator after host finalization
-- Host captures validator result
-- Host writes `VALIDATOR_RESULT.txt` outside `EVIDENCE_DIR`
-- Host exit 0 becomes validator-gated
 - Full RC4B-017 four-yes / success-eligibility closure
 - Final Witness submission lifecycle / inventory completeness
 - Independent Witness reproduction / C-014
 - rc5 packaging
+- Phase 3G work
 
 ## Non-claims
 
@@ -267,6 +494,8 @@ Temp residue after all suites: **none** matching `phase2a_test_*` … `phase3f_t
 - No Independent Witness reproduction or PASS
 - C-014 remains `NOT_STARTED`
 - Structural PASS ≠ final success eligibility
-- Phase 3F-A ≠ Phase 3F-B
+- Host exit 0 ≠ Independent Witness PASS
 - No blocker CLOSED
 - Broad public-status documents deferred (Owner Option A)
+- No real Docker, Cargo, compiler, bootstrap, ldd, network, product, or host
+  Witness execution occurred during Phase 3F-B tests

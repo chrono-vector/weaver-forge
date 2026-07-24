@@ -80,11 +80,19 @@ and requires an explicit authoritative `outcome=`; accepts and structurally vali
 host-preliminary structural subset without requiring `evidence_inventory_complete=yes`.
 Host-preliminary structural PASS is distinct from final Witness validation and is not
 Independent Witness PASS or final success eligibility. `preliminary_success_eligible`
-remains `NO`. The validator still writes no evidence. **Host validator invocation and
-validator-gated host exit remain Phase 3F-B.** **RC4 remains NOT READY. No rc5 tag exists.**
-Do not claim end-to-end outcome-preservation or validator-gated success from Phase 3F-A alone.
-Independent Witness reproduction has not occurred; Independent Witness PASS is not claimed;
-C-014 remains `NOT_STARTED`.
+remains `NO`. The validator still writes no evidence. **Phase 3F-B on `main` makes host
+exit 0 depend on the complete adjudicated automated gate and explicit validator structural
+PASS:** after automated host evidence and the preliminary manifest are finalized, the host
+invokes the repository validator with `--host-preliminary`, captures stdout/stderr outside
+`EVIDENCE_DIR`, writes a fresh host-owned `VALIDATOR_RESULT.txt` outside `EVIDENCE_DIR`
+(not in the manifest), and requires validator process exit 0 **plus** exactly one definitive
+`STRUCTURAL VALIDATION: PASS` line (validator process exit 0 alone is insufficient). Host
+exit 0 means only automated host package structural validation succeeded; it is not final
+success eligibility, not final Witness validation, and not Independent Witness PASS.
+`preliminary_success_eligible` remains `NO` even when host exit is 0. Evidence inventory
+completion and the final Witness lifecycle remain later work. **RC4 remains NOT READY. No
+rc5 tag exists.** Independent Witness reproduction has not occurred; Independent Witness
+PASS is not claimed; C-014 remains `NOT_STARTED`.
 
 ## Failure submissions are supported and expected
 

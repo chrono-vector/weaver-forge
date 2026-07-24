@@ -7,7 +7,8 @@ Safety contract:
 - Validator exercised only against isolated fixture directories
 - No real Docker, Cargo, rustc, compiler, host Witness workflow, product,
   bootstrap, ldd, package manager, network, or Independent Witness execution
-- No host invocation / exit gating (Phase 3F-B)
+- Phase 3F-B host gating is asserted only as current-source supersession in
+  test_22; validator still writes no evidence
 - Validator must not write into evidence
 - Cleanup of repository-local temps on success and failure
 """
@@ -390,20 +391,28 @@ class Phase3FValidatorPrerequisites(unittest.TestCase):
         self.assertNotIn("VALIDATOR_RESULT", src)
         self.assertIsNone(re.search(r"evidence_dir[^\n]*\.write_", src))
 
-    def test_22_no_host_invocation_or_exit_gating_in_3f_a(self) -> None:
+    def test_22_host_gating_deferred_from_3f_a_implemented_in_3f_b(self) -> None:
+        # Phase 3F-A historical boundary: validator itself still writes no VALIDATOR_RESULT.
+        src = VALIDATOR.read_text(encoding="utf-8")
+        self.assertNotIn("VALIDATOR_RESULT", src)
+        self.assertIn("writes only to its own stdout/stderr", src)
+        # Current host source after Phase 3F-B: repository validator is invoked in
+        # host-preliminary mode and host exit is validator-gated.
         host = HOST_SCRIPT.read_text(encoding="utf-8")
-        # Mentions in comments/policy text are allowed; invocation is not.
-        self.assertIsNone(
+        self.assertIsNotNone(
             re.search(
-                r"(?:^|\n)\s*(?:python3?|\"\$\{?PYTHON[^}]*\}?\")[^\n]*validate_witness_evidence",
+                r"(?:^|\n)\s*(?:\"\$\{?py\}?\"|\$\{?py\}?|python3?)[^\n]*--host-preliminary",
                 host,
             )
+            or ("--host-preliminary" in host and "invoke_host_preliminary_validator" in host)
         )
-        self.assertNotIn("VALIDATOR_RESULT", host)
-        self.assertNotIn("--host-preliminary", host)
+        self.assertIn("--host-preliminary", host)
+        self.assertIn("VALIDATOR_RESULT", host)
+        self.assertIn("invoke_host_preliminary_validator", host)
+        self.assertIn("evaluate_host_automated_structural_gate", host)
+        self.assertIn("STRUCTURAL VALIDATION: PASS", host)
         self.assertIn('if [[ "${POST_BUILD_INTEGRITY_OK}" != "yes" ]]; then', host)
-        self.assertNotIn("validator_pass", host.lower())
-        self.assertNotIn("STRUCTURAL VALIDATION: PASS", host)
+        self.assertIn('HOST_VALIDATOR_GATE_OK', host)
 
     def test_23_closed_auxiliary_inventory_still_rejects_unrelated_extra_files(self) -> None:
         tree = self._write_success()
