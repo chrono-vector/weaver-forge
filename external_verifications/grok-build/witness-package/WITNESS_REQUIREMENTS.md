@@ -64,11 +64,16 @@ result tuple, no-inference / no-overwrite rules, and success eligibility for **f
 remediation (Phases 3C–3F). **Phase 3C on `main` implements container terminal finalization**
 (`finalize_container_terminal_outcome`): every supported container terminal path must finalize
 container-owned evidence with no final provisional values in applicable container-owned fields.
-**Host ingestion remains noncompliant until Phase 3D.** Validator semantics and `POST_BUILD`
-generation are unchanged. **Current host and validator implementations remain noncompliant in
-identified areas** (validator outcome inference; host overwrite of container `BUILD_EXIT_CODE.txt`;
-incomplete host tuple gating). **RC4 remains NOT READY. No rc5 tag exists.** Do not claim
-end-to-end outcome-preservation compliance from Phase 3C alone.
+**Phase 3D on `main` implements host outcome ingestion**: the host parses the complete container
+result tuple, records host-owned `HOST_OUTCOME_INGESTION.txt`, preserves valid container-owned
+`BUILD_EXIT_CODE.txt` byte-for-byte after post-Docker host integrity failures, and fails closed on
+missing/invalid/contradictory container results without fabricating a replacement outcome.
+Host infrastructure and source-integrity failures are recorded in separate host-owned fields.
+`preliminary_success_eligible` remains `NO` in Phase 3D. **Validator semantics and `POST_BUILD`
+semantic alignment remain pending (Phases 3E/3F).** Validator outcome inference remains unresolved.
+The host ingestion record is preliminary and does **not** imply Witness PASS. **RC4 remains NOT
+READY. No rc5 tag exists.** Do not claim end-to-end outcome-preservation compliance from Phase 3D
+alone.
 
 ## Failure submissions are supported and expected
 

@@ -344,20 +344,28 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
             ),
         )
 
-    # 24 — visibility lock: host overwrite must remain listed as unresolved (not acceptable)
+    # 24 — host overwrite must be absent from post-Docker source-integrity path;
+    # contract/note may still list the historical id as unresolved (not CLOSED).
     def test_24_host_overwrite_detected_and_recorded_as_unresolved_violation(self) -> None:
         self.assertIn("enforce_post_docker_source_integrity_boundary", self.host)
-        self.assertIn('} > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"', self.host)
-        # Overwrite path sets outcome=INFRASTRUCTURE_FAILURE into BUILD_EXIT_CODE.txt
-        self.assertRegex(
+        # Phase 3D no-fabrication correction: fixing the overwrite is required.
+        # The source-integrity boundary must not create/replace BUILD_EXIT_CODE.txt.
+        boundary = re.search(
+            r"enforce_post_docker_source_integrity_boundary\(\)\s*\{([\s\S]*?)\n"
+            r"(?=[a-zA-Z_][a-zA-Z0-9_]*\(\)|# -----)",
             self.host,
-            re.compile(
-                r"enforce_post_docker_source_integrity_boundary\(\)[\s\S]*?"
-                r"outcome=INFRASTRUCTURE_FAILURE[\s\S]*?"
-                r'\} > "\$\{EVIDENCE_DIR\}/BUILD_EXIT_CODE\.txt"',
-                re.MULTILINE,
-            ),
         )
+        self.assertIsNotNone(boundary)
+        boundary_body = boundary.group(1)
+        self.assertNotIn("producer=host_no_container_result", boundary_body)
+        self.assertNotIn("outcome=INFRASTRUCTURE_FAILURE", boundary_body)
+        self.assertNotRegex(
+            boundary_body,
+            r'>\s*"\$\{(?:EVIDENCE_DIR)/BUILD_EXIT_CODE\.txt|build_exit_file\}"',
+        )
+        self.assertIn("finalize_post_docker_host_failure", boundary_body)
+        # Historical contract visibility: id remains listed, not ACCEPTABLE/CLOSED.
+        # Implementation fix is not treated as a failure.
         violation = _violation_by_id(self.contract, VIOLATION_HOST_OVERWRITE)
         self.assertEqual(violation["status"], UNRESOLVED)
         self.assertIs(violation["acceptable"], False)

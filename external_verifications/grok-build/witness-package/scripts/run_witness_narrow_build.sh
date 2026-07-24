@@ -17,10 +17,12 @@
 # unambiguous cross-reference between this file, evidence, and remediation records. STEP 10 is
 # the host-side ENVIRONMENT.txt generator (dual-owned; the container appends toolchain facts).
 #
-# Outcome authority (RC3B-008): once the container has run, the single source of truth for
-# `outcome` is the container-written BUILD_EXIT_CODE.txt. The host NEVER reconstructs an ordinary
-# outcome from cargo_started/artifact-presence/raw Docker exit code alone; a missing, duplicated,
-# or invalid container outcome is itself an INFRASTRUCTURE_FAILURE (see parse_container_outcome()).
+# Outcome authority (RC3B-008 / Phase 3D): once the container has run, the single source of truth
+# for `outcome` is the container-written BUILD_EXIT_CODE.txt. The host NEVER reconstructs an
+# ordinary outcome from cargo_started/artifact-presence/raw Docker exit code alone, and NEVER
+# overwrites a valid container-owned BUILD_EXIT_CODE.txt after Docker. Missing/invalid container
+# results are recorded in host-owned HOST_OUTCOME_INGESTION.txt (see parse_container_result_tuple
+# and finalize_post_docker_host_failure). preliminary_success_eligible remains NO until Phase 3F.
 set -Eeuo pipefail
 
 # ---------------------------------------------------------------------------
@@ -114,6 +116,7 @@ readonly ALLOWED_AUX_EVIDENCE_FILES=(
   IMAGE_PULL_STDOUT.txt
   IMAGE_PULL_STDERR.txt
   CARGO_LOCK_INTEGRITY.txt
+  HOST_OUTCOME_INGESTION.txt
 )
 
 # Required (not "aux") file this script also writes directly, outside the
@@ -129,6 +132,21 @@ readonly OUTCOME_ALLOWED_VALUES=(
   CARGO_SUCCEEDED_ARTIFACT_PRESENT
   INFRASTRUCTURE_FAILURE
 )
+
+# Nonterminal sentinels — never accepted as terminal container outcomes (Phase 3B contract).
+readonly OUTCOME_NONTERMINAL_SENTINELS=(
+  NOT_REACHED
+  NOT_STARTED
+  NOT_APPLICABLE
+  RECORDED
+  CHECKED
+  pending
+  pending_container_toolchain_capture
+  bootstrap_complete
+)
+
+readonly HOST_OUTCOME_INGESTION_SCHEMA_VERSION="1"
+readonly HOST_OUTCOME_INGESTION_FILE_NAME="HOST_OUTCOME_INGESTION.txt"
 
 readonly SYSTEM_PREFIXES=(
   /bin /boot /dev /etc /lib /lib64 /proc /root /run /sbin /sys
@@ -169,6 +187,28 @@ PRE_DOCKER_SRC_CLEAN=""
 # docker context show metadata) is refused until identity closure sets this to
 # exactly "yes" (RC4B-004 / Phase 2A).
 IDENTITY_GATE_CLOSED="no"
+
+# Phase 3D host outcome-ingestion state (reset by main; safe defaults for sourced tests).
+HOST_FINALIZING_IN_PROGRESS="NO"
+HOST_OUTCOME_INGESTION_WRITTEN="NO"
+HOST_OUTCOME_INGESTION_FINGERPRINT=""
+CONTAINER_RESULT_PRESENCE="MISSING"
+CONTAINER_RESULT_VALID="NO"
+CONTAINER_RESULT_ERROR="none"
+PARSED_CONTAINER_OUTCOME=""
+PARSED_CARGO_STARTED=""
+PARSED_CARGO_EXIT_CODE=""
+PARSED_ARTIFACT_PRESENT=""
+PARSED_ARTIFACT_IDENTITY_COMPLETE=""
+PARSED_STATIC_INSPECTION_COMPLETE=""
+PARSED_SCHEMA_VERSION=""
+PARSED_FAILURE_STAGE=""
+PARSED_RUN_ID=""
+HOST_INFRASTRUCTURE_STATUS="OK"
+HOST_SOURCE_INTEGRITY_STATUS="OK"
+HOST_POST_BUILD_INTEGRITY_STATUS="OK"
+HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
+PRELIMINARY_SUCCESS_ELIGIBLE="NO"
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -244,6 +284,675 @@ is_allowed_outcome() {
     [[ "${v}" == "${o}" ]] && return 0
   done
   return 1
+}
+
+is_nonterminal_outcome_sentinel() {
+  local v="$1" s
+  for s in "${OUTCOME_NONTERMINAL_SENTINELS[@]}"; do
+    [[ "${v}" == "${s}" ]] && return 0
+  done
+  return 1
+}
+
+reject_field_newlines() {
+  local label="$1"
+  local value="$2"
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    echo "FATAL: field ${label} contains CR/LF; refusing to write" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Atomic same-directory write + rename for host-owned evidence. No eval.
+write_evidence_file_atomic() {
+  local dest="$1"
+  local dir base tmp
+  if [[ -z "${dest}" ]]; then
+    echo "write_evidence_file_atomic: empty destination" >&2
+    return 1
+  fi
+  dir="$(dirname -- "${dest}")"
+  base="$(basename -- "${dest}")"
+  if [[ ! -d "${dir}" ]]; then
+    echo "write_evidence_file_atomic: evidence directory missing: ${dir}" >&2
+    return 1
+  fi
+  tmp="${dir}/.tmp.${base}.$$.${RANDOM}"
+  if ! cat > "${tmp}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_evidence_file_atomic: write failed for ${dest}" >&2
+    return 1
+  fi
+  if ! mv -f -- "${tmp}" "${dest}"; then
+    rm -f -- "${tmp}" 2>/dev/null || true
+    echo "write_evidence_file_atomic: rename failed for ${dest}" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Count exact key= occurrences in a file (literal key prefix).
+count_kv_key() {
+  local file="$1" key="$2"
+  local count=0
+  local line
+  if [[ ! -f "${file}" ]]; then
+    printf '0'
+    return 0
+  fi
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    if [[ "${line}" == "${key}="* ]]; then
+      count=$((count + 1))
+    fi
+  done < "${file}"
+  printf '%s' "${count}"
+}
+
+# Read first key= value; empty string if absent (no default substitution).
+read_kv_strict() {
+  local file="$1" key="$2"
+  local line val
+  if [[ -f "${file}" ]]; then
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      # Strip trailing CR from CRLF files before key match.
+      line="${line%$'\r'}"
+      if [[ "${line}" == "${key}="* ]]; then
+        val="${line#*=}"
+        printf '%s' "${val}"
+        return 0
+      fi
+    done < "${file}"
+  fi
+  printf ''
+  return 0
+}
+
+# Validate a single evidence file for malformed lines / duplicate keys among
+# the supplied key list. Sets CONTAINER_RESULT_ERROR on failure.
+_validate_kv_file_keys() {
+  local file="$1"
+  shift
+  local -a keys=("$@")
+  local line key val k count
+  local seen_keys=""
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    # Skip blanks and comments / schema markers.
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" == \#* ]] && continue
+    [[ "${line}" == BEGIN_SCHEMA_BLOCK* ]] && continue
+    [[ "${line}" == END_SCHEMA_BLOCK ]] && continue
+    if [[ "${line}" != *=* ]]; then
+      CONTAINER_RESULT_ERROR="malformed_key_line"
+      return 1
+    fi
+    key="${line%%=*}"
+    val="${line#*=}"
+    if [[ -z "${key}" ]]; then
+      CONTAINER_RESULT_ERROR="malformed_key_line"
+      return 1
+    fi
+    if [[ "${key}" == *$'\n'* || "${key}" == *$'\r'* || "${val}" == *$'\n'* || "${val}" == *$'\r'* ]]; then
+      CONTAINER_RESULT_ERROR="crlf_injection"
+      return 1
+    fi
+    # Track duplicate keys for any key= line in the file.
+    case " ${seen_keys} " in
+      *" ${key} "*)
+        CONTAINER_RESULT_ERROR="duplicate_tuple_key_${key}"
+        return 1
+        ;;
+    esac
+    seen_keys="${seen_keys} ${key}"
+  done < "${file}"
+
+  for k in "${keys[@]}"; do
+    count="$(count_kv_key "${file}" "${k}")"
+    if [[ "${count}" -gt 1 ]]; then
+      CONTAINER_RESULT_ERROR="duplicate_tuple_key_${k}"
+      return 1
+    fi
+  done
+  return 0
+}
+
+_reset_parsed_container_result() {
+  CONTAINER_RESULT_PRESENCE="MISSING"
+  CONTAINER_RESULT_VALID="NO"
+  CONTAINER_RESULT_ERROR="none"
+  PARSED_CONTAINER_OUTCOME=""
+  PARSED_CARGO_STARTED=""
+  PARSED_CARGO_EXIT_CODE=""
+  PARSED_ARTIFACT_PRESENT=""
+  PARSED_ARTIFACT_IDENTITY_COMPLETE=""
+  PARSED_STATIC_INSPECTION_COMPLETE=""
+  PARSED_SCHEMA_VERSION=""
+  PARSED_FAILURE_STAGE=""
+  PARSED_RUN_ID=""
+}
+
+# Apply Phase 3B tuple consistency rules. Reject contradictions; never normalize.
+_validate_container_result_tuple_consistency() {
+  local outcome="${PARSED_CONTAINER_OUTCOME}"
+  local cargo_started="${PARSED_CARGO_STARTED}"
+  local cargo_exit="${PARSED_CARGO_EXIT_CODE}"
+  local artifact_present="${PARSED_ARTIFACT_PRESENT}"
+  local identity_complete="${PARSED_ARTIFACT_IDENTITY_COMPLETE}"
+  local static_complete="${PARSED_STATIC_INSPECTION_COMPLETE}"
+
+  case "${outcome}" in
+    BUILD_NOT_STARTED)
+      if [[ "${cargo_started}" != "NO" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_BUILD_NOT_STARTED_cargo_started"
+        return 1
+      fi
+      if [[ "${artifact_present}" != "NO" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_BUILD_NOT_STARTED_artifact_present"
+        return 1
+      fi
+      ;;
+    CARGO_FAILED)
+      if [[ "${cargo_started}" != "YES" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_started"
+        return 1
+      fi
+      if [[ "${cargo_exit}" == "0" || "${cargo_exit}" == "NOT_APPLICABLE" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_exit_code"
+        return 1
+      fi
+      if ! [[ "${cargo_exit}" =~ ^[0-9]+$ ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_exit_code"
+        return 1
+      fi
+      if [[ "${cargo_exit}" -eq 0 ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_exit_code"
+        return 1
+      fi
+      ;;
+    CARGO_SUCCEEDED_ARTIFACT_MISSING)
+      if [[ "${cargo_started}" != "YES" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_MISSING_cargo_started"
+        return 1
+      fi
+      if [[ "${cargo_exit}" != "0" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_MISSING_cargo_exit_code"
+        return 1
+      fi
+      if [[ "${artifact_present}" != "NO" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_MISSING_artifact_present"
+        return 1
+      fi
+      ;;
+    CARGO_SUCCEEDED_ARTIFACT_PRESENT)
+      if [[ "${cargo_started}" != "YES" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_PRESENT_cargo_started"
+        return 1
+      fi
+      if [[ "${cargo_exit}" != "0" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_PRESENT_cargo_exit_code"
+        return 1
+      fi
+      if [[ "${artifact_present}" != "YES" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_PRESENT_artifact_present"
+        return 1
+      fi
+      if [[ -z "${identity_complete}" ]]; then
+        CONTAINER_RESULT_ERROR="missing_artifact_identity_complete"
+        return 1
+      fi
+      if [[ -z "${static_complete}" ]]; then
+        CONTAINER_RESULT_ERROR="missing_static_inspection_complete"
+        return 1
+      fi
+      ;;
+    INFRASTRUCTURE_FAILURE)
+      if [[ "${cargo_started}" != "YES" && "${cargo_started}" != "NO" ]]; then
+        CONTAINER_RESULT_ERROR="contradiction_INFRASTRUCTURE_FAILURE_cargo_started"
+        return 1
+      fi
+      if [[ -z "${PARSED_FAILURE_STAGE}" || "${PARSED_FAILURE_STAGE}" == "NOT_REACHED" || "${PARSED_FAILURE_STAGE}" == "NOT_STARTED" ]]; then
+        CONTAINER_RESULT_ERROR="missing_infrastructure_failure_stage"
+        return 1
+      fi
+      ;;
+    *)
+      CONTAINER_RESULT_ERROR="unsupported_outcome"
+      return 1
+      ;;
+  esac
+
+  # Cross-outcome rejections independent of case branch.
+  if [[ "${artifact_present}" == "YES" && "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_MISSING" ]]; then
+    CONTAINER_RESULT_ERROR="contradiction_ARTIFACT_MISSING_artifact_present"
+    return 1
+  fi
+  if [[ "${cargo_exit}" == "0" && "${outcome}" == "CARGO_FAILED" ]]; then
+    CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_exit_code"
+    return 1
+  fi
+  if [[ "${cargo_started}" == "NO" && "${outcome}" == "CARGO_FAILED" ]]; then
+    CONTAINER_RESULT_ERROR="contradiction_CARGO_FAILED_cargo_started"
+    return 1
+  fi
+  if [[ "${cargo_started}" == "NO" && ( "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_MISSING" || "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_PRESENT" ) ]]; then
+    CONTAINER_RESULT_ERROR="contradiction_success_outcome_cargo_started"
+    return 1
+  fi
+  return 0
+}
+
+# Centralized host parser for the explicit container result tuple.
+# Performs no filesystem writes, invokes no validator, invokes no external tool.
+# Populates PARSED_* / CONTAINER_RESULT_* globals. Returns 0 when valid, 1 otherwise.
+parse_container_result_tuple() {
+  local build_exit_file="${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  local artifact_file="${EVIDENCE_DIR}/ARTIFACT_IDENTITY.txt"
+  local static_file="${EVIDENCE_DIR}/STATIC_ARTIFACT_INSPECTION.txt"
+  local outcome_count
+  local raw_outcome
+  local line key val
+
+  _reset_parsed_container_result
+
+  if [[ ! -e "${build_exit_file}" ]]; then
+    CONTAINER_RESULT_PRESENCE="MISSING"
+    CONTAINER_RESULT_ERROR="build_exit_code_file_missing"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if [[ ! -s "${build_exit_file}" ]]; then
+    CONTAINER_RESULT_PRESENCE="EMPTY"
+    CONTAINER_RESULT_ERROR="build_exit_code_file_empty"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  CONTAINER_RESULT_PRESENCE="PRESENT"
+
+  if ! _validate_kv_file_keys "${build_exit_file}"; then
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+
+  outcome_count="$(count_kv_key "${build_exit_file}" "outcome")"
+  if [[ "${outcome_count}" -eq 0 ]]; then
+    CONTAINER_RESULT_ERROR="outcome_field_missing"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if [[ "${outcome_count}" -gt 1 ]]; then
+    CONTAINER_RESULT_ERROR="outcome_field_duplicated"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+
+  raw_outcome="$(read_kv_strict "${build_exit_file}" "outcome")"
+  if is_nonterminal_outcome_sentinel "${raw_outcome}"; then
+    CONTAINER_RESULT_ERROR="terminal_sentinel_rejected_${raw_outcome}"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if ! is_allowed_outcome "${raw_outcome}"; then
+    CONTAINER_RESULT_ERROR="unsupported_outcome_${raw_outcome:-EMPTY}"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  PARSED_CONTAINER_OUTCOME="${raw_outcome}"
+
+  # Required keys from BUILD_EXIT_CODE — never default/infer.
+  if [[ "$(count_kv_key "${build_exit_file}" "cargo_started")" -eq 0 ]]; then
+    CONTAINER_RESULT_ERROR="missing_cargo_started"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if [[ "$(count_kv_key "${build_exit_file}" "cargo_exit_code")" -eq 0 ]]; then
+    CONTAINER_RESULT_ERROR="missing_cargo_exit_code"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  PARSED_CARGO_STARTED="$(read_kv_strict "${build_exit_file}" "cargo_started")"
+  PARSED_CARGO_EXIT_CODE="$(read_kv_strict "${build_exit_file}" "cargo_exit_code")"
+  PARSED_SCHEMA_VERSION="$(read_kv_strict "${build_exit_file}" "evidence_schema_version")"
+  PARSED_FAILURE_STAGE="$(read_kv_strict "${build_exit_file}" "failure_stage")"
+  PARSED_RUN_ID="$(read_kv_strict "${build_exit_file}" "run_id")"
+  if [[ -z "${PARSED_RUN_ID}" && -n "${RUN_ID:-}" ]]; then
+    PARSED_RUN_ID="${RUN_ID}"
+  fi
+
+  # artifact_present: explicit only — BUILD_EXIT_CODE or ARTIFACT_IDENTITY.
+  if [[ "$(count_kv_key "${build_exit_file}" "artifact_present")" -gt 0 ]]; then
+    if [[ "$(count_kv_key "${build_exit_file}" "artifact_present")" -gt 1 ]]; then
+      CONTAINER_RESULT_ERROR="duplicate_tuple_key_artifact_present"
+      CONTAINER_RESULT_VALID="NO"
+      return 1
+    fi
+    PARSED_ARTIFACT_PRESENT="$(read_kv_strict "${build_exit_file}" "artifact_present")"
+  elif [[ -f "${artifact_file}" ]]; then
+    if ! _validate_kv_file_keys "${artifact_file}"; then
+      CONTAINER_RESULT_VALID="NO"
+      return 1
+    fi
+    if [[ "$(count_kv_key "${artifact_file}" "artifact_present")" -eq 0 ]]; then
+      CONTAINER_RESULT_ERROR="missing_artifact_present"
+      CONTAINER_RESULT_VALID="NO"
+      return 1
+    fi
+    if [[ "$(count_kv_key "${artifact_file}" "artifact_present")" -gt 1 ]]; then
+      CONTAINER_RESULT_ERROR="duplicate_tuple_key_artifact_present"
+      CONTAINER_RESULT_VALID="NO"
+      return 1
+    fi
+    PARSED_ARTIFACT_PRESENT="$(read_kv_strict "${artifact_file}" "artifact_present")"
+  else
+    CONTAINER_RESULT_ERROR="missing_artifact_present"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+
+  # Normalize common lowercase artifact_present from older writers to YES/NO
+  # only when already yes/no — do not invent from other fields.
+  case "${PARSED_ARTIFACT_PRESENT}" in
+    yes) PARSED_ARTIFACT_PRESENT="YES" ;;
+    no) PARSED_ARTIFACT_PRESENT="NO" ;;
+    YES|NO) ;;
+    *)
+      CONTAINER_RESULT_ERROR="unsupported_artifact_present_${PARSED_ARTIFACT_PRESENT}"
+      CONTAINER_RESULT_VALID="NO"
+      return 1
+      ;;
+  esac
+
+  # Identity / static completion: explicit keys only (no inference from SHA/status).
+  if [[ "$(count_kv_key "${build_exit_file}" "artifact_identity_complete")" -gt 0 ]]; then
+    PARSED_ARTIFACT_IDENTITY_COMPLETE="$(read_kv_strict "${build_exit_file}" "artifact_identity_complete")"
+  elif [[ -f "${artifact_file}" && "$(count_kv_key "${artifact_file}" "artifact_identity_complete")" -gt 0 ]]; then
+    PARSED_ARTIFACT_IDENTITY_COMPLETE="$(read_kv_strict "${artifact_file}" "artifact_identity_complete")"
+  fi
+
+  if [[ "$(count_kv_key "${build_exit_file}" "static_inspection_complete")" -gt 0 ]]; then
+    PARSED_STATIC_INSPECTION_COMPLETE="$(read_kv_strict "${build_exit_file}" "static_inspection_complete")"
+  elif [[ -f "${artifact_file}" && "$(count_kv_key "${artifact_file}" "static_inspection_complete")" -gt 0 ]]; then
+    PARSED_STATIC_INSPECTION_COMPLETE="$(read_kv_strict "${artifact_file}" "static_inspection_complete")"
+  elif [[ -f "${static_file}" && "$(count_kv_key "${static_file}" "static_inspection_complete")" -gt 0 ]]; then
+    PARSED_STATIC_INSPECTION_COMPLETE="$(read_kv_strict "${static_file}" "static_inspection_complete")"
+  fi
+
+  if ! _validate_container_result_tuple_consistency; then
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+
+  CONTAINER_RESULT_VALID="YES"
+  CONTAINER_RESULT_ERROR="none"
+  return 0
+}
+
+# Build HOST_OUTCOME_INGESTION.txt content on stdout (caller pipes to atomic writer).
+_host_outcome_ingestion_body() {
+  local status="$1"
+  local container_outcome_field="${PARSED_CONTAINER_OUTCOME}"
+  if [[ "${CONTAINER_RESULT_VALID}" != "YES" ]]; then
+    # Preserve missing/invalid visibility — never invent a terminal container outcome.
+    if [[ -z "${container_outcome_field}" ]]; then
+      container_outcome_field=""
+    elif ! is_allowed_outcome "${container_outcome_field}"; then
+      container_outcome_field="INVALID"
+    fi
+  fi
+  printf '%s\n' "schema_version=${HOST_OUTCOME_INGESTION_SCHEMA_VERSION}"
+  printf '%s\n' "status=${status}"
+  printf '%s\n' "container_result_presence=${CONTAINER_RESULT_PRESENCE}"
+  printf '%s\n' "container_result_valid=${CONTAINER_RESULT_VALID}"
+  printf '%s\n' "container_result_error=${CONTAINER_RESULT_ERROR}"
+  printf '%s\n' "container_outcome=${container_outcome_field}"
+  printf '%s\n' "container_exit_code=${DOCKER_EXIT:-}"
+  printf '%s\n' "cargo_started=${PARSED_CARGO_STARTED}"
+  printf '%s\n' "cargo_exit_code=${PARSED_CARGO_EXIT_CODE}"
+  printf '%s\n' "artifact_present=${PARSED_ARTIFACT_PRESENT}"
+  printf '%s\n' "artifact_identity_complete=${PARSED_ARTIFACT_IDENTITY_COMPLETE}"
+  printf '%s\n' "static_inspection_complete=${PARSED_STATIC_INSPECTION_COMPLETE}"
+  printf '%s\n' "host_infrastructure_status=${HOST_INFRASTRUCTURE_STATUS}"
+  printf '%s\n' "host_source_integrity_status=${HOST_SOURCE_INTEGRITY_STATUS}"
+  printf '%s\n' "post_build_integrity_status=${HOST_POST_BUILD_INTEGRITY_STATUS}"
+  printf '%s\n' "evidence_completeness_status=${HOST_EVIDENCE_COMPLETENESS_STATUS}"
+  printf '%s\n' "preliminary_success_eligible=NO"
+  printf '%s\n' "record_owner=HOST"
+  printf '%s\n' "run_id=${PARSED_RUN_ID:-${RUN_ID:-}}"
+  printf '%s\n' "failure_stage=${FAILURE_STAGE:-none}"
+}
+
+_host_outcome_ingestion_fingerprint() {
+  local status="$1"
+  printf '%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s' \
+    "${status}" \
+    "${CONTAINER_RESULT_PRESENCE}" \
+    "${CONTAINER_RESULT_VALID}" \
+    "${CONTAINER_RESULT_ERROR}" \
+    "${PARSED_CONTAINER_OUTCOME}" \
+    "${HOST_INFRASTRUCTURE_STATUS}" \
+    "${HOST_SOURCE_INTEGRITY_STATUS}" \
+    "${HOST_POST_BUILD_INTEGRITY_STATUS}" \
+    "${HOST_EVIDENCE_COMPLETENESS_STATUS}" \
+    "${DOCKER_EXIT:-}" \
+    "${FAILURE_STAGE:-none}"
+}
+
+# Atomic writer for HOST_OUTCOME_INGESTION.txt. Fail-closed on write errors.
+# Same-value repeat is idempotent; conflicting repeat fails closed.
+write_host_outcome_ingestion_record() {
+  local status="$1"
+  local dest fingerprint prior
+  dest="${EVIDENCE_DIR}/${HOST_OUTCOME_INGESTION_FILE_NAME}"
+
+  reject_field_newlines "status" "${status}" || return 1
+  reject_field_newlines "container_result_error" "${CONTAINER_RESULT_ERROR}" || return 1
+  reject_field_newlines "container_outcome" "${PARSED_CONTAINER_OUTCOME}" || return 1
+  reject_field_newlines "failure_stage" "${FAILURE_STAGE:-none}" || return 1
+  reject_field_newlines "host_infrastructure_status" "${HOST_INFRASTRUCTURE_STATUS}" || return 1
+  reject_field_newlines "host_source_integrity_status" "${HOST_SOURCE_INTEGRITY_STATUS}" || return 1
+
+  fingerprint="$(_host_outcome_ingestion_fingerprint "${status}")"
+  if [[ "${HOST_OUTCOME_INGESTION_WRITTEN}" == "YES" ]]; then
+    if [[ "${HOST_OUTCOME_INGESTION_FINGERPRINT}" == "${fingerprint}" ]]; then
+      return 0
+    fi
+    echo "write_host_outcome_ingestion_record: conflicting host finalization" >&2
+    return 1
+  fi
+
+  if [[ -z "${EVIDENCE_DIR}" || ! -d "${EVIDENCE_DIR}" ]]; then
+    echo "write_host_outcome_ingestion_record: evidence directory unavailable" >&2
+    return 1
+  fi
+
+  if ! _host_outcome_ingestion_body "${status}" | write_evidence_file_atomic "${dest}"; then
+    echo "write_host_outcome_ingestion_record: atomic write failed for ${dest}" >&2
+    return 1
+  fi
+  HOST_OUTCOME_INGESTION_WRITTEN="YES"
+  HOST_OUTCOME_INGESTION_FINGERPRINT="${fingerprint}"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  return 0
+}
+
+# Host-owned Docker exit evidence writer (safe to call from sourced tests).
+write_host_docker_exit_code() {
+  local dest="${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
+  reject_field_newlines "outcome" "${OUTCOME:-}" || return 1
+  reject_field_newlines "failure_stage" "${FAILURE_STAGE:-none}" || return 1
+  {
+    echo "evidence_schema_version=1"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
+    echo "docker_finished_utc=${DOCKER_FINISHED_UTC:-NOT_STARTED}"
+    echo "docker_exit_code=${DOCKER_EXIT:-NOT_STARTED}"
+    echo "container_platform=linux/amd64"
+    echo "network_mode=bridge"
+    echo "product_executed=NO"
+    echo "ldd_used=NO"
+    echo "outcome=${OUTCOME}"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "outcome_source=container_BUILD_EXIT_CODE.txt_authoritative"
+  } | write_evidence_file_atomic "${dest}"
+}
+
+# Finalize host timing facts without inventing a container outcome replacement
+# into BUILD_EXIT_CODE.txt. Preserves existing container cargo timing when present.
+write_host_build_timing_for_failure() {
+  local dest="${EVIDENCE_DIR}/BUILD_TIMING.txt"
+  local cargo_started_utc cargo_finished_utc cargo_elapsed_seconds cargo_started cargo_exit_code
+  local docker_elapsed="NOT_APPLICABLE"
+  local timing_outcome="${OUTCOME}"
+
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" && -n "${PARSED_CONTAINER_OUTCOME}" ]]; then
+    timing_outcome="${PARSED_CONTAINER_OUTCOME}"
+  elif [[ "${CONTAINER_RESULT_VALID}" != "YES" ]]; then
+    # Do not claim a fabricated container terminal outcome in timing when invalid.
+    timing_outcome="NOT_APPLICABLE"
+  fi
+
+  cargo_started_utc="$(read_first_kv "${dest}" "cargo_started_utc" "NOT_APPLICABLE")"
+  cargo_finished_utc="$(read_first_kv "${dest}" "cargo_finished_utc" "NOT_APPLICABLE")"
+  cargo_elapsed_seconds="$(read_first_kv "${dest}" "cargo_elapsed_seconds" "NOT_APPLICABLE")"
+  if [[ -n "${PARSED_CARGO_STARTED}" ]]; then
+    cargo_started="${PARSED_CARGO_STARTED}"
+  else
+    cargo_started="$(read_first_kv "${dest}" "cargo_started" "${CARGO_STARTED:-NO}")"
+  fi
+  if [[ -n "${PARSED_CARGO_EXIT_CODE}" ]]; then
+    cargo_exit_code="${PARSED_CARGO_EXIT_CODE}"
+  else
+    cargo_exit_code="$(read_first_kv "${dest}" "cargo_exit_code" "NOT_APPLICABLE")"
+  fi
+  if [[ -n "${DOCKER_STARTED_EPOCH:-}" && -n "${DOCKER_FINISHED_EPOCH:-}" ]]; then
+    docker_elapsed=$(( DOCKER_FINISHED_EPOCH - DOCKER_STARTED_EPOCH ))
+  fi
+
+  {
+    echo "evidence_schema_version=1"
+    echo "status=FAILED"
+    echo "outcome=${timing_outcome}"
+    echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
+    echo "docker_finished_utc=${DOCKER_FINISHED_UTC:-$(utc_now)}"
+    echo "docker_elapsed_seconds=${docker_elapsed}"
+    echo "cargo_started_utc=${cargo_started_utc}"
+    echo "cargo_finished_utc=${cargo_finished_utc}"
+    echo "cargo_elapsed_seconds=${cargo_elapsed_seconds}"
+    echo "cargo_started=${cargo_started}"
+    echo "cargo_exit_code=${cargo_exit_code}"
+    echo "docker_exit_code=${DOCKER_EXIT:-NOT_STARTED}"
+    echo "failure_stage=${FAILURE_STAGE}"
+    echo "container_result_error=${CONTAINER_RESULT_ERROR}"
+  } | write_evidence_file_atomic "${dest}"
+}
+
+# Centralized post-Docker host-side failure finalizer (Phase 3D).
+# Preserves all valid container-owned files. Never rewrites BUILD_EXIT_CODE.txt.
+# Always writes HOST_OUTCOME_INGESTION.txt. Returns nonzero. No validator.
+# Args:
+#   1: failure stage
+#   2: exit code
+#   3: message
+#   4: host_infrastructure_status (OK|FAILED)
+#   5: host_source_integrity_status (OK|FAILED)
+#   6: post_build_integrity_status (OK|FAILED)
+#   7: evidence_completeness_status (COMPLETE|INCOMPLETE|FAILED)
+#   8: abort_after (YES|NO) — YES calls abort(); NO returns the exit code
+finalize_post_docker_host_failure() {
+  local stage="$1"
+  local exit_code="$2"
+  local message="$3"
+  local infra_status="${4:-FAILED}"
+  local source_status="${5:-OK}"
+  local post_status="${6:-FAILED}"
+  local completeness="${7:-FAILED}"
+  local abort_after="${8:-YES}"
+  local ingestion_status="FAILED"
+  local build_exit_before=""
+  local build_exit_path=""
+
+  if [[ "${HOST_FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    echo "finalize_post_docker_host_failure: recursion prevented" >&2
+    return 1
+  fi
+  HOST_FINALIZING_IN_PROGRESS="YES"
+  trap - ERR
+
+  FAILURE_STAGE="${stage}"
+  HOST_INFRASTRUCTURE_STATUS="${infra_status}"
+  HOST_SOURCE_INTEGRITY_STATUS="${source_status}"
+  HOST_POST_BUILD_INTEGRITY_STATUS="${post_status}"
+  HOST_EVIDENCE_COMPLETENESS_STATUS="${completeness}"
+  POST_BUILD_INTEGRITY_OK="no"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+
+  build_exit_path="${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  if [[ -f "${build_exit_path}" ]]; then
+    build_exit_before="$(cat -- "${build_exit_path}" 2>/dev/null || true)"
+  fi
+
+  # Prefer already-parsed state; re-parse only when not yet attempted.
+  if [[ "${CONTAINER_RESULT_ERROR}" == "none" && "${CONTAINER_RESULT_VALID}" != "YES" && "${CONTAINER_RESULT_PRESENCE}" == "MISSING" ]]; then
+    parse_container_result_tuple || true
+  fi
+
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
+    ingestion_status="OK"
+    OUTCOME="${PARSED_CONTAINER_OUTCOME}"
+    CARGO_STARTED="${PARSED_CARGO_STARTED}"
+  else
+    ingestion_status="FAILED"
+    # Do not invent a container terminal outcome; keep shell OUTCOME only as host note.
+    if [[ -n "${PARSED_CONTAINER_OUTCOME}" ]] && is_allowed_outcome "${PARSED_CONTAINER_OUTCOME}"; then
+      OUTCOME="${PARSED_CONTAINER_OUTCOME}"
+    fi
+  fi
+
+  if ! write_host_outcome_ingestion_record "${ingestion_status}"; then
+    echo "ERROR: host-owned HOST_OUTCOME_INGESTION.txt could not be written; fail-closed" >&2
+    HOST_FINALIZING_IN_PROGRESS="NO"
+    if [[ "${abort_after}" == "YES" ]]; then
+      abort "${exit_code}" "Host outcome ingestion record write failed during post-Docker finalization (${message})"
+    fi
+    return "${exit_code}"
+  fi
+
+  write_host_docker_exit_code || true
+  write_host_build_timing_for_failure || true
+
+  # Never create or rewrite BUILD_EXIT_CODE.txt here.
+  if [[ -f "${build_exit_path}" ]]; then
+    local build_exit_after
+    build_exit_after="$(cat -- "${build_exit_path}" 2>/dev/null || true)"
+    if [[ "${build_exit_after}" != "${build_exit_before}" ]]; then
+      echo "FATAL: finalize_post_docker_host_failure mutated container-owned BUILD_EXIT_CODE.txt" >&2
+      HOST_FINALIZING_IN_PROGRESS="NO"
+      if [[ "${abort_after}" == "YES" ]]; then
+        abort "${exit_code}" "Host finalizer mutated container BUILD_EXIT_CODE.txt"
+      fi
+      return "${exit_code}"
+    fi
+  fi
+
+  if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
+    {
+      echo "--- finalize_post_docker_host_failure ---"
+      echo "utc_finalized=$(utc_now)"
+      echo "finalized_stage=${stage}"
+      echo "host_infrastructure_status=${HOST_INFRASTRUCTURE_STATUS}"
+      echo "host_source_integrity_status=${HOST_SOURCE_INTEGRITY_STATUS}"
+      echo "preliminary_success_eligible=NO"
+      echo "container_result_valid=${CONTAINER_RESULT_VALID}"
+      echo "container_result_error=${CONTAINER_RESULT_ERROR}"
+    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" 2>/dev/null || true
+  fi
+
+  HOST_FINALIZING_IN_PROGRESS="NO"
+  echo "ERROR: post-Docker host failure at stage=${stage}: ${message}" >&2
+  if [[ "${abort_after}" == "YES" ]]; then
+    abort "${exit_code}" "${message}"
+  fi
+  return "${exit_code}"
 }
 
 # ---------------------------------------------------------------------------
@@ -692,33 +1401,44 @@ record_pre_docker_source_integrity_snapshot() {
 }
 
 # After docker returns: HEAD/clean mismatch is an integrity failure (not PASS-capable).
+# Phase 3D: never create or replace container-owned BUILD_EXIT_CODE.txt.
+# Missing, empty, malformed, and valid container results are handled only by the
+# centralized finalize_post_docker_host_failure (no host-fabricated container outcome).
 enforce_post_docker_source_integrity_boundary() {
   local head_ok="$1" clean_ok="$2"
   if [[ "${head_ok}" == "yes" && "${clean_ok}" == "yes" ]]; then
     return 0
   fi
-  OUTCOME="INFRASTRUCTURE_FAILURE"
   FAILURE_STAGE="post_docker_source_integrity"
   POST_BUILD_INTEGRITY_OK="no"
-  {
-    echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "outcome=INFRASTRUCTURE_FAILURE"
-    echo "cargo_started=${CARGO_STARTED:-NO}"
-    echo "build_status=INFRASTRUCTURE_FAILURE"
-    echo "cargo_exit_code=NOT_APPLICABLE"
-    echo "failure_stage=${FAILURE_STAGE}"
-    echo "reason=post_docker_source_head_or_clean_tree_mismatch"
-    echo "source_head_unchanged=${head_ok}"
-    echo "source_clean_after=${clean_ok}"
-  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  HOST_SOURCE_INTEGRITY_STATUS="FAILED"
+  HOST_POST_BUILD_INTEGRITY_STATUS="FAILED"
+  HOST_EVIDENCE_COMPLETENESS_STATUS="FAILED"
+  PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+
   if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
     {
       echo "post_docker_source_integrity_failed=yes"
       echo "post_docker_source_head_unchanged=${head_ok}"
       echo "post_docker_source_clean_after=${clean_ok}"
+      echo "host_source_integrity_status=FAILED"
+      echo "preliminary_success_eligible=NO"
     } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
   fi
+
+  # Delegate missing/empty/malformed/valid result handling to the centralized
+  # post-Docker host finalizer. Do not write BUILD_EXIT_CODE.txt here.
+  HOST_OUTCOME_INGESTION_WRITTEN="NO"
+  HOST_OUTCOME_INGESTION_FINGERPRINT=""
+  # Force finalizer re-parse of current container evidence (if any).
+  CONTAINER_RESULT_ERROR="none"
+  CONTAINER_RESULT_VALID="NO"
+  CONTAINER_RESULT_PRESENCE="MISSING"
+  finalize_post_docker_host_failure \
+    "post_docker_source_integrity" 9 \
+    "Post-Docker source HEAD or clean-tree integrity failure" \
+    "${HOST_INFRASTRUCTURE_STATUS:-OK}" "FAILED" "FAILED" "FAILED" "NO" || true
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -933,43 +1653,22 @@ finalize_pre_docker_infrastructure_failure() {
 # Post-Docker unexpected failure: used only by the ERR trap when an
 # uncaught error occurs after `docker run` has started (i.e. Docker's own
 # wall-clock has begun). Ordinary post-Docker outcomes are handled by
-# parse_container_outcome() / patch_build_timing_docker_wallclock(), not here.
+# parse_container_result_tuple() / finalize_post_docker_host_failure().
+# Phase 3D: never overwrites container-owned BUILD_EXIT_CODE.txt.
 finalize_post_docker_unexpected_failure() {
   local stage="$1"
   local exit_code="$2"
   local message="$3"
 
-  OUTCOME="INFRASTRUCTURE_FAILURE"
-  FAILURE_STAGE="${stage}"
   CARGO_STARTED="${CARGO_STARTED:-NO}"
+  parse_container_result_tuple || true
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
+    OUTCOME="${PARSED_CONTAINER_OUTCOME}"
+    CARGO_STARTED="${PARSED_CARGO_STARTED}"
+  fi
 
-  write_docker_exit_code_authoritative
-
-  {
-    echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "outcome=${OUTCOME}"
-    echo "docker_started_utc=${DOCKER_STARTED_UTC:-NOT_STARTED}"
-    echo "docker_finished_utc=$(utc_now)"
-    echo "docker_elapsed_seconds=NOT_APPLICABLE"
-    echo "cargo_started_utc=NOT_APPLICABLE"
-    echo "cargo_finished_utc=NOT_APPLICABLE"
-    echo "cargo_started=${CARGO_STARTED}"
-    echo "cargo_exit_code=NOT_APPLICABLE"
-    echo "docker_exit_code=${DOCKER_EXIT:-${exit_code}}"
-    echo "failure_stage=${stage}"
-  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
-
-  {
-    echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "outcome=${OUTCOME}"
-    echo "cargo_started=${CARGO_STARTED}"
-    echo "build_status=INFRASTRUCTURE_FAILURE"
-    echo "cargo_exit_code=NOT_APPLICABLE"
-    echo "failure_stage=${stage}"
-  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
-
+  # Fill incomplete host-owned artifact placeholders only when still NOT_REACHED;
+  # never rewrite BUILD_EXIT_CODE.txt.
   local f path
   for f in ARTIFACT_IDENTITY.txt STATIC_ARTIFACT_INSPECTION.txt POST_BUILD_INTEGRITY.txt; do
     path="${EVIDENCE_DIR}/${f}"
@@ -977,7 +1676,6 @@ finalize_post_docker_unexpected_failure() {
       {
         echo "evidence_schema_version=1"
         echo "status=FAILED"
-        echo "outcome=${OUTCOME}"
         echo "applicable=no"
         echo "inspection_applicable=no"
         echo "artifact_present=no"
@@ -989,7 +1687,9 @@ finalize_post_docker_unexpected_failure() {
     fi
   done
 
-  abort "${exit_code}" "${message}"
+  finalize_post_docker_host_failure \
+    "${stage}" "${exit_code}" "${message}" \
+    "FAILED" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "YES"
 }
 
 # ---------------------------------------------------------------------------
@@ -1433,6 +2133,26 @@ DOCKER_EXIT=""
 EVIDENCE_DIR=""
 RUN_ID=""
 WF_TAG_RAW_OBJECT_TYPE=""
+HOST_FINALIZING_IN_PROGRESS="NO"
+HOST_OUTCOME_INGESTION_WRITTEN="NO"
+HOST_OUTCOME_INGESTION_FINGERPRINT=""
+CONTAINER_RESULT_PRESENCE="MISSING"
+CONTAINER_RESULT_VALID="NO"
+CONTAINER_RESULT_ERROR="none"
+PARSED_CONTAINER_OUTCOME=""
+PARSED_CARGO_STARTED=""
+PARSED_CARGO_EXIT_CODE=""
+PARSED_ARTIFACT_PRESENT=""
+PARSED_ARTIFACT_IDENTITY_COMPLETE=""
+PARSED_STATIC_INSPECTION_COMPLETE=""
+PARSED_SCHEMA_VERSION=""
+PARSED_FAILURE_STAGE=""
+PARSED_RUN_ID=""
+HOST_INFRASTRUCTURE_STATUS="OK"
+HOST_SOURCE_INTEGRITY_STATUS="OK"
+HOST_POST_BUILD_INTEGRITY_STATUS="OK"
+HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
+PRELIMINARY_SUCCESS_ELIGIBLE="NO"
 trap on_err ERR
 
 # ---------------------------------------------------------------------------
@@ -2149,55 +2869,11 @@ DOCKER_FINISHED_UTC="$(utc_now)"
 DOCKER_FINISHED_EPOCH="$(date +%s)"
 
 # ---------------------------------------------------------------------------
-# STEP 18: Container outcome parsing — outcome authority (RC3B-008).
-# Exactly one `outcome=` must be present in the container-written
-# BUILD_EXIT_CODE.txt; missing, duplicated, or invalid values are themselves
-# an INFRASTRUCTURE_FAILURE. Ordinary outcomes are NEVER reconstructed from
-# cargo_started / artifact presence / raw Docker exit code alone.
+# STEP 18: Container outcome parsing — Phase 3D complete tuple ingestion.
+# Exactly one terminal `outcome=` must be present with a consistent tuple.
+# Missing/invalid results fail closed via finalize_post_docker_host_failure
+# without fabricating or overwriting BUILD_EXIT_CODE.txt.
 # ---------------------------------------------------------------------------
-CONTAINER_OUTCOME_VALID="no"
-CONTAINER_OUTCOME_ERROR="none"
-PARSED_OUTCOME=""
-PARSED_FAILURE_STAGE=""
-PARSED_CARGO_STARTED=""
-
-parse_container_outcome() {
-  local build_exit_file="${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
-  local outcome_count
-
-  if [[ "${DOCKER_EXIT}" -eq 125 ]]; then
-    CONTAINER_OUTCOME_ERROR="docker_run_launch_failure_exit_125"
-    return 0
-  fi
-  if [[ ! -s "${build_exit_file}" ]]; then
-    CONTAINER_OUTCOME_ERROR="build_exit_code_file_missing_or_empty"
-    return 0
-  fi
-
-  outcome_count="$(grep -c '^outcome=' "${build_exit_file}" 2>/dev/null)" || true
-  outcome_count="${outcome_count:-0}"
-  if [[ "${outcome_count}" -eq 0 ]]; then
-    CONTAINER_OUTCOME_ERROR="outcome_field_missing"
-    return 0
-  fi
-  if [[ "${outcome_count}" -gt 1 ]]; then
-    CONTAINER_OUTCOME_ERROR="outcome_field_duplicated"
-    return 0
-  fi
-
-  local raw_outcome
-  raw_outcome="$(read_first_kv "${build_exit_file}" "outcome" "")"
-  if ! is_allowed_outcome "${raw_outcome}"; then
-    CONTAINER_OUTCOME_ERROR="outcome_field_invalid_value_${raw_outcome:-EMPTY}"
-    return 0
-  fi
-
-  CONTAINER_OUTCOME_VALID="yes"
-  PARSED_OUTCOME="${raw_outcome}"
-  PARSED_CARGO_STARTED="$(read_first_kv "${build_exit_file}" "cargo_started" "NO")"
-  PARSED_FAILURE_STAGE="$(read_first_kv "${build_exit_file}" "failure_stage" "NOT_RECORDED")"
-}
-
 # Rewrites BUILD_TIMING.txt, preserving the container's authoritative
 # outcome/failure_stage/cargo_* fields and patching in the host-known Docker
 # wall-clock (the container itself cannot know Docker's own start/finish
@@ -2236,45 +2912,44 @@ patch_build_timing_docker_wallclock() {
 }
 
 mark_stage "step18_container_outcome_parsing"
-parse_container_outcome
 
-if [[ "${CONTAINER_OUTCOME_VALID}" != "yes" ]]; then
-  OUTCOME="INFRASTRUCTURE_FAILURE"
-  FAILURE_STAGE="invalid_or_missing_container_outcome"
-  CARGO_STARTED="NO"
-  write_docker_exit_code_authoritative
-  {
-    echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "outcome=${OUTCOME}"
-    echo "docker_started_utc=${DOCKER_STARTED_UTC}"
-    echo "docker_finished_utc=${DOCKER_FINISHED_UTC}"
-    echo "docker_elapsed_seconds=$(( DOCKER_FINISHED_EPOCH - DOCKER_STARTED_EPOCH ))"
-    echo "cargo_started_utc=NOT_APPLICABLE"
-    echo "cargo_finished_utc=NOT_APPLICABLE"
-    echo "cargo_started=NO"
-    echo "cargo_exit_code=NOT_APPLICABLE"
-    echo "docker_exit_code=${DOCKER_EXIT}"
-    echo "failure_stage=${FAILURE_STAGE}"
-    echo "container_outcome_parse_error=${CONTAINER_OUTCOME_ERROR}"
-  } > "${EVIDENCE_DIR}/BUILD_TIMING.txt"
-  {
-    echo "evidence_schema_version=1"
-    echo "status=FAILED"
-    echo "outcome=${OUTCOME}"
-    echo "cargo_started=NO"
-    echo "build_status=INFRASTRUCTURE_FAILURE"
-    echo "cargo_exit_code=NOT_APPLICABLE"
-    echo "failure_stage=${FAILURE_STAGE}"
-    echo "container_outcome_parse_error=${CONTAINER_OUTCOME_ERROR}"
-  } > "${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
-  abort 10 "Container outcome could not be authoritatively determined (reason=${CONTAINER_OUTCOME_ERROR}); refusing to reconstruct outcome from cargo_started/artifact/docker exit code alone"
+# Docker launch failure (exit 125): no trustworthy container result.
+if [[ "${DOCKER_EXIT}" -eq 125 ]]; then
+  CONTAINER_RESULT_PRESENCE="MISSING"
+  CONTAINER_RESULT_VALID="NO"
+  CONTAINER_RESULT_ERROR="docker_run_launch_failure_exit_125"
+  HOST_INFRASTRUCTURE_STATUS="FAILED"
+  finalize_post_docker_host_failure \
+    "docker_run_launch_failure" 10 \
+    "Docker run launch failure (exit 125); no authoritative container outcome" \
+    "FAILED" "OK" "FAILED" "FAILED" "YES"
+fi
+
+parse_container_result_tuple || true
+
+if [[ "${CONTAINER_RESULT_VALID}" != "YES" ]]; then
+  HOST_INFRASTRUCTURE_STATUS="FAILED"
+  # Do not invent OUTCOME=INFRASTRUCTURE_FAILURE into BUILD_EXIT_CODE.txt.
+  finalize_post_docker_host_failure \
+    "invalid_or_missing_container_outcome" 10 \
+    "Container result tuple could not be authoritatively ingested (reason=${CONTAINER_RESULT_ERROR}); refusing to reconstruct or overwrite container outcome" \
+    "FAILED" "OK" "FAILED" "FAILED" "YES"
 else
-  OUTCOME="${PARSED_OUTCOME}"
-  FAILURE_STAGE="${PARSED_FAILURE_STAGE}"
+  OUTCOME="${PARSED_CONTAINER_OUTCOME}"
+  FAILURE_STAGE="${PARSED_FAILURE_STAGE:-NOT_RECORDED}"
   CARGO_STARTED="${PARSED_CARGO_STARTED}"
   write_docker_exit_code_authoritative
   patch_build_timing_docker_wallclock
+  # Host ingestion record for valid tuples; always preliminary_success_eligible=NO.
+  HOST_INFRASTRUCTURE_STATUS="OK"
+  HOST_SOURCE_INTEGRITY_STATUS="OK"
+  HOST_POST_BUILD_INTEGRITY_STATUS="OK"
+  HOST_EVIDENCE_COMPLETENESS_STATUS="INCOMPLETE"
+  write_host_outcome_ingestion_record "OK" || \
+    finalize_post_docker_host_failure \
+      "host_outcome_ingestion_write_failed" 10 \
+      "Valid container tuple parsed but HOST_OUTCOME_INGESTION.txt could not be written" \
+      "FAILED" "OK" "FAILED" "FAILED" "YES"
 fi
 
 # ---------------------------------------------------------------------------
@@ -2344,7 +3019,21 @@ fi
 
 # Phase 2B: HEAD or clean-tree drift after Docker is an integrity failure and
 # must not leave a PASS-capable / successful package outcome accepted.
+# Phase 3D: preserve valid container BUILD_EXIT_CODE.txt; record host source
+# integrity separately; route through centralized host finalizer.
 enforce_post_docker_source_integrity_boundary "${SOURCE_HEAD_UNCHANGED}" "${SOURCE_CLEAN_AFTER}"
+if [[ "${SOURCE_HEAD_UNCHANGED}" != "yes" || "${SOURCE_CLEAN_AFTER}" != "yes" ]]; then
+  HOST_SOURCE_INTEGRITY_STATUS="FAILED"
+  HOST_POST_BUILD_INTEGRITY_STATUS="FAILED"
+  HOST_EVIDENCE_COMPLETENESS_STATUS="FAILED"
+  # Allow host-owned ingestion update after any earlier OK write.
+  HOST_OUTCOME_INGESTION_WRITTEN="NO"
+  HOST_OUTCOME_INGESTION_FINGERPRINT=""
+  finalize_post_docker_host_failure \
+    "post_docker_source_integrity" 9 \
+    "Post-Docker source HEAD or clean-tree integrity failure" \
+    "${HOST_INFRASTRUCTURE_STATUS:-OK}" "FAILED" "FAILED" "FAILED" "YES"
+fi
 
 ARTIFACT_PATH="${CARGO_TARGET_DIR}/debug/xai-grok-pager"
 ARTIFACT_EXISTS="no"

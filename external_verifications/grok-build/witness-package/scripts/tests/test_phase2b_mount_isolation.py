@@ -820,17 +820,21 @@ class Phase2BMountIsolationTests(unittest.TestCase):
                 OUTCOME=CARGO_SUCCEEDED_ARTIFACT_PRESENT
                 POST_BUILD_INTEGRITY_OK=yes
                 enforce_post_docker_source_integrity_boundary "no" "yes"
-                echo "OUTCOME=$OUTCOME"
                 echo "POST=$POST_BUILD_INTEGRITY_OK"
-                grep -q 'outcome=INFRASTRUCTURE_FAILURE' "$EVIDENCE_DIR/BUILD_EXIT_CODE.txt"
-                grep -q 'failure_stage=post_docker_source_integrity' "$EVIDENCE_DIR/BUILD_EXIT_CODE.txt"
+                echo "HOST_SRC=$HOST_SOURCE_INTEGRITY_STATUS"
+                # Phase 3D: absent container result must remain absent (no host fabrication).
+                test ! -e "$EVIDENCE_DIR/BUILD_EXIT_CODE.txt"
+                grep -q 'status=FAILED' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
+                grep -q 'host_source_integrity_status=FAILED' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
+                grep -q 'preliminary_success_eligible=NO' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
+                grep -q 'container_result_valid=NO' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
                 """
             )
         )
         cp = self._run_sourced(body)
         self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
-        self.assertIn("OUTCOME=INFRASTRUCTURE_FAILURE", cp.stdout)
         self.assertIn("POST=no", cp.stdout)
+        self.assertIn("HOST_SRC=FAILED", cp.stdout)
 
     def test_post_dirty_tree_prevents_success(self) -> None:
         work_rel = self._ws("work-dirty")
@@ -845,14 +849,19 @@ class Phase2BMountIsolationTests(unittest.TestCase):
                 OUTCOME=CARGO_SUCCEEDED_ARTIFACT_PRESENT
                 POST_BUILD_INTEGRITY_OK=yes
                 enforce_post_docker_source_integrity_boundary "yes" "no"
-                echo "OUTCOME=$OUTCOME"
-                grep -q 'reason=post_docker_source_head_or_clean_tree_mismatch' "$EVIDENCE_DIR/BUILD_EXIT_CODE.txt"
+                echo "POST=$POST_BUILD_INTEGRITY_OK"
+                echo "HOST_SRC=$HOST_SOURCE_INTEGRITY_STATUS"
+                test ! -e "$EVIDENCE_DIR/BUILD_EXIT_CODE.txt"
+                grep -q 'status=FAILED' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
+                grep -q 'host_source_integrity_status=FAILED' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
+                grep -q 'failure_stage=post_docker_source_integrity' "$EVIDENCE_DIR/HOST_OUTCOME_INGESTION.txt"
                 """
             )
         )
         cp = self._run_sourced(body)
         self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
-        self.assertIn("OUTCOME=INFRASTRUCTURE_FAILURE", cp.stdout)
+        self.assertIn("POST=no", cp.stdout)
+        self.assertIn("HOST_SRC=FAILED", cp.stdout)
 
     def test_symlink_safe_source_canonicalization(self) -> None:
         work = self.workspace / "work-sym"

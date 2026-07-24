@@ -312,10 +312,13 @@ Normative contract: [AUTHORITATIVE_OUTCOME_CONTRACT.json](AUTHORITATIVE_OUTCOME_
 It locks vocabulary, ownership, result tuple, and no-inference/no-overwrite rules for future rc5
 work. **Phase 3C on `main` implements container terminal finalization** per that contract: every
 supported container terminal path finalizes container-owned evidence; no final provisional values
-are allowed in applicable container-owned fields. **Host ingestion remains noncompliant until
-Phase 3D.** Validator and `POST_BUILD` remain unchanged. **Do not treat the full stack as
-compliant yet** — identified host overwrite and validator inference gaps remain. **RC4 remains
-NOT READY. No rc5 tag exists.** Do not claim end-to-end compliance from Phase 3C alone.
+are allowed in applicable container-owned fields. **Phase 3D on `main` implements host outcome
+ingestion**: the host preserves valid container outcomes, records separate host infrastructure and
+source-integrity state in `HOST_OUTCOME_INGESTION.txt`, and fails closed on missing/invalid
+container results without fabrication. The host ingestion record is preliminary and does not imply
+PASS. **`POST_BUILD` semantic alignment and validator-gated host success remain pending
+(Phases 3E/3F).** Validator inference remains unresolved. **RC4 remains NOT READY. No rc5 tag
+exists.** Do not claim end-to-end compliance from Phase 3D alone.
 
 ---
 
@@ -489,3 +492,4 @@ identity above, statically audited **NOT READY** (C-027).
 | main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3C; not an rc5 release) | Document container terminal finalization on `main` per Phase 3B contract; host ingestion still noncompliant until Phase 3D; validator/`POST_BUILD` unchanged. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 3D; not an rc5 release) | Document host outcome ingestion / no-overwrite on `main`; host preserves valid container outcomes; separate host infrastructure/source-integrity fields; invalid/missing results fail closed without fabrication; ingestion record is preliminary and does not imply PASS; `POST_BUILD`/validator gating remain pending. **RC4 remains NOT READY**; **rc5 tag does not exist** |
