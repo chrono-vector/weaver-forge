@@ -1,12 +1,21 @@
-# DEVIATIONS.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+# DEVIATIONS.txt — final-submission Witness-input template (evidence_schema_version=1, Phase 4-S2)
 #
-# deviation_state is NONE or PRESENT. When PRESENT, enumerate each deviation
-# with a contiguous index <n>:
-#   deviation_<n>_description=<what deviated>
-#   deviation_<n>_severity=NONE|NONMATERIAL_DISCLOSED|MATERIAL_NONCANONICAL|PROHIBITED
-#   deviation_<n>_canonical_identity_impact=yes|no
-#   deviation_<n>_verdict_ceiling=PASS|PARTIAL|FAIL|INDETERMINATE
+# Owner: Witness (final-submission). Host automated preliminary DEVIATIONS use a
+# separate host-owned schema (deviation_state, deviation_count, automated_summary)
+# and must not fabricate Witness indexed statements.
+#
+# deviation_state is NONE or PRESENT. deviation_count is required:
+#   NONE => deviation_count=0
+#   PRESENT => deviation_count>=1 and contiguous indexed records:
+#     deviation_<n>_description=<what deviated>
+#     deviation_<n>_severity=NONE|NONMATERIAL_DISCLOSED|MATERIAL_NONCANONICAL|PROHIBITED
+#     deviation_<n>_canonical_identity_impact=yes|no
+#     deviation_<n>_verdict_ceiling=PASS|PARTIAL|FAIL|INDETERMINATE
 # MATERIAL_NONCANONICAL and PROHIBITED forbid a PASS ceiling; PROHIBITED
 # requires verdict_ceiling=FAIL.
+#
+# Templates remain subordinate to schemas/canonical_schema_register_rc5_phase4_s2.json.
+# Full manual severity/redaction/ceiling lifecycle remains deferred (RC4B-007/034-036).
 evidence_schema_version=1
 deviation_state=NONE
+deviation_count=0

@@ -10,10 +10,12 @@ value is true.
 This script writes only to its own stdout/stderr. It never writes into the
 evidence directory it is validating (see VALIDATOR.md "Output policy").
 
-Phase 4-S1: canonical schema authority is the committed JSON register loaded
-via schema_register_loader. Explicit validator modes are --host-preliminary and
---final-submission; the default CLI path is a compatibility alias to
-final-submission.
+Phase 4-S2: active canonical schema authority is the committed S2 JSON register
+(rc5-phase4-s2.1) loaded via schema_register_loader. Historical S1 fixtures are
+accepted through an explicit compatibility path when they lack S2 identity
+markers. S2-shaped evidence is never silently downgraded to historical rules.
+Explicit validator modes remain --host-preliminary and --final-submission; the
+default CLI path is a compatibility alias to final-submission.
 """
 
 from __future__ import annotations
@@ -25,8 +27,17 @@ import sys
 from pathlib import Path
 
 from schema_register_loader import (
+    ACTIVE_REGISTER_VERSION,
+    HOST_RUN_METADATA_ENTRY_BEGIN,
+    HOST_RUN_METADATA_ENTRY_END,
+    HOST_RUN_METADATA_ENTRY_KEYS,
     CanonicalSchemaRegister,
     SchemaRegisterError,
+    is_s2_host_run_metadata,
+    is_s2_not_applicable_terminal,
+    is_s2_shaped_final_deviations,
+    is_s2_shaped_package_identity,
+    is_s2_shaped_preliminary_deviations,
     load_canonical_register,
 )
 
@@ -41,9 +52,15 @@ MODE_HOST_PRELIMINARY = "host-preliminary"
 MODE_FINAL_SUBMISSION = "final-submission"
 DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
 
-# Canonical schema register (single machine-readable authority for rc5 path).
+# Canonical schema register (single active machine-readable authority for rc5 path).
+# Phase 4-S2: default load is S2 (rc5-phase4-s2.1). Historical S1 is not coequal.
 _SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
 SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
+if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
+    raise SchemaRegisterError(
+        f"active validator authority must be {ACTIVE_REGISTER_VERSION!r}, "
+        f"got {SCHEMA_REGISTER_VERSION!r}"
+    )
 
 EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
@@ -392,6 +409,135 @@ def require_exact_field_set(
             fail(errors, f"{name}: missing required field '{key}'")
 
 
+def require_exact_field_set_with_optional(
+    name: str,
+    fields: dict[str, str],
+    required: tuple[str, ...],
+    optional: tuple[str, ...],
+    errors: list[str],
+) -> None:
+    """Exact required presence; unknown keys outside required|optional rejected."""
+    allowed = set(required) | set(optional)
+    actual = set(fields)
+    for key in sorted(set(required) - actual):
+        fail(errors, f"{name}: missing required field '{key}'")
+    for key in sorted(actual - allowed):
+        fail(errors, f"{name}: unknown/extra field '{key}'")
+    for key in required:
+        if key in fields and fields[key] == "":
+            fail(errors, f"{name}: missing required field '{key}'")
+
+
+def check_s2_legal_values(
+    name: str,
+    fields: dict[str, str],
+    legal: dict[str, tuple[str, ...]],
+    errors: list[str],
+) -> None:
+    for key, allowed in legal.items():
+        if key in fields and fields[key] not in allowed:
+            fail(
+                errors,
+                f"{name}: field '{key}' must be one of {list(allowed)} (found {fields[key]!r})",
+            )
+
+
+def check_s2_not_applicable_terminal(
+    name: str, fields: dict[str, str], errors: list[str]
+) -> None:
+    """Enforce activated S2 early-failure NOT_APPLICABLE schema."""
+    required = (
+        "evidence_schema_version",
+        "status",
+        "applicability",
+        "reason",
+        "authoritative_outcome",
+        "failure_stage",
+        "product_executed",
+        "ldd_used",
+    )
+    require_exact_field_set(name, fields, required, errors)
+    check_s2_legal_values(
+        name,
+        fields,
+        {
+            "status": ("NOT_APPLICABLE",),
+            "applicability": ("not_applicable",),
+            "product_executed": ("NO",),
+            "ldd_used": ("NO",),
+            "authoritative_outcome": ("BUILD_NOT_STARTED", "INFRASTRUCTURE_FAILURE"),
+        },
+        errors,
+    )
+    if not fields.get("reason"):
+        fail(errors, f"{name}: reason must be non-empty for NOT_APPLICABLE terminal")
+    if not fields.get("failure_stage"):
+        fail(errors, f"{name}: failure_stage must be non-empty for NOT_APPLICABLE terminal")
+
+
+def check_host_run_metadata_s2(text: str, errors: list[str]) -> None:
+    """Validate S2 append-entry grammar for HOST_RUN_METADATA.txt."""
+    name = "HOST_RUN_METADATA.txt"
+    if not is_s2_host_run_metadata(text):
+        return
+    begin = HOST_RUN_METADATA_ENTRY_BEGIN
+    end = HOST_RUN_METADATA_ENTRY_END
+    parts = text.split(begin)
+    prefix = parts[0].strip()
+    if prefix:
+        fail(errors, f"{name}: S2-shaped append log must start with {begin}")
+    if len(parts) < 2:
+        fail(errors, f"{name}: S2-shaped append log has no entries")
+        return
+    for idx, chunk in enumerate(parts[1:], start=1):
+        if end not in chunk:
+            fail(errors, f"{name}: entry {idx} missing {end}")
+            continue
+        body, remainder = chunk.split(end, 1)
+        if remainder.strip():
+            for line in remainder.splitlines():
+                if line.strip():
+                    fail(
+                        errors,
+                        f"{name}: unexpected content between entries near entry {idx}",
+                    )
+                    break
+        entry_fields: dict[str, str] = {}
+        ordered_keys: list[str] = []
+        for line in body.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if "=" not in line:
+                fail(errors, f"{name}: entry {idx} has non key=value line: {line!r}")
+                continue
+            key, value = line.split("=", 1)
+            if key in entry_fields:
+                fail(errors, f"{name}: entry {idx} duplicate key {key!r}")
+            entry_fields[key] = value
+            ordered_keys.append(key)
+        if tuple(ordered_keys) != HOST_RUN_METADATA_ENTRY_KEYS:
+            fail(
+                errors,
+                f"{name}: entry {idx} key order must be exactly "
+                f"{list(HOST_RUN_METADATA_ENTRY_KEYS)} (found {ordered_keys})",
+            )
+        unknown = sorted(set(entry_fields) - set(HOST_RUN_METADATA_ENTRY_KEYS))
+        if unknown:
+            fail(errors, f"{name}: entry {idx} unknown key(s): {unknown}")
+        for key in HOST_RUN_METADATA_ENTRY_KEYS:
+            if key not in entry_fields or entry_fields[key] == "":
+                fail(errors, f"{name}: entry {idx} missing required key '{key}'")
+        if entry_fields.get("evidence_schema_version") != EVIDENCE_SCHEMA_VERSION:
+            fail(
+                errors,
+                f"{name}: entry {idx} evidence_schema_version must be "
+                f"{EVIDENCE_SCHEMA_VERSION!r}",
+            )
+        if not is_safe_token(entry_fields.get("run_id", "")):
+            fail(errors, f"{name}: entry {idx} run_id must be a safe non-empty token")
+
+
 def require_present(name: str, fields: dict[str, str], required: tuple[str, ...], errors: list[str]) -> None:
     """Like require_fields, but only checks that the key line exists (an
     explicit ``key=`` with an empty value is acceptable). Used for fields
@@ -409,10 +555,49 @@ def is_not_reached_placeholder(fields: dict[str, str]) -> bool:
     return fields.get("status") == "NOT_REACHED"
 
 
-def placeholder_skip(name: str, fields: dict[str, str], outcome: str | None) -> bool:
+def package_is_s2_shaped(
+    file_fields: dict[str, dict[str, str]],
+    file_texts: dict[str, str] | None = None,
+) -> bool:
+    """True when evidence carries explicit S2 identity markers.
+
+    Detection is explicit and testable. Historical fixtures without S2 markers
+    remain on the S1 compatibility path. Presence of S2 markers must never be
+    silently downgraded to historical rules.
+    """
+    pkg = file_fields.get("WEAVER_FORGE_PACKAGE_IDENTITY.txt") or {}
+    if is_s2_shaped_package_identity(pkg):
+        return True
+    dev = file_fields.get("DEVIATIONS.txt") or {}
+    if is_s2_shaped_preliminary_deviations(dev) or is_s2_shaped_final_deviations(dev):
+        return True
+    texts = file_texts or {}
+    host_meta = texts.get("HOST_RUN_METADATA.txt", "")
+    if host_meta and is_s2_host_run_metadata(host_meta):
+        return True
+    for name in PLACEHOLDER_ELIGIBLE_FILES:
+        fields = file_fields.get(name) or {}
+        if is_s2_not_applicable_terminal(fields):
+            return True
+    return False
+
+
+def placeholder_skip(
+    name: str,
+    fields: dict[str, str],
+    outcome: str | None,
+    *,
+    s2_shaped_package: bool = False,
+) -> bool:
     """Whether ``name`` may skip its full field schema / semantic checks
-    because it is a legitimate NOT_REACHED placeholder on a non-started /
-    infrastructure-failure path."""
+    because it is a legitimate historical NOT_REACHED placeholder on a
+    non-started / infrastructure-failure path.
+
+    For S2-shaped packages, NOT_REACHED is initialization-only and must not
+    survive as a finalized terminal artifact.
+    """
+    if s2_shaped_package and is_not_reached_placeholder(fields):
+        return False
     return (
         name in PLACEHOLDER_ELIGIBLE_FILES
         and is_not_reached_placeholder(fields)
@@ -438,11 +623,11 @@ def require_exact(name: str, fields: dict[str, str], key: str, expected: str, er
 # ---------------------------------------------------------------------------
 # Per-file required-field schemas (field names are normative; templates must match)
 # ---------------------------------------------------------------------------
-# COMPATIBILITY BEHAVIOR (Phase 4-S1): these tuples remain the validator's
-# in-process required-field projection for currently enforced schemas. They are
-# not a second authority — load-time equality against the canonical register is
-# required. Future S2/S3 target fields live only in the register until writers
-# align.
+# COMPATIBILITY BEHAVIOR (Phase 4-S2): these tuples remain the validator's
+# in-process required-field projection for historical / currently compatible
+# schemas. They are not a second authority — load-time equality against the
+# active register's historical-compatibility projection is required. Full S2
+# fields are enforced when S2 identity markers are present on the evidence.
 
 FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "WEAVER_FORGE_PACKAGE_IDENTITY.txt": (
@@ -777,6 +962,42 @@ STATIC_ARTIFACT_INSPECTION_ALWAYS_PRESENT_KEYS = ("artifact_path",) + STATIC_TOO
 
 def check_weaver_forge_package_identity(fields: dict[str, str], errors: list[str]) -> None:
     name = "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    if is_s2_shaped_package_identity(fields):
+        required = _SCHEMA_REGISTER.required_field_names(name, MODE_HOST_PRELIMINARY)
+        optional = _SCHEMA_REGISTER.optional_field_names(name, MODE_HOST_PRELIMINARY)
+        require_exact_field_set_with_optional(name, fields, required, optional, errors)
+        check_s2_legal_values(
+            name,
+            fields,
+            {
+                "weaver_forge_tag_raw_object_type_required": ("tag",),
+                "package_commit_authority": ("annotated_tag_resolution",),
+            },
+            errors,
+        )
+        observed = fields.get("weaver_forge_tag_raw_object_type_observed", "")
+        if observed != "tag":
+            fail(
+                errors,
+                f"{name}: weaver_forge_tag_raw_object_type_observed must be 'tag' "
+                f"for accepted S2 annotated-tag identity (found {observed!r})",
+            )
+        peeled = fields.get("weaver_forge_tag_peeled_commit", "")
+        resolved = fields.get("weaver_forge_commit_resolved", "")
+        if peeled and not is_hex_commit(peeled):
+            fail(errors, f"{name}: weaver_forge_tag_peeled_commit must be a 40-char lowercase hex commit")
+        if peeled and resolved and peeled != resolved:
+            fail(
+                errors,
+                f"{name}: weaver_forge_tag_peeled_commit must equal weaver_forge_commit_resolved",
+            )
+        tag_ref = fields.get("weaver_forge_tag_ref", "")
+        requested = fields.get("weaver_forge_tag_requested", "")
+        if tag_ref and requested and tag_ref != f"refs/tags/{requested}":
+            fail(
+                errors,
+                f"{name}: weaver_forge_tag_ref must be refs/tags/<weaver_forge_tag_requested>",
+            )
     if not is_safe_token(fields.get("witness_id", "")):
         fail(errors, f"{name}: witness_id must be a non-empty token with no path separators, whitespace, or '..'")
     if not is_safe_token(fields.get("run_id", "")):
@@ -1597,14 +1818,75 @@ def check_witness_verdict(
             )
 
 
-def check_deviations(fields: dict[str, str], text: str, errors: list[str]) -> None:
+def check_deviations(
+    fields: dict[str, str],
+    text: str,
+    errors: list[str],
+    *,
+    mode: str = MODE_FINAL_SUBMISSION,
+) -> None:
     name = "DEVIATIONS.txt"
     state = fields.get("deviation_state", "")
     if state not in ("NONE", "PRESENT"):
         fail(errors, f"{name}: deviation_state must be NONE or PRESENT")
         return
-    if state == "NONE":
+
+    s2_prelim = mode == MODE_HOST_PRELIMINARY and is_s2_shaped_preliminary_deviations(fields)
+    s2_final = mode == MODE_FINAL_SUBMISSION and is_s2_shaped_final_deviations(fields)
+
+    # Reject mode crossover: preliminary S2 schema must not carry final indexed
+    # Witness deviation fabrication; final S2 must not carry automated_summary.
+    if mode == MODE_HOST_PRELIMINARY and any(
+        k.startswith("deviation_") and k.endswith("_severity") for k in fields
+    ):
+        fail(
+            errors,
+            f"{name}: host-preliminary DEVIATIONS must not contain final indexed "
+            "deviation_<n>_severity records (mode crossover)",
+        )
+    if mode == MODE_FINAL_SUBMISSION and "automated_summary" in fields:
+        fail(
+            errors,
+            f"{name}: final-submission DEVIATIONS must not contain automated_summary "
+            "(preliminary host field; mode crossover)",
+        )
+
+    if s2_prelim:
+        required = _SCHEMA_REGISTER.required_field_names(name, MODE_HOST_PRELIMINARY)
+        require_exact_field_set(name, fields, required, errors)
+        count_raw = fields.get("deviation_count", "")
+        if not count_raw.isdigit():
+            fail(errors, f"{name}: deviation_count must be a non-negative integer")
+        else:
+            count = int(count_raw)
+            if state == "NONE" and count != 0:
+                fail(errors, f"{name}: deviation_state=NONE requires deviation_count=0")
+            if state == "PRESENT" and count < 1:
+                fail(errors, f"{name}: deviation_state=PRESENT requires deviation_count>=1")
+        if not fields.get("automated_summary"):
+            fail(errors, f"{name}: automated_summary must be non-empty")
         return
+
+    if s2_final:
+        # Required core fields; indexed keys allowed when PRESENT.
+        for key in ("evidence_schema_version", "deviation_state", "deviation_count"):
+            if key not in fields or fields[key] == "":
+                fail(errors, f"{name}: missing required field '{key}'")
+        count_raw = fields.get("deviation_count", "")
+        if not count_raw.isdigit():
+            fail(errors, f"{name}: deviation_count must be a non-negative integer")
+        else:
+            count = int(count_raw)
+            if state == "NONE" and count != 0:
+                fail(errors, f"{name}: deviation_state=NONE requires deviation_count=0")
+            if state == "PRESENT" and count < 1:
+                fail(errors, f"{name}: deviation_state=PRESENT requires deviation_count>=1")
+        if state == "NONE":
+            return
+        # Fall through to indexed checks for PRESENT.
+    elif state == "NONE":
+        return
+
     indices: set[str] = set()
     for match in re.finditer(r"deviation_(\w+)_severity", text):
         indices.add(match.group(1))
@@ -1631,6 +1913,11 @@ def check_deviations(fields: dict[str, str], text: str, errors: list[str]) -> No
             )
         elif severity == "PROHIBITED" and ceiling != "FAIL":
             fail(errors, f"{name}: deviation_{idx}_severity=PROHIBITED requires verdict_ceiling=FAIL")
+    if s2_final and count_raw.isdigit() and int(count_raw) != len(indices):
+        fail(
+            errors,
+            f"{name}: deviation_count={count_raw} does not match enumerated deviation count {len(indices)}",
+        )
 
 
 def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> None:
@@ -2017,6 +2304,13 @@ def validate_dir(
         # required files); still fail closed on missing explicit outcome path.
         fail(errors, "Cannot determine outcome: BUILD_EXIT_CODE.txt could not be parsed")
 
+    # Closed-aux HOST_RUN_METADATA may be present; load for S2 grammar / shape detection.
+    host_meta_path = evidence_dir / "HOST_RUN_METADATA.txt"
+    if host_meta_path.is_file() and not host_meta_path.is_symlink():
+        file_texts["HOST_RUN_METADATA.txt"] = read_text(host_meta_path)
+
+    s2_shaped = package_is_s2_shaped(file_fields, file_texts)
+
     # HOST_OUTCOME_INGESTION.txt uses schema_version= (not evidence_schema_version=)
     # and an exact host-owned field set. Parse/validate here; never route it through
     # the evidence_schema_version / FILE_REQUIRED_FIELDS path.
@@ -2049,16 +2343,39 @@ def validate_dir(
         and name in file_fields
     ]
     for name in schema_versioned:
-        check_schema_version(name, file_fields[name], errors)
-        if placeholder_skip(name, file_fields[name], outcome):
+        fields = file_fields[name]
+        # S2 NOT_APPLICABLE terminals use their own schema (no evidence_schema_version
+        # skip); still require schema version via the NA checker.
+        if name in PLACEHOLDER_ELIGIBLE_FILES and is_s2_not_applicable_terminal(fields):
+            check_s2_not_applicable_terminal(name, fields, errors)
+            continue
+        check_schema_version(name, fields, errors)
+        if placeholder_skip(name, fields, outcome, s2_shaped_package=s2_shaped):
+            continue
+        if s2_shaped and name in PLACEHOLDER_ELIGIBLE_FILES and is_not_reached_placeholder(fields):
+            fail(
+                errors,
+                f"{name}: NOT_REACHED is initialization-only for S2-shaped packages; "
+                "finalized terminal evidence must use NOT_APPLICABLE or the applicable "
+                "full schema",
+            )
+            continue
+        if name == "WEAVER_FORGE_PACKAGE_IDENTITY.txt" and is_s2_shaped_package_identity(fields):
+            # Exact S2 field enforcement happens in check_weaver_forge_package_identity.
+            continue
+        if name == "DEVIATIONS.txt" and (
+            (selected_mode == MODE_HOST_PRELIMINARY and is_s2_shaped_preliminary_deviations(fields))
+            or (selected_mode == MODE_FINAL_SUBMISSION and is_s2_shaped_final_deviations(fields))
+        ):
+            # Exact S2 field enforcement happens in check_deviations.
             continue
         required = FILE_REQUIRED_FIELDS.get(name, ())
         if name == "POST_BUILD_INTEGRITY.txt":
             # Phase 3E: exact POST_BUILD field-set equality (no subset matching).
             # Bound to canonical register exact policy (enforced_current_compatible).
-            require_exact_field_set(name, file_fields[name], required, errors)
+            require_exact_field_set(name, fields, required, errors)
         else:
-            require_fields(name, file_fields[name], required, errors)
+            require_fields(name, fields, required, errors)
 
     if "WEAVER_FORGE_PACKAGE_IDENTITY.txt" in file_fields:
         check_weaver_forge_package_identity(file_fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"], errors)
@@ -2070,20 +2387,29 @@ def validate_dir(
         check_image_identity(file_fields["IMAGE_IDENTITY.txt"], errors)
     if "ENVIRONMENT.txt" in file_fields:
         check_environment(file_fields["ENVIRONMENT.txt"], errors)
-    if "BOOTSTRAP.txt" in file_fields and not placeholder_skip("BOOTSTRAP.txt", file_fields["BOOTSTRAP.txt"], outcome):
-        check_bootstrap(file_fields["BOOTSTRAP.txt"], errors)
+    if "BOOTSTRAP.txt" in file_fields and not placeholder_skip(
+        "BOOTSTRAP.txt", file_fields["BOOTSTRAP.txt"], outcome, s2_shaped_package=s2_shaped
+    ):
+        if not is_s2_not_applicable_terminal(file_fields["BOOTSTRAP.txt"]):
+            check_bootstrap(file_fields["BOOTSTRAP.txt"], errors)
     if "CLEAN_TARGET_PROOF.txt" in file_fields:
         check_clean_target_proof(file_fields["CLEAN_TARGET_PROOF.txt"], errors)
     if "BUILD_COMMAND.txt" in file_fields and not placeholder_skip(
-        "BUILD_COMMAND.txt", file_fields["BUILD_COMMAND.txt"], outcome
+        "BUILD_COMMAND.txt", file_fields["BUILD_COMMAND.txt"], outcome, s2_shaped_package=s2_shaped
     ):
-        check_build_command(file_fields["BUILD_COMMAND.txt"], errors)
+        if not is_s2_not_applicable_terminal(file_fields["BUILD_COMMAND.txt"]):
+            check_build_command(file_fields["BUILD_COMMAND.txt"], errors)
     if "POST_BUILD_INTEGRITY.txt" in file_fields:
         check_post_build_integrity(file_fields["POST_BUILD_INTEGRITY.txt"], errors)
     if "WITNESS_STATEMENT.md" in file_fields:
         check_witness_statement(file_fields["WITNESS_STATEMENT.md"], errors)
     if "DEVIATIONS.txt" in file_fields:
-        check_deviations(file_fields["DEVIATIONS.txt"], file_texts["DEVIATIONS.txt"], errors)
+        check_deviations(
+            file_fields["DEVIATIONS.txt"],
+            file_texts["DEVIATIONS.txt"],
+            errors,
+            mode=selected_mode,
+        )
     if "REDACTIONS.md" in file_fields:
         check_redactions(file_fields["REDACTIONS.md"], file_texts["REDACTIONS.md"], errors)
 
@@ -2091,9 +2417,15 @@ def validate_dir(
         check_build_exit_code(file_fields["BUILD_EXIT_CODE.txt"], errors, outcome)
 
     if "BUILD_ENVIRONMENT.txt" in file_fields and not placeholder_skip(
-        "BUILD_ENVIRONMENT.txt", file_fields["BUILD_ENVIRONMENT.txt"], outcome
+        "BUILD_ENVIRONMENT.txt",
+        file_fields["BUILD_ENVIRONMENT.txt"],
+        outcome,
+        s2_shaped_package=s2_shaped,
     ):
-        check_build_environment(file_fields["BUILD_ENVIRONMENT.txt"], errors, outcome)
+        if not is_s2_not_applicable_terminal(file_fields["BUILD_ENVIRONMENT.txt"]):
+            check_build_environment(file_fields["BUILD_ENVIRONMENT.txt"], errors, outcome)
+    if "HOST_RUN_METADATA.txt" in file_texts:
+        check_host_run_metadata_s2(file_texts["HOST_RUN_METADATA.txt"], errors)
     if "DOCKER_EXIT_CODE.txt" in file_fields:
         check_docker_exit_code(
             file_texts.get("DOCKER_EXIT_CODE.txt", ""), file_fields["DOCKER_EXIT_CODE.txt"], errors, outcome

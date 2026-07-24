@@ -1,16 +1,28 @@
-# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1, 1.0.0-rc4)
+# WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1, Phase 4-S2)
 #
 # Identity of the Weaver Forge package clone that produced this evidence set.
 # canonical_run=yes requires weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4.
 # package_clone_head must equal weaver_forge_commit_resolved (tag -> HEAD integrity)
 # and tag_head_match must be yes. package_commit_authority is always
 # annotated_tag_resolution (the tagged package must not embed its own commit).
+#
+# Phase 4-S2 annotated-tag identity (RC4B-005 target activated):
+#   weaver_forge_tag_ref = refs/tags/<requested>
+#   weaver_forge_tag_raw_object_type_required = tag
+#   weaver_forge_tag_raw_object_type_observed = tag (fail closed otherwise)
+#   weaver_forge_tag_peeled_commit = peeled commit (equals weaver_forge_commit_resolved)
+# Templates remain subordinate to schemas/canonical_schema_register_rc5_phase4_s2.json.
+# This template does not claim packaging or rc5-release readiness.
 evidence_schema_version=1
 witness_id=<witness-handle-token>
 run_id=<run-id-token>
 package_version=1.0.0-rc4
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
 weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc4
+weaver_forge_tag_ref=refs/tags/grok-build-witness-v1.0.0-rc4
+weaver_forge_tag_raw_object_type_required=tag
+weaver_forge_tag_raw_object_type_observed=tag
+weaver_forge_tag_peeled_commit=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>
 weaver_forge_commit_resolved=<40-char lowercase hex commit>
 package_clone_head=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>
 package_clone_detached=yes

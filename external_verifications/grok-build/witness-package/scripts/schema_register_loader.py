@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Canonical schema-register loader for Phase 4-S1 (rc5 remediation path).
+"""Canonical schema-register loader for Phase 4 (rc5 remediation path).
 
-Loads the committed plain-JSON register under witness-package/schemas/ and
+Loads committed plain-JSON registers under witness-package/schemas/ and
 exposes fail-closed structural accessors for the validator and tests.
 
-This module is the machine-readable schema authority loader. It does not
-generate executable code from the register and uses only the Python standard
-library.
+Phase 4-S2: the active default register is rc5-phase4-s2.1. The frozen S1
+register remains explicitly loadable for historical compatibility only and is
+not a coequal schema authority.
+
+This module does not generate executable code from the register and uses only
+the Python standard library.
 """
 
 from __future__ import annotations
@@ -15,15 +18,26 @@ import json
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_REGISTER_VERSIONS = frozenset({"rc5-phase4-s1.1"})
-DEFAULT_REGISTER_RELATIVE = Path("schemas") / "canonical_schema_register_rc5_phase4_s1.json"
+ACTIVE_REGISTER_VERSION = "rc5-phase4-s2.1"
+HISTORICAL_S1_REGISTER_VERSION = "rc5-phase4-s1.1"
+SUPPORTED_REGISTER_VERSIONS = frozenset(
+    {ACTIVE_REGISTER_VERSION, HISTORICAL_S1_REGISTER_VERSION}
+)
+DEFAULT_REGISTER_RELATIVE = Path("schemas") / "canonical_schema_register_rc5_phase4_s2.json"
+HISTORICAL_S1_REGISTER_RELATIVE = (
+    Path("schemas") / "canonical_schema_register_rc5_phase4_s1.json"
+)
 LEGAL_LIFECYCLE_MODES = frozenset({"host-preliminary", "final-submission"})
 LEGAL_ACTIVATIONS = frozenset(
     {
         "enforced_current_compatible",
+        "enforced_s2_writer_aligned",
+        "enforced_s2_ownership_cross_binding",
         "defined_future_s2_writer_alignment",
         "defined_future_s3_manifest_completeness",
         "defined_structural_only_s1",
+        "historical_s1_compatibility",
+        "available_read_only_s2",
     }
 )
 LEGAL_FIELD_REQUIREMENTS = frozenset({"required", "optional", "conditional"})
@@ -34,6 +48,8 @@ LEGAL_EXACT_POLICIES = frozenset(
         "raw_stream",
         "manifest_grammar",
         "open_append_log_current",
+        "append_entry_grammar",
+        "exact_when_s2_shaped_else_historical_subset",
     }
 )
 LEGAL_FILE_CLASSIFICATIONS = frozenset(
@@ -54,6 +70,7 @@ REGISTER_TOP_LEVEL_KEYS = frozenset(
         "evidence_schema_version",
         "supported_register_versions",
         "supersession",
+        "historical_compatibility",
         "lifecycle_modes",
         "default_mode_compatibility_alias",
         "mode_required_file_sets",
@@ -61,6 +78,7 @@ REGISTER_TOP_LEVEL_KEYS = frozenset(
         "closed_aux_evidence_files",
         "run_id_policy",
         "evidence_completeness_inventory",
+        "recursive_inventory_helper",
         "artifacts",
     }
 )
@@ -84,6 +102,9 @@ ARTIFACT_KEYS = frozenset(
         "no_deviation_state",
         "empty_ok_fields",
         "future_alignment_fields",
+        "s1_future_alignment_record",
+        "historical_compatibility_required_fields",
+        "append_entry_grammar",
         "manifest_grammar",
         "activation_detail",
         "location",
@@ -92,15 +113,54 @@ ARTIFACT_KEYS = frozenset(
 
 FIELD_KEYS = frozenset({"name", "requirement", "legal_values", "note", "activation"})
 
+S2_PACKAGE_IDENTITY_MARKERS = frozenset(
+    {
+        "weaver_forge_tag_ref",
+        "weaver_forge_tag_raw_object_type_required",
+        "weaver_forge_tag_raw_object_type_observed",
+        "weaver_forge_tag_peeled_commit",
+    }
+)
+S2_PRELIM_DEVIATIONS_MARKERS = frozenset({"deviation_count", "automated_summary"})
+S2_FINAL_DEVIATIONS_MARKERS = frozenset({"deviation_count"})
+HOST_RUN_METADATA_ENTRY_BEGIN = "BEGIN_HOST_RUN_METADATA_ENTRY"
+HOST_RUN_METADATA_ENTRY_END = "END_HOST_RUN_METADATA_ENTRY"
+HOST_RUN_METADATA_ENTRY_KEYS = (
+    "evidence_schema_version",
+    "run_id",
+    "witness_id",
+    "entry_kind",
+    "entry_utc",
+    "payload",
+)
+
 
 class SchemaRegisterError(ValueError):
     """Fail-closed schema register structural error."""
 
 
-def default_register_path() -> Path:
-    """Committed register path relative to the witness-package root."""
+def schemas_dir() -> Path:
     scripts_dir = Path(__file__).resolve().parent
-    return scripts_dir.parent / DEFAULT_REGISTER_RELATIVE
+    return scripts_dir.parent / "schemas"
+
+
+def default_register_path() -> Path:
+    """Active (S2) committed register path."""
+    return schemas_dir() / DEFAULT_REGISTER_RELATIVE.name
+
+
+def historical_s1_register_path() -> Path:
+    """Frozen S1 historical register path."""
+    return schemas_dir() / HISTORICAL_S1_REGISTER_RELATIVE.name
+
+
+def register_path_for_version(version: str) -> Path:
+    """Deterministic path lookup by explicit register version. No content guessing."""
+    if version == ACTIVE_REGISTER_VERSION:
+        return default_register_path()
+    if version == HISTORICAL_S1_REGISTER_VERSION:
+        return historical_s1_register_path()
+    raise SchemaRegisterError(f"unsupported schema_register_version: {version!r}")
 
 
 def _require_mapping(value: Any, label: str) -> dict[str, Any]:
@@ -163,17 +223,29 @@ def _validate_artifact(raw: Any, idx: int) -> dict[str, Any]:
         raise SchemaRegisterError(f"{artifact_id}: unknown exact_field_set_policy {policy!r}")
     if not isinstance(art.get("field_order_normative"), bool):
         raise SchemaRegisterError(f"{artifact_id}: field_order_normative must be a boolean")
-    classif = _require_mapping(art.get("required_file_classification"), f"{artifact_id}.required_file_classification")
+    classif = _require_mapping(
+        art.get("required_file_classification"), f"{artifact_id}.required_file_classification"
+    )
     for mode, value in classif.items():
         if mode not in LEGAL_LIFECYCLE_MODES:
             raise SchemaRegisterError(f"{artifact_id}: unknown classification mode {mode!r}")
         if value not in LEGAL_FILE_CLASSIFICATIONS:
             raise SchemaRegisterError(f"{artifact_id}: unknown classification {value!r}")
-    fields = _validate_field_list(_require_list(art.get("fields", []), f"{artifact_id}.fields"), f"{artifact_id}.fields")
+    fields = _validate_field_list(
+        _require_list(art.get("fields", []), f"{artifact_id}.fields"), f"{artifact_id}.fields"
+    )
     optional = _validate_field_list(
         _require_list(art.get("optional_fields", []), f"{artifact_id}.optional_fields"),
         f"{artifact_id}.optional_fields",
     )
+    if "historical_compatibility_required_fields" in art:
+        _validate_field_list(
+            _require_list(
+                art.get("historical_compatibility_required_fields"),
+                f"{artifact_id}.historical_compatibility_required_fields",
+            ),
+            f"{artifact_id}.historical_compatibility_required_fields",
+        )
     required_names = {f["name"] for f in fields if f.get("requirement") == "required"}
     optional_names = {f["name"] for f in optional}
     overlap = sorted(required_names & optional_names)
@@ -190,6 +262,13 @@ def _validate_artifact(raw: Any, idx: int) -> dict[str, Any]:
     if variants is None:
         variants = []
     _require_list(variants, f"{artifact_id}.conditional_variants")
+    for vidx, variant in enumerate(variants):
+        vmap = _require_mapping(variant, f"{artifact_id}.conditional_variants[{vidx}]")
+        vact = vmap.get("activation")
+        if vact is not None and vact not in LEGAL_ACTIVATIONS:
+            raise SchemaRegisterError(
+                f"{artifact_id}.conditional_variants[{vidx}]: unknown activation {vact!r}"
+            )
     return art
 
 
@@ -210,21 +289,26 @@ class CanonicalSchemaRegister:
             for mode in art["lifecycle_modes"]:
                 key = (art["filename"], mode)
                 if key in self._index:
-                    # Allow shared multi-mode entries; reject only true duplicates.
                     existing = self._index[key]
                     if existing is not art and existing.get("artifact_id") != art.get("artifact_id"):
-                        # Mode-specific entries (filename@mode) intentionally share filename.
                         if "@" not in art["artifact_id"] and "@" not in existing["artifact_id"]:
                             raise SchemaRegisterError(
                                 f"duplicate artifact/mode definition for {art['filename']!r} mode {mode!r}"
                             )
-                # Prefer mode-specific artifact_id when present.
                 if key not in self._index or "@" in art["artifact_id"]:
                     self._index[key] = art
 
     @property
     def raw(self) -> dict[str, Any]:
         return self._data
+
+    @property
+    def is_active_authority(self) -> bool:
+        return self.schema_register_version == ACTIVE_REGISTER_VERSION
+
+    @property
+    def is_historical_s1(self) -> bool:
+        return self.schema_register_version == HISTORICAL_S1_REGISTER_VERSION
 
     def require_mode(self, mode: str) -> str:
         if mode not in LEGAL_LIFECYCLE_MODES:
@@ -268,6 +352,15 @@ class CanonicalSchemaRegister:
         )
         return tuple(names)
 
+    def historical_compatibility_required_field_names(
+        self, filename: str, mode: str
+    ) -> tuple[str, ...] | None:
+        art = self.lookup(filename, mode)
+        hist = art.get("historical_compatibility_required_fields")
+        if hist is None:
+            return None
+        return tuple(f["name"] for f in hist if f.get("requirement", "required") == "required")
+
     def exact_field_set_policy(self, filename: str, mode: str) -> str:
         return str(self.lookup(filename, mode)["exact_field_set_policy"])
 
@@ -294,27 +387,53 @@ class CanonicalSchemaRegister:
     def is_enforced_current_compatible(self, filename: str, mode: str) -> bool:
         return self.activation(filename, mode) == "enforced_current_compatible"
 
+    def is_enforced_for_validation(self, filename: str, mode: str) -> bool:
+        act = self.activation(filename, mode)
+        return act in (
+            "enforced_current_compatible",
+            "enforced_s2_writer_aligned",
+            "enforced_s2_ownership_cross_binding",
+        )
+
     def compatibility_file_required_fields(self) -> dict[str, tuple[str, ...]]:
         """Projection used as validator compatibility field map (not a second authority).
 
-        Builds required-field tuples for currently enforced structured evidence
-        files from the register. Mode-specific DEVIATIONS entries share one
-        compatibility tuple when their required fields match.
+        For S2 artifacts that declare historical_compatibility_required_fields, those
+        fields are projected so historical fixtures remain accepted. Full S2 fields are
+        enforced separately when S2 identity markers are present.
         """
         result: dict[str, tuple[str, ...]] = {}
         for art in self._artifacts:
-            if art.get("activation") != "enforced_current_compatible":
+            act = art.get("activation")
+            if act not in (
+                "enforced_current_compatible",
+                "enforced_s2_writer_aligned",
+                "enforced_s2_ownership_cross_binding",
+            ):
                 continue
-            if art.get("exact_field_set_policy") in ("raw_stream", "manifest_grammar"):
+            if art.get("exact_field_set_policy") in (
+                "raw_stream",
+                "manifest_grammar",
+                "append_entry_grammar",
+                "open_append_log_current",
+            ):
                 continue
             filename = art["filename"]
             if filename in ("HOST_OUTCOME_INGESTION.txt",):
                 continue
-            fields = tuple(
-                f["name"]
-                for f in art.get("fields", [])
-                if f.get("requirement", "required") == "required"
-            )
+            hist = art.get("historical_compatibility_required_fields")
+            if isinstance(hist, list) and hist:
+                fields = tuple(
+                    f["name"]
+                    for f in hist
+                    if f.get("requirement", "required") == "required"
+                )
+            else:
+                fields = tuple(
+                    f["name"]
+                    for f in art.get("fields", [])
+                    if f.get("requirement", "required") == "required"
+                )
             if not fields:
                 continue
             if filename in result and result[filename] != fields:
@@ -330,6 +449,12 @@ class CanonicalSchemaRegister:
 
     def run_id_policy(self) -> dict[str, Any]:
         return dict(self._data["run_id_policy"])
+
+    def supersession(self) -> dict[str, Any]:
+        return dict(self._data.get("supersession") or {})
+
+    def historical_compatibility(self) -> dict[str, Any]:
+        return dict(self._data.get("historical_compatibility") or {})
 
 
 def validate_register_document(data: dict[str, Any]) -> None:
@@ -360,7 +485,33 @@ def validate_register_document(data: dict[str, Any]) -> None:
     _require_list(data.get("closed_aux_evidence_files"), "closed_aux_evidence_files")
     _require_mapping(data.get("run_id_policy"), "run_id_policy")
     _require_mapping(data.get("evidence_completeness_inventory"), "evidence_completeness_inventory")
-    _require_mapping(data.get("supersession"), "supersession")
+    supersession = _require_mapping(data.get("supersession"), "supersession")
+    if version == ACTIVE_REGISTER_VERSION:
+        if supersession.get("supersedes") != HISTORICAL_S1_REGISTER_VERSION:
+            raise SchemaRegisterError(
+                "S2 register supersession.supersedes must be "
+                f"{HISTORICAL_S1_REGISTER_VERSION!r}"
+            )
+        hist = _require_mapping(data.get("historical_compatibility"), "historical_compatibility")
+        if hist.get("not_a_second_schema_authority") is not True:
+            raise SchemaRegisterError(
+                "historical_compatibility.not_a_second_schema_authority must be true"
+            )
+        if hist.get("active_authority") != ACTIVE_REGISTER_VERSION:
+            raise SchemaRegisterError(
+                f"historical_compatibility.active_authority must be {ACTIVE_REGISTER_VERSION!r}"
+            )
+        _require_mapping(data.get("recursive_inventory_helper"), "recursive_inventory_helper")
+    elif version == HISTORICAL_S1_REGISTER_VERSION:
+        # Frozen S1 documents must not claim to be the active S2 authority.
+        if "historical_compatibility" in data:
+            raise SchemaRegisterError(
+                "historical S1 register must not declare historical_compatibility block"
+            )
+        if "recursive_inventory_helper" in data:
+            raise SchemaRegisterError(
+                "historical S1 register must not declare recursive_inventory_helper"
+            )
     artifacts = _require_list(data.get("artifacts"), "artifacts")
     if not artifacts:
         raise SchemaRegisterError("artifacts must be a non-empty array")
@@ -374,15 +525,13 @@ def validate_register_document(data: dict[str, Any]) -> None:
         seen_ids.add(aid)
         for mode in art["lifecycle_modes"]:
             pair = (art["filename"], mode)
-            # Multiple entries may share (filename, mode) only when one is a
-            # shared multi-mode shell and another is mode-specific (@). Reject
-            # two mode-specific or two shared duplicates.
             if pair in mode_file_pairs and "@" in aid:
-                # Check whether an existing mode-specific entry already claims this.
                 for other in artifacts[:idx]:
                     if not isinstance(other, dict):
                         continue
-                    if other.get("filename") == art["filename"] and mode in other.get("lifecycle_modes", []):
+                    if other.get("filename") == art["filename"] and mode in other.get(
+                        "lifecycle_modes", []
+                    ):
                         if "@" in str(other.get("artifact_id", "")) and other.get("artifact_id") != aid:
                             raise SchemaRegisterError(
                                 f"duplicate artifact/mode definition for {art['filename']!r} mode {mode!r}"
@@ -390,8 +539,25 @@ def validate_register_document(data: dict[str, Any]) -> None:
             mode_file_pairs.add(pair)
 
 
-def load_canonical_register(path: Path | None = None) -> CanonicalSchemaRegister:
-    """Deterministically load and structurally validate the committed register."""
+def load_canonical_register(
+    path: Path | None = None,
+    *,
+    version: str | None = None,
+) -> CanonicalSchemaRegister:
+    """Deterministically load and structurally validate a committed register.
+
+    Default (no args): active S2 register.
+    Explicit version=S1 or path to S1 file: historical compatibility load.
+    Unsupported versions fail closed. Path/version mismatch fails closed.
+    """
+    if version is not None and path is not None:
+        expected = register_path_for_version(version)
+        if path.resolve() != expected.resolve():
+            raise SchemaRegisterError(
+                f"path/version mismatch: version={version!r} expects {expected}, got {path}"
+            )
+    if version is not None and path is None:
+        path = register_path_for_version(version)
     register_path = path if path is not None else default_register_path()
     if not register_path.is_file():
         raise SchemaRegisterError(f"schema register not found: {register_path}")
@@ -403,4 +569,45 @@ def load_canonical_register(path: Path | None = None) -> CanonicalSchemaRegister
     if not isinstance(data, dict):
         raise SchemaRegisterError("schema register root must be a JSON object")
     validate_register_document(data)
+    if version is not None and data.get("schema_register_version") != version:
+        raise SchemaRegisterError(
+            f"loaded register version {data.get('schema_register_version')!r} "
+            f"does not match requested {version!r}"
+        )
     return CanonicalSchemaRegister(data, source_path=register_path.resolve())
+
+
+def load_active_register() -> CanonicalSchemaRegister:
+    """Load the single active S2 canonical authority."""
+    reg = load_canonical_register(version=ACTIVE_REGISTER_VERSION)
+    if not reg.is_active_authority:
+        raise SchemaRegisterError("active register load did not yield S2 authority")
+    return reg
+
+
+def load_historical_s1_register() -> CanonicalSchemaRegister:
+    """Explicit historical S1 load (compatibility only; not coequal authority)."""
+    reg = load_canonical_register(version=HISTORICAL_S1_REGISTER_VERSION)
+    if not reg.is_historical_s1:
+        raise SchemaRegisterError("historical S1 load did not yield S1 register")
+    return reg
+
+
+def is_s2_shaped_package_identity(fields: dict[str, str]) -> bool:
+    return any(key in fields for key in S2_PACKAGE_IDENTITY_MARKERS)
+
+
+def is_s2_shaped_preliminary_deviations(fields: dict[str, str]) -> bool:
+    return any(key in fields for key in S2_PRELIM_DEVIATIONS_MARKERS)
+
+
+def is_s2_shaped_final_deviations(fields: dict[str, str]) -> bool:
+    return "deviation_count" in fields
+
+
+def is_s2_not_applicable_terminal(fields: dict[str, str]) -> bool:
+    return fields.get("status") == "NOT_APPLICABLE" and "applicability" in fields
+
+
+def is_s2_host_run_metadata(text: str) -> bool:
+    return HOST_RUN_METADATA_ENTRY_BEGIN in text

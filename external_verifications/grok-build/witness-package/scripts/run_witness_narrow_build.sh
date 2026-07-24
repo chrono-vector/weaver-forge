@@ -194,6 +194,7 @@ OUTCOME="BUILD_NOT_STARTED"
 FAILURE_STAGE="none"
 
 WF_TAG_RAW_OBJECT_TYPE=""
+WF_TAG_REF=""
 EVIDENCE_DIR=""
 # Pre-Docker source integrity snapshot (Phase 2B); filled before docker run.
 PRE_DOCKER_SRC_HEAD=""
@@ -292,6 +293,45 @@ write_not_reached() {
     echo "product_executed=NO"
     echo "ldd_used=NO"
   } > "${path}"
+}
+
+# Phase 4-S2: outcome-specific NOT_APPLICABLE terminal for BOOTSTRAP /
+# BUILD_COMMAND / BUILD_ENVIRONMENT. Initialization may still use
+# write_not_reached; finalized S2 packages must not retain raw NOT_REACHED.
+write_s2_not_applicable_terminal() {
+  local path="$1"
+  local outcome="$2"
+  local stage="$3"
+  local reason="$4"
+  {
+    echo "evidence_schema_version=1"
+    echo "status=NOT_APPLICABLE"
+    echo "applicability=not_applicable"
+    echo "reason=${reason}"
+    echo "authoritative_outcome=${outcome}"
+    echo "failure_stage=${stage}"
+    echo "product_executed=NO"
+    echo "ldd_used=NO"
+  } > "${path}"
+}
+
+# Phase 4-S2: exact HOST_RUN_METADATA append-entry grammar (owner=host).
+# Required key order is normative; unknown keys are rejected by the validator.
+append_host_run_metadata_entry() {
+  local entry_kind="$1"
+  local payload="$2"
+  local target="${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+  [[ -n "${EVIDENCE_DIR}" ]] || return 0
+  {
+    echo "BEGIN_HOST_RUN_METADATA_ENTRY"
+    echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
+    echo "witness_id=${WITNESS_ID}"
+    echo "entry_kind=${entry_kind}"
+    echo "entry_utc=$(utc_now)"
+    echo "payload=${payload}"
+    echo "END_HOST_RUN_METADATA_ENTRY"
+  } >> "${target}"
 }
 
 # Read the first "key=value" line from a file, tolerant of no match (never
@@ -1607,16 +1647,9 @@ finalize_post_docker_host_failure() {
   fi
 
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "--- finalize_post_docker_host_failure ---"
-      echo "utc_finalized=$(utc_now)"
-      echo "finalized_stage=${stage}"
-      echo "host_infrastructure_status=${HOST_INFRASTRUCTURE_STATUS}"
-      echo "host_source_integrity_status=${HOST_SOURCE_INTEGRITY_STATUS}"
-      echo "preliminary_success_eligible=NO"
-      echo "container_result_valid=${CONTAINER_RESULT_VALID}"
-      echo "container_result_error=${CONTAINER_RESULT_ERROR}"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" 2>/dev/null || true
+    append_host_run_metadata_entry "finalize_post_docker_host_failure" \
+      "finalized_stage=${stage};host_infrastructure_status=${HOST_INFRASTRUCTURE_STATUS};host_source_integrity_status=${HOST_SOURCE_INTEGRITY_STATUS};preliminary_success_eligible=NO;container_result_valid=${CONTAINER_RESULT_VALID};container_result_error=${CONTAINER_RESULT_ERROR}" \
+      || true
   fi
 
   HOST_FINALIZING_IN_PROGRESS="NO"
@@ -1686,13 +1719,11 @@ assert_raw_annotated_package_tag_type() {
   local observed=""
   observed="$(git -C "${WF_DIR}" cat-file -t "${tag_ref}" 2>/dev/null || true)"
   WF_TAG_RAW_OBJECT_TYPE="${observed}"
+  WF_TAG_REF="${tag_ref}"
 
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "weaver_forge_tag_ref=${tag_ref}"
-      echo "weaver_forge_tag_raw_object_type=${WF_TAG_RAW_OBJECT_TYPE:-<empty>}"
-      echo "weaver_forge_tag_raw_object_type_required=tag"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "annotated_tag_raw_object_check" \
+      "tag_ref=${tag_ref};observed=${WF_TAG_RAW_OBJECT_TYPE:-<empty>};required=tag"
   fi
 
   if [[ "${observed}" != "tag" ]]; then
@@ -1700,11 +1731,24 @@ assert_raw_annotated_package_tag_type() {
       echo "evidence_schema_version=1"
       echo "status=FAILED"
       echo "reason=package_tag_raw_object_type_not_annotated_tag"
+      echo "witness_id=${WITNESS_ID}"
+      echo "run_id=${RUN_ID}"
+      echo "package_version=${PACKAGE_VERSION}"
       echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
       echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
-      echo "package_version=${PACKAGE_VERSION}"
-      echo "weaver_forge_tag_raw_object_type_observed=${observed:-<empty>}"
+      echo "weaver_forge_tag_ref=${tag_ref}"
       echo "weaver_forge_tag_raw_object_type_required=tag"
+      echo "weaver_forge_tag_raw_object_type_observed=${observed:-<empty>}"
+      echo "weaver_forge_tag_peeled_commit=NOT_REACHED"
+      echo "weaver_forge_commit_resolved=NOT_REACHED"
+      echo "package_clone_head=NOT_REACHED"
+      echo "package_clone_detached=no"
+      echo "package_clone_clean_status=no"
+      echo "tag_head_match=no"
+      echo "package_commit_authority=annotated_tag_resolution"
+      echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
+      echo "canonical_run=no"
+      echo "noncanonical_disclosure=raw_tag_object_type_not_annotated_tag"
     } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
     finalize_pre_docker_infrastructure_failure "weaver_forge_tag_raw_object_type" 3 \
       "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} raw object type must be 'tag' (annotated); observed='${observed:-<empty>}'"
@@ -1715,11 +1759,8 @@ assert_raw_annotated_package_tag_type() {
 close_identity_gate() {
   IDENTITY_GATE_CLOSED="yes"
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "identity_gate_closed=yes"
-      echo "identity_gate_closed_utc=$(utc_now)"
-      echo "identity_gate_requires_before_any_docker_cli=yes"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "identity_gate_closed" \
+      "identity_gate_closed=yes;requires_before_any_docker_cli=yes"
   fi
 }
 
@@ -2047,12 +2088,8 @@ validate_mount_plan() {
   done
 
   if [[ -n "${EVIDENCE_DIR:-}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "mount_plan_validated=yes"
-      echo "mount_plan_validated_utc=$(utc_now)"
-      echo "mount_plan_broad_work_root_mount=prohibited"
-      echo "mount_plan_entry_count=${#MOUNT_PLAN[@]}"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "mount_plan_validated" \
+      "mount_plan_validated=yes;mount_plan_broad_work_root_mount=prohibited;mount_plan_entry_count=${#MOUNT_PLAN[@]}"
   fi
   return 0
 }
@@ -2065,10 +2102,8 @@ record_pre_docker_source_integrity_snapshot() {
     PRE_DOCKER_SRC_CLEAN="no"
   fi
   if [[ -n "${EVIDENCE_DIR:-}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "pre_docker_source_head=${PRE_DOCKER_SRC_HEAD}"
-      echo "pre_docker_source_clean=${PRE_DOCKER_SRC_CLEAN}"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "pre_docker_source_integrity_snapshot" \
+      "pre_docker_source_head=${PRE_DOCKER_SRC_HEAD};pre_docker_source_clean=${PRE_DOCKER_SRC_CLEAN}"
   fi
 }
 
@@ -2089,13 +2124,8 @@ enforce_post_docker_source_integrity_boundary() {
   PRELIMINARY_SUCCESS_ELIGIBLE="NO"
 
   if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "post_docker_source_integrity_failed=yes"
-      echo "post_docker_source_head_unchanged=${head_ok}"
-      echo "post_docker_source_clean_after=${clean_ok}"
-      echo "host_source_integrity_status=FAILED"
-      echo "preliminary_success_eligible=NO"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "post_docker_source_integrity_failed" \
+      "post_docker_source_head_unchanged=${head_ok};post_docker_source_clean_after=${clean_ok};host_source_integrity_status=FAILED;preliminary_success_eligible=NO"
   fi
 
   # Delegate missing/empty/malformed/valid result handling to the centralized
@@ -2141,6 +2171,10 @@ compute_verdict_ceiling() {
     return 0
   fi
 
+  # Noncanonical identity deviation: Witness proposed verdict PASS is PREVENTED
+  # for this run. Proposed verdict is capped at ${VERDICT_CEILING} after the
+  # material/partial classification below (Phase 4-S2: retained as host policy
+  # commentary; not emitted as a Witness-persona DEVIATIONS field).
   VERDICT_CEILING="PARTIAL"
   local name field
   for name in "${CHANGED_IDENTITY_FIELD_NAMES[@]}"; do
@@ -2186,23 +2220,55 @@ finalize_pre_docker_infrastructure_failure() {
   local f path is_pre_gate
   for f in "${pre_gate_sensitive[@]}"; do
     path="${EVIDENCE_DIR}/${f}"
-    {
-      echo "evidence_schema_version=1"
-      echo "status=FAILED"
-      echo "outcome=INFRASTRUCTURE_FAILURE"
-      echo "applicable=no"
-      echo "inspection_applicable=no"
-      echo "artifact_present=no"
-      echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
-      echo "failure_stage=${stage}"
-      echo "cargo_started=NO"
-      echo "product_executed=NO"
-      echo "ldd_used=NO"
-    } > "${path}"
+    if [[ "${f}" == "WEAVER_FORGE_PACKAGE_IDENTITY.txt" ]]; then
+      {
+        echo "evidence_schema_version=1"
+        echo "status=FAILED"
+        echo "witness_id=${WITNESS_ID:-NOT_REACHED}"
+        echo "run_id=${RUN_ID:-NOT_REACHED}"
+        echo "package_version=${PACKAGE_VERSION:-NOT_REACHED}"
+        echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL:-NOT_REACHED}"
+        echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG:-NOT_REACHED}"
+        echo "weaver_forge_tag_ref=${WF_TAG_REF:-refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG:-NOT_REACHED}}"
+        echo "weaver_forge_tag_raw_object_type_required=tag"
+        echo "weaver_forge_tag_raw_object_type_observed=${WF_TAG_RAW_OBJECT_TYPE:-NOT_REACHED}"
+        echo "weaver_forge_tag_peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT:-NOT_REACHED}"
+        echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT:-NOT_REACHED}"
+        echo "package_clone_head=${WF_HEAD:-NOT_REACHED}"
+        echo "package_clone_detached=${WF_DETACHED:-no}"
+        echo "package_clone_clean_status=${WF_CLEAN:-no}"
+        echo "tag_head_match=${TAG_HEAD_MATCH:-no}"
+        echo "package_commit_authority=annotated_tag_resolution"
+        echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT:-NOT_REACHED}"
+        echo "canonical_run=no"
+        echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+        echo "noncanonical_disclosure=pre_docker_infrastructure_failure"
+      } > "${path}"
+    else
+      {
+        echo "evidence_schema_version=1"
+        echo "status=FAILED"
+        echo "outcome=INFRASTRUCTURE_FAILURE"
+        echo "applicable=no"
+        echo "inspection_applicable=no"
+        echo "artifact_present=no"
+        echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+        echo "failure_stage=${stage}"
+        echo "cargo_started=NO"
+        echo "product_executed=NO"
+        echo "ldd_used=NO"
+      } > "${path}"
+    fi
   done
 
   # Remaining mandatory files: rewrite empty/NOT_REACHED, and also any
   # provisional status=OK that appeared before identity-gate closure.
+  # PLACEHOLDER_ELIGIBLE files receive S2 NOT_APPLICABLE terminals.
+  local placeholder_eligible=(
+    BOOTSTRAP.txt
+    BUILD_COMMAND.txt
+    BUILD_ENVIRONMENT.txt
+  )
   for f in "${MANDATORY_EVIDENCE_FILES[@]}"; do
     is_pre_gate=0
     for path in "${pre_gate_sensitive[@]}"; do
@@ -2210,6 +2276,20 @@ finalize_pre_docker_infrastructure_failure() {
     done
     [[ "${is_pre_gate}" -eq 1 ]] && continue
     path="${EVIDENCE_DIR}/${f}"
+    local is_placeholder=0
+    local pe
+    for pe in "${placeholder_eligible[@]}"; do
+      [[ "${f}" == "${pe}" ]] && is_placeholder=1 && break
+    done
+    if [[ "${is_placeholder}" -eq 1 ]]; then
+      if [[ ! -s "${path}" ]] \
+        || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null \
+        || { [[ "${IDENTITY_GATE_CLOSED}" != "yes" ]] && grep -q '^status=OK$' "${path}" 2>/dev/null; }; then
+        write_s2_not_applicable_terminal "${path}" "INFRASTRUCTURE_FAILURE" "${stage}" \
+          "pre_docker_infrastructure_failure_at_stage_${stage}"
+      fi
+      continue
+    fi
     if [[ ! -s "${path}" ]] \
       || grep -q '^status=NOT_REACHED$' "${path}" 2>/dev/null \
       || { [[ "${IDENTITY_GATE_CLOSED}" != "yes" ]] && grep -q '^status=OK$' "${path}" 2>/dev/null; }; then
@@ -2311,13 +2391,9 @@ finalize_pre_docker_infrastructure_failure() {
     echo "ERROR: host-owned POST_BUILD_INTEGRITY.txt write failed during pre-Docker finalization" >&2
 
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "--- finalize_pre_docker_infrastructure_failure ---"
-      echo "utc_finalized=$(utc_now)"
-      echo "finalized_stage=${stage}"
-      echo "finalized_outcome=INFRASTRUCTURE_FAILURE"
-      echo "finalized_exit_code=${exit_code}"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" 2>/dev/null || true
+    append_host_run_metadata_entry "finalize_pre_docker_infrastructure_failure" \
+      "finalized_stage=${stage};finalized_outcome=INFRASTRUCTURE_FAILURE;finalized_exit_code=${exit_code}" \
+      || true
   fi
 
   abort "${exit_code}" "${message}"
@@ -2711,13 +2787,8 @@ collect_host_environment_facts() {
   # Leave ENVIRONMENT.txt as NOT_REACHED until post-gate publication.
   # Record non-schema diagnostics only.
   if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "host_env_facts_collected_utc=${HOST_ENV_UTC}"
-      echo "host_env_facts_collected_pre_identity_gate=yes"
-      echo "host_os_observed=${HOST_ENV_OS}"
-      echo "host_arch_observed=${HOST_ENV_ARCH}"
-      echo "environment_schema_status_pending_identity_gate=yes"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "host_env_facts_collected" \
+      "host_os_observed=${HOST_ENV_OS};host_arch_observed=${HOST_ENV_ARCH};environment_schema_status_pending_identity_gate=yes"
   fi
 }
 
@@ -2779,12 +2850,8 @@ record_docker_environment_metadata() {
   } > "${EVIDENCE_DIR}/ENVIRONMENT.txt"
 
   if [[ -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
-    {
-      echo "docker_metadata_recorded_after_identity_gate=yes"
-      echo "docker_client_version=${docker_client}"
-      echo "docker_server_version=${docker_server}"
-      echo "docker_context=${docker_ctx}"
-    } >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+    append_host_run_metadata_entry "docker_metadata_recorded" \
+      "docker_metadata_recorded_after_identity_gate=yes;docker_client_version=${docker_client};docker_server_version=${docker_server};docker_context=${docker_ctx}"
   fi
 }
 
@@ -2807,6 +2874,7 @@ DOCKER_EXIT=""
 EVIDENCE_DIR=""
 RUN_ID=""
 WF_TAG_RAW_OBJECT_TYPE=""
+WF_TAG_REF=""
 HOST_FINALIZING_IN_PROGRESS="NO"
 HOST_OUTCOME_INGESTION_WRITTEN="NO"
 HOST_OUTCOME_INGESTION_FINGERPRINT=""
@@ -2944,53 +3012,19 @@ init_mandatory_evidence
 # STEP 8: HOST_RUN_METADATA.txt (allowed aux) + DEVIATIONS.txt (required)
 # ---------------------------------------------------------------------------
 mark_stage "step8_host_run_metadata_and_deviations"
-{
-  echo "evidence_schema_version=1"
-  echo "run_id=${RUN_ID}"
-  echo "witness_id=${WITNESS_ID}"
-  echo "package_version=${PACKAGE_VERSION}"
-  echo "utc_start=$(utc_now)"
-  echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
-  echo "verdict_ceiling=${VERDICT_CEILING}"
-  echo "--- canonical identity ---"
-  echo "CANONICAL_WEAVER_FORGE_URL=${CANONICAL_WEAVER_FORGE_URL}"
-  echo "CANONICAL_WEAVER_FORGE_TAG=${CANONICAL_WEAVER_FORGE_TAG}"
-  echo "package_commit_authority=annotated_tag_resolution"
-  echo "CANONICAL_GROK_BUILD_URL=${CANONICAL_GROK_BUILD_URL}"
-  echo "CANONICAL_GROK_BUILD_COMMIT=${CANONICAL_GROK_BUILD_COMMIT}"
-  echo "CANONICAL_RUST_IMAGE=${CANONICAL_RUST_IMAGE}"
-  echo "CANONICAL_IMAGE_DIGEST=${CANONICAL_IMAGE_DIGEST}"
-  echo "CANONICAL_CARGO_LOCK_SHA256=${CANONICAL_CARGO_LOCK_SHA256}"
-  echo "CANONICAL_BUILD_CMD=${CANONICAL_BUILD_CMD}"
-  echo "CANONICAL_EXPECTED_RUSTC_VERSION=${CANONICAL_EXPECTED_RUSTC_VERSION}"
-  echo "CANONICAL_EXPECTED_DOTSLASH_VERSION=${CANONICAL_EXPECTED_DOTSLASH_VERSION}"
-  echo "--- effective identity (used for this run) ---"
-  echo "EFFECTIVE_WEAVER_FORGE_URL=${EFFECTIVE_WEAVER_FORGE_URL}"
-  echo "EFFECTIVE_WEAVER_FORGE_TAG=${EFFECTIVE_WEAVER_FORGE_TAG}"
-  echo "EFFECTIVE_GROK_BUILD_URL=${EFFECTIVE_GROK_BUILD_URL}"
-  echo "EFFECTIVE_GROK_BUILD_COMMIT=${EFFECTIVE_GROK_BUILD_COMMIT}"
-  echo "EFFECTIVE_RUST_IMAGE=${EFFECTIVE_RUST_IMAGE}"
-  echo "EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256=${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
-  echo "EFFECTIVE_BUILD_CMD=${EFFECTIVE_BUILD_CMD}"
-  echo "EFFECTIVE_EXPECTED_RUSTC_VERSION=${EFFECTIVE_EXPECTED_RUSTC_VERSION}"
-  echo "EFFECTIVE_EXPECTED_DOTSLASH_VERSION=${EFFECTIVE_EXPECTED_DOTSLASH_VERSION}"
-  echo "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT:-<not_supplied>}"
-  echo "WORK_ROOT=${WORK_ROOT}"
-  echo "WORK_ROOT_RESOLVED=${WORK_ROOT_RESOLVED}"
-  echo "WF_DIR=${WF_DIR}"
-  echo "SRC_DIR=${SRC_DIR}"
-  echo "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
-  echo "BOOTSTRAP_CARGO_TARGET_DIR=${BOOTSTRAP_CARGO_TARGET_DIR}"
-  echo "EVIDENCE_DIR=${EVIDENCE_DIR}"
-  echo "evidence_dir_allocation=atomic_mkdir"
-  echo "evidence_dir_atomic=yes"
-  echo "--- closed auxiliary-file allow-list (RC3B-021) ---"
-  echo "allowed_aux_evidence_files=${ALLOWED_AUX_EVIDENCE_FILES[*]}"
-  echo "--- validator output policy ---"
-  echo "validator_output_policy=Validator (validate_witness_evidence.py) stdout/stderr MUST be captured OUTSIDE EVIDENCE_DIR. Do not redirect validator output into EVIDENCE_DIR at any time, and never write validator output into the evidence tree after the final manifest has been generated."
-  echo "--- manifest lifecycle ---"
-  echo "manifest_lifecycle=This run writes a PRELIMINARY EVIDENCE_MANIFEST.sha256 covering automated evidence only. Finalization is REQUIRED after WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, and REDACTIONS.md are completed; regenerate the manifest from within EVIDENCE_DIR using ./relative paths before submission."
-} > "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+: > "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+append_host_run_metadata_entry "run_start" \
+  "package_version=${PACKAGE_VERSION};canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES);verdict_ceiling=${VERDICT_CEILING};work_root=${WORK_ROOT_RESOLVED};evidence_dir=${EVIDENCE_DIR};evidence_dir_allocation=atomic_mkdir"
+append_host_run_metadata_entry "canonical_identity" \
+  "CANONICAL_WEAVER_FORGE_URL=${CANONICAL_WEAVER_FORGE_URL};CANONICAL_WEAVER_FORGE_TAG=${CANONICAL_WEAVER_FORGE_TAG};package_commit_authority=annotated_tag_resolution;CANONICAL_GROK_BUILD_COMMIT=${CANONICAL_GROK_BUILD_COMMIT}"
+append_host_run_metadata_entry "effective_identity" \
+  "EFFECTIVE_WEAVER_FORGE_URL=${EFFECTIVE_WEAVER_FORGE_URL};EFFECTIVE_WEAVER_FORGE_TAG=${EFFECTIVE_WEAVER_FORGE_TAG};EFFECTIVE_GROK_BUILD_COMMIT=${EFFECTIVE_GROK_BUILD_COMMIT}"
+append_host_run_metadata_entry "closed_aux_allow_list" \
+  "allowed_aux_evidence_files=${ALLOWED_AUX_EVIDENCE_FILES[*]}"
+append_host_run_metadata_entry "validator_output_policy" \
+  "policy=Validator stdout/stderr MUST be captured OUTSIDE EVIDENCE_DIR"
+append_host_run_metadata_entry "manifest_lifecycle" \
+  "lifecycle=preliminary_manifest_then_finalization_required"
 
 NONCANONICAL_DISCLOSURE_TEXT="none"
 if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
@@ -2999,29 +3033,19 @@ fi
 
 {
   echo "evidence_schema_version=1"
-  echo "deviation_state=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo PRESENT || echo NONE)"
-  echo "status=RECORDED"
-  echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
-  echo "verdict_ceiling=${VERDICT_CEILING}"
-  echo "noncanonical_disclosure=${NONCANONICAL_DISCLOSURE_TEXT}"
   if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
-    echo "noncanonical_deviation_flag_present=yes"
-    echo "changed_identity_field_count=${#CHANGED_IDENTITY_FIELDS[@]}"
-    echo "--- changed identity fields ---"
-    local_field=""
-    for local_field in "${CHANGED_IDENTITY_FIELDS[@]}"; do
-      echo "  ${local_field}"
-    done
-    echo "verdict_impact=Witness proposed verdict PASS is PREVENTED for this run. Proposed verdict is capped at ${VERDICT_CEILING}."
+    echo "deviation_state=PRESENT"
+    echo "deviation_count=${#CHANGED_IDENTITY_FIELDS[@]}"
+    echo "automated_summary=noncanonical_identity_fields_changed:${NONCANONICAL_DISCLOSURE_TEXT}"
   else
-    echo "noncanonical_deviation_flag_present=no"
-    echo "changed_identity_field_count=0"
-    echo "verdict_impact=No automated identity deviations recorded; this section does not by itself establish PASS eligibility for the other classification rules in WITNESS_CLASSIFICATION.md."
+    echo "deviation_state=NONE"
+    echo "deviation_count=0"
+    echo "automated_summary=no_automated_identity_deviations"
   fi
 } > "${EVIDENCE_DIR}/${DEVIATIONS_FILE_NAME}"
 
-echo "--- WORK_ROOT deletion targets recorded to HOST_RUN_METADATA.txt ---" >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
-work_root_managed_targets >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+append_host_run_metadata_entry "work_root_deletion_targets" \
+  "$(work_root_managed_targets | tr '\n' ';' | sed 's/;$//')"
 
 # ---------------------------------------------------------------------------
 # STEP 9: DOCKER_EXIT_CODE.txt authoritative writer (declared here; used both
@@ -3189,6 +3213,10 @@ fi
   echo "package_version=${PACKAGE_VERSION}"
   echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
   echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
+  echo "weaver_forge_tag_ref=${WF_TAG_REF:-refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}}"
+  echo "weaver_forge_tag_raw_object_type_required=tag"
+  echo "weaver_forge_tag_raw_object_type_observed=${WF_TAG_RAW_OBJECT_TYPE}"
+  echo "weaver_forge_tag_peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT}"
   echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
   echo "package_clone_head=${WF_HEAD}"
   echo "package_clone_detached=${WF_DETACHED}"
@@ -3789,18 +3817,8 @@ mark_stage "step21_manifest_generation"
   cd "${EVIDENCE_DIR}"
   find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum
 ) > "${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
-{
-  echo "manifest_generation=preliminary"
-  echo "manifest_finalization_required=yes (regenerate after WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md)"
-  echo "manifest_generation_command=cd \"\${EVIDENCE_DIR}\" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256"
-  echo "utc_end=$(utc_now)"
-  echo "final_outcome=${OUTCOME}"
-  echo "final_failure_stage=${FAILURE_STAGE}"
-  echo "final_verdict_ceiling=${VERDICT_CEILING}"
-  echo "final_canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo NO || echo YES)"
-  echo "final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
-  echo "final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
-} >> "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt"
+append_host_run_metadata_entry "preliminary_manifest_generated" \
+  "manifest_generation=preliminary;final_outcome=${OUTCOME};final_failure_stage=${FAILURE_STAGE};final_verdict_ceiling=${VERDICT_CEILING};final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK};final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
 
 # ---------------------------------------------------------------------------
 # STEP 21b (Phase 3F-B): host-preliminary validator after preliminary manifest.

@@ -578,11 +578,21 @@ _terminalize_bootstrap_file() {
     return 0
   fi
   if [[ "${status}" == "NOT_REACHED" ]]; then
-    # Early pre-bootstrap failure: NOT_REACHED remains the schema-permitted
-    # placeholder terminal for PLACEHOLDER_ELIGIBLE BOOTSTRAP.txt.
+    # Phase 4-S2: early pre-bootstrap failure finalizes to NOT_APPLICABLE.
     # Partial bootstrap content without completion: mark FAILED.
     if grep -qE '^(apt_packages|dotslash_|protoc_)' "${f}" 2>/dev/null; then
       replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+    else
+      write_evidence_file_atomic "${f}" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_APPLICABLE
+applicability=not_applicable
+reason=stage_not_reached_before_bootstrap
+authoritative_outcome=${outcome}
+failure_stage=${stage}
+product_executed=NO
+ldd_used=NO
+EOF
     fi
     return 0
   fi
@@ -596,6 +606,7 @@ _terminalize_bootstrap_file() {
 
 _terminalize_build_command_file() {
   local outcome="$1"
+  local stage="${2:-${FAILURE_STAGE:-unknown}}"
   local f="${EVIDENCE}/BUILD_COMMAND.txt"
   local status
   [[ -f "${f}" ]] || return 0
@@ -604,9 +615,17 @@ _terminalize_build_command_file() {
     if [[ "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_PRESENT" || "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_MISSING" || "${outcome}" == "CARGO_FAILED" ]]; then
       replace_kv_file_atomic "${f}" "status" "RECORDED" || return 1
     else
-      # Early failure: FAILED is a truthful terminal alternative to NOT_REACHED
-      # when exact_build_command facts are already present from init.
-      replace_kv_file_atomic "${f}" "status" "FAILED" || return 1
+      # Phase 4-S2: early failure finalizes to NOT_APPLICABLE (not FAILED/NOT_REACHED).
+      write_evidence_file_atomic "${f}" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_APPLICABLE
+applicability=not_applicable
+reason=stage_not_reached_before_build_command
+authoritative_outcome=${outcome}
+failure_stage=${stage}
+product_executed=NO
+ldd_used=NO
+EOF
     fi
   fi
   return 0
@@ -614,17 +633,31 @@ _terminalize_build_command_file() {
 
 _terminalize_build_environment_file() {
   local outcome="$1"
+  local stage="${2:-${FAILURE_STAGE:-unknown}}"
   local f="${EVIDENCE}/BUILD_ENVIRONMENT.txt"
   local status
   [[ -f "${f}" ]] || return 0
   status="$(read_kv "${f}" "status" "")"
-  # status vocabulary is OK|RECORDED|NOT_REACHED only — no FAILED alternative.
   if [[ "${status}" == "NOT_REACHED" ]]; then
-    replace_kv_file_atomic "${f}" "outcome" "${outcome}" || return 1
-    local path_val
-    path_val="$(read_kv "${f}" "path" "")"
-    if [[ "${path_val}" == "NOT_REACHED" ]]; then
-      replace_kv_file_atomic "${f}" "path" "NOT_APPLICABLE" || return 1
+    if [[ "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_PRESENT" || "${outcome}" == "CARGO_SUCCEEDED_ARTIFACT_MISSING" || "${outcome}" == "CARGO_FAILED" ]]; then
+      replace_kv_file_atomic "${f}" "outcome" "${outcome}" || return 1
+      local path_val
+      path_val="$(read_kv "${f}" "path" "")"
+      if [[ "${path_val}" == "NOT_REACHED" ]]; then
+        replace_kv_file_atomic "${f}" "path" "NOT_APPLICABLE" || return 1
+      fi
+    else
+      # Phase 4-S2: early failure finalizes to NOT_APPLICABLE.
+      write_evidence_file_atomic "${f}" <<EOF || return 1
+evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+status=NOT_APPLICABLE
+applicability=not_applicable
+reason=stage_not_reached_before_build_environment
+authoritative_outcome=${outcome}
+failure_stage=${stage}
+product_executed=NO
+ldd_used=NO
+EOF
     fi
   fi
   return 0
@@ -856,8 +889,8 @@ finalize_container_terminal_outcome() {
 
   _terminalize_clean_target_state "${outcome}" "${failure_stage}" || write_rc=1
   _terminalize_bootstrap_file "${outcome}" "${failure_stage}" || write_rc=1
-  _terminalize_build_command_file "${outcome}" || write_rc=1
-  _terminalize_build_environment_file "${outcome}" || write_rc=1
+  _terminalize_build_command_file "${outcome}" "${failure_stage}" || write_rc=1
+  _terminalize_build_environment_file "${outcome}" "${failure_stage}" || write_rc=1
   _terminalize_environment_file "${outcome}" || write_rc=1
 
   write_outcome_evidence \

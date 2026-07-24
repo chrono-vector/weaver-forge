@@ -148,18 +148,21 @@ invocation (neither mode flag) is a **compatibility alias** to
 Final-submission structural PASS does **not** claim Independent Witness PASS,
 final eligibility, READY, or rc5 readiness.
 
-### Canonical schema register (Phase 4-S1)
+### Canonical schema register (Phase 4-S2 active)
 
 Machine-readable schema authority for the rc5 remediation path:
 
-- Register: `schemas/canonical_schema_register_rc5_phase4_s1.json`
-- Version: `rc5-phase4-s1.1`
-- Loader: `scripts/schema_register_loader.py`
+- Active register: `schemas/canonical_schema_register_rc5_phase4_s2.json`
+- Active version: `rc5-phase4-s2.1`
+- Historical compatibility register (frozen): `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
+- Loader: `scripts/schema_register_loader.py` (default load = S2; explicit S1 load for historical compatibility only)
 
-The register fails closed on unsupported versions, unknown keys, duplicate
+The active S2 register fails closed on unsupported versions, unknown keys, duplicate
 artifact/mode definitions, unknown lifecycle modes, and contradictory
-required/optional field definitions. S2/S3 target schemas may be represented
-with explicit future-alignment activation and are not falsely enforced in S1.
+required/optional field definitions. Historical fixtures without S2 identity
+markers remain accepted through the explicit S1 compatibility path. S2-shaped
+evidence is never silently downgraded. S3 final-manifest cryptographic closure and
+`evidence_inventory_complete` transitions remain future.
 
 **RC4 remains NOT READY. No rc5 tag exists.** No Independent Witness
 reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
@@ -169,12 +172,15 @@ reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
 On a pre-container / pre-cargo failure path the container never overwrites the
 host's initial placeholders for `BOOTSTRAP.txt`, `BUILD_COMMAND.txt`, and
 `BUILD_ENVIRONMENT.txt`. When such a file is still `status=NOT_REACHED` **and**
-the overall outcome is `BUILD_NOT_STARTED` or `INFRASTRUCTURE_FAILURE`, the
-validator accepts the placeholder without enforcing that file's full field
-schema or semantic checks (`placeholder_skip`). For any other outcome the
-full schema is enforced. Likewise, `STATIC_ARTIFACT_INSPECTION.txt`'s per-tool
-`*_exit_code` fields may be a `NOT_APPLICABLE`/`NOT_REACHED` sentinel (not just
-empty or numeric) when `applicable=no`.
+the overall outcome is `BUILD_NOT_STARTED` or `INFRASTRUCTURE_FAILURE`, **and**
+the package is historical (no S2 identity markers), the validator accepts the
+placeholder without enforcing that file's full field schema or semantic checks
+(`placeholder_skip`). For S2-shaped packages, finalized terminal evidence must
+use the activated `NOT_APPLICABLE` early-failure schema (or the applicable full
+schema); raw `NOT_REACHED` must not survive terminal finalization. For any other
+outcome the full schema is enforced. Likewise, `STATIC_ARTIFACT_INSPECTION.txt`'s
+per-tool `*_exit_code` fields may be a `NOT_APPLICABLE`/`NOT_REACHED` sentinel
+(not just empty or numeric) when `applicable=no`.
 
 ### `BUILD_EXIT_CODE.txt` `status` mirrors static-inspection completeness
 

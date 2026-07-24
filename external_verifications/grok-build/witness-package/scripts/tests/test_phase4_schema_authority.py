@@ -83,9 +83,11 @@ def _copy_success_without_manuals(dest: Path) -> Path:
 
 class SchemaRegisterLoaderTests(unittest.TestCase):
     def test_01_register_parses_successfully(self) -> None:
+        # Historical S1 register remains loadable and truthful.
         reg = srl.load_canonical_register(REGISTER_PATH)
         self.assertEqual(reg.schema_register_version, "rc5-phase4-s1.1")
         self.assertEqual(reg.evidence_schema_version, "1")
+        self.assertTrue(reg.is_historical_s1)
 
     def test_02_supported_version_accepted_unsupported_rejected(self) -> None:
         ok = _base_register()
@@ -165,6 +167,7 @@ class SchemaRegisterLoaderTests(unittest.TestCase):
         self.assertTrue(reg.field_order_normative("POST_BUILD_INTEGRITY.txt", "final-submission"))
         legal = reg.legal_values("DEVIATIONS.txt", "final-submission")
         self.assertIn("NONE", legal.get("deviation_state", ()))
+        # Frozen S1 historical truth: HOST_RUN_METADATA was future S2 at S1 time.
         self.assertEqual(
             reg.activation("HOST_RUN_METADATA.txt", "host-preliminary"),
             "defined_future_s2_writer_alignment",
@@ -295,10 +298,12 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             ),
             "exact",
         )
-        # Annotated-tag future fields are defined but not in current required map.
+        # Historical S1 register: annotated-tag / NOT_APPLICABLE targets were
+        # future-only at S1 (frozen truth preserved).
+        s1 = srl.load_historical_s1_register()
         pkg = [
             a
-            for a in v._SCHEMA_REGISTER.raw["artifacts"]
+            for a in s1.raw["artifacts"]
             if a["filename"] == "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
         ][0]
         future = pkg["future_alignment_fields"]
@@ -306,16 +311,33 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         future_names = {f["name"] for f in future["fields"]}
         self.assertIn("weaver_forge_tag_raw_object_type_observed", future_names)
         self.assertIn("weaver_forge_tag_peeled_commit", future_names)
+        # Historical compatibility projection still does not force S2 tag fields
+        # onto historical fixtures.
         self.assertNotIn(
             "weaver_forge_tag_peeled_commit",
             v.FILE_REQUIRED_FIELDS["WEAVER_FORGE_PACKAGE_IDENTITY.txt"],
         )
-        # Early-failure NOT_APPLICABLE target is future S2.
-        boot = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
-        variants = {x["variant_id"]: x for x in boot["conditional_variants"]}
+        boot_s1 = s1.lookup("BOOTSTRAP.txt", "host-preliminary")
+        variants_s1 = {x["variant_id"]: x for x in boot_s1["conditional_variants"]}
         self.assertEqual(
-            variants["early_failure_not_applicable_target"]["activation"],
+            variants_s1["early_failure_not_applicable_target"]["activation"],
             "defined_future_s2_writer_alignment",
+        )
+        # Active S2 register additively supersedes those S1 future targets.
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
+        self.assertEqual(
+            v._SCHEMA_REGISTER.supersession().get("supersedes"),
+            srl.HISTORICAL_S1_REGISTER_VERSION,
+        )
+        boot_s2 = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
+        variants_s2 = {x["variant_id"]: x for x in boot_s2["conditional_variants"]}
+        self.assertEqual(
+            variants_s2["early_failure_not_applicable_target"]["activation"],
+            "enforced_s2_writer_aligned",
+        )
+        self.assertEqual(
+            v._SCHEMA_REGISTER.activation("HOST_RUN_METADATA.txt", "host-preliminary"),
+            "enforced_s2_writer_aligned",
         )
         # Historical contract path unchanged / present.
         contract = PACKAGE_DIR / "AUTHORITATIVE_OUTCOME_CONTRACT.json"

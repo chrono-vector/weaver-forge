@@ -748,5 +748,64 @@ class DeviationCeilingTests(unittest.TestCase):
         )
 
 
+class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
+    """Narrow Phase 4-S2 compatibility / selection assertions only."""
+
+    def test_active_register_is_s2_historical_fixtures_still_pass(self):
+        import schema_register_loader as srl
+
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
+        errors = v.validate_dir(FIXTURES / "success-artifact-present")
+        self.assertEqual(errors, [], errors)
+        # Historical NOT_REACHED fixtures remain accepted via S1 compatibility.
+        errors2 = v.validate_dir(FIXTURES / "image-pull-failure")
+        self.assertEqual(errors2, [], errors2)
+
+    def test_s2_shaped_package_identity_enforced_and_no_write(self):
+        import schema_register_loader as srl
+        import shutil
+
+        tmp = Path(tempfile.mkdtemp(prefix="phase4_s2_val_", dir=HERE))
+        try:
+            files = fx.build_scenario("success-artifact-present")
+            pkg = files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]
+            pkg = pkg.replace(
+                "weaver_forge_tag_requested=",
+                "weaver_forge_tag_ref=refs/tags/grok-build-witness-v1.0.0-rc4\nweaver_forge_tag_requested=",
+            )
+            files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = pkg
+            fx.write_tree(tmp, files)
+            before = {
+                p.name: (p.stat().st_mtime_ns, p.read_bytes())
+                for p in tmp.iterdir()
+                if p.is_file()
+            }
+            errors = v.validate_dir(tmp)
+            after_names = {p.name for p in tmp.iterdir() if p.is_file()}
+            self.assertEqual(after_names, set(before))
+            for name, (mtime, data) in before.items():
+                p = tmp / name
+                self.assertEqual(p.read_bytes(), data)
+                self.assertEqual(p.stat().st_mtime_ns, mtime)
+            self.assertTrue(errors, "expected S2 exact-field rejection")
+            self.assertTrue(
+                any(
+                    "weaver_forge_tag_raw_object_type" in e or "missing required field" in e
+                    for e in errors
+                ),
+                errors,
+            )
+            self.assertTrue(srl.is_s2_shaped_package_identity(v.parse_kv(pkg, "x")[0]))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_host_preliminary_mode_still_explicit(self):
+        errors = v.validate_dir(
+            FIXTURES / "success-artifact-present",
+            mode=v.MODE_HOST_PRELIMINARY,
+        )
+        self.assertEqual(errors, [], errors)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
