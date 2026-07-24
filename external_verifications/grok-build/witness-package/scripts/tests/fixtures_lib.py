@@ -1081,7 +1081,9 @@ def write_tree(base: Path, files: "dict[str, str]", manifest_name: str = "EVIDEN
     """Materialize a fixture tree and its SHA-256 manifest at ``base``."""
     base.mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
-        (base / name).write_text(text, encoding="utf-8", newline="\n")
+        path = base / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
     lines = []
     for name in sorted(files):
         digest = hashlib.sha256((base / name).read_bytes()).hexdigest()
@@ -1092,3 +1094,193 @@ def write_tree(base: Path, files: "dict[str, str]", manifest_name: str = "EVIDEN
 
 def build_and_write(base: Path, scenario: str) -> Path:
     return write_tree(base, build_scenario(scenario))
+
+
+# ---------------------------------------------------------------------------
+# Phase 4-S3 rc5 fixture families (S2-shaped; historical fixtures unchanged)
+# ---------------------------------------------------------------------------
+
+RC5_RUN_ID = "run-rc5-phase4-s3-001"
+RC5_WITNESS_ID = "witness-rc5-s3-fixture"
+RC5_PACKAGE_VERSION = "1.0.0-rc5-phase4-s3-fixture"
+RC5_SCENARIOS = (
+    "rc5-preliminary-success",
+    "rc5-synthetic-final-success",
+)
+
+S3_GATE_NOTE = (
+    "evidence_inventory_complete may become yes only after required final structural "
+    "inputs (WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md) "
+    "are present and completeness fields are finalized; the final manifest is then "
+    "generated exactly once and the evidence tree is immutable for validation; the "
+    "automated host run always records evidence_inventory_complete=no"
+)
+
+
+def _rc5_s2_package_identity() -> str:
+    return _render(
+        OrderedDict(
+            [
+                ("evidence_schema_version", "1"),
+                ("witness_id", RC5_WITNESS_ID),
+                ("run_id", RC5_RUN_ID),
+                ("package_version", RC5_PACKAGE_VERSION),
+                ("weaver_forge_url", "https://github.com/chrono-vector/weaver-forge.git"),
+                ("weaver_forge_tag_requested", TAG),
+                ("weaver_forge_tag_ref", f"refs/tags/{TAG}"),
+                ("weaver_forge_tag_raw_object_type_required", "tag"),
+                ("weaver_forge_tag_raw_object_type_observed", "tag"),
+                ("weaver_forge_tag_peeled_commit", WEAVER),
+                ("weaver_forge_commit_resolved", WEAVER),
+                ("package_clone_head", WEAVER),
+                ("package_clone_detached", "yes"),
+                ("package_clone_clean_status", "yes"),
+                ("tag_head_match", "yes"),
+                ("package_commit_authority", "annotated_tag_resolution"),
+                ("grok_build_source_commit_expected", GROK),
+                ("canonical_run", "yes"),
+            ]
+        )
+    )
+
+
+def _rc5_host_run_metadata() -> str:
+    return (
+        f"{'BEGIN_HOST_RUN_METADATA_ENTRY'}\n"
+        f"evidence_schema_version=1\n"
+        f"run_id={RC5_RUN_ID}\n"
+        f"witness_id={RC5_WITNESS_ID}\n"
+        f"entry_kind=fixture_identity\n"
+        f"entry_utc=2026-07-24T00:00:00Z\n"
+        f"payload=synthetic_rc5_phase4_s3_fixture;not_production_witness\n"
+        f"{'END_HOST_RUN_METADATA_ENTRY'}\n"
+    )
+
+
+def _rc5_post_build(*, inventory_complete: str) -> str:
+    return _render(
+        OrderedDict(
+            [
+                ("evidence_schema_version", "1"),
+                ("status", "OK"),
+                ("outcome", "CARGO_SUCCEEDED_ARTIFACT_PRESENT"),
+                ("source_head_before", GROK),
+                ("source_head_after", GROK),
+                ("source_head_unchanged", "yes"),
+                ("source_clean_before", "yes"),
+                ("source_clean_after", "yes"),
+                ("cargo_lock_sha256_before", LOCK),
+                ("cargo_lock_sha256_after", LOCK),
+                ("cargo_lock_unchanged", "yes"),
+                ("cargo_lock_post_matches_expected", "yes"),
+                ("source_or_lock_changed", "no"),
+                ("artifact_path", ARTIFACT_PATH),
+                ("artifact_exists", "yes"),
+                ("docker_exit_code", "0"),
+                ("failure_stage", "NONE"),
+                ("evidence_inventory_complete", inventory_complete),
+                ("full_integrity_gate_all_four_yes", "yes" if inventory_complete == "yes" else "no"),
+                ("full_integrity_gate_note", S3_GATE_NOTE),
+                ("post_build_integrity_ok", "yes"),
+            ]
+        )
+    )
+
+
+def _rc5_host_outcome(*, completeness: str) -> str:
+    return _render(
+        OrderedDict(
+            [
+                ("schema_version", "1"),
+                ("status", "OK"),
+                ("container_result_presence", "PRESENT"),
+                ("container_result_valid", "YES"),
+                ("container_result_error", "none"),
+                ("container_outcome", "CARGO_SUCCEEDED_ARTIFACT_PRESENT"),
+                ("container_exit_code", "0"),
+                ("cargo_started", "YES"),
+                ("cargo_exit_code", "0"),
+                ("artifact_present", "YES"),
+                ("artifact_identity_complete", "YES"),
+                ("static_inspection_complete", "YES"),
+                ("host_infrastructure_status", "OK"),
+                ("host_source_integrity_status", "OK"),
+                ("post_build_integrity_status", "OK"),
+                ("evidence_completeness_status", completeness),
+                ("preliminary_success_eligible", "NO"),
+                ("record_owner", "HOST"),
+                ("run_id", RC5_RUN_ID),
+                ("failure_stage", "none"),
+            ]
+        )
+    )
+
+
+def _rc5_prelim_deviations() -> str:
+    return (
+        "evidence_schema_version=1\n"
+        "deviation_state=NONE\n"
+        "deviation_count=0\n"
+        "automated_summary=no_automated_identity_deviations\n"
+    )
+
+
+def _rc5_final_deviations() -> str:
+    return (
+        "evidence_schema_version=1\n"
+        "deviation_state=NONE\n"
+        "deviation_count=0\n"
+    )
+
+
+def _rc5_fixture_banner(kind: str) -> str:
+    return (
+        f"# SYNTHETIC RC5 PHASE 4-S3 {kind} FIXTURE\n"
+        "# Not a real Witness submission. Not Independent Witness PASS.\n"
+        "# Not READY. Not rc5 readiness. C-014 remains NOT_STARTED.\n"
+    )
+
+
+def build_rc5_preliminary_success() -> "dict[str, str]":
+    """S2-shaped host-preliminary fixture: no manual Witness files required."""
+    base = build_scenario("success-artifact-present")
+    base.pop("WITNESS_STATEMENT.md", None)
+    base.pop("WITNESS_VERDICT.md", None)
+    base.pop("REDACTIONS.md", None)
+    base["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = _rc5_s2_package_identity()
+    base["POST_BUILD_INTEGRITY.txt"] = _rc5_post_build(inventory_complete="no")
+    base["HOST_OUTCOME_INGESTION.txt"] = _rc5_host_outcome(completeness="INCOMPLETE")
+    base["DEVIATIONS.txt"] = _rc5_prelim_deviations()
+    base["HOST_RUN_METADATA.txt"] = _rc5_host_run_metadata()
+    base["FIXTURE_IDENTITY.txt"] = _rc5_fixture_banner("PRELIMINARY")
+    # FIXTURE_IDENTITY is not in closed inventory — use closed-aux compatible
+    # identity via HOST_RUN_METADATA payload only. Remove undeclared file.
+    base.pop("FIXTURE_IDENTITY.txt", None)
+    return base
+
+
+def build_rc5_synthetic_final_success() -> "dict[str, str]":
+    """Synthetic S2-shaped final-submission fixture (not a real Witness submission)."""
+    base = build_scenario("success-artifact-present")
+    base["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = _rc5_s2_package_identity()
+    base["POST_BUILD_INTEGRITY.txt"] = _rc5_post_build(inventory_complete="yes")
+    base["HOST_OUTCOME_INGESTION.txt"] = _rc5_host_outcome(completeness="COMPLETE")
+    base["DEVIATIONS.txt"] = _rc5_final_deviations()
+    base["HOST_RUN_METADATA.txt"] = _rc5_host_run_metadata()
+    # Structural manuals only — synthetic identity is package_version + metadata payload.
+    base["WITNESS_STATEMENT.md"] = _witness_statement()
+    base["WITNESS_VERDICT.md"] = _witness_verdict("success-artifact-present")
+    base["REDACTIONS.md"] = _redactions()
+    return base
+
+
+def build_rc5_scenario(scenario: str) -> "dict[str, str]":
+    if scenario == "rc5-preliminary-success":
+        return build_rc5_preliminary_success()
+    if scenario == "rc5-synthetic-final-success":
+        return build_rc5_synthetic_final_success()
+    raise ValueError(f"unknown rc5 scenario: {scenario}")
+
+
+def build_and_write_rc5(base: Path, scenario: str) -> Path:
+    return write_tree(base, build_rc5_scenario(scenario))

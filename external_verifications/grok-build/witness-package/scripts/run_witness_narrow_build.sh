@@ -160,8 +160,10 @@ readonly VALIDATOR_HOST_DIR_NAME="host-validator"
 readonly VALIDATOR_STRUCTURAL_PASS_PREFIX="STRUCTURAL VALIDATION: PASS"
 readonly VALIDATOR_STRUCTURAL_FAIL_PREFIX="STRUCTURAL VALIDATION: FAIL"
 readonly VALIDATOR_GATE_EXIT_CODE=12
-# Exact Phase 3E note string (must match template / fixtures / validator field set).
-readonly FULL_INTEGRITY_GATE_NOTE="evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no"
+# Exact Phase 3E/4-S3 note string (non-circular completeness sequencing).
+# Completeness fields are finalized before final manifest generation; the automated
+# host run always records evidence_inventory_complete=no.
+readonly FULL_INTEGRITY_GATE_NOTE="evidence_inventory_complete may become yes only after required final structural inputs (WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md) are present and completeness fields are finalized; the final manifest is then generated exactly once and the evidence tree is immutable for validation; the automated host run always records evidence_inventory_complete=no"
 
 readonly SYSTEM_PREFIXES=(
   /bin /boot /dev /etc /lib /lib64 /proc /root /run /sbin /sys
@@ -325,8 +327,8 @@ append_host_run_metadata_entry() {
   {
     echo "BEGIN_HOST_RUN_METADATA_ENTRY"
     echo "evidence_schema_version=1"
-    echo "run_id=${RUN_ID}"
-    echo "witness_id=${WITNESS_ID}"
+    echo "run_id=${RUN_ID:-}"
+    echo "witness_id=${WITNESS_ID:-}"
     echo "entry_kind=${entry_kind}"
     echo "entry_utc=$(utc_now)"
     echo "payload=${payload}"
@@ -3717,12 +3719,12 @@ CARGO_LOCK_POST_MATCHES_EXPECTED="no"
   echo "source_clean_after=${SOURCE_CLEAN_AFTER}"
 } >> "${EVIDENCE_DIR}/CARGO_LOCK_INTEGRITY.txt"
 
-# evidence_inventory_complete is ALWAYS "no" from this automated host run: it
-# can only become "yes" after the Witness completes WITNESS_STATEMENT.md,
-# WITNESS_VERDICT.md, DEVIATIONS.txt, and REDACTIONS.md, and the FINAL
-# manifest passes the structural validator (RC3B-020). The four-field gate
-# below is computed and disclosed, but will always read "no" at this stage —
-# that is expected and is not itself a build defect.
+# evidence_inventory_complete is ALWAYS "no" from this automated host run.
+# Phase 4-S3 non-circular sequence: required final structural inputs must be
+# present and completeness fields finalized BEFORE the final manifest is
+# generated exactly once; the evidence tree is then immutable for validation.
+# The four-field gate below is computed and disclosed, but will always read
+# "no" at this automated stage — that is expected and is not itself a build defect.
 EVIDENCE_INVENTORY_COMPLETE="no"
 
 FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
@@ -3795,6 +3797,13 @@ enforce_closed_aux_inventory() {
   local f base is_allowed a
   while IFS= read -r f; do
     base="$(basename "${f}")"
+    # Nested relative paths are permitted under recursive total manifest closure;
+    # the inventory helper lists and hashes them. Top-level closed inventory remains.
+    case "${f}" in
+      "${EVIDENCE_DIR}"/*/*)
+        continue
+        ;;
+    esac
     is_allowed=0
     for a in "${allowed[@]}"; do
       if [[ "${base}" == "${a}" ]]; then
@@ -3805,18 +3814,31 @@ enforce_closed_aux_inventory() {
     if [[ "${is_allowed}" -ne 1 ]]; then
       abort 11 "Unlisted evidence file violates the closed aux-file allow-list: ${base} (allowed aux files are: ${ALLOWED_AUX_EVIDENCE_FILES[*]})"
     fi
-  done < <(find "${EVIDENCE_DIR}" -maxdepth 1 -type f -print)
+  done < <(find "${EVIDENCE_DIR}" -type f -print)
 }
 enforce_closed_aux_inventory
 
 # ---------------------------------------------------------------------------
-# STEP 21: Manifest lifecycle — preliminary manifest, finalization required later.
+# STEP 21: Manifest lifecycle — preliminary manifest via recursive inventory helper.
 # ---------------------------------------------------------------------------
 mark_stage "step21_manifest_generation"
-(
-  cd "${EVIDENCE_DIR}"
-  find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum
-) > "${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
+{
+  # Prefer the committed Python inventory helper for recursive fail-closed
+  # enumeration and deterministic SHA-256 manifest generation. Falls back only
+  # if the helper cannot be invoked (should not happen in supported hosts).
+  _inv_py="$(command -v python3 || command -v python || true)"
+  _inv_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evidence_inventory.py"
+  if [[ -n "${_inv_py}" && -f "${_inv_script}" ]]; then
+    if ! "${_inv_py}" "${_inv_script}" --write-manifest "${EVIDENCE_DIR}"; then
+      abort 11 "preliminary manifest generation via evidence_inventory.py failed"
+    fi
+  else
+    (
+      cd "${EVIDENCE_DIR}"
+      find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum
+    ) > "${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
+  fi
+}
 append_host_run_metadata_entry "preliminary_manifest_generated" \
   "manifest_generation=preliminary;final_outcome=${OUTCOME};final_failure_stage=${FAILURE_STAGE};final_verdict_ceiling=${VERDICT_CEILING};final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK};final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
 
@@ -3870,7 +3892,7 @@ echo "outcome=${OUTCOME}"
 echo "failure_stage=${FAILURE_STAGE}"
 echo "artifact_exists=${ARTIFACT_EXISTS}"
 echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
-echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES} (evidence_inventory_complete is always 'no' from an automated host run; re-evaluate after manual Witness files + final manifest validation)"
+echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES} (evidence_inventory_complete is always 'no' from an automated host run; completeness may become yes only after required final structural inputs and non-circular completeness finalization preceding the final manifest)"
 echo "preliminary_success_eligible=${PRELIMINARY_SUCCESS_ELIGIBLE}"
 echo "host_validator_gate_ok=${HOST_VALIDATOR_GATE_OK}"
 echo "validator_process_exit_code=${VALIDATOR_PROCESS_EXIT_CODE}"

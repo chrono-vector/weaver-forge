@@ -261,7 +261,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         host = (tree / v.HOST_OUTCOME_INGESTION_NAME).read_text(encoding="utf-8")
         self.assertIn("preliminary_success_eligible=NO", host)
 
-    def test_13_final_submission_skeleton_not_fully_hardened_and_mode_pass_wording(self) -> None:
+    def test_13_final_submission_hardened_and_mode_pass_wording(self) -> None:
         tree = FIXTURES / "success-artifact-present"
         import io
         from contextlib import redirect_stdout
@@ -272,18 +272,21 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         out = buf.getvalue()
         self.assertIn("final-submission structural PASS", out)
-        self.assertIn("not fully hardened until Phase 4-S3", out)
+        self.assertNotIn("not fully hardened until Phase 4-S3", out)
         self.assertNotIn("Independent Witness PASS claimed", out)
         self.assertIn("not Independent Witness PASS", out)
         self.assertIn("not READY", out)
         self.assertIn("not rc5 readiness", out)
-        # Register marks final cryptographic closure as future S3.
+        # Register marks final cryptographic closure as enforced S3.
         reg = srl.load_canonical_register(REGISTER_PATH)
-        man = reg.lookup("EVIDENCE_MANIFEST.sha256", "final-submission")
+        # Active authority is S2; load active for activation detail.
+        active = srl.load_active_register()
+        man = active.lookup("EVIDENCE_MANIFEST.sha256", "final-submission")
         self.assertEqual(
             man["activation_detail"]["final_cryptographic_closure"],
-            "defined_future_s3_manifest_completeness",
+            "enforced_s3_manifest_completeness",
         )
+        self.assertEqual(reg.schema_register_version, "rc5-phase4-s1.1")
 
     def test_14_exact_protections_remain_and_future_targets_not_falsely_enforced(self) -> None:
         self.assertEqual(

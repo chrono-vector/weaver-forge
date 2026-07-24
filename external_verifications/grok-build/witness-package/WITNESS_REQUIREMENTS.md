@@ -97,7 +97,14 @@ primary success-integration proof (mocks only for parser/fault-unit rejection), 
 mixed-run rejection, and limited full-main fail-closed smoke with Docker/Cargo/product
 prohibited via PATH-first shims. Host exit 0 remains preliminary automated structural success
 only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and
-Independent Witness work remain later. **RC4 remains NOT READY. No
+Independent Witness work remain later. **Phase 4-S1/S2/S3 on `main` activate canonical schema
+authority, S2 writer/template alignment, and S3 preliminary/final manifest totality with the
+non-circular completeness state machine:** `--host-preliminary` rejects
+`evidence_inventory_complete=yes`; `--final-submission` requires S2-shaped packages to finalize
+completeness before the final manifest; no final auxiliary exemption for S2-shaped packages;
+validator captures/`VALIDATOR_RESULT` remain outside `EVIDENCE_DIR`; structural PASS ceilings
+exclude Independent Witness PASS, READY, and rc5 readiness. Synthetic final fixtures are test
+artifacts only. **RC4 remains NOT READY. No
 rc5 tag exists.** Independent Witness reproduction has not occurred; Independent Witness
 PASS is not claimed; C-014 remains `NOT_STARTED`.
 

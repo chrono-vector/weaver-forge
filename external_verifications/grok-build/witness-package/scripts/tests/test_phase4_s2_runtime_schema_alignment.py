@@ -224,11 +224,11 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
         man = s2.lookup("EVIDENCE_MANIFEST.sha256", "final-submission")
         self.assertEqual(
             man["activation_detail"]["final_cryptographic_closure"],
-            "defined_future_s3_manifest_completeness",
+            "enforced_s3_manifest_completeness",
         )
         self.assertEqual(
             s2.raw["evidence_completeness_inventory"]["activation"],
-            "defined_future_s3_manifest_completeness",
+            "enforced_s3_manifest_completeness",
         )
 
 
@@ -565,6 +565,15 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
             "deviation_state=NONE\n"
             "deviation_count=0\n"
         )
+        # S3: S2-shaped final-submission requires inventory_complete=yes.
+        files["POST_BUILD_INTEGRITY.txt"] = files["POST_BUILD_INTEGRITY.txt"].replace(
+            "evidence_inventory_complete=no",
+            "evidence_inventory_complete=yes",
+        )
+        files["HOST_OUTCOME_INGESTION.txt"] = files["HOST_OUTCOME_INGESTION.txt"].replace(
+            "evidence_completeness_status=INCOMPLETE",
+            "evidence_completeness_status=COMPLETE",
+        )
         tree = _mktmp()
         fx.write_tree(tree, files)
         # Final S2 deviations ok.
@@ -579,6 +588,15 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
             "deviation_count=0\n"
             "automated_summary=no_automated_identity_deviations\n"
         )
+        # Host-preliminary rejects inventory_complete=yes.
+        files2["POST_BUILD_INTEGRITY.txt"] = files2["POST_BUILD_INTEGRITY.txt"].replace(
+            "evidence_inventory_complete=yes",
+            "evidence_inventory_complete=no",
+        )
+        files2["HOST_OUTCOME_INGESTION.txt"] = files2["HOST_OUTCOME_INGESTION.txt"].replace(
+            "evidence_completeness_status=COMPLETE",
+            "evidence_completeness_status=INCOMPLETE",
+        )
         # Ensure HOST_OUTCOME present for prelim.
         tree2 = _mktmp()
         fx.write_tree(tree2, files2)
@@ -587,6 +605,8 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
 
         # Mode crossover: automated_summary in final mode rejected.
         files3 = dict(files2)
+        files3["POST_BUILD_INTEGRITY.txt"] = files["POST_BUILD_INTEGRITY.txt"]
+        files3["HOST_OUTCOME_INGESTION.txt"] = files["HOST_OUTCOME_INGESTION.txt"]
         tree3 = _mktmp()
         fx.write_tree(tree3, files3)
         errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION)
@@ -631,6 +651,15 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         files6["BOOTSTRAP.txt"] = na
         files6["BUILD_COMMAND.txt"] = na
         files6["BUILD_ENVIRONMENT.txt"] = na
+        files6["POST_BUILD_INTEGRITY.txt"] = files6["POST_BUILD_INTEGRITY.txt"].replace(
+            "evidence_inventory_complete=no",
+            "evidence_inventory_complete=yes",
+        )
+        files6["HOST_OUTCOME_INGESTION.txt"] = files6["HOST_OUTCOME_INGESTION.txt"].replace(
+            "evidence_completeness_status=FAILED",
+            "evidence_completeness_status=COMPLETE",
+        )
+        # Final mode requires manuals; keep from build_scenario.
         tree6 = _mktmp()
         fx.write_tree(tree6, files6)
         errors6 = v.validate_dir(tree6)
@@ -648,7 +677,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         boot = (FIXTURES / "image-pull-failure" / "BOOTSTRAP.txt").read_text(encoding="utf-8")
         self.assertIn("status=NOT_REACHED", boot)
 
-    def test_10_validator_no_write_no_inference_and_s3_inactive(self) -> None:
+    def test_10_validator_no_write_no_inference_and_s3_active(self) -> None:
         tree = _mktmp()
         files = fx.build_scenario("success-artifact-present")
         # Drop manuals for prelim.
@@ -671,7 +700,12 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         reg = srl.load_active_register()
         self.assertEqual(
             reg.raw["evidence_completeness_inventory"]["activation"],
-            "defined_future_s3_manifest_completeness",
+            "enforced_s3_manifest_completeness",
+        )
+        self.assertTrue(
+            reg.raw["recursive_inventory_helper"].get(
+                "rc4b_020_026_027_028_implemented_on_main_pending_reaudit"
+            )
         )
         self.assertFalse(reg.raw["recursive_inventory_helper"].get("rc4b_020_026_027_028_closed"))
 

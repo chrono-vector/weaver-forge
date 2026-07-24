@@ -40,28 +40,60 @@ A shared/generic body cannot satisfy more than one file's schema.
 | `EVIDENCE_MANIFEST.sha256` | SHA-256 of all other evidence files (**final**, after manual files; regenerated once, not incrementally edited) |
 | `REDACTIONS.md` | `redaction_state`; `semantic_integrity_declaration=yes`; per-redaction file/field/reason/marker |
 
-## Optional (host-only auxiliary; closed inventory — not required in the manifest)
+## Optional (host-only auxiliary; closed inventory)
 
 | File | Purpose |
 |------|---------|
-| `HOST_RUN_METADATA.txt` | Canonical vs. effective identity dump, `WORK_ROOT` deletion-target disclosure, manifest-lifecycle notes. Excluded from mandatory manifest entries (`MANIFEST_OPTIONAL_EVIDENCE`), but if present must not be a symlink and, if listed, its hash must match. |
+| `HOST_RUN_METADATA.txt` | Canonical vs. effective identity dump, `WORK_ROOT` deletion-target disclosure, manifest-lifecycle notes. |
 | `IMAGE_PULL_STDOUT.txt` / `IMAGE_PULL_STDERR.txt` | Raw `docker pull` capture; present only on pull failure |
 | `CARGO_LOCK_INTEGRITY.txt` | Direct pre/post-Docker `Cargo.lock` SHA-256 comparison performed by the host (supplements `SOURCE_IDENTITY.txt`/`POST_BUILD_INTEGRITY.txt`) |
+| `HOST_OUTCOME_INGESTION.txt` | Host-owned outcome ingestion / completeness fields (required for host-preliminary; closed-aux optional for final-submission) |
 
-There is **no** `BOOTSTRAP_PROTOC_VERSION.txt` under `EVIDENCE_DIR`. The closed auxiliary inventory above is exhaustive for optional host-only files: `HOST_RUN_METADATA.txt`, `IMAGE_PULL_STDOUT.txt`, `IMAGE_PULL_STDERR.txt`, `CARGO_LOCK_INTEGRITY.txt`.
+There is **no** `BOOTSTRAP_PROTOC_VERSION.txt` under `EVIDENCE_DIR`. The closed auxiliary inventory above is exhaustive for optional host-only files.
+
+**Phase 4-S3 manifest policy:**
+
+- **host-preliminary:** every regular preliminary evidence file except
+  `EVIDENCE_MANIFEST.sha256` must be listed; if a closed-aux file is present in
+  `EVIDENCE_DIR` for an S2-shaped package, it must be listed and hashed.
+- **final-submission (S2-shaped):** every regular final evidence file except the
+  manifest itself must be listed; **no auxiliary exemption**.
+- Historical S1-shaped fixtures retain explicit compatibility for unlisted
+  closed-aux / accepted-supporting files.
+- Validator captures and `VALIDATOR_RESULT` remain **outside** `EVIDENCE_DIR`
+  and are therefore outside the evidence manifest.
+- Nested regular files are included under recursive total manifest closure when
+  present; their normalized relative paths and SHA-256 digests must appear in
+  the manifest. Absolute paths, path escapes, backslashes, symlinks, special
+  objects, and duplicate normalized paths remain rejected.
 
 Any regular file present in the evidence directory that is **not** one of the required files above
-and **not** in this optional list is a structural failure (`Unlisted regular evidence file`).
+and **not** in this optional list is a structural failure (`Unlisted regular evidence file`
+or closed-inventory rejection).
 
-## `evidence_inventory_complete` lifecycle
+## `evidence_inventory_complete` lifecycle (Phase 4-S3 non-circular)
 
-`evidence_inventory_complete` must **not** be set to `yes` before:
+Authority:
 
-1. automated evidence capture is complete,
-2. all manual forms are complete (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`), and
-3. the **final** `EVIDENCE_MANIFEST.sha256` has been regenerated.
+- `evidence_inventory_complete` → `POST_BUILD_INTEGRITY.txt` (host)
+- `evidence_completeness_status` / `preliminary_success_eligible` →
+  `HOST_OUTCOME_INGESTION.txt` (host)
 
-The host may leave `evidence_inventory_complete=no` until finalization. Setting it to `yes` earlier is a defect.
+Required sequence for final-submission (S2-shaped):
+
+1. automated preliminary package begins `INCOMPLETE` / `inventory_complete=no`
+2. host-preliminary validation may structurally PASS while inventory remains `no`
+3. final structural inputs are completed (`WITNESS_STATEMENT.md`,
+   `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`)
+4. completeness fields are finalized (`inventory_complete=yes`,
+   `evidence_completeness_status=COMPLETE`) **before** final manifest generation
+5. final manifest is generated exactly once
+6. evidence tree becomes immutable for validation
+7. `--final-submission` validator consumes the closed package
+
+`evidence_inventory_complete=yes` is rejected in `--host-preliminary` mode.
+`preliminary_success_eligible` remains `NO` in Phase 4. Machine validation does
+not set Independent Witness PASS or READY.
 
 ## Outcome requirements
 

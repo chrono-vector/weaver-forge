@@ -16,6 +16,11 @@ accepted through an explicit compatibility path when they lack S2 identity
 markers. S2-shaped evidence is never silently downgraded to historical rules.
 Explicit validator modes remain --host-preliminary and --final-submission; the
 default CLI path is a compatibility alias to final-submission.
+
+Phase 4-S3: activates preliminary/final manifest totality, eliminates final
+auxiliary exemptions for S2-shaped packages, and enforces the non-circular
+evidence-completeness state machine. Structural PASS is never Independent
+Witness PASS, READY, or rc5 readiness.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ import re
 import sys
 from pathlib import Path
 
+import evidence_inventory as ei
 from schema_register_loader import (
     ACTIVE_REGISTER_VERSION,
     HOST_RUN_METADATA_ENTRY_BEGIN,
@@ -2157,11 +2163,104 @@ def check_forbidden_files(evidence_dir: Path, errors: list[str]) -> None:
             )
 
 
+FINAL_STRUCTURAL_REQUIRED_INPUTS = (
+    "WITNESS_STATEMENT.md",
+    "WITNESS_VERDICT.md",
+    "DEVIATIONS.txt",
+    "REDACTIONS.md",
+)
+
+
+def check_completeness_state_machine(
+    *,
+    mode: str,
+    s2_shaped: bool,
+    evidence_dir: Path,
+    post_build: dict[str, str] | None,
+    host_outcome: dict[str, str] | None,
+    errors: list[str],
+) -> None:
+    """Enforce Phase 4-S3 completeness transitions without mutating evidence.
+
+    Authority:
+    - evidence_inventory_complete → POST_BUILD_INTEGRITY.txt
+    - evidence_completeness_status / preliminary_success_eligible → HOST_OUTCOME_INGESTION.txt
+
+    Does not create Independent Witness PASS or READY. Historical S1-shaped
+    packages retain inventory_complete=no compatibility under final-submission.
+    """
+    if not _SCHEMA_REGISTER.is_s3_manifest_completeness_enforced():
+        return
+
+    inventory = (post_build or {}).get("evidence_inventory_complete", "")
+    completeness = (host_outcome or {}).get("evidence_completeness_status", "")
+    preliminary = (host_outcome or {}).get("preliminary_success_eligible", "")
+
+    if preliminary and preliminary != "NO":
+        # Phase 4 invariant: eligibility remains NO in both modes.
+        fail(
+            errors,
+            f"{HOST_OUTCOME_INGESTION_NAME}: preliminary_success_eligible must remain NO "
+            f"in Phase 4 (found {preliminary!r}; machine must not elevate eligibility)",
+        )
+
+    if mode == MODE_HOST_PRELIMINARY:
+        if inventory == "yes":
+            fail(
+                errors,
+                "POST_BUILD_INTEGRITY.txt: evidence_inventory_complete=yes is rejected in "
+                "host-preliminary mode (inventory_complete remains no until final-submission "
+                "structural boundary)",
+            )
+        if completeness == "COMPLETE" and inventory != "yes":
+            # COMPLETE without yes is inconsistent for S2-shaped packages.
+            if s2_shaped:
+                fail(
+                    errors,
+                    f"{HOST_OUTCOME_INGESTION_NAME}: evidence_completeness_status=COMPLETE "
+                    "is inconsistent with evidence_inventory_complete!=yes",
+                )
+        return
+
+    # final-submission
+    if not s2_shaped:
+        # Historical S1 compatibility: inventory_complete=no remains accepted.
+        return
+
+    required_present = all((evidence_dir / name).is_file() for name in FINAL_STRUCTURAL_REQUIRED_INPUTS)
+    if inventory == "yes":
+        if not required_present:
+            missing = [
+                name
+                for name in FINAL_STRUCTURAL_REQUIRED_INPUTS
+                if not (evidence_dir / name).is_file()
+            ]
+            fail(
+                errors,
+                "POST_BUILD_INTEGRITY.txt: evidence_inventory_complete=yes rejected because "
+                f"required final structural inputs are absent: {missing}",
+            )
+        if host_outcome is not None and completeness and completeness != "COMPLETE":
+            fail(
+                errors,
+                f"{HOST_OUTCOME_INGESTION_NAME}: evidence_completeness_status must be COMPLETE "
+                f"when evidence_inventory_complete=yes (found {completeness!r})",
+            )
+    else:
+        fail(
+            errors,
+            "POST_BUILD_INTEGRITY.txt: S2-shaped final-submission requires "
+            "evidence_inventory_complete=yes after completeness finalization and before "
+            f"immutable final-manifest validation (found {inventory!r})",
+        )
+
+
 def validate_manifest(
     evidence_dir: Path,
     errors: list[str],
     *,
     mode: str = MODE_FINAL_SUBMISSION,
+    s2_shaped: bool = False,
 ) -> None:
     manifest_path = evidence_dir / MANIFEST_NAME
     if not manifest_path.is_file():
@@ -2185,16 +2284,23 @@ def validate_manifest(
             continue
         listed[rel] = digest  # type: ignore[assignment]
 
+    if MANIFEST_NAME in listed:
+        fail(errors, f"{MANIFEST_NAME}: must not list itself")
+
     for req in mode_required:
         if req == MANIFEST_NAME:
             continue
         if req not in listed:
             fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
 
-    # Closed inventory for the selected mode: required + closed-aux +
-    # accepted_supporting (host-preliminary may retain manual-looking fixture
-    # files without requiring them).
+    # Closed inventory allow-list for top-level declared paths.
+    # Nested relative paths (containing '/') are permitted under recursive total
+    # closure when produced by the canonical inventory helper / safe manifest
+    # grammar; they are not subject to the top-level closed-name allow-list.
     for rel in listed:
+        if "/" in rel:
+            # Nested path safety is enforced by parse_manifest_line + inventory.
+            continue
         if rel not in allowed:
             fail(
                 errors,
@@ -2212,19 +2318,51 @@ def validate_manifest(
         if actual != expected:
             fail(errors, f"{MANIFEST_NAME}: hash mismatch for {rel}")
 
-    for path in evidence_dir.rglob("*"):
-        if path.is_symlink() or not path.is_file():
-            continue
-        rel = path.relative_to(evidence_dir).as_posix()
-        if rel == MANIFEST_NAME or rel in CLOSED_AUX_EVIDENCE_FILES or rel in accepted_supporting:
-            continue
-        if rel not in listed:
-            fail(errors, f"Unlisted regular evidence file (policy: structural FAIL): {rel}")
+    # Recursive inventory substrate (fail-closed). Nested regular files are
+    # included under total manifest closure; unsafe objects are rejected by the
+    # inventory helper (symlink/special/escape/duplicate).
+    try:
+        on_disk = ei.enumerate_evidence_files(evidence_dir)
+    except ei.EvidenceInventoryError as exc:
+        fail(errors, f"Evidence inventory fail-closed: {exc}")
+        return
 
+    on_disk_set = set(on_disk)
+    if MANIFEST_NAME in on_disk_set:
+        on_disk_set.remove(MANIFEST_NAME)
 
-# ---------------------------------------------------------------------------
-# Orchestration
-# ---------------------------------------------------------------------------
+    if s2_shaped:
+        # Phase 4-S3: no auxiliary / supporting exemption for S2-shaped packages.
+        # Nested regular files must be listed and hashed like any other regular file.
+        for rel in sorted(on_disk_set):
+            if rel not in listed:
+                fail(
+                    errors,
+                    f"Unlisted regular evidence file (S2/S3 total manifest closure; "
+                    f"no auxiliary exemption): {rel}",
+                )
+        for rel in sorted(listed):
+            if rel not in on_disk_set:
+                fail(errors, f"{MANIFEST_NAME}: listed file missing on disk: {rel}")
+        # Deterministic ordering: listed relative paths must match sorted inventory order.
+        expected_order = sorted(on_disk_set)
+        actual_order = list(listed.keys())
+        if actual_order != expected_order:
+            fail(
+                errors,
+                f"{MANIFEST_NAME}: entries must be in deterministic sorted relative-path order "
+                "(byte-order / inventory order)",
+            )
+    else:
+        # Historical S1 compatibility: closed-aux and accepted_supporting may exist
+        # unlisted at top level; nested and other regular files must be listed.
+        for rel in sorted(on_disk_set):
+            if "/" not in rel and (
+                rel in CLOSED_AUX_EVIDENCE_FILES or rel in accepted_supporting
+            ):
+                continue
+            if rel not in listed:
+                fail(errors, f"Unlisted regular evidence file (policy: structural FAIL): {rel}")
 
 
 def validate_dir(
@@ -2235,11 +2373,11 @@ def validate_dir(
 ) -> list[str]:
     """Validate an evidence directory structurally.
 
-    Modes (Phase 4-S1):
+    Modes (Phase 4-S1/S3):
     - ``host-preliminary`` / ``host_preliminary=True``: automated host evidence
       structural validation. Manual Witness files are not required.
-    - ``final-submission``: final-shaped structural validation (skeleton; not
-      fully hardened until Phase 4-S3).
+    - ``final-submission``: final-shaped structural validation with S3 manifest
+      totality and completeness-state enforcement for S2-shaped packages.
     - default (no explicit mode): compatibility alias to final-submission.
 
     This is not Independent Witness PASS, not final eligibility, not READY, and
@@ -2472,7 +2610,21 @@ def validate_dir(
     if "REDACTIONS.md" in file_fields:
         check_redaction_marker_consistency(all_texts, file_fields.get("REDACTIONS.md", {}), errors)
 
-    validate_manifest(evidence_dir, errors, mode=selected_mode)
+    check_completeness_state_machine(
+        mode=selected_mode,
+        s2_shaped=s2_shaped,
+        evidence_dir=evidence_dir,
+        post_build=file_fields.get("POST_BUILD_INTEGRITY.txt"),
+        host_outcome=host_outcome_fields,
+        errors=errors,
+    )
+
+    validate_manifest(
+        evidence_dir,
+        errors,
+        mode=selected_mode,
+        s2_shaped=s2_shaped,
+    )
 
     if host_preliminary_mode and "POST_BUILD_INTEGRITY.txt" in file_fields:
         check_host_preliminary_post_build_subset(
@@ -2487,7 +2639,8 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Validate Witness evidence structure (not truth). "
             "Modes: --host-preliminary (automated host structural checks) and "
-            "--final-submission (final-shaped structural skeleton). "
+            "--final-submission (final-shaped structural validation with Phase 4-S3 "
+            "manifest totality and completeness rules for S2-shaped packages). "
             "Default with neither flag is a compatibility alias to final-submission. "
             "Structural PASS never claims Independent Witness PASS, final eligibility, "
             "READY, or rc5 readiness."
@@ -2502,9 +2655,9 @@ def main(argv: list[str] | None = None) -> int:
             "Host-preliminary structural validation mode: enforce the automatable "
             "RC4B-017 POST_BUILD subset and require HOST_OUTCOME_INGESTION.txt; "
             "do not require WITNESS_STATEMENT.md, WITNESS_VERDICT.md, or final "
-            "REDACTIONS.md; do not require evidence_inventory_complete=yes. "
-            "Not final Witness validation and not Independent Witness PASS. "
-            "preliminary_success_eligible remains NO."
+            "REDACTIONS.md; do not require evidence_inventory_complete=yes; reject "
+            "evidence_inventory_complete=yes. Not final Witness validation and not "
+            "Independent Witness PASS. preliminary_success_eligible remains NO."
         ),
     )
     mode_group.add_argument(
@@ -2512,9 +2665,9 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "Final-submission structural validation mode: require final-shaped "
-            "manual Witness inputs structurally. Skeleton only in Phase 4-S1 - "
-            "not fully hardened until Phase 4-S3. Does not claim Independent "
-            "Witness PASS, final eligibility, READY, or rc5 readiness."
+            "manual Witness inputs structurally; enforce S2-shaped total manifest "
+            "closure and completeness finalization sequencing. Does not claim "
+            "Independent Witness PASS, final eligibility, READY, or rc5 readiness."
         ),
     )
     args = parser.parse_args(argv)
@@ -2544,9 +2697,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         mode_note = (
-            " (final-submission structural PASS; skeleton not fully hardened until "
-            "Phase 4-S3; not Independent Witness PASS; not final eligibility; "
-            "not READY; not rc5 readiness)"
+            " (final-submission structural PASS; not Independent Witness PASS; "
+            "not final eligibility; not READY; not rc5 readiness)"
         )
     print(f"STRUCTURAL VALIDATION: PASS{mode_note}")
     print(

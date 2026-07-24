@@ -854,7 +854,11 @@ class Phase2AHostPreflightTests(unittest.TestCase):
                 if expect_ok:
                     self.assertEqual(cp.returncode, 0, cp.stderr)
                     meta = (evidence / "HOST_RUN_METADATA.txt").read_text(encoding="utf-8")
-                    self.assertIn("weaver_forge_tag_raw_object_type=tag", meta)
+                    # Phase 4-S2/S3: HOST_RUN_METADATA uses append-entry grammar;
+                    # annotated-tag observation is recorded in the entry payload.
+                    self.assertIn("entry_kind=annotated_tag_raw_object_check", meta)
+                    self.assertIn("observed=tag", meta)
+                    self.assertIn("required=tag", meta)
                 else:
                     self.assertNotEqual(cp.returncode, 0)
                     self.assertEqual(self._docker_invocation_count(), 0)

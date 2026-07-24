@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-"""Read-only recursive evidence inventory helper (Phase 4-S2).
+"""Read-only recursive evidence inventory helper (Phase 4-S2/S3).
 
 Provides deterministic normalized relative-path enumeration with fail-closed
 rejection of symlinks, special objects, path escapes, and duplicate normalized
-paths. Does not implement final manifest cryptographic closure or
-evidence_inventory_complete transitions (S3).
+paths. Phase 4-S3 adds deterministic SHA-256 manifest generation used by host
+preliminary finalization and synthetic final-submission test helpers.
+
+Does not set Independent Witness PASS, READY, or evidence_inventory_complete=yes
+on behalf of a Witness. Completeness field transitions remain owned by the
+canonical POST_BUILD / HOST_OUTCOME authorities and are applied by callers
+before manifest generation.
 """
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import os
 import stat
+import sys
 from pathlib import Path
+
+MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
 
 
 class EvidenceInventoryError(ValueError):
@@ -111,3 +121,82 @@ def enumerate_evidence_files(evidence_dir: Path) -> list[str]:
 def enumerate_evidence_files_with_prefix(evidence_dir: Path) -> list[str]:
     """Same as enumerate_evidence_files but returns './'-prefixed paths."""
     return [f"./{p}" for p in enumerate_evidence_files(evidence_dir)]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_manifest_lines(evidence_dir: Path, *, exclude_manifest: bool = True) -> list[str]:
+    """Build deterministic SHA-256 manifest lines for every regular evidence file.
+
+    Manifest excludes itself. Paths are './'-prefixed, byte-order sorted by the
+    normalized relative path used in enumeration.
+    """
+    root = Path(evidence_dir)
+    lines: list[str] = []
+    for rel in enumerate_evidence_files(root):
+        if exclude_manifest and rel == MANIFEST_NAME:
+            continue
+        digest = sha256_file(root / rel)
+        lines.append(f"{digest}  ./{rel}")
+    return lines
+
+
+def write_evidence_manifest(
+    evidence_dir: Path,
+    *,
+    manifest_name: str = MANIFEST_NAME,
+) -> Path:
+    """Write deterministic SHA-256 manifest excluding the manifest file itself."""
+    root = Path(evidence_dir)
+    if manifest_name != MANIFEST_NAME:
+        raise EvidenceInventoryError(
+            f"unsupported manifest_name {manifest_name!r}; only {MANIFEST_NAME} is authorized"
+        )
+    lines = build_manifest_lines(root, exclude_manifest=True)
+    target = root / manifest_name
+    target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8", newline="\n")
+    return target
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Enumerate or write a deterministic SHA-256 evidence manifest using the "
+            "fail-closed recursive inventory helper. Does not claim Independent "
+            "Witness PASS or READY."
+        )
+    )
+    parser.add_argument("evidence_dir", type=Path)
+    parser.add_argument(
+        "--write-manifest",
+        action="store_true",
+        help="Write EVIDENCE_MANIFEST.sha256 (excludes itself)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="Print enumerated relative paths (default when not writing)",
+    )
+    args = parser.parse_args(argv)
+    evidence_dir = args.evidence_dir.resolve()
+    try:
+        if args.write_manifest:
+            path = write_evidence_manifest(evidence_dir)
+            print(str(path))
+            return 0
+        for rel in enumerate_evidence_files_with_prefix(evidence_dir):
+            print(rel)
+        return 0
+    except EvidenceInventoryError as exc:
+        print(f"EVIDENCE_INVENTORY: FAIL: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

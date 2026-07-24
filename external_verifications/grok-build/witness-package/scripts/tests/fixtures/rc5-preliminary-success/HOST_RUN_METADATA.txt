@@ -1,0 +1,8 @@
+BEGIN_HOST_RUN_METADATA_ENTRY
+evidence_schema_version=1
+run_id=run-rc5-phase4-s3-001
+witness_id=witness-rc5-s3-fixture
+entry_kind=fixture_identity
+entry_utc=2026-07-24T00:00:00Z
+payload=synthetic_rc5_phase4_s3_fixture;not_production_witness
+END_HOST_RUN_METADATA_ENTRY

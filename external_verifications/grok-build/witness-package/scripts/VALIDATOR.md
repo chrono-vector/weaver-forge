@@ -110,7 +110,7 @@ is explicitly rejected. `docker_exit_code` is numeric, or the sentinel
 `NOT_STARTED`/`NOT_REACHED` when the container never launched (e.g. a
 pre-`docker run` image-pull/inspect/digest/platform failure).
 
-### Host-preliminary structural validation (Phase 3F-A / Phase 4-S1)
+### Host-preliminary structural validation (Phase 3F-A / Phase 4-S1 / Phase 4-S3)
 
 `--host-preliminary` selects host-preliminary structural validation of
 finalized automated host evidence and the preliminary manifest. Semantics:
@@ -119,36 +119,51 @@ finalized automated host evidence and the preliminary manifest. Semantics:
 - It is **not** final Witness validation
 - It is **not** Independent Witness PASS
 - It is **not** final success eligibility
-- `evidence_inventory_complete=yes` is **not** required
+- `evidence_inventory_complete=yes` is **rejected** (inventory remains `no`)
 - `preliminary_success_eligible` remains `NO` and is never treated as final
   eligibility
 - Manual Witness files (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, final
   `REDACTIONS.md`) are **not** required for host-preliminary PASS
   (Phase 4-S1). Existing manual-looking fixture content may remain present for
   regression visibility but does not elevate eligibility.
+- Preliminary manifest must include every permitted regular preliminary
+  evidence file except the manifest itself (recursive inventory; SHA-256;
+  deterministic order). For S2-shaped packages, closed auxiliary files present
+  in `EVIDENCE_DIR` must be listed (no silent aux exemption).
+- Nested regular files are included under recursive total manifest closure when
+  present (normalized relative path + SHA-256). Absolute paths, path escapes,
+  backslashes, symlinks, special objects, and duplicate normalized paths remain
+  rejected.
 - The automatable RC4B-017 subset is enforced for host-preliminary PASS:
   `POST_BUILD` `status=OK`, `post_build_integrity_ok=yes`,
   `source_head_unchanged=yes`, `source_clean_before=yes`,
   `source_clean_after=yes`, `cargo_lock_unchanged=yes`,
   `cargo_lock_post_matches_expected=yes`, `source_or_lock_changed=no`, and
   matching `HOST_OUTCOME_INGESTION` host statuses `OK`
-- Full final Witness inventory completion remains later lifecycle work
 - Host validator invocation and validator-gated host exit remain **Phase 3F-B**
-- The validator still writes **no** evidence (no host validator-result record)
+- Validator captures and `VALIDATOR_RESULT` remain **outside** `EVIDENCE_DIR`
+- The validator still writes **no** evidence
 
-### Final-submission mode (Phase 4-S1 skeleton)
+### Final-submission mode (Phase 4-S3 activated)
 
 `--final-submission` selects final-shaped structural validation, including
-structural presence of manual Witness inputs. Phase 4-S1 exposes the mode and
-required-file classification only; final manifest cryptographic closure and
-evidence-completeness transition machinery remain Phase 4-S3. Default CLI
-invocation (neither mode flag) is a **compatibility alias** to
+structural presence of manual Witness inputs. Phase 4-S3 activates:
+
+- final manifest totality (every regular final evidence file listed except the
+  manifest itself; no auxiliary exemption for S2-shaped packages)
+- non-circular completeness sequencing (required final structural inputs →
+  completeness fields finalized → final manifest generated exactly once →
+  immutable validation)
+- mode-aware completeness rejection of inconsistent state combinations
+
+Default CLI invocation (neither mode flag) is a **compatibility alias** to
 `final-submission`. Explicit mode flags are mutually exclusive.
 
 Final-submission structural PASS does **not** claim Independent Witness PASS,
-final eligibility, READY, or rc5 readiness.
+final eligibility, READY, or rc5 readiness. Synthetic final fixtures are test
+artifacts only and are not real Witness submissions.
 
-### Canonical schema register (Phase 4-S2 active)
+### Canonical schema register (Phase 4-S2 active; S3 completeness activated)
 
 Machine-readable schema authority for the rc5 remediation path:
 
@@ -156,13 +171,16 @@ Machine-readable schema authority for the rc5 remediation path:
 - Active version: `rc5-phase4-s2.1`
 - Historical compatibility register (frozen): `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
 - Loader: `scripts/schema_register_loader.py` (default load = S2; explicit S1 load for historical compatibility only)
+- Completeness activation: `enforced_s3_manifest_completeness`
+- Field authority: `evidence_inventory_complete` → `POST_BUILD_INTEGRITY.txt`;
+  `evidence_completeness_status` / `preliminary_success_eligible` →
+  `HOST_OUTCOME_INGESTION.txt`
 
 The active S2 register fails closed on unsupported versions, unknown keys, duplicate
 artifact/mode definitions, unknown lifecycle modes, and contradictory
 required/optional field definitions. Historical fixtures without S2 identity
 markers remain accepted through the explicit S1 compatibility path. S2-shaped
-evidence is never silently downgraded. S3 final-manifest cryptographic closure and
-`evidence_inventory_complete` transitions remain future.
+evidence is never silently downgraded.
 
 **RC4 remains NOT READY. No rc5 tag exists.** No Independent Witness
 reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.

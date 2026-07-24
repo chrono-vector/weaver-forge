@@ -108,27 +108,67 @@
     "note": "Ownership/cross-binding only; RC4B-025 remains unresolved"
   },
   "evidence_completeness_inventory": {
-    "activation": "defined_future_s3_manifest_completeness",
+    "activation": "enforced_s3_manifest_completeness",
+    "field_authority": {
+      "evidence_inventory_complete": "POST_BUILD_INTEGRITY.txt",
+      "evidence_completeness_status": "HOST_OUTCOME_INGESTION.txt",
+      "preliminary_success_eligible": "HOST_OUTCOME_INGESTION.txt",
+      "note": "Single canonical owner per field. Validator never mutates these fields. No second completeness authority artifact."
+    },
+    "legal_values": {
+      "evidence_completeness_status": ["INCOMPLETE", "COMPLETE", "FAILED"],
+      "evidence_inventory_complete": ["no", "yes"],
+      "preliminary_success_eligible": ["NO", "YES"],
+      "structural_validation": ["ABSENT", "PASS", "FAIL"],
+      "final_structural_submission_status": ["NOT_EVALUATED", "PASS", "FAIL"]
+    },
+    "phase4_invariants": {
+      "preliminary_success_eligible": "NO",
+      "note": "preliminary_success_eligible remains NO throughout Phase 4. Machine must not set Independent Witness PASS or READY."
+    },
     "states": [
       {
         "id": "AUTOMATED_PRELIMINARY_INCOMPLETE",
         "evidence_inventory_complete": "no",
-        "note": "Automated host run always records incomplete inventory"
+        "evidence_completeness_status": "INCOMPLETE",
+        "preliminary_success_eligible": "NO",
+        "note": "Automated host run always records incomplete inventory; host-preliminary structural PASS may occur while inventory_complete remains no"
       },
       {
         "id": "FINAL_WITNESS_INVENTORY_COMPLETE",
         "evidence_inventory_complete": "yes",
+        "evidence_completeness_status": "COMPLETE",
+        "preliminary_success_eligible": "NO",
         "requires": [
           "WITNESS_STATEMENT.md",
           "WITNESS_VERDICT.md",
           "DEVIATIONS.txt",
-          "REDACTIONS.md",
-          "final_manifest_valid"
+          "REDACTIONS.md"
         ],
-        "note": "Not activated in S1; not interpretable as Independent Witness PASS"
+        "sequence": [
+          "required_final_structural_inputs_present",
+          "completeness_fields_finalized",
+          "final_manifest_generated_exactly_once",
+          "evidence_tree_immutable_for_validation",
+          "final_submission_validator_consumes_closed_package"
+        ],
+        "note": "Activated in Phase 4-S3. Completeness finalization precedes final manifest generation (non-circular). Not interpretable as Independent Witness PASS or READY."
       }
     ],
-    "note": "S2 may implement recursive inventory enumeration helpers. Final cryptographic closure and evidence_inventory_complete transitions remain S3."
+    "mode_rules": {
+      "host-preliminary": {
+        "reject_evidence_inventory_complete_yes": true,
+        "preliminary_success_eligible_must_be": "NO",
+        "inventory_complete_expected": "no"
+      },
+      "final-submission": {
+        "s2_shaped_requires_inventory_complete_yes": true,
+        "reject_yes_without_required_final_inputs": true,
+        "reject_incomplete_final_package": true,
+        "historical_s1_compatibility_allows_inventory_complete_no": true
+      }
+    },
+    "note": "Phase 4-S3 activates completeness transitions and final manifest cryptographic closure. Recursive inventory helper remains the enumeration substrate."
   },
   "artifacts": [
     {
@@ -2130,17 +2170,24 @@
         "path_prefix": "./",
         "posix_separators_only": true,
         "must_not_list_self": true,
+        "deterministic_byte_order_sorting": true,
+        "owner": {
+          "host-preliminary": "host_automation",
+          "final-submission": "final_submission_preparer_structural_role_only"
+        },
         "mode_notes": {
-          "host-preliminary": "Preliminary manifest covers automated evidence; mode-required entries mandatory; accepted_supporting manual files optional",
-          "final-submission": "Final manifest cryptographic closure / completeness transition deferred to S3. S2 provides recursive inventory helper only."
+          "host-preliminary": "Preliminary manifest includes every regular file in the automated preliminary EVIDENCE_DIR package except the manifest itself; auxiliary evidence present in EVIDENCE_DIR must be listed; recursive fail-closed inventory; SHA-256 only; no unlisted permitted regular file. Manual Witness files are not required. preliminary_success_eligible remains NO. Host-preliminary structural PASS is automated structural package validation only.",
+          "final-submission": "Final manifest includes every regular file in the final EVIDENCE_DIR except the manifest itself; no auxiliary evidence exemption; manual structural inputs included when required; recursive fail-closed inventory; SHA-256 only; no post-final-manifest edit before validation. Final structural PASS is not Independent Witness PASS."
         }
       },
       "fields": [],
       "activation_detail": {
         "grammar_enforced": "enforced_current_compatible",
-        "final_cryptographic_closure": "defined_future_s3_manifest_completeness",
+        "final_cryptographic_closure": "enforced_s3_manifest_completeness",
         "recursive_inventory_helper": "available_read_only_s2",
-        "evidence_inventory_complete_transition": "defined_future_s3_manifest_completeness"
+        "evidence_inventory_complete_transition": "enforced_s3_manifest_completeness",
+        "s2_shaped_no_auxiliary_exemption": true,
+        "historical_s1_compatibility_aux_exemption": "explicit_s1_fixture_path_only"
       },
       "run_id_required": false
     },
@@ -2474,14 +2521,16 @@
       "symlink_rejection",
       "special_object_rejection",
       "path_escape_rejection",
-      "duplicate_normalized_path_rejection"
+      "duplicate_normalized_path_rejection",
+      "deterministic_sha256_manifest_generation"
     ],
     "does_not_include": [
-      "final_manifest_cryptographic_closure",
-      "evidence_inventory_complete_transition",
-      "full_fixture_family_migration"
+      "human_witness_verdict_generation",
+      "independent_witness_pass_claim",
+      "readiness_claim"
     ],
+    "rc4b_020_026_027_028_implemented_on_main_pending_reaudit": true,
     "rc4b_020_026_027_028_closed": false,
-    "note": "Read-only helper; validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR."
+    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
   }
 }

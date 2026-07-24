@@ -13,9 +13,10 @@
 # fields are yes|no. outcome must equal the authoritative container outcome
 # when one exists.
 #
-# evidence_inventory_complete is ALWAYS no from the automated host run; it can
-# only become yes after the Witness completes the manual files and the FINAL
-# manifest validates.
+# evidence_inventory_complete is ALWAYS no from the automated host run.
+# Phase 4-S3 non-circular sequence: required final structural inputs must be
+# present and completeness fields finalized BEFORE the final manifest is
+# generated exactly once; the evidence tree is then immutable for validation.
 #
 # Exact ordered field set (writer / template / validator / fixtures must match):
 # evidence_schema_version, status, outcome, source_head_before, source_head_after,
@@ -44,5 +45,5 @@ docker_exit_code=0
 failure_stage=NONE
 evidence_inventory_complete=no
 full_integrity_gate_all_four_yes=no
-full_integrity_gate_note=evidence_inventory_complete can only become yes after the Witness completes WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md, and the FINAL manifest validates; the automated host run always records evidence_inventory_complete=no
+full_integrity_gate_note=evidence_inventory_complete may become yes only after required final structural inputs (WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt, REDACTIONS.md) are present and completeness fields are finalized; the final manifest is then generated exactly once and the evidence tree is immutable for validation; the automated host run always records evidence_inventory_complete=no
 post_build_integrity_ok=yes

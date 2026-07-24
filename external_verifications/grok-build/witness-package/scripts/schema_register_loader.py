@@ -33,6 +33,7 @@ LEGAL_ACTIVATIONS = frozenset(
         "enforced_current_compatible",
         "enforced_s2_writer_aligned",
         "enforced_s2_ownership_cross_binding",
+        "enforced_s3_manifest_completeness",
         "defined_future_s2_writer_alignment",
         "defined_future_s3_manifest_completeness",
         "defined_structural_only_s1",
@@ -393,7 +394,20 @@ class CanonicalSchemaRegister:
             "enforced_current_compatible",
             "enforced_s2_writer_aligned",
             "enforced_s2_ownership_cross_binding",
+            "enforced_s3_manifest_completeness",
         )
+
+    def evidence_completeness_inventory(self) -> dict[str, Any]:
+        return dict(self._data.get("evidence_completeness_inventory") or {})
+
+    def completeness_activation(self) -> str:
+        return str(self.evidence_completeness_inventory().get("activation", ""))
+
+    def is_s3_manifest_completeness_enforced(self) -> bool:
+        return self.completeness_activation() == "enforced_s3_manifest_completeness"
+
+    def recursive_inventory_helper(self) -> dict[str, Any]:
+        return dict(self._data.get("recursive_inventory_helper") or {})
 
     def compatibility_file_required_fields(self) -> dict[str, tuple[str, ...]]:
         """Projection used as validator compatibility field map (not a second authority).
@@ -409,6 +423,7 @@ class CanonicalSchemaRegister:
                 "enforced_current_compatible",
                 "enforced_s2_writer_aligned",
                 "enforced_s2_ownership_cross_binding",
+                "enforced_s3_manifest_completeness",
             ):
                 continue
             if art.get("exact_field_set_policy") in (

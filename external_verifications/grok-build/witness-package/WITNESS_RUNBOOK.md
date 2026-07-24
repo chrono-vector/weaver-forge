@@ -457,28 +457,39 @@ after the final manifest has been generated.
 
 ## Evidence manifest lifecycle (exact)
 
+Phase 4-S3 non-circular sequence:
+
 1. The host orchestrator writes a **preliminary** `EVIDENCE_MANIFEST.sha256` immediately after
-   automated capture finishes, covering only the automated evidence files. At this point the
-   manual files (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`, `REDACTIONS.md`)
-   may still be incomplete or absent from the manifest.
-2. The Witness completes every manual file.
-3. The Witness completes the redaction review per
-   [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md).
-4. The Witness regenerates the **final** manifest from inside the evidence directory (excludes
-   the manifest file itself):
+   automated capture finishes, using the recursive inventory helper
+   (`scripts/evidence_inventory.py`). The preliminary manifest covers every regular preliminary
+   evidence file except the manifest itself. Manual Witness files may still be absent.
+   `evidence_inventory_complete` remains `no`. Host may invoke `--host-preliminary` (structural
+   PASS only; not Independent Witness PASS).
+2. The Witness (or a clearly labeled synthetic finalization helper in tests) completes every
+   required final structural input (`WITNESS_STATEMENT.md`, `WITNESS_VERDICT.md`, `DEVIATIONS.txt`,
+   `REDACTIONS.md`).
+3. Completeness fields are finalized **before** final manifest generation:
+   `evidence_inventory_complete=yes` on `POST_BUILD_INTEGRITY.txt` and
+   `evidence_completeness_status=COMPLETE` on `HOST_OUTCOME_INGESTION.txt` when present.
+   `preliminary_success_eligible` remains `NO`.
+4. The final manifest is generated exactly once (excludes itself; recursive SHA-256; no auxiliary
+   exemption for S2-shaped packages). Preferred helper:
 
    ```bash
-   cd "${EVIDENCE_DIR}" && find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum > EVIDENCE_MANIFEST.sha256
+   python scripts/evidence_inventory.py --write-manifest "${EVIDENCE_DIR}"
    ```
 
-5. The structural validator is run **only** against this final manifest, with its own output
-   captured outside `EVIDENCE_DIR`. The validator recomputes SHA-256 for every listed file and
-   fails on mismatch, missing entries, unsafe paths, duplicates, symlinks, or an unlisted regular
-   evidence file (`HOST_RUN_METADATA.txt` is the sole documented optional exception — see
-   [scripts/VALIDATOR.md](scripts/VALIDATOR.md)).
-6. No further evidence-directory edits occur after step 5 passes; any correction after this point
+5. The structural validator is run with `--final-submission` against the closed package, with
+   validator stdout/stderr and `VALIDATOR_RESULT` captured **outside** `EVIDENCE_DIR`. Valid
+   nested regular files must be included and hashed under recursive total closure. Symlinks,
+   special objects, path escapes, duplicates, stale hashes, and unlisted regular files fail
+   closed.
+6. No further evidence-directory edits occur after step 5; any correction after this point
    follows [CORRECTION_LEDGER.md](CORRECTION_LEDGER.md), never an in-place edit of accepted
    evidence.
+
+Final-submission structural PASS is not Independent Witness PASS, not READY, and not rc5
+readiness. Synthetic final fixtures are not real Witness submissions.
 
 ---
 
@@ -521,3 +532,4 @@ identity above, statically audited **NOT READY** (C-027).
 | main (Phase 3F-A; not an rc5 release) | Document validator explicit-outcome requirement (inference removed); `HOST_OUTCOME_INGESTION.txt` closed-aux acceptance + structural validation; host-preliminary structural mode and automatable RC4B-017 subset without `evidence_inventory_complete=yes`; validator still writes no evidence; host invocation/exit gating deferred to Phase 3F-B; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3F-B; not an rc5 release) | Document host invocation of `--host-preliminary` after preliminary manifest; host-owned `VALIDATOR_RESULT.txt` + stdout/stderr captures outside `EVIDENCE_DIR`; host exit 0 requires validator process exit 0 **plus** exact `STRUCTURAL VALIDATION: PASS` and the adjudicated automated gates; validator process exit 0 alone insufficient; `preliminary_success_eligible` remains `NO`; host exit 0 ≠ final success eligibility / Independent Witness PASS. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3G; not an rc5 release) | Document generator-backed Phase 3G automated preliminary integration on `main`: sourced writers + real local `--host-preliminary` validator primary; Docker/Cargo/product mocked/prohibited in tests; host exit 0 = preliminary automated structural success only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and Independent Witness remain later. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 4-S3; not an rc5 release) | Document host-preliminary vs final-submission manifest totality; non-circular completeness sequencing; no final aux exemption for S2-shaped packages; recursive inventory helper for preliminary/final manifests; synthetic final fixtures are not real Witness submissions; structural PASS excludes Independent Witness PASS / READY / rc5 readiness. **RC4 remains NOT READY**; **rc5 tag does not exist** |
