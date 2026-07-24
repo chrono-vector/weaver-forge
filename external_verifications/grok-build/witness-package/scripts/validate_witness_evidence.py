@@ -9,6 +9,11 @@ value is true.
 
 This script writes only to its own stdout/stderr. It never writes into the
 evidence directory it is validating (see VALIDATOR.md "Output policy").
+
+Phase 4-S1: canonical schema authority is the committed JSON register loaded
+via schema_register_loader. Explicit validator modes are --host-preliminary and
+--final-submission; the default CLI path is a compatibility alias to
+final-submission.
 """
 
 from __future__ import annotations
@@ -19,11 +24,26 @@ import re
 import sys
 from pathlib import Path
 
+from schema_register_loader import (
+    CanonicalSchemaRegister,
+    SchemaRegisterError,
+    load_canonical_register,
+)
+
 # ---------------------------------------------------------------------------
 # Constants (pinned identities — checked structurally, not re-derived)
 # ---------------------------------------------------------------------------
 
 EVIDENCE_SCHEMA_VERSION = "1"
+
+# Validator modes (Pi-adjudicated Phase 4-S1).
+MODE_HOST_PRELIMINARY = "host-preliminary"
+MODE_FINAL_SUBMISSION = "final-submission"
+DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
+
+# Canonical schema register (single machine-readable authority for rc5 path).
+_SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
+SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
 
 EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
@@ -41,16 +61,9 @@ MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
 # "Reject undeclared aux even if in manifest" in WITNESS_PACKAGE_MANIFEST.md).
 # Phase 3F-A: HOST_OUTCOME_INGESTION.txt is accepted and structurally validated
 # when present (not merely allow-listed).
+# Phase 4-S1: closed-aux inventory is projected from the canonical register.
 HOST_OUTCOME_INGESTION_NAME = "HOST_OUTCOME_INGESTION.txt"
-CLOSED_AUX_EVIDENCE_FILES = frozenset(
-    {
-        "HOST_RUN_METADATA.txt",
-        "IMAGE_PULL_STDOUT.txt",
-        "IMAGE_PULL_STDERR.txt",
-        "CARGO_LOCK_INTEGRITY.txt",
-        HOST_OUTCOME_INGESTION_NAME,
-    }
-)
+CLOSED_AUX_EVIDENCE_FILES = _SCHEMA_REGISTER.closed_aux_evidence_files()
 # Backward-compatible alias (manifest-optional == closed aux set).
 MANIFEST_OPTIONAL_EVIDENCE = CLOSED_AUX_EVIDENCE_FILES
 
@@ -84,38 +97,43 @@ RAW_STREAM_FILES = frozenset(
     }
 )
 
-REQUIRED_FILES = (
-    "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
-    "ENVIRONMENT.txt",
-    "SOURCE_ACQUISITION.txt",
-    "SOURCE_IDENTITY.txt",
-    "IMAGE_IDENTITY.txt",
-    "BOOTSTRAP.txt",
-    "CLEAN_TARGET_PROOF.txt",
-    "BUILD_COMMAND.txt",
-    "BUILD_ENVIRONMENT.txt",
-    "BUILD_STDOUT.txt",
-    "BUILD_STDERR.txt",
-    "DOCKER_EXIT_CODE.txt",
-    "BUILD_EXIT_CODE.txt",
-    "BUILD_TIMING.txt",
-    "CONTAINER_STDOUT.txt",
-    "CONTAINER_STDERR.txt",
-    "ARTIFACT_IDENTITY.txt",
-    "STATIC_ARTIFACT_INSPECTION.txt",
-    "POST_BUILD_INTEGRITY.txt",
-    "WITNESS_STATEMENT.md",
-    "WITNESS_VERDICT.md",
-    "DEVIATIONS.txt",
-    MANIFEST_NAME,
-    "REDACTIONS.md",
-)
+# Compatibility: REQUIRED_FILES remains the final-submission required set
+# (historical default-mode inventory). Mode-specific required sets come from
+# the canonical register via required_files_for_mode().
+REQUIRED_FILES = _SCHEMA_REGISTER.required_files(MODE_FINAL_SUBMISSION)
 
 # Structured (key=value) evidence files that must declare evidence_schema_version.
 # Raw stdout/stderr capture files and the manifest itself are exempt.
 SCHEMA_VERSIONED_FILES = tuple(
     name for name in REQUIRED_FILES if name not in RAW_STREAM_FILES and name != MANIFEST_NAME
 )
+
+
+def required_files_for_mode(mode: str) -> tuple[str, ...]:
+    """Return the mode-specific required-file set from the canonical register."""
+    return _SCHEMA_REGISTER.required_files(mode)
+
+
+def accepted_supporting_files_for_mode(mode: str) -> frozenset[str]:
+    """Files accepted but not required for the mode (do not elevate eligibility)."""
+    return _SCHEMA_REGISTER.accepted_supporting_files(mode)
+
+
+def resolve_validation_mode(*, host_preliminary: bool = False, mode: str | None = None) -> str:
+    """Resolve validation mode.
+
+    ``host_preliminary=True`` remains the Phase 3F compatibility kwarg mapping to
+    host-preliminary. Explicit ``mode`` wins when provided.
+    """
+    if mode is not None:
+        if mode not in (MODE_HOST_PRELIMINARY, MODE_FINAL_SUBMISSION):
+            raise SchemaRegisterError(f"unknown validation mode: {mode!r}")
+        if host_preliminary and mode != MODE_HOST_PRELIMINARY:
+            raise SchemaRegisterError(
+                "host_preliminary=True conflicts with mode=" + repr(mode)
+            )
+        return mode
+    return MODE_HOST_PRELIMINARY if host_preliminary else DEFAULT_MODE_COMPATIBILITY_ALIAS
 
 OUTCOME_VALUES = frozenset(
     {
@@ -162,29 +180,9 @@ OUTCOMES_WITH_CARGO_TIMING = frozenset(
 )
 
 # Exact field set for host-owned HOST_OUTCOME_INGESTION.txt (Phase 3D/3E writer).
-# Order matches _host_outcome_ingestion_body in run_witness_narrow_build.sh.
-HOST_OUTCOME_INGESTION_FIELDS = (
-    "schema_version",
-    "status",
-    "container_result_presence",
-    "container_result_valid",
-    "container_result_error",
-    "container_outcome",
-    "container_exit_code",
-    "cargo_started",
-    "cargo_exit_code",
-    "artifact_present",
-    "artifact_identity_complete",
-    "static_inspection_complete",
-    "host_infrastructure_status",
-    "host_source_integrity_status",
-    "post_build_integrity_status",
-    "evidence_completeness_status",
-    "preliminary_success_eligible",
-    "record_owner",
-    "run_id",
-    "failure_stage",
-)
+# Phase 4-S1: projected from the canonical register (compatibility accessor, not
+# a second independent authority).
+HOST_OUTCOME_INGESTION_FIELDS = _SCHEMA_REGISTER.compatibility_host_outcome_fields()
 # Keys that the host writer may emit as empty when the container result is
 # missing/invalid (never invent values). All other HOST_OUTCOME keys must be
 # non-empty.
@@ -440,6 +438,11 @@ def require_exact(name: str, fields: dict[str, str], key: str, expected: str, er
 # ---------------------------------------------------------------------------
 # Per-file required-field schemas (field names are normative; templates must match)
 # ---------------------------------------------------------------------------
+# COMPATIBILITY BEHAVIOR (Phase 4-S1): these tuples remain the validator's
+# in-process required-field projection for currently enforced schemas. They are
+# not a second authority — load-time equality against the canonical register is
+# required. Future S2/S3 target fields live only in the register until writers
+# align.
 
 FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "WEAVER_FORGE_PACKAGE_IDENTITY.txt": (
@@ -724,6 +727,18 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "semantic_integrity_declaration",
     ),
 }
+
+_REGISTER_COMPAT_FIELDS = _SCHEMA_REGISTER.compatibility_file_required_fields()
+if _REGISTER_COMPAT_FIELDS != FILE_REQUIRED_FIELDS:
+    raise SchemaRegisterError(
+        "canonical schema register required-field projection disagrees with "
+        "FILE_REQUIRED_FIELDS compatibility map; refusing to start with dual authority"
+    )
+if _SCHEMA_REGISTER.compatibility_host_outcome_fields() != HOST_OUTCOME_INGESTION_FIELDS:
+    raise SchemaRegisterError(
+        "canonical schema register HOST_OUTCOME field projection disagrees with "
+        "HOST_OUTCOME_INGESTION_FIELDS compatibility map"
+    )
 
 # The per-tool fields that must always exist as keys in STATIC_ARTIFACT_INSPECTION.txt
 # (present in every shape the container script writes), but whose values are only
@@ -1855,10 +1870,19 @@ def check_forbidden_files(evidence_dir: Path, errors: list[str]) -> None:
             )
 
 
-def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
+def validate_manifest(
+    evidence_dir: Path,
+    errors: list[str],
+    *,
+    mode: str = MODE_FINAL_SUBMISSION,
+) -> None:
     manifest_path = evidence_dir / MANIFEST_NAME
     if not manifest_path.is_file():
         return
+
+    mode_required = required_files_for_mode(mode)
+    accepted_supporting = accepted_supporting_files_for_mode(mode)
+    allowed = set(mode_required) | set(CLOSED_AUX_EVIDENCE_FILES) | set(accepted_supporting)
 
     listed: dict[str, str] = {}
     for line_no, raw_line in enumerate(read_text(manifest_path).splitlines(), start=1):
@@ -1874,18 +1898,17 @@ def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
             continue
         listed[rel] = digest  # type: ignore[assignment]
 
-    for req in REQUIRED_FILES:
+    for req in mode_required:
         if req == MANIFEST_NAME:
             continue
         if req not in listed:
             fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
 
-    # Closed aux inventory: any manifest entry that is neither a required
-    # file nor one of the closed-set auxiliary files is rejected
-    # outright — being listed in the manifest (even with a correct hash)
-    # does not grant a file entry into the evidence set.
+    # Closed inventory for the selected mode: required + closed-aux +
+    # accepted_supporting (host-preliminary may retain manual-looking fixture
+    # files without requiring them).
     for rel in listed:
-        if rel not in REQUIRED_FILES and rel not in CLOSED_AUX_EVIDENCE_FILES:
+        if rel not in allowed:
             fail(
                 errors,
                 f"{MANIFEST_NAME}: declares {rel}, which is outside the closed required/optional "
@@ -1906,7 +1929,7 @@ def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
         if path.is_symlink() or not path.is_file():
             continue
         rel = path.relative_to(evidence_dir).as_posix()
-        if rel == MANIFEST_NAME or rel in CLOSED_AUX_EVIDENCE_FILES:
+        if rel == MANIFEST_NAME or rel in CLOSED_AUX_EVIDENCE_FILES or rel in accepted_supporting:
             continue
         if rel not in listed:
             fail(errors, f"Unlisted regular evidence file (policy: structural FAIL): {rel}")
@@ -1917,20 +1940,34 @@ def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[str]:
+def validate_dir(
+    evidence_dir: Path,
+    *,
+    host_preliminary: bool = False,
+    mode: str | None = None,
+) -> list[str]:
     """Validate an evidence directory structurally.
 
-    ``host_preliminary=True`` selects host-preliminary structural validation:
-    automated host evidence + preliminary manifest may PASS the automatable
-    RC4B-017 subset without ``evidence_inventory_complete=yes``. This is not
-    final Witness validation, not Independent Witness PASS, and not final
-    success eligibility. The validator still writes nothing into evidence.
+    Modes (Phase 4-S1):
+    - ``host-preliminary`` / ``host_preliminary=True``: automated host evidence
+      structural validation. Manual Witness files are not required.
+    - ``final-submission``: final-shaped structural validation (skeleton; not
+      fully hardened until Phase 4-S3).
+    - default (no explicit mode): compatibility alias to final-submission.
+
+    This is not Independent Witness PASS, not final eligibility, not READY, and
+    not rc5 readiness. The validator still writes nothing into evidence.
     """
     errors: list[str] = []
     if not evidence_dir.is_dir():
         return [f"Not a directory: {evidence_dir}"]
 
-    for name in REQUIRED_FILES:
+    selected_mode = resolve_validation_mode(host_preliminary=host_preliminary, mode=mode)
+    mode_required = required_files_for_mode(selected_mode)
+    accepted_supporting = accepted_supporting_files_for_mode(selected_mode)
+    host_preliminary_mode = selected_mode == MODE_HOST_PRELIMINARY
+
+    for name in mode_required:
         p = evidence_dir / name
         if not p.is_file():
             fail(errors, f"Missing required file: {name}")
@@ -1949,9 +1986,16 @@ def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[
             if token in text:
                 fail(errors, f"Placeholder {token!r} in {path.name}")
 
+    # Parse mode-required structured files plus any present accepted_supporting
+    # files (backward regression visibility; not required for PASS).
+    parse_names = list(mode_required)
+    for name in sorted(accepted_supporting):
+        if name not in parse_names and (evidence_dir / name).is_file():
+            parse_names.append(name)
+
     file_texts: dict[str, str] = {}
     file_fields: dict[str, dict[str, str]] = {}
-    for name in REQUIRED_FILES:
+    for name in parse_names:
         p = evidence_dir / name
         if p.is_file() and not p.is_symlink():
             text = read_text(p)
@@ -1973,32 +2017,48 @@ def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[
         # required files); still fail closed on missing explicit outcome path.
         fail(errors, "Cannot determine outcome: BUILD_EXIT_CODE.txt could not be parsed")
 
-    # Optional closed-aux HOST_OUTCOME_INGESTION.txt: parse + structural validate
-    # when present. Host-preliminary mode requires it.
+    # HOST_OUTCOME_INGESTION.txt uses schema_version= (not evidence_schema_version=)
+    # and an exact host-owned field set. Parse/validate here; never route it through
+    # the evidence_schema_version / FILE_REQUIRED_FIELDS path.
     host_outcome_fields: dict[str, str] | None = None
-    host_outcome_path = evidence_dir / HOST_OUTCOME_INGESTION_NAME
-    if host_outcome_path.is_file() and not host_outcome_path.is_symlink():
-        host_text = read_text(host_outcome_path)
-        host_outcome_fields, host_dup_errors = parse_kv(host_text, HOST_OUTCOME_INGESTION_NAME)
-        errors.extend(host_dup_errors)
+    if HOST_OUTCOME_INGESTION_NAME in file_fields:
+        host_outcome_fields = file_fields[HOST_OUTCOME_INGESTION_NAME]
         check_host_outcome_ingestion(host_outcome_fields, errors, outcome)
-    elif host_preliminary:
-        fail(
-            errors,
-            f"Missing required file for host-preliminary mode: {HOST_OUTCOME_INGESTION_NAME}",
-        )
+    else:
+        host_outcome_path = evidence_dir / HOST_OUTCOME_INGESTION_NAME
+        if host_outcome_path.is_file() and not host_outcome_path.is_symlink():
+            host_text = read_text(host_outcome_path)
+            host_outcome_fields, host_dup_errors = parse_kv(host_text, HOST_OUTCOME_INGESTION_NAME)
+            errors.extend(host_dup_errors)
+            check_host_outcome_ingestion(host_outcome_fields, errors, outcome)
+        elif host_preliminary_mode:
+            # Compatibility message retained for Phase 3F coupled tests when the
+            # file is absent and was not already reported via mode_required.
+            if HOST_OUTCOME_INGESTION_NAME not in mode_required:
+                fail(
+                    errors,
+                    f"Missing required file for host-preliminary mode: {HOST_OUTCOME_INGESTION_NAME}",
+                )
 
-    for name in SCHEMA_VERSIONED_FILES:
-        if name in file_fields:
-            check_schema_version(name, file_fields[name], errors)
-            if placeholder_skip(name, file_fields[name], outcome):
-                continue
-            required = FILE_REQUIRED_FIELDS.get(name, ())
-            if name == "POST_BUILD_INTEGRITY.txt":
-                # Phase 3E: exact POST_BUILD field-set equality (no subset matching).
-                require_exact_field_set(name, file_fields[name], required, errors)
-            else:
-                require_fields(name, file_fields[name], required, errors)
+    schema_versioned = [
+        name
+        for name in parse_names
+        if name not in RAW_STREAM_FILES
+        and name != MANIFEST_NAME
+        and name != HOST_OUTCOME_INGESTION_NAME
+        and name in file_fields
+    ]
+    for name in schema_versioned:
+        check_schema_version(name, file_fields[name], errors)
+        if placeholder_skip(name, file_fields[name], outcome):
+            continue
+        required = FILE_REQUIRED_FIELDS.get(name, ())
+        if name == "POST_BUILD_INTEGRITY.txt":
+            # Phase 3E: exact POST_BUILD field-set equality (no subset matching).
+            # Bound to canonical register exact policy (enforced_current_compatible).
+            require_exact_field_set(name, file_fields[name], required, errors)
+        else:
+            require_fields(name, file_fields[name], required, errors)
 
     if "WEAVER_FORGE_PACKAGE_IDENTITY.txt" in file_fields:
         check_weaver_forge_package_identity(file_fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"], errors)
@@ -2077,11 +2137,12 @@ def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[
         )
 
     all_texts = collect_all_texts(evidence_dir)
-    check_redaction_marker_consistency(all_texts, file_fields.get("REDACTIONS.md", {}), errors)
+    if "REDACTIONS.md" in file_fields:
+        check_redaction_marker_consistency(all_texts, file_fields.get("REDACTIONS.md", {}), errors)
 
-    validate_manifest(evidence_dir, errors)
+    validate_manifest(evidence_dir, errors, mode=selected_mode)
 
-    if host_preliminary and "POST_BUILD_INTEGRITY.txt" in file_fields:
+    if host_preliminary_mode and "POST_BUILD_INTEGRITY.txt" in file_fields:
         check_host_preliminary_post_build_subset(
             file_fields["POST_BUILD_INTEGRITY.txt"], host_outcome_fields, errors
         )
@@ -2090,22 +2151,50 @@ def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Validate Witness evidence structure (not truth).")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Validate Witness evidence structure (not truth). "
+            "Modes: --host-preliminary (automated host structural checks) and "
+            "--final-submission (final-shaped structural skeleton). "
+            "Default with neither flag is a compatibility alias to final-submission. "
+            "Structural PASS never claims Independent Witness PASS, final eligibility, "
+            "READY, or rc5 readiness."
+        )
+    )
     parser.add_argument("evidence_dir", type=Path, help="Path to evidence directory")
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--host-preliminary",
         action="store_true",
         help=(
             "Host-preliminary structural validation mode: enforce the automatable "
             "RC4B-017 POST_BUILD subset and require HOST_OUTCOME_INGESTION.txt; "
-            "do not require evidence_inventory_complete=yes. Not final Witness "
-            "validation and not Independent Witness PASS. Phase 3F-A exposes this "
-            "for tests only; host invocation/exit gating remains Phase 3F-B."
+            "do not require WITNESS_STATEMENT.md, WITNESS_VERDICT.md, or final "
+            "REDACTIONS.md; do not require evidence_inventory_complete=yes. "
+            "Not final Witness validation and not Independent Witness PASS. "
+            "preliminary_success_eligible remains NO."
+        ),
+    )
+    mode_group.add_argument(
+        "--final-submission",
+        action="store_true",
+        help=(
+            "Final-submission structural validation mode: require final-shaped "
+            "manual Witness inputs structurally. Skeleton only in Phase 4-S1 - "
+            "not fully hardened until Phase 4-S3. Does not claim Independent "
+            "Witness PASS, final eligibility, READY, or rc5 readiness."
         ),
     )
     args = parser.parse_args(argv)
 
-    errors = validate_dir(args.evidence_dir.resolve(), host_preliminary=args.host_preliminary)
+    if args.host_preliminary:
+        selected_mode = MODE_HOST_PRELIMINARY
+    elif args.final_submission:
+        selected_mode = MODE_FINAL_SUBMISSION
+    else:
+        selected_mode = DEFAULT_MODE_COMPATIBILITY_ALIAS
+
+    errors = validate_dir(args.evidence_dir.resolve(), mode=selected_mode)
     if errors:
         print("STRUCTURAL VALIDATION: FAIL")
         for e in errors:
@@ -2115,12 +2204,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    mode_note = (
-        " (host-preliminary structural PASS; not final Witness validation; "
-        "not Independent Witness PASS; not final success eligibility)"
-        if args.host_preliminary
-        else ""
-    )
+    if selected_mode == MODE_HOST_PRELIMINARY:
+        # Keep exact Phase 3F-B PASS suffix so host gate / coupled tests remain stable.
+        mode_note = (
+            " (host-preliminary structural PASS; not final Witness validation; "
+            "not Independent Witness PASS; not final success eligibility)"
+        )
+    else:
+        mode_note = (
+            " (final-submission structural PASS; skeleton not fully hardened until "
+            "Phase 4-S3; not Independent Witness PASS; not final eligibility; "
+            "not READY; not rc5 readiness)"
+        )
     print(f"STRUCTURAL VALIDATION: PASS{mode_note}")
     print(
         "Structural PASS does not prove execution, independence, or truthfulness."
