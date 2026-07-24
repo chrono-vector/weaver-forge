@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Phase 3G declarative scenario / lifecycle / mutation framework (3G-A).
+"""Phase 3G declarative scenario / lifecycle / mutation framework.
 
-Deterministic, immutable scenario-row model for later Phase 3G-B integrated
-scenarios. Phase 3G-A ships only the framework plus minimum smoke rows.
-Does not execute Docker, Cargo, product, network, or Witness workflows.
+Deterministic, immutable scenario-row model. Phase 3G-A ships the framework
+plus minimum smoke rows; Phase 3G-B adds the integrated scenario matrix.
+Does not execute Docker, Cargo, product, network, or Witness workflows by
+itself — execution lives in phase3g_harness / integration tests.
 """
 
 from __future__ import annotations
@@ -356,6 +357,478 @@ _FRAMEWORK_SMOKE_RAW: tuple[dict[str, Any], ...] = (
 
 def framework_smoke_scenarios() -> tuple[ScenarioRow, ...]:
     return compile_scenario_table(_FRAMEWORK_SMOKE_RAW)
+
+
+def _row(
+    scenario_id: str,
+    terminal_outcome: str,
+    *,
+    container_facts: dict[str, Any] | None = None,
+    host_facts: dict[str, Any] | None = None,
+    post_build_facts: dict[str, Any] | None = None,
+    expected_validator_result: dict[str, Any] | None = None,
+    expected_host_gate: dict[str, Any] | None = None,
+    mutations: Sequence[str] = (),
+    oracle_bindings: dict[str, Any] | None = None,
+    path_kind: str = "automated_preliminary",
+) -> dict[str, Any]:
+    """Build an explicit integrated scenario row (no silent inference)."""
+    return {
+        "scenario_id": scenario_id,
+        "terminal_outcome": terminal_outcome,
+        "container_facts": {
+            **(container_facts or {}),
+            "path_kind": path_kind,
+        },
+        "host_facts": host_facts or {},
+        "post_build_facts": post_build_facts or {},
+        "expected_validator_result": expected_validator_result
+        or {"structural_status": "FAIL", "invoked": False},
+        "expected_host_gate": expected_host_gate or {"host_exit": 1},
+        "mutations": tuple(mutations),
+        "expected_residue_policy": {
+            "prefix": "phase3g_test_",
+            "must_be_absent": True,
+        },
+        "oracle_bindings": {
+            "expected_preliminary_success_eligible": "NO",
+            **(oracle_bindings or {}),
+        },
+    }
+
+
+# Phase 3G-B integrated scenario matrix (Pi-adjudicated categories; not Cartesian).
+_INTEGRATED_SCENARIO_RAW: tuple[dict[str, Any], ...] = (
+    # --- Five terminal outcomes (sourced-writer chain) ---
+    _row(
+        "terminal_build_not_started",
+        "BUILD_NOT_STARTED",
+        container_facts={"cargo_started": "NO", "category": "terminal_outcome"},
+        host_facts={"host_infrastructure_status": "OK"},
+        post_build_facts={"status": "FAILED"},
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_explicit_outcome": "BUILD_NOT_STARTED",
+            "expected_structural_status": "FAIL",
+        },
+    ),
+    _row(
+        "terminal_cargo_failed",
+        "CARGO_FAILED",
+        container_facts={
+            "cargo_started": "YES",
+            "cargo_exit_code": "17",
+            "category": "terminal_outcome",
+        },
+        host_facts={"host_infrastructure_status": "OK"},
+        post_build_facts={"status": "FAILED"},
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_explicit_outcome": "CARGO_FAILED",
+            "expected_structural_status": "FAIL",
+        },
+    ),
+    _row(
+        "terminal_cargo_succeeded_artifact_missing",
+        "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+        container_facts={
+            "cargo_started": "YES",
+            "cargo_exit_code": "0",
+            "artifact_present": "NO",
+            "category": "terminal_outcome",
+        },
+        host_facts={"host_infrastructure_status": "OK"},
+        post_build_facts={"status": "FAILED"},
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_explicit_outcome": "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+            "expected_structural_status": "FAIL",
+        },
+    ),
+    _row(
+        "terminal_cargo_succeeded_artifact_present",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={
+            "cargo_started": "YES",
+            "cargo_exit_code": "0",
+            "artifact_present": "YES",
+            "category": "success_capable",
+        },
+        host_facts={
+            "host_infrastructure_status": "OK",
+            "host_source_integrity_status": "OK",
+        },
+        post_build_facts={"status": "OK", "post_build_integrity_ok": "yes"},
+        expected_validator_result={
+            "structural_status": "PASS",
+            "invoked": True,
+            "process_exit": 0,
+        },
+        expected_host_gate={"host_exit": 0, "gate_ok": "yes"},
+        oracle_bindings={
+            "expected_host_exit": 0,
+            "expected_explicit_outcome": "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+            "expected_structural_status": "PASS",
+            "expected_validator_exit": 0,
+            "expected_evidence_tree_unchanged": True,
+        },
+    ),
+    _row(
+        "terminal_infrastructure_failure",
+        "INFRASTRUCTURE_FAILURE",
+        container_facts={
+            "cargo_started": "NO",
+            "category": "terminal_outcome",
+        },
+        host_facts={"host_infrastructure_status": "OK"},
+        post_build_facts={"status": "FAILED"},
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_explicit_outcome": "INFRASTRUCTURE_FAILURE",
+            "expected_structural_status": "FAIL",
+        },
+    ),
+    # --- Invalid BUILD_EXIT ---
+    _row(
+        "invalid_build_exit_missing",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "invalid_build_exit", "build_exit_mode": "missing"},
+        mutations=("missing_build_exit",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 10,
+            "expected_build_exit_bytes": None,
+        },
+    ),
+    _row(
+        "invalid_build_exit_empty",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "invalid_build_exit", "build_exit_mode": "empty"},
+        mutations=("empty_build_exit",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10, "expected_build_exit_bytes": b""},
+    ),
+    _row(
+        "invalid_build_exit_malformed",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={
+            "category": "invalid_build_exit",
+            "build_exit_mode": "malformed",
+            "malformed_bytes": "not-a-schema\n",
+        },
+        mutations=("malformed_build_exit",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 10,
+            "expected_build_exit_bytes": b"not-a-schema\n",
+        },
+    ),
+    # --- Outcome disagreements ---
+    _row(
+        "disagreement_cargo_started",
+        "BUILD_NOT_STARTED",
+        container_facts={
+            "category": "outcome_disagreement",
+            "disagreement": "cargo_started",
+            "force_cargo_started": "YES",
+        },
+        mutations=("outcome_disagreement",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    _row(
+        "disagreement_cargo_exit_code",
+        "CARGO_FAILED",
+        container_facts={
+            "category": "outcome_disagreement",
+            "disagreement": "cargo_exit_code",
+            "force_cargo_exit_code": "0",
+        },
+        mutations=("outcome_disagreement",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    _row(
+        "disagreement_artifact_present",
+        "CARGO_SUCCEEDED_ARTIFACT_MISSING",
+        container_facts={
+            "category": "outcome_disagreement",
+            "disagreement": "artifact_present",
+            "force_artifact_present": "YES",
+        },
+        mutations=("outcome_disagreement",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    _row(
+        "disagreement_container_result_validity",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={
+            "category": "outcome_disagreement",
+            "disagreement": "container_result_validity",
+            "force_cargo_started": "NO",
+        },
+        mutations=("outcome_disagreement",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    # --- Host / POST_BUILD failures ---
+    _row(
+        "host_infrastructure_failure",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "host_failure"},
+        host_facts={
+            "host_infrastructure_status": "FAILED",
+            "category": "host_infrastructure_failure",
+        },
+        mutations=("host_status_failure",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    _row(
+        "source_integrity_failure",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "host_failure"},
+        host_facts={
+            "host_source_integrity_status": "FAILED",
+            "category": "source_integrity_failure",
+        },
+        mutations=("host_status_failure",),
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 10, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 10},
+    ),
+    _row(
+        "post_build_failure",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "post_build_failure"},
+        post_build_facts={"status": "FAILED", "post_build_integrity_ok": "no"},
+        mutations=("post_build_failure",),
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_post_build": {"status": "FAILED", "post_build_integrity_ok": "no"},
+        },
+    ),
+    _row(
+        "post_build_integrity_flag_mismatch",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "post_build_failure"},
+        post_build_facts={
+            "status": "OK",
+            "post_build_integrity_ok": "no",
+            "category": "integrity_flag_mismatch",
+        },
+        mutations=("post_build_failure",),
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "host_outcome_sync_mismatch",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "host_outcome_sync_mismatch"},
+        host_facts={"category": "host_outcome_sync_mismatch"},
+        post_build_facts={"status": "OK", "post_build_integrity_ok": "yes"},
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    # --- Real-validator primary / fault categories ---
+    _row(
+        "validator_structural_fail",
+        "CARGO_FAILED",
+        container_facts={"category": "validator_real_fail"},
+        mutations=("validator_fail",),
+        expected_validator_result={"structural_status": "FAIL", "invoked": True},
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_structural_status": "FAIL",
+        },
+    ),
+    _row(
+        "validator_nonzero_exit",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "validator_fault"},
+        mutations=("validator_nonzero",),
+        expected_validator_result={
+            "structural_status": "FAIL",
+            "invoked": True,
+            "process_exit": 7,
+        },
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1, "expected_validator_exit": 7},
+    ),
+    _row(
+        "validator_missing_definitive_pass",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "validator_fault"},
+        mutations=("validator_malformed_output",),
+        expected_validator_result={
+            "structural_status": "ABSENT",
+            "invoked": True,
+            "fault": "missing_pass",
+        },
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "validator_contradictory_pass_fail",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "validator_fault", "fault": "contradictory"},
+        mutations=("validator_malformed_output",),
+        expected_validator_result={
+            "structural_status": "CONTRADICTORY",
+            "invoked": True,
+        },
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "validator_multiple_pass_lines",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "validator_fault", "fault": "multiple_pass"},
+        mutations=("validator_malformed_output",),
+        expected_validator_result={
+            "structural_status": "CONTRADICTORY",
+            "invoked": True,
+        },
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    # --- Stale / spoof / mixed-run mutations ---
+    _row(
+        "mutation_stale_run_id",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_run_id",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_stale_manifest_hash",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_manifest_hash",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_stale_validator_identity",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_validator_identity",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_stale_evidence_path",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_evidence_path",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_stale_stdout_capture",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_stdout_capture",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_stale_stderr_capture",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("stale_stderr_capture",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_mixed_run_evidence",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("mixed_run_evidence",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 1},
+    ),
+    _row(
+        "mutation_preliminary_success_yes_injection",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "stale_mutation"},
+        mutations=("preliminary_success_yes_injection",),
+        expected_host_gate={"host_exit": 1, "gate_ok": "no"},
+        oracle_bindings={
+            "expected_host_exit": 1,
+            "expected_preliminary_success_eligible": "NO",
+        },
+    ),
+    # --- Pre-Docker no-validator invariant ---
+    _row(
+        "pre_docker_no_validator",
+        "INFRASTRUCTURE_FAILURE",
+        container_facts={"category": "pre_docker"},
+        path_kind="pre_docker_failure",
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 3, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 3},
+    ),
+    # --- Limited full-main smoke markers (executed by harness adapters) ---
+    _row(
+        "full_main_fail_closed_smoke",
+        "INFRASTRUCTURE_FAILURE",
+        container_facts={"category": "full_main_fail_closed"},
+        path_kind="pre_docker_failure",
+        expected_validator_result={"structural_status": "ABSENT", "invoked": False},
+        expected_host_gate={"host_exit": 3, "gate_ok": "no"},
+        oracle_bindings={"expected_host_exit": 3},
+    ),
+    _row(
+        "full_main_success_capable_smoke",
+        "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+        container_facts={"category": "full_main_success_capable"},
+        host_facts={"host_infrastructure_status": "OK"},
+        post_build_facts={"status": "OK", "post_build_integrity_ok": "yes"},
+        expected_validator_result={"structural_status": "PASS", "invoked": True},
+        expected_host_gate={"host_exit": 0, "gate_ok": "yes"},
+        oracle_bindings={
+            "expected_host_exit": 0,
+            "expected_explicit_outcome": "CARGO_SUCCEEDED_ARTIFACT_PRESENT",
+            "expected_structural_status": "PASS",
+        },
+    ),
+)
+
+
+def integrated_scenarios() -> tuple[ScenarioRow, ...]:
+    """Phase 3G-B integrated scenario table (deterministic scenario_id ascending)."""
+    return compile_scenario_table(_INTEGRATED_SCENARIO_RAW)
+
+
+def all_phase3g_scenarios() -> tuple[ScenarioRow, ...]:
+    """Framework smoke rows plus integrated Phase 3G-B rows."""
+    return compile_scenario_table(
+        list(_FRAMEWORK_SMOKE_RAW) + list(_INTEGRATED_SCENARIO_RAW)
+    )
 
 
 @dataclass(frozen=True)

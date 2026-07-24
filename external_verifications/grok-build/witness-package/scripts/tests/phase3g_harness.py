@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Phase 3G harness support: shims, workspace, adapters, validator driver (3G-A).
+"""Phase 3G harness support: shims, workspace, adapters, validator driver, 3G-B runners.
 
-Phase 3G-A prepares frameworks for Phase 3G-B. Full five-outcome lifecycle and
-real host Witness workflow execution are deferred.
+Phase 3G-A prepares frameworks. Phase 3G-B adds sourced-writer lifecycle
+execution, mutation application, and limited full-main fail-closed smoke.
+FullMainHarness.prepare() retains execute_authorized=False for 3G-A compatibility.
 """
 
 from __future__ import annotations
@@ -518,3 +519,207 @@ class FullMainHarness:
                 "Phase 3G-A must not authorize full-main execution"
             )
         self.workspace.shims.assert_no_prohibited_invocations()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3G-B execution adapters.  These deliberately source the committed
+# writers; they are not a parallel implementation of their schemas/gates.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SourcedExecution:
+    """Result of one isolated sourced-writer invocation."""
+
+    process: subprocess.CompletedProcess[str]
+    evidence_dir: Path
+
+
+class IntegratedLifecycleRunner:
+    """Execute narrow, writer-only container/host lifecycle fragments.
+
+    The adapter never invokes either main by default.  It supplies all paths
+    relative to ``scripts/`` so Git Bash does not receive a Windows path.
+    """
+
+    def __init__(self, workspace: DisposableWorkspace) -> None:
+        self.workspace = workspace
+
+    def _run(self, body: str) -> subprocess.CompletedProcess[str]:
+        return run_bash(
+            ["-c", "set -euo pipefail\n" + body],
+            env=self.workspace.bash_env(),
+            cwd=SCRIPTS_DIR,
+        )
+
+    def finalize_container(
+        self,
+        outcome: str,
+        *,
+        exit_code: int = 1,
+        failure_stage: str = "phase3g_test",
+        artifact_mode: str = "none",
+    ) -> SourcedExecution:
+        """Run init_evidence and the real container terminal writer."""
+        evidence_rel = f"{self.workspace.ws_rel}/evidence"
+        body = textwrap.dedent(
+            f"""\
+            source ./{CONTAINER_SCRIPT_NAME}
+            EVIDENCE={shlex.quote(evidence_rel)}
+            CARGO_TARGET_DIR_GROK={shlex.quote(self.workspace.ws_rel + "/cargo-target")}
+            ARTIFACT="$CARGO_TARGET_DIR_GROK/debug/xai-grok-pager"
+            mkdir -p "$(dirname "$ARTIFACT")"
+            init_evidence
+            finalize_container_terminal_outcome {shlex.quote(outcome)} {exit_code} \
+              {shlex.quote(failure_stage)} FAILED "" {shlex.quote(artifact_mode)}
+            """
+        )
+        cp = self._run(body)
+        return SourcedExecution(cp, self.workspace.evidence)
+
+    def source_host(self, body: str) -> SourcedExecution:
+        """Run a caller-supplied host lifecycle fragment with safe defaults."""
+        e = f"{self.workspace.ws_rel}/evidence"
+        w = f"{self.workspace.ws_rel}/work"
+        host_validator = f"{self.workspace.ws_rel}/host-validator"
+        prelude = textwrap.dedent(
+            f"""\
+            source ./{HOST_SCRIPT_NAME}
+            EVIDENCE_DIR={shlex.quote(e)}
+            WORK_ROOT={shlex.quote(w)}
+            TMP_DIR={shlex.quote(self.workspace.ws_rel + "/tmp")}
+            HOST_VALIDATOR_DIR={shlex.quote(host_validator)}
+            RUN_ID=run-2026-07-22-001
+            DOCKER_EXIT=0
+            OUTCOME=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+            FAILURE_STAGE=none
+            HOST_INFRASTRUCTURE_STATUS=OK
+            HOST_SOURCE_INTEGRITY_STATUS=OK
+            HOST_POST_BUILD_INTEGRITY_STATUS=OK
+            HOST_EVIDENCE_COMPLETENESS_STATUS=INCOMPLETE
+            POST_BUILD_INTEGRITY_OK=yes
+            POST_BUILD_STATUS=OK
+            PRELIMINARY_SUCCESS_ELIGIBLE=NO
+            HOST_OUTCOME_INGESTION_WRITTEN=NO
+            HOST_OUTCOME_INGESTION_FINGERPRINT=
+            HOST_FINALIZING_IN_PROGRESS=NO
+            mkdir -p "$HOST_VALIDATOR_DIR"
+            """
+        )
+        return SourcedExecution(self._run(prelude + "\n" + body), self.workspace.evidence)
+
+
+def apply_phase3g_mutation(
+    workspace: DisposableWorkspace, mutation: str, *, value: str = "STALE"
+) -> Path:
+    """Apply one declared stale/fault mutation without repairing the package.
+
+    This intentionally edits only host-owned validator artifacts/captures or
+    the host outcome record.  The caller must re-run the real verifier/gate.
+    """
+    allowed = {
+        "stale_run_id",
+        "stale_manifest_hash",
+        "stale_validator_identity",
+        "stale_evidence_path",
+        "stale_stdout_capture",
+        "stale_stderr_capture",
+        "mixed_run_evidence",
+        "preliminary_success_yes_injection",
+    }
+    if mutation not in allowed:
+        raise ScenarioFrameworkError(f"unsupported Phase 3G-B mutation: {mutation}")
+    result = workspace.workspace / "host-validator" / "VALIDATOR_RESULT.txt"
+    ingestion = workspace.evidence / "HOST_OUTCOME_INGESTION.txt"
+    captures = workspace.workspace / "host-validator"
+    if mutation == "stale_stdout_capture":
+        target = captures / "VALIDATOR_STDOUT.txt"
+        target.write_text(value + "\n", encoding="utf-8")
+        return target
+    if mutation == "stale_stderr_capture":
+        target = captures / "VALIDATOR_STDERR.txt"
+        target.write_text(value + "\n", encoding="utf-8")
+        return target
+    if mutation == "preliminary_success_yes_injection":
+        target, key = ingestion, "preliminary_success_eligible"
+    else:
+        target = result
+        key = {
+            "stale_run_id": "run_id",
+            "stale_manifest_hash": "preliminary_manifest_sha256",
+            "stale_validator_identity": "validator_script_path",
+            "stale_evidence_path": "evidence_dir",
+            "mixed_run_evidence": "validator_command",
+        }[mutation]
+    if not target.is_file():
+        raise ScenarioFrameworkError(f"mutation target missing: {target}")
+    lines = target.read_text(encoding="utf-8").splitlines()
+    replacement = "YES" if mutation == "preliminary_success_yes_injection" else value
+    changed = False
+    out: list[str] = []
+    for line in lines:
+        if line.startswith(key + "="):
+            out.append(f"{key}={replacement}")
+            changed = True
+        else:
+            out.append(line)
+    if not changed:
+        raise ScenarioFrameworkError(f"mutation key missing: {key} in {target}")
+    target.write_text("\n".join(out) + "\n", encoding="utf-8", newline="\n")
+    return target
+
+
+class ControlledDockerShim:
+    """A non-delegating Docker shim for full-main ordering smoke tests."""
+
+    def __init__(self, workspace: DisposableWorkspace) -> None:
+        self.workspace = workspace
+        self.log = workspace.workspace / "docker_shim.log"
+        self.log.write_text("", encoding="utf-8")
+        write_executable(
+            workspace.shims.mock_bin / "docker",
+            textwrap.dedent(
+                f"""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                printf 'PHASE3G_DOCKER_SHIM %s\\n' "$*" >> {shlex.quote(workspace.ws_rel + "/docker_shim.log")}
+                case "${{1:-}}" in
+                  version) echo "0.0.0-phase3g-shim" ;;
+                  context) echo "phase3g-shim" ;;
+                  *) echo "phase3g docker shim refuses $*" >&2; exit 97 ;;
+                esac
+                """
+            ),
+        )
+
+    def invocations(self) -> list[str]:
+        return self.log.read_text(encoding="utf-8").splitlines()
+
+
+def run_full_main_fail_closed_smoke(workspace: DisposableWorkspace) -> SourcedExecution:
+    """Invoke the real host main with only its test-prefix work-root rebind.
+
+    A deliberately missing tag makes this stop in pre-Docker identity
+    validation.  The Docker shim is installed as a tripwire and must remain
+    uncalled; no success claim is made by this smoke.
+    """
+    ControlledDockerShim(workspace)
+    runner = IntegratedLifecycleRunner(workspace)
+    work_rel = f"{workspace.ws_rel}/work"
+    body = textwrap.dedent(
+        f"""\
+        validate_work_root() {{
+          local wr="$1" resolved tests
+          [[ "$wr" == /* ]] || die_arg "WORK_ROOT must be absolute"
+          resolved="$(resolve_path_m "$wr")"
+          tests="$(resolve_path_m "${{SCRIPT_DIR}}/tests")"
+          [[ "$resolved" == "$tests"/phase3g_test_* ]] || die_arg "Phase 3G work root refused"
+          WORK_ROOT_RESOLVED="$resolved"
+        }}
+        run_witness_narrow_build_main --work-root "$(pwd)/{work_rel}" \
+          --allow-nonempty-work-root --force-work-root-reset phase3g-smoke
+        """
+    )
+    # No remote URL is supplied: argument/identity failure is intentionally
+    # before Docker, and the production main performs its own finalization.
+    return runner.source_host(body)

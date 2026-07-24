@@ -90,7 +90,14 @@ invokes the repository validator with `--host-preliminary`, captures stdout/stde
 exit 0 means only automated host package structural validation succeeded; it is not final
 success eligibility, not final Witness validation, and not Independent Witness PASS.
 `preliminary_success_eligible` remains `NO` even when host exit is 0. Evidence inventory
-completion and the final Witness lifecycle remain later work. **RC4 remains NOT READY. No
+completion and the final Witness lifecycle remain later work. **Phase 3G on `main` adds
+generator-backed automated preliminary integration coverage:** declarative scenarios exercise
+committed sourced container/host writers, real local `--host-preliminary` validator as the
+primary success-integration proof (mocks only for parser/fault-unit rejection), stale/spoof/
+mixed-run rejection, and limited full-main fail-closed smoke with Docker/Cargo/product
+prohibited via PATH-first shims. Host exit 0 remains preliminary automated structural success
+only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and
+Independent Witness work remain later. **RC4 remains NOT READY. No
 rc5 tag exists.** Independent Witness reproduction has not occurred; Independent Witness
 PASS is not claimed; C-014 remains `NOT_STARTED`.
 

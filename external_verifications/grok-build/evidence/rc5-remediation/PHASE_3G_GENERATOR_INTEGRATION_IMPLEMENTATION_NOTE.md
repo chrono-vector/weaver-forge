@@ -3,8 +3,9 @@
 ## Scope of this note
 
 This note records **Phase 3G-A** (Pi-adjudicated generator/harness framework)
-only. **Phase 3G-B** (integrated lifecycle scenarios, mutations, real-validator
-primary cases, limited full-main smoke) is deferred and not authorized here.
+and **Phase 3G-B** (integrated lifecycle scenarios, mutations, real-validator
+primary cases, limited full-main smoke). Phase 3G is complete pending Pi
+conformance; Phase 3G-C is not authorized.
 
 Owner Option A remained in force: `CLAIM_REGISTER.md` and broad public-status
 documents were not modified.
@@ -307,14 +308,126 @@ Mandatory separate suites (required committed baselines) — all PASS:
 | `test_phase2b_mount_isolation` | **22/22 PASS** |
 | `test_phase2a_host_preflight` | **18/18 PASS** |
 
-## Phase 3G-B work explicitly deferred
+## Phase 3G-B integrated scenarios (this stage)
 
-- Integrated lifecycle scenario matrix
-- Full mutation application against evidence packages
-- Real-validator primary integrated cases as Phase 3G evidence
-- Mandatory limited full-main smoke execution
-- RC4B-018 / RC4B-040 advancement to implemented
-- Any runtime script edits
+Phase 3G-B is the integrated behavioral scenario stage and the final stage of
+Phase 3G. It extends the committed Phase 3G-A framework without redesign and
+without creating Phase 3G-C.
+
+### Phase 3G-B base
+
+| Item | Value |
+|------|-------|
+| Branch | `main` |
+| HEAD (pre-change base) | `e12df255e5b1c772e07f333d133617597d0e8b40` |
+| origin/main (pre-change) | `e12df255e5b1c772e07f333d133617597d0e8b40` |
+| Prior phase | Phase 3G-A at same HEAD |
+| rc5 | absent |
+| Historical tags | `grok-build-witness-v1.0.0-rc1` … `rc4` present; unchanged |
+
+### Exact files changed / created (Phase 3G-B)
+
+- `external_verifications/grok-build/witness-package/scripts/tests/phase3g_scenarios.py` (integrated scenario matrix)
+- `external_verifications/grok-build/witness-package/scripts/tests/phase3g_oracles.py` (oracle evaluation helpers)
+- `external_verifications/grok-build/witness-package/scripts/tests/phase3g_harness.py` (sourced-writer runner, mutations, full-main fail-closed smoke)
+- `external_verifications/grok-build/witness-package/scripts/tests/test_phase3g_integration.py` (**new**)
+- This note (additive Phase 3G-B section)
+- Narrow updates: `INTEGRATED_REMEDIATION_LIST.md`, `WITNESS_REQUIREMENTS.md`, `WITNESS_RUNBOOK.md`
+
+### Integrated scenario architecture
+
+- Declarative `ScenarioRow` table via `integrated_scenarios()` (33 rows)
+- Fixed seed/order identity unchanged: `seed=phase3g-fixed-seed-v1;order=scenario_id_asc`
+- Explicit terminal outcomes, facts, mutations, residue policy, oracle bindings
+- No Cartesian product; no nondeterministic / wall-clock generation
+- Primary proof: sourced committed writers from `container_narrow_build.sh` and
+  `run_witness_narrow_build.sh` inside disposable `phase3g_test_*` workspaces
+- Supporting identity / Witness-manual files may be seeded from `fixtures_lib`
+  only for files the Phase 3C–3F writers under test do not produce
+- Preserve-mode artifact seed includes `artifact_identity_complete` required by
+  host tuple parse (Phase 3D); container finalize still writes BUILD_EXIT /
+  BUILD_TIMING via the real writer
+
+### Exact scenario categories (33 IDs)
+
+Five terminal outcomes; success-capable writer→validator→gate; missing/empty/
+malformed BUILD_EXIT; four outcome-disagreement categories; host infrastructure /
+source-integrity / POST_BUILD / sync-mismatch failures; real-validator structural
+FAIL; mock fault units (nonzero / missing PASS / contradictory / multiple PASS);
+eight stale/spoof/mixed-run / preliminary_success_yes mutations; pre-Docker
+no-validator; limited full-main fail-closed smoke; full-main success-capable row
+(documented as sourced-primary — see boundary note).
+
+### Actual sourced-writer boundary
+
+Exercises, as applicable: container finalization; container-owned evidence;
+host outcome ingestion; source-integrity / POST_BUILD finalization; HOST_OUTCOME
+sync; closed-auxiliary inventory posture; preliminary manifest; real
+`--host-preliminary` validator; host-owned `VALIDATOR_RESULT`; binding
+verification; final host-gate decision. Does **not** execute either script’s
+real production workflow, Docker daemon, Cargo, compiler, product, or network.
+
+### Real-validator primary boundary
+
+Success integration uses `sys.executable` + committed
+`validate_witness_evidence.py --host-preliminary` with captures outside
+`EVIDENCE_DIR`. Mock validators are retained only for parser/fault-unit
+rejection categories and are not the sole success-integration proof.
+
+### Limited full-main smoke boundary
+
+- Fail-closed smoke invokes `run_witness_narrow_build_main` with Phase 3G
+  work-root rebind and controlled Docker shim; fails pre-Docker; no pull/run.
+- Success-capable **host exit 0** via unmodified full main is not safely
+  reachable under shims alone: the automated main intentionally does not
+  complete Witness-manual files required for host-preliminary PASS. Primary
+  success-capable exit 0 is proven by the sourced-writer chain (test_02).
+  Runtime modification to force full-main exit 0 was not performed.
+
+### Exact Phase 3G-B test count and result
+
+| Suite | Module | Result |
+|-------|--------|--------|
+| Phase 3G-B integration | `test_phase3g_integration` | **11/11 PASS** (0 failed, 0 errors, 0 skipped) |
+
+Discovered test methods: `test_01` … `test_11` (category-derived; not an arbitrary target count).
+
+### Exact regression results (Phase 3G-B run)
+
+| Suite | Result |
+|-------|--------|
+| `test_phase3g_framework` | **23/23 PASS** |
+| `test_phase3f_host_validator_gate` | **32/32 PASS** |
+| `test_phase3f_validator_prerequisites` | **25/25 PASS** |
+| `test_validate_witness_evidence` | **65/65 PASS** |
+| `test_phase3e_post_build_integrity` | **22/22 PASS** |
+| `test_phase3d_host_outcome_ingestion` | **50/50 PASS** |
+| `test_phase3c_container_terminal_finalization` | **36/36 PASS** |
+| `test_phase3b_outcome_contract` | **25/25 PASS** |
+| `test_phase2b_mount_isolation` | **22/22 PASS** |
+| `test_phase2a_host_preflight` | **18/18 PASS** |
+
+### Residue / runtime / non-claims
+
+- Residue: no remaining `phase3g_test_*` (or earlier phase) temps after suites
+- Runtime files unchanged: `run_witness_narrow_build.sh`,
+  `container_narrow_build.sh`, `validate_witness_evidence.py`
+- No real Docker, Cargo, compiler, product, or network
+- No Independent Witness reproduction / PASS
+- RC4 remains **NOT READY**; rc5 absent; C-014 **NOT_STARTED**
+- No blocker CLOSED
+
+## Phase 3G-B work previously deferred — now addressed
+
+The following Phase 3G-A deferrals are addressed by Phase 3G-B:
+
+- Integrated lifecycle scenario matrix (33 declarative rows)
+- Mutation application against generated packages
+- Real-validator primary integrated success + FAIL cases
+- Limited full-main fail-closed smoke execution
+- RC4B-018 / RC4B-040 automated-preliminary status advancement (pending reaudit; not CLOSED)
+
+Runtime script edits remain prohibited and were not performed.
 
 ## Non-claims / blocker status
 
@@ -324,6 +437,9 @@ Mandatory separate suites (required committed baselines) — all PASS:
 - rc5 tag absent
 - No Independent Witness reproduction / PASS
 - C-014 remains **NOT_STARTED**
-- RC4B-018 and RC4B-040 remain **OPEN** (Phase 3G-B not yet implemented)
+- RC4B-018 → **IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT** (Phase 3G-B)
+- RC4B-040 automated preliminary package subset → implemented/integration-evidenced
+  pending reaudit; final manual-submission scope remains later; **not CLOSED**
 - RC4B-013 and RC4B-022 remain **IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT**
-- RC4B-017, RC4B-009, RC4B-012, RC4B-019, and RC4B-029 remain **OPEN**
+  with Phase 3G integration evidence added
+- RC4B-009, RC4B-012, RC4B-017, RC4B-019, and RC4B-029 remain **OPEN**

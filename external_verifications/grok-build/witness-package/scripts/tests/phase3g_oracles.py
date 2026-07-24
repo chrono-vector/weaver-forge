@@ -141,3 +141,65 @@ def assert_oracles_do_not_recompute_host_exit(
         )
     # Deliberately ignore other_fields for derivation — presence is diagnostic only.
     _ = other_fields
+
+
+@dataclass(frozen=True)
+class OracleObservation:
+    """One declared binding compared with an observation from a real run."""
+
+    binding_name: str
+    expected: Any
+    actual: Any
+    matched: bool
+
+
+def evaluate_oracle_bindings(
+    bindings: Mapping[str, Any] | tuple[tuple[str, Any], ...],
+    actual_values: Mapping[str, Any],
+    *,
+    scenario_id: str = "n/a",
+) -> tuple[OracleObservation, ...]:
+    """Compare declared scenario bindings to observations only.
+
+    In particular, ``expected_host_exit`` is compared as supplied by the test;
+    this helper never derives an exit/gate value from other observations.
+    """
+    observations: list[OracleObservation] = []
+    for expectation in oracle_expectations_from_bindings(
+        bindings, scenario_id=scenario_id
+    ):
+        if expectation.binding_name not in actual_values:
+            raise ScenarioFrameworkError(
+                f"missing actual observation for {expectation.binding_name!r}",
+                scenario_id=scenario_id,
+            )
+        actual = actual_values[expectation.binding_name]
+        observations.append(
+            OracleObservation(
+                binding_name=expectation.binding_name,
+                expected=expectation.expected,
+                actual=actual,
+                matched=expectation.compare(actual),
+            )
+        )
+    return tuple(observations)
+
+
+def assert_oracle_bindings(
+    bindings: Mapping[str, Any] | tuple[tuple[str, Any], ...],
+    actual_values: Mapping[str, Any],
+    *,
+    scenario_id: str = "n/a",
+) -> tuple[OracleObservation, ...]:
+    """Evaluate bindings and raise a stable diagnostic for the first mismatch."""
+    observations = evaluate_oracle_bindings(
+        bindings, actual_values, scenario_id=scenario_id
+    )
+    for observed in observations:
+        if not observed.matched:
+            raise ScenarioFrameworkError(
+                f"oracle mismatch {observed.binding_name}: "
+                f"expected={observed.expected!r} actual={observed.actual!r}",
+                scenario_id=scenario_id,
+            )
+    return observations

@@ -333,9 +333,16 @@ requires validator process exit 0 plus exactly one definitive `STRUCTURAL VALIDA
 line (exit 0 alone is insufficient). Host exit 0 is not final success eligibility and not
 Independent Witness PASS; `preliminary_success_eligible` remains `NO`. Evidence inventory
 completion and final Witness lifecycle remain later work.
+**Phase 3G on `main` adds generator-backed automated preliminary integration coverage:**
+declarative scenarios exercise committed sourced writers, real local `--host-preliminary`
+validator as primary success-integration proof (mocks only for parser/fault-unit categories),
+stale/spoof/mixed-run rejection, and limited full-main fail-closed smoke; Docker/Cargo/product
+are mocked/prohibited in tests. Host exit 0 remains preliminary automated structural success
+only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and
+Independent Witness work remain later.
 **RC4 remains NOT READY. No rc5 tag exists.** Independent Witness reproduction has not
 occurred; Independent Witness PASS is not claimed; C-014 remains `NOT_STARTED`. Do not claim
-end-to-end Independent Witness compliance from Phase 3F alone.
+end-to-end Independent Witness compliance from Phase 3G alone.
 
 ---
 
@@ -513,3 +520,4 @@ identity above, statically audited **NOT READY** (C-027).
 | main (Phase 3E; not an rc5 release) | Document host-owned complete truthful schema-aligned `POST_BUILD_INTEGRITY.txt` on `main`; `status=OK` iff `post_build_integrity_ok=yes`; finalized failures use `status=FAILED`; `HOST_OUTCOME_INGESTION` synchronized; container remains non-writer; validator is schema consumer only; validator-gated host success remains Phase 3F; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3F-A; not an rc5 release) | Document validator explicit-outcome requirement (inference removed); `HOST_OUTCOME_INGESTION.txt` closed-aux acceptance + structural validation; host-preliminary structural mode and automatable RC4B-017 subset without `evidence_inventory_complete=yes`; validator still writes no evidence; host invocation/exit gating deferred to Phase 3F-B; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
 | main (Phase 3F-B; not an rc5 release) | Document host invocation of `--host-preliminary` after preliminary manifest; host-owned `VALIDATOR_RESULT.txt` + stdout/stderr captures outside `EVIDENCE_DIR`; host exit 0 requires validator process exit 0 **plus** exact `STRUCTURAL VALIDATION: PASS` and the adjudicated automated gates; validator process exit 0 alone insufficient; `preliminary_success_eligible` remains `NO`; host exit 0 ≠ final success eligibility / Independent Witness PASS. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 3G; not an rc5 release) | Document generator-backed Phase 3G automated preliminary integration on `main`: sourced writers + real local `--host-preliminary` validator primary; Docker/Cargo/product mocked/prohibited in tests; host exit 0 = preliminary automated structural success only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and Independent Witness remain later. **RC4 remains NOT READY**; **rc5 tag does not exist** |
