@@ -61,10 +61,14 @@ continue to be ignored, as before.
 
 ## Outcome model
 
-Outcome is detected from `BUILD_EXIT_CODE.txt` field `outcome=` (preferred).
-If that field is absent or not a recognized value, the validator attempts a
-conservative inference from `cargo_started`/`build_status`; if inference is
-still ambiguous, validation fails rather than guessing.
+Outcome is taken **only** from the explicit `BUILD_EXIT_CODE.txt` field
+`outcome=`. That field is mandatory and must contain exactly one allowed
+authoritative outcome value. **Outcome inference is removed (Phase 3F-A /
+RC4B-022):** the validator must never derive an outcome from
+`cargo_started`, `build_status`, or any secondary field pair. Missing,
+empty, malformed, or unsupported `outcome=` values fail closed.
+Contradictory secondary fields fail validation; they do not replace or
+repair the explicit outcome.
 
 | Outcome | Meaning |
 |---------|---------|
@@ -105,6 +109,36 @@ unlabelled numeric-only file (e.g. a lone `0` line, as older packages used)
 is explicitly rejected. `docker_exit_code` is numeric, or the sentinel
 `NOT_STARTED`/`NOT_REACHED` when the container never launched (e.g. a
 pre-`docker run` image-pull/inspect/digest/platform failure).
+
+### Host-preliminary structural validation (Phase 3F-A)
+
+`--host-preliminary` selects host-preliminary structural validation of
+finalized automated host evidence and the preliminary manifest. Semantics:
+
+- Structural PASS means the selected structural checks produced no errors
+- It is **not** final Witness validation
+- It is **not** Independent Witness PASS
+- It is **not** final success eligibility
+- `evidence_inventory_complete=yes` is **not** required
+- `preliminary_success_eligible` remains `NO` and is never treated as final
+  eligibility
+- The automatable RC4B-017 subset is enforced for host-preliminary PASS:
+  `POST_BUILD` `status=OK`, `post_build_integrity_ok=yes`,
+  `source_head_unchanged=yes`, `source_clean_before=yes`,
+  `source_clean_after=yes`, `cargo_lock_unchanged=yes`,
+  `cargo_lock_post_matches_expected=yes`, `source_or_lock_changed=no`, and
+  matching `HOST_OUTCOME_INGESTION` host statuses `OK`
+- Full final Witness inventory completion remains later lifecycle work
+- Host validator invocation and validator-gated host exit remain **Phase 3F-B**
+- The validator still writes **no** evidence (no `VALIDATOR_RESULT.txt`)
+
+Default (non-`--host-preliminary`) validation remains available for final
+Witness packages. When `POST_BUILD` claims `status=OK`, the same automatable
+integrity subset is required for consistency (O18); inventory completeness
+is still not required for structural PASS.
+
+**RC4 remains NOT READY. No rc5 tag exists.** No Independent Witness
+reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 
@@ -173,7 +207,7 @@ already-reviewed historical submission (e.g. one later annotated
 
 ## Closed auxiliary-file inventory
 
-Only these four optional, host-only auxiliary files are permitted alongside
+Only these optional, host-only auxiliary files are permitted alongside
 `REQUIRED_FILES`, and this set is **exhaustive** (`CLOSED_AUX_EVIDENCE_FILES`
 in the validator):
 
@@ -181,14 +215,18 @@ in the validator):
 - `IMAGE_PULL_STDOUT.txt`
 - `IMAGE_PULL_STDERR.txt`
 - `CARGO_LOCK_INTEGRITY.txt`
+- `HOST_OUTCOME_INGESTION.txt` (Phase 3F-A: accepted **and structurally
+  validated** when present — exact field set, vocabularies, and consistency
+  with authoritative `BUILD_EXIT_CODE.txt` outcome; not merely allow-listed)
 
 They are optional in `EVIDENCE_MANIFEST.sha256` (not required entries), but
 if present on disk they must not be symlinks and, if listed in the
-manifest, their hash must match.
+manifest, their hash must match. Host-preliminary mode (`--host-preliminary`)
+**requires** `HOST_OUTCOME_INGESTION.txt`.
 
 **Being listed in the manifest does not itself grant a file entry into the
 evidence set.** Any manifest line for a relative path that is neither one of
-`REQUIRED_FILES` nor one of the four closed auxiliary files above is
+`REQUIRED_FILES` nor one of the closed auxiliary files above is
 rejected outright — even if the file exists on disk and its hash matches —
 because "undeclared aux" is a policy violation independent of hash
 correctness (`validate_manifest`'s dedicated check).

@@ -877,6 +877,91 @@ def _post_build_integrity(scenario: str) -> str:
     )
 
 
+def _host_outcome_ingestion(scenario: str) -> str:
+    """Host-owned HOST_OUTCOME_INGESTION.txt matching the Phase 3D/3E writer field set.
+
+    Success-intent / post-Docker fixtures record a valid container result with
+    host integrity OK. Pre-Docker fixtures record MISSING/invalid container
+    result with host infrastructure FAILED — structurally valid failure evidence.
+    preliminary_success_eligible is always NO.
+    """
+    outcome = _outcome(scenario)
+    if scenario in _PRE_DOCKER:
+        return _render(
+            OrderedDict(
+                [
+                    ("schema_version", "1"),
+                    ("status", "FAILED"),
+                    ("container_result_presence", "MISSING"),
+                    ("container_result_valid", "NO"),
+                    ("container_result_error", "container_not_started"),
+                    ("container_outcome", ""),
+                    ("container_exit_code", ""),
+                    ("cargo_started", ""),
+                    ("cargo_exit_code", ""),
+                    ("artifact_present", ""),
+                    ("artifact_identity_complete", ""),
+                    ("static_inspection_complete", ""),
+                    ("host_infrastructure_status", "FAILED"),
+                    ("host_source_integrity_status", "OK"),
+                    ("post_build_integrity_status", "FAILED"),
+                    ("evidence_completeness_status", "FAILED"),
+                    ("preliminary_success_eligible", "NO"),
+                    ("record_owner", "HOST"),
+                    ("run_id", "run-2026-07-22-001"),
+                    ("failure_stage", _infra_stage(scenario)),
+                ]
+            )
+        )
+
+    docker_exit = "0"
+    if scenario == "cargo-failed":
+        docker_exit = "1"
+    cargo_started = "YES"
+    cargo_exit = "0"
+    artifact_present = "NO"
+    identity_complete = ""
+    static_complete = ""
+    if outcome == "CARGO_FAILED":
+        cargo_exit = "101"
+    elif outcome == "CARGO_SUCCEEDED_ARTIFACT_MISSING":
+        pass
+    elif outcome == "CARGO_SUCCEEDED_ARTIFACT_PRESENT":
+        artifact_present = "YES"
+        identity_complete = "YES"
+        static_complete = "NO" if scenario == "static-inspection-incomplete" else "YES"
+    elif outcome in ("BUILD_NOT_STARTED", "INFRASTRUCTURE_FAILURE"):
+        cargo_started = "NO"
+        cargo_exit = "NOT_APPLICABLE"
+
+    return _render(
+        OrderedDict(
+            [
+                ("schema_version", "1"),
+                ("status", "OK"),
+                ("container_result_presence", "PRESENT"),
+                ("container_result_valid", "YES"),
+                ("container_result_error", "none"),
+                ("container_outcome", outcome),
+                ("container_exit_code", docker_exit),
+                ("cargo_started", cargo_started),
+                ("cargo_exit_code", cargo_exit),
+                ("artifact_present", artifact_present),
+                ("artifact_identity_complete", identity_complete),
+                ("static_inspection_complete", static_complete),
+                ("host_infrastructure_status", "OK"),
+                ("host_source_integrity_status", "OK"),
+                ("post_build_integrity_status", "OK"),
+                ("evidence_completeness_status", "INCOMPLETE"),
+                ("preliminary_success_eligible", "NO"),
+                ("record_owner", "HOST"),
+                ("run_id", "run-2026-07-22-001"),
+                ("failure_stage", "none"),
+            ]
+        )
+    )
+
+
 def _witness_statement() -> str:
     return _render(
         OrderedDict(
@@ -983,6 +1068,8 @@ def build_scenario(scenario: str) -> "dict[str, str]":
         "ARTIFACT_IDENTITY.txt": _artifact_identity(scenario),
         "STATIC_ARTIFACT_INSPECTION.txt": _static_inspection(scenario),
         "POST_BUILD_INTEGRITY.txt": _post_build_integrity(scenario),
+        # Phase 3F-A: host-owned closed auxiliary (structurally validated).
+        "HOST_OUTCOME_INGESTION.txt": _host_outcome_ingestion(scenario),
         "WITNESS_STATEMENT.md": _witness_statement(),
         "WITNESS_VERDICT.md": _witness_verdict(scenario),
         "DEVIATIONS.txt": _deviations(),

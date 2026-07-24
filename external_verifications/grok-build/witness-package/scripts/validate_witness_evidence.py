@@ -36,15 +36,19 @@ MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
 
 # Closed inventory of optional host-only auxiliary files. This set is
 # EXHAUSTIVE: any other file present on disk (or declared in the manifest)
-# that is not one of REQUIRED_FILES and not one of these four is a
+# that is not one of REQUIRED_FILES and not one of these closed-aux files is a
 # structural failure, even if its hash matches what's on disk (see
 # "Reject undeclared aux even if in manifest" in WITNESS_PACKAGE_MANIFEST.md).
+# Phase 3F-A: HOST_OUTCOME_INGESTION.txt is accepted and structurally validated
+# when present (not merely allow-listed).
+HOST_OUTCOME_INGESTION_NAME = "HOST_OUTCOME_INGESTION.txt"
 CLOSED_AUX_EVIDENCE_FILES = frozenset(
     {
         "HOST_RUN_METADATA.txt",
         "IMAGE_PULL_STDOUT.txt",
         "IMAGE_PULL_STDERR.txt",
         "CARGO_LOCK_INTEGRITY.txt",
+        HOST_OUTCOME_INGESTION_NAME,
     }
 )
 # Backward-compatible alias (manifest-optional == closed aux set).
@@ -155,6 +159,65 @@ OUTCOME_RULES = {
 # Outcomes where cargo actually started (BUILD_TIMING.txt cargo_* fields become mandatory).
 OUTCOMES_WITH_CARGO_TIMING = frozenset(
     {"CARGO_FAILED", "CARGO_SUCCEEDED_ARTIFACT_MISSING", "CARGO_SUCCEEDED_ARTIFACT_PRESENT"}
+)
+
+# Exact field set for host-owned HOST_OUTCOME_INGESTION.txt (Phase 3D/3E writer).
+# Order matches _host_outcome_ingestion_body in run_witness_narrow_build.sh.
+HOST_OUTCOME_INGESTION_FIELDS = (
+    "schema_version",
+    "status",
+    "container_result_presence",
+    "container_result_valid",
+    "container_result_error",
+    "container_outcome",
+    "container_exit_code",
+    "cargo_started",
+    "cargo_exit_code",
+    "artifact_present",
+    "artifact_identity_complete",
+    "static_inspection_complete",
+    "host_infrastructure_status",
+    "host_source_integrity_status",
+    "post_build_integrity_status",
+    "evidence_completeness_status",
+    "preliminary_success_eligible",
+    "record_owner",
+    "run_id",
+    "failure_stage",
+)
+# Keys that the host writer may emit as empty when the container result is
+# missing/invalid (never invent values). All other HOST_OUTCOME keys must be
+# non-empty.
+HOST_OUTCOME_EMPTY_OK_FIELDS = frozenset(
+    {
+        "container_outcome",
+        "container_exit_code",
+        "cargo_started",
+        "cargo_exit_code",
+        "artifact_present",
+        "artifact_identity_complete",
+        "static_inspection_complete",
+        "run_id",
+    }
+)
+HOST_OUTCOME_STATUS_VALUES = frozenset({"OK", "FAILED"})
+HOST_OUTCOME_PRESENCE_VALUES = frozenset({"MISSING", "EMPTY", "PRESENT"})
+HOST_OUTCOME_YES_NO = frozenset({"YES", "NO"})
+HOST_OUTCOME_HOST_STATUS_VALUES = frozenset({"OK", "FAILED"})
+HOST_OUTCOME_COMPLETENESS_VALUES = frozenset({"INCOMPLETE", "FAILED", "COMPLETE"})
+HOST_OUTCOME_PRELIMINARY_VALUES = frozenset({"YES", "NO"})
+
+# Automatable RC4B-017 host-preliminary structural subset (not full four-yes;
+# evidence_inventory_complete=yes is deliberately not required).
+HOST_PRELIMINARY_POST_BUILD_REQUIRED = (
+    ("status", "OK"),
+    ("post_build_integrity_ok", "yes"),
+    ("source_head_unchanged", "yes"),
+    ("source_clean_before", "yes"),
+    ("source_clean_after", "yes"),
+    ("cargo_lock_unchanged", "yes"),
+    ("cargo_lock_post_matches_expected", "yes"),
+    ("source_or_lock_changed", "no"),
 )
 
 VERDICT_VALUES = frozenset({"PASS", "PARTIAL", "FAIL", "INDETERMINATE"})
@@ -937,6 +1000,21 @@ def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> Non
     ):
         fail(errors, f"{name}: docker_exit_code must be numeric or a NOT_REACHED/NOT_STARTED sentinel")
 
+    # Automatable RC4B-017 consistency (O18): when POST_BUILD claims status=OK,
+    # the automatable integrity subset must hold. evidence_inventory_complete=yes
+    # is deliberately not required (host-preliminary / Witness lifecycle later).
+    if status == "OK":
+        for key, expected in HOST_PRELIMINARY_POST_BUILD_REQUIRED:
+            if key == "status":
+                continue
+            actual = fields.get(key, "")
+            if actual != expected:
+                fail(
+                    errors,
+                    f"{name}: status=OK requires {key}={expected} "
+                    f"(automatable RC4B-017 subset; found {actual!r})",
+                )
+
 
 def check_build_command(fields: dict[str, str], errors: list[str]) -> None:
     name = "BUILD_COMMAND.txt"
@@ -972,32 +1050,219 @@ def check_build_environment(fields: dict[str, str], errors: list[str], outcome: 
 
 
 def determine_outcome(fields: dict[str, str] | None, errors: list[str]) -> str | None:
-    """Detect outcome from BUILD_EXIT_CODE.txt 'outcome=' (preferred), or infer
-    conservatively from cargo_started/build_status when the explicit field is
-    absent. ``fields`` is the already-parsed BUILD_EXIT_CODE.txt key/value map
-    (or None when the file is missing). Returns None (with an error appended)
-    if it cannot be determined."""
+    """Require an explicit authoritative ``outcome=`` from BUILD_EXIT_CODE.txt.
+
+    Phase 3F-A / RC4B-022: no inference from cargo_started, build_status, or any
+    secondary field pair. Missing, empty, malformed, or unsupported values fail
+    closed. The validator never creates or infers an outcome not explicitly
+    present in authoritative evidence.
+    """
     if fields is None:
         fail(errors, "Cannot determine outcome: BUILD_EXIT_CODE.txt is missing")
         return None
-    outcome = fields.get("outcome")
-    if outcome in OUTCOME_VALUES:
-        return outcome
-    # Conservative inference fallback when the explicit field is absent/invalid.
-    cargo_started = fields.get("cargo_started")
-    build_status = fields.get("build_status")
-    if cargo_started == "NO" and build_status == "BUILD_NOT_STARTED":
-        return "BUILD_NOT_STARTED"
-    if cargo_started == "NO" and build_status == "INFRASTRUCTURE_FAILURE":
-        return "INFRASTRUCTURE_FAILURE"
-    if cargo_started == "YES" and build_status == "FAILED":
-        return "CARGO_FAILED"
-    fail(
-        errors,
-        "BUILD_EXIT_CODE.txt: 'outcome' field missing or invalid and could not be "
-        "conservatively inferred from cargo_started/build_status",
-    )
-    return None
+    if "outcome" not in fields:
+        fail(
+            errors,
+            "BUILD_EXIT_CODE.txt: explicit 'outcome' field is required "
+            "(outcome inference from cargo_started/build_status is prohibited)",
+        )
+        return None
+    outcome = fields.get("outcome", "")
+    if outcome == "":
+        fail(
+            errors,
+            "BUILD_EXIT_CODE.txt: explicit 'outcome' field is empty "
+            "(outcome inference is prohibited; fail closed)",
+        )
+        return None
+    if outcome not in OUTCOME_VALUES:
+        fail(
+            errors,
+            f"BUILD_EXIT_CODE.txt: 'outcome' value {outcome!r} is not an allowed "
+            f"authoritative outcome {sorted(OUTCOME_VALUES)} "
+            "(unsupported/malformed outcome fails closed; no inference)",
+        )
+        return None
+    return outcome
+
+
+def check_host_outcome_ingestion(
+    fields: dict[str, str],
+    errors: list[str],
+    authoritative_outcome: str | None,
+) -> None:
+    """Structurally validate host-owned HOST_OUTCOME_INGESTION.txt.
+
+    Exact field-set equality; legal vocabularies; outcome agreement with
+    authoritative BUILD_EXIT_CODE when the host recorded a valid container
+    result. Never overwrites or repairs container evidence.
+    """
+    name = HOST_OUTCOME_INGESTION_NAME
+    required_set = set(HOST_OUTCOME_INGESTION_FIELDS)
+    actual = set(fields)
+    for key in sorted(required_set - actual):
+        fail(errors, f"{name}: missing required field '{key}'")
+    for key in sorted(actual - required_set):
+        fail(errors, f"{name}: unknown/extra field '{key}'")
+    for key in HOST_OUTCOME_INGESTION_FIELDS:
+        if key not in fields:
+            continue
+        if fields[key] == "" and key not in HOST_OUTCOME_EMPTY_OK_FIELDS:
+            fail(errors, f"{name}: missing required field '{key}'")
+
+    schema = fields.get("schema_version", "")
+    if schema and schema != "1":
+        fail(errors, f"{name}: schema_version must be '1' (found {schema!r})")
+
+    status = fields.get("status", "")
+    if status and status not in HOST_OUTCOME_STATUS_VALUES:
+        fail(errors, f"{name}: status must be one of {sorted(HOST_OUTCOME_STATUS_VALUES)}")
+
+    presence = fields.get("container_result_presence", "")
+    if presence and presence not in HOST_OUTCOME_PRESENCE_VALUES:
+        fail(
+            errors,
+            f"{name}: container_result_presence must be one of "
+            f"{sorted(HOST_OUTCOME_PRESENCE_VALUES)}",
+        )
+
+    valid = fields.get("container_result_valid", "")
+    if valid and valid not in HOST_OUTCOME_YES_NO:
+        fail(errors, f"{name}: container_result_valid must be YES|NO")
+
+    for key in (
+        "host_infrastructure_status",
+        "host_source_integrity_status",
+        "post_build_integrity_status",
+    ):
+        value = fields.get(key, "")
+        if value and value not in HOST_OUTCOME_HOST_STATUS_VALUES:
+            fail(
+                errors,
+                f"{name}: {key} must be one of {sorted(HOST_OUTCOME_HOST_STATUS_VALUES)}",
+            )
+
+    completeness = fields.get("evidence_completeness_status", "")
+    if completeness and completeness not in HOST_OUTCOME_COMPLETENESS_VALUES:
+        fail(
+            errors,
+            f"{name}: evidence_completeness_status must be one of "
+            f"{sorted(HOST_OUTCOME_COMPLETENESS_VALUES)}",
+        )
+
+    preliminary = fields.get("preliminary_success_eligible", "")
+    if preliminary and preliminary not in HOST_OUTCOME_PRELIMINARY_VALUES:
+        fail(
+            errors,
+            f"{name}: preliminary_success_eligible must be one of "
+            f"{sorted(HOST_OUTCOME_PRELIMINARY_VALUES)}",
+        )
+    # preliminary_success_eligible remains a recorded field; YES is legal
+    # vocabulary but is never treated as final success eligibility by the
+    # structural validator.
+
+    owner = fields.get("record_owner", "")
+    if owner and owner != "HOST":
+        fail(errors, f"{name}: record_owner must be HOST")
+
+    container_outcome = fields.get("container_outcome", "")
+    if valid == "YES":
+        if container_outcome not in OUTCOME_VALUES:
+            fail(
+                errors,
+                f"{name}: container_outcome must be an allowed authoritative outcome "
+                f"when container_result_valid=YES (found {container_outcome!r})",
+            )
+        elif (
+            authoritative_outcome is not None
+            and container_outcome != authoritative_outcome
+        ):
+            fail(
+                errors,
+                f"{name}: container_outcome={container_outcome!r} disagrees with "
+                f"authoritative BUILD_EXIT_CODE.txt outcome={authoritative_outcome!r} "
+                "(HOST_OUTCOME must not overwrite or repair container evidence)",
+            )
+    elif valid == "NO":
+        if (
+            container_outcome
+            and container_outcome not in OUTCOME_VALUES
+            and container_outcome != "INVALID"
+        ):
+            fail(
+                errors,
+                f"{name}: container_outcome must be empty, INVALID, or an allowed "
+                f"outcome when container_result_valid=NO (found {container_outcome!r})",
+            )
+
+    # Contradictory host/container presence vs validity.
+    if presence == "MISSING" and valid == "YES":
+        fail(
+            errors,
+            f"{name}: container_result_presence=MISSING contradicts container_result_valid=YES",
+        )
+    if presence == "EMPTY" and valid == "YES":
+        fail(
+            errors,
+            f"{name}: container_result_presence=EMPTY contradicts container_result_valid=YES",
+        )
+    if status == "OK" and valid == "NO":
+        fail(
+            errors,
+            f"{name}: status=OK contradicts container_result_valid=NO "
+            "(host must not claim OK ingestion over an invalid container result)",
+        )
+
+
+def check_host_preliminary_post_build_subset(
+    post_build: dict[str, str],
+    host_outcome: dict[str, str] | None,
+    errors: list[str],
+) -> None:
+    """Enforce the automatable RC4B-017 subset for host-preliminary structural PASS.
+
+    Does not require evidence_inventory_complete=yes. Does not grant final
+    success eligibility. preliminary_success_eligible remaining NO is expected.
+    """
+    name = "POST_BUILD_INTEGRITY.txt"
+    for key, expected in HOST_PRELIMINARY_POST_BUILD_REQUIRED:
+        actual = post_build.get(key, "")
+        if actual != expected:
+            fail(
+                errors,
+                f"{name}: host-preliminary structural PASS requires {key}={expected} "
+                f"(found {actual!r}); automatable RC4B-017 subset only — "
+                "evidence_inventory_complete=yes is not required",
+            )
+
+    if host_outcome is None:
+        fail(
+            errors,
+            f"{HOST_OUTCOME_INGESTION_NAME}: required for host-preliminary structural validation",
+        )
+        return
+
+    for key, expected in (
+        ("host_infrastructure_status", "OK"),
+        ("host_source_integrity_status", "OK"),
+        ("post_build_integrity_status", "OK"),
+    ):
+        actual = host_outcome.get(key, "")
+        if actual != expected:
+            fail(
+                errors,
+                f"{HOST_OUTCOME_INGESTION_NAME}: host-preliminary structural PASS requires "
+                f"{key}={expected} (found {actual!r})",
+            )
+
+    preliminary = host_outcome.get("preliminary_success_eligible", "")
+    if preliminary != "NO":
+        fail(
+            errors,
+            f"{HOST_OUTCOME_INGESTION_NAME}: preliminary_success_eligible must remain NO "
+            f"during host-preliminary structural validation (found {preliminary!r}; "
+            "YES is never treated as final success eligibility)",
+        )
 
 
 def check_build_exit_code(fields: dict[str, str], errors: list[str], outcome: str | None) -> None:
@@ -1616,7 +1881,7 @@ def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
             fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
 
     # Closed aux inventory: any manifest entry that is neither a required
-    # file nor one of the four closed-set auxiliary files is rejected
+    # file nor one of the closed-set auxiliary files is rejected
     # outright — being listed in the manifest (even with a correct hash)
     # does not grant a file entry into the evidence set.
     for rel in listed:
@@ -1652,7 +1917,15 @@ def validate_manifest(evidence_dir: Path, errors: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def validate_dir(evidence_dir: Path) -> list[str]:
+def validate_dir(evidence_dir: Path, *, host_preliminary: bool = False) -> list[str]:
+    """Validate an evidence directory structurally.
+
+    ``host_preliminary=True`` selects host-preliminary structural validation:
+    automated host evidence + preliminary manifest may PASS the automatable
+    RC4B-017 subset without ``evidence_inventory_complete=yes``. This is not
+    final Witness validation, not Independent Witness PASS, and not final
+    success eligibility. The validator still writes nothing into evidence.
+    """
     errors: list[str] = []
     if not evidence_dir.is_dir():
         return [f"Not a directory: {evidence_dir}"]
@@ -1691,9 +1964,29 @@ def validate_dir(evidence_dir: Path) -> list[str]:
     # Determine the overall outcome up front: it gates both the placeholder
     # allowance (NOT_REACHED container-owned files on a non-started /
     # infrastructure path) and every outcome-sensitive per-file check.
+    # Explicit authoritative outcome only — no inference (Phase 3F-A).
     outcome: str | None = None
     if "BUILD_EXIT_CODE.txt" in file_fields:
         outcome = determine_outcome(file_fields["BUILD_EXIT_CODE.txt"], errors)
+    elif (evidence_dir / "BUILD_EXIT_CODE.txt").is_file():
+        # File present but not parsed into file_fields (should not happen for
+        # required files); still fail closed on missing explicit outcome path.
+        fail(errors, "Cannot determine outcome: BUILD_EXIT_CODE.txt could not be parsed")
+
+    # Optional closed-aux HOST_OUTCOME_INGESTION.txt: parse + structural validate
+    # when present. Host-preliminary mode requires it.
+    host_outcome_fields: dict[str, str] | None = None
+    host_outcome_path = evidence_dir / HOST_OUTCOME_INGESTION_NAME
+    if host_outcome_path.is_file() and not host_outcome_path.is_symlink():
+        host_text = read_text(host_outcome_path)
+        host_outcome_fields, host_dup_errors = parse_kv(host_text, HOST_OUTCOME_INGESTION_NAME)
+        errors.extend(host_dup_errors)
+        check_host_outcome_ingestion(host_outcome_fields, errors, outcome)
+    elif host_preliminary:
+        fail(
+            errors,
+            f"Missing required file for host-preliminary mode: {HOST_OUTCOME_INGESTION_NAME}",
+        )
 
     for name in SCHEMA_VERSIONED_FILES:
         if name in file_fields:
@@ -1788,15 +2081,31 @@ def validate_dir(evidence_dir: Path) -> list[str]:
 
     validate_manifest(evidence_dir, errors)
 
+    if host_preliminary and "POST_BUILD_INTEGRITY.txt" in file_fields:
+        check_host_preliminary_post_build_subset(
+            file_fields["POST_BUILD_INTEGRITY.txt"], host_outcome_fields, errors
+        )
+
     return errors
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Witness evidence structure (not truth).")
     parser.add_argument("evidence_dir", type=Path, help="Path to evidence directory")
+    parser.add_argument(
+        "--host-preliminary",
+        action="store_true",
+        help=(
+            "Host-preliminary structural validation mode: enforce the automatable "
+            "RC4B-017 POST_BUILD subset and require HOST_OUTCOME_INGESTION.txt; "
+            "do not require evidence_inventory_complete=yes. Not final Witness "
+            "validation and not Independent Witness PASS. Phase 3F-A exposes this "
+            "for tests only; host invocation/exit gating remains Phase 3F-B."
+        ),
+    )
     args = parser.parse_args(argv)
 
-    errors = validate_dir(args.evidence_dir.resolve())
+    errors = validate_dir(args.evidence_dir.resolve(), host_preliminary=args.host_preliminary)
     if errors:
         print("STRUCTURAL VALIDATION: FAIL")
         for e in errors:
@@ -1806,7 +2115,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print("STRUCTURAL VALIDATION: PASS")
+    mode_note = (
+        " (host-preliminary structural PASS; not final Witness validation; "
+        "not Independent Witness PASS; not final success eligibility)"
+        if args.host_preliminary
+        else ""
+    )
+    print(f"STRUCTURAL VALIDATION: PASS{mode_note}")
     print(
         "Structural PASS does not prove execution, independence, or truthfulness."
     )

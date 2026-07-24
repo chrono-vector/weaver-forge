@@ -315,25 +315,35 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
             self.assertIn(value, self.validator)
         self.assertIn("OUTCOME_VALUES", self.validator)
 
-    # 23 — visibility lock: violation must remain listed as unresolved (not acceptable)
+    # 23 — Phase 3B discovered validator inference; Phase 3F-A removes it from
+    # current source. Historical contract/note baseline remains UNRESOLVED /
+    # not ACCEPTABLE (AUTHORITATIVE_OUTCOME_CONTRACT.json and Phase 3B note
+    # are unchanged historical records). Supersede only the stale expectation
+    # that inference must still exist in current validator source.
     def test_23_validator_inference_detected_and_recorded_as_unresolved_violation(self) -> None:
         self.assertIn("def determine_outcome", self.validator)
-        self.assertRegex(
+        # Phase 3F-A: current source must contain no inference fallback.
+        self.assertNotRegex(
             self.validator,
             re.compile(
-                r"def determine_outcome[\s\S]*?"
                 r"Conservative inference fallback|"
                 r"conservatively inferred from cargo_started",
                 re.MULTILINE,
             ),
         )
+        self.assertNotIn("conservatively inferred", self.validator)
+        # Explicit-outcome-only rule must be present.
+        self.assertIn("outcome inference", self.validator.lower())
+        self.assertIn("explicit", self.validator.lower())
+        # Historical Phase 3B contract/note still record the discovered violation.
         violation = _violation_by_id(self.contract, VIOLATION_VALIDATOR_INFERENCE)
         self.assertEqual(violation["status"], UNRESOLVED)
         self.assertIs(violation["acceptable"], False)
         self.assertIn(VIOLATION_VALIDATOR_INFERENCE, self.note)
         self.assertIn(UNRESOLVED, self.note)
         self.assertIn("determine_outcome", self.note)
-        # Must not claim the violation is acceptable / remediated.
+        # Must not claim the violation is acceptable / remediated / CLOSED in the
+        # historical Phase 3B note (implementation advancement is ledger/Phase 3F).
         self.assertNotRegex(
             self.note,
             re.compile(

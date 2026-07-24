@@ -297,14 +297,16 @@ class OutcomeConsistencyTests(unittest.TestCase):
         files["BUILD_EXIT_CODE.txt"] = "\n".join(
             l for l in files["BUILD_EXIT_CODE.txt"].splitlines() if not l.startswith("outcome=")
         ) + "\n"
-        # Remove cargo_started/build_status so it cannot be inferred either.
-        files["BUILD_EXIT_CODE.txt"] = files["BUILD_EXIT_CODE.txt"].replace(
-            "cargo_started=YES\n", ""
-        )
+        # Phase 3F-A: secondary cargo_started/build_status must not produce an
+        # outcome when explicit outcome= is absent (inference removed).
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
         errors = v.validate_dir(tmp)
-        self.assertTrue(any("outcome" in e.lower() for e in errors), errors)
+        self.assertTrue(any("explicit 'outcome'" in e or "outcome" in e.lower() for e in errors), errors)
+        self.assertTrue(
+            any("inference" in e.lower() or "explicit" in e.lower() for e in errors),
+            errors,
+        )
 
     def test_invalid_outcome_value_fails(self):
         files = fx.build_scenario("success-artifact-present")

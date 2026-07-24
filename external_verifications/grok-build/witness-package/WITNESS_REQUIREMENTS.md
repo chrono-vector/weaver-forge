@@ -74,11 +74,15 @@ Host infrastructure and source-integrity failures are recorded in separate host-
 `status=OK` if and only if `post_build_integrity_ok=yes`; all finalized failure paths use
 `status=FAILED` (never `NOT_APPLICABLE` as a final status); `HOST_OUTCOME_INGESTION.txt`
 `post_build_integrity_status` is synchronized with the final POST_BUILD record; the container
-remains a POST_BUILD non-writer; the validator is a schema consumer only during Phase 3E.
-`preliminary_success_eligible` remains `NO`. **Validator-gated host success remains Phase 3F.**
-Validator outcome inference remains unresolved. The host ingestion / POST_BUILD records are
-preliminary and do **not** imply Witness PASS. **RC4 remains NOT READY. No rc5 tag exists.**
-Do not claim end-to-end outcome-preservation or validator-gated success from Phase 3E alone.
+remains a POST_BUILD non-writer. **Phase 3F-A on `main` removes validator outcome inference**
+and requires an explicit authoritative `outcome=`; accepts and structurally validates
+`HOST_OUTCOME_INGESTION.txt` as closed auxiliary; and enforces the automatable RC4B-017
+host-preliminary structural subset without requiring `evidence_inventory_complete=yes`.
+Host-preliminary structural PASS is distinct from final Witness validation and is not
+Independent Witness PASS or final success eligibility. `preliminary_success_eligible`
+remains `NO`. The validator still writes no evidence. **Host validator invocation and
+validator-gated host exit remain Phase 3F-B.** **RC4 remains NOT READY. No rc5 tag exists.**
+Do not claim end-to-end outcome-preservation or validator-gated success from Phase 3F-A alone.
 Independent Witness reproduction has not occurred; Independent Witness PASS is not claimed;
 C-014 remains `NOT_STARTED`.
 
