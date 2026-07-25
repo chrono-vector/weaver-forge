@@ -1,20 +1,17 @@
-# Witness classification — precedence (1.0.0-rc4)
+# Witness classification — precedence (1.0.0-rc5)
 
-Applies to package version **1.0.0-rc4** (canonical package tag
-`grok-build-witness-v1.0.0-rc4`; fixed tagged commit
-`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package commit authority =
-`annotated_tag_resolution`; resolved commit is the fixed rc4 release identity).
-Superseded rc3 text (tag `grok-build-witness-v1.0.0-rc3`, commit
+Applies to package version **1.0.0-rc5** (canonical package tag
+`grok-build-witness-v1.0.0-rc5`; package commit authority =
+`annotated_tag_resolution`; rc5 is an immutable static-audit candidate only and is **not READY**).
+Historical rc4 remains fixed at tag `grok-build-witness-v1.0.0-rc4`, commit
+`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. Superseded rc3 text (tag `grok-build-witness-v1.0.0-rc3`, commit
 `77221a224bbd6194cfafb81f6ecb58c800e5bc13`), rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
 `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
 history at those tags; this file states **current** policy only. rc1/rc2/rc3/rc4 audits were each
 **NOT READY**. Independent Witness reproduction **NOT PERFORMED**. Independent Witness PASS
 **NONE**. C-014 remains **NOT_STARTED**. Overall package status remains **PARTIAL** /
-**NOT READY** (rc4 static disposition; 40 integrated blockers). Phase 0 audit intake is complete.
-Phase 1 documentation and release/status remediation is being performed on `main`. Technical
-implementation remediation of scripts, schemas, validators, tests, and execution controls has not
-begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
+**NOT READY**. **rc5 tag does not yet exist**.
 
 Apply rules **in order**; the first matching row governs the **proposed Witness verdict**
 recorded in `WITNESS_VERDICT.md`. Maintainers assign an **intake verdict** separately, using
@@ -52,8 +49,8 @@ applicable row.
 | 1 | Proven **product execution** (any invocation of `xai-grok-pager` / `grok`, including `--version`, `--help`, `-h`, TUI, login, agents, OAuth, models, update) | **FAIL** |
 | 2 | Proven **`ldd` use** against the built artifact or any other executable | **FAIL** |
 | 3 | Deliberate falsification or material evidence manipulation (edited logs/hashes, backdated timestamps, fabricated command output) | **FAIL** |
-| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not `grok-build-witness-v1.0.0-rc4`, or the tag could not be resolved on `origin` at all | **FAIL** |
-| 5 | **Canonical Weaver Forge commit mismatch** — the commit resolved from the requested tag does not equal the pinned/expected Weaver Forge commit once one is recorded for rc4 | **FAIL** |
+| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not the expected tag for the declared `package_version` (active `1.0.0-rc5` requires `grok-build-witness-v1.0.0-rc5`; historical `1.0.0-rc4` requires `grok-build-witness-v1.0.0-rc4`), or the tag could not be resolved on `origin` at all | **FAIL** |
+| 5 | **Canonical Weaver Forge commit mismatch** — the commit resolved from the requested tag does not equal the pinned/expected Weaver Forge commit once one is recorded for the declared package identity | **FAIL** |
 | 6 | **Canonical Grok Build commit mismatch** — observed Grok Build `HEAD` after clone/checkout ≠ `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` | **FAIL** |
 | 7 | **Canonical Rust image mismatch** — pulled image digest, OS, or architecture does not match the pinned `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` / `linux/amd64` | **FAIL** |
 | 8 | **`Cargo.lock` mismatch or change** — SHA-256 before build ≠ `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421`, or the before/after SHA-256 values differ from each other | **FAIL** |

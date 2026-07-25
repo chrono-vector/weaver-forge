@@ -1,12 +1,14 @@
-# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc4)
+# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc5)
 
-**Package status:** **RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED**
+**Package status:** **RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — RC5 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — C-014 NOT_STARTED**
 
-Canonical package tag: `grok-build-witness-v1.0.0-rc4` → fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`
-(`canonical_package_tag=grok-build-witness-v1.0.0-rc4`). Availability verified by annotated-tag
+Canonical package tag (active candidate): `grok-build-witness-v1.0.0-rc5`
+(`canonical_package_tag=grok-build-witness-v1.0.0-rc5`). Availability verified by annotated-tag
 resolution; canonical execution requires successful resolution; if resolution fails, canonical
-execution stops. The tag is immutable. `package_commit_authority=annotated_tag_resolution`
-(resolved commit is the fixed rc4 release identity).
+execution stops. After publication the tag is immutable. `package_commit_authority=annotated_tag_resolution`
+(resolved commit is derived at tag publication / run time; this tree does not embed a future
+commit hash). Historical `grok-build-witness-v1.0.0-rc4` remains fixed at
+`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`.
 `grok-build-witness-v1.0.0-rc4` static blind audit is **COMPLETE** with final disposition
 **NOT READY** (40 integrated blockers; C-027; `evidence/rc4-static-blind-audit/`).
 `grok-build-witness-v1.0.0-rc3` remains fixed at `77221a224bbd6194cfafb81f6ecb58c800e5bc13`
@@ -16,10 +18,8 @@ execution stops. The tag is immutable. `package_commit_authority=annotated_tag_r
 (integrated four-batch static blind audit verdict **NOT READY**).
 `grok-build-witness-v1.0.0-rc1` remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a`
 (repeat audit verdict **NOT READY**). rc1–rc4 are **immutable releases** and must not be moved,
-deleted, or force-updated. Phase 0 audit intake is complete. Phase 1 documentation and
-release/status remediation is being performed on `main`. Technical implementation remediation of
-scripts, schemas, validators, tests, and execution controls has not begun. `main` is being
-prepared toward a possible future rc5 candidate; **no rc5 tag exists**. Independent Witness
+deleted, or force-updated. rc5 is an **immutable static-audit candidate only** and is **not READY**.
+**rc5 tag does not yet exist**. Independent Witness
 reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **NOT_STARTED**. Overall
 **PARTIAL**.
 
@@ -35,7 +35,7 @@ not** be run.
 |-------|--------|
 | Linux x86_64 host + Docker | **Canonical** |
 | WSL2 Linux shell + Docker Desktop (Linux containers) | **Canonical** |
-| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc4 |
+| PowerShell-only host orchestration | **Noncanonical** for 1.0.0-rc5 |
 | Windows-native `cargo` | **BLOCKED** |
 | macOS Docker | **Unvalidated / noncanonical** |
 
@@ -53,7 +53,7 @@ deviation sets `canonical_run=NO` for the whole run.
 | Constant | Value |
 |----------|-------|
 | `CANONICAL_WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `CANONICAL_WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc4` |
+| `CANONICAL_WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc5` |
 | `CANONICAL_GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `CANONICAL_GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `CANONICAL_RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -63,7 +63,7 @@ deviation sets `canonical_run=NO` for the whole run.
 | `CANONICAL_EXPECTED_DOTSLASH_VERSION` | `0.5.7` |
 
 **Package commit authority:** the annotated tag (`annotated_tag_resolution`). Canonical mode
-resolves `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}`, checks out that commit detached,
+resolves `refs/tags/grok-build-witness-v1.0.0-rc5^{commit}`, checks out that commit detached,
 requires `HEAD` to equal the resolved commit, and requires a clean package clone.
 The tagged package does **not** embed its own future commit hash. If resolution fails, canonical
 execution stops. After publication, the tag is immutable.
@@ -130,7 +130,7 @@ Assign variables and invoke the host orchestrator. Replace `YOUR_WITNESS_ID` and
 
 ```bash
 export WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc4"
+export WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc5"
 export GROK_BUILD_URL="https://github.com/xai-org/grok-build.git"
 export GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 export RUST_IMAGE="docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
@@ -493,20 +493,20 @@ readiness. Synthetic final fixtures are not real Witness submissions.
 
 ---
 
-## Package remains NOT READY (rc4 static disposition)
+## Package remains NOT READY (rc5 candidate; rc4 static disposition preserved)
 
 This runbook describes the **procedure** a Witness would follow once a candidate package is
-suitable for Independent Witness handoff. The fixed rc4 package itself remains **NOT READY**
-(static disposition; 40 integrated blockers). Phase 0 audit intake is complete. Phase 1
-documentation and release/status remediation is being performed on `main`. Technical
-implementation remediation of scripts, schemas, validators, tests, and execution controls has not
-begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
-Independent Witness reproduction has **NOT** been performed. C-014 remains **`NOT_STARTED`**.
+suitable for Independent Witness handoff. Active package identity is **`1.0.0-rc5` /
+`grok-build-witness-v1.0.0-rc5`** as an immutable static-audit candidate only (**not READY**).
+The fixed rc4 package remains **NOT READY** (static disposition; 40 integrated blockers).
+**rc5 tag does not yet exist**. Independent Witness reproduction has **NOT** been performed.
+C-014 remains **`NOT_STARTED`**.
 
 Canonical execution requires successful annotated-tag resolution of
+`grok-build-witness-v1.0.0-rc5` (once published). Historical rc4 evidence remains bound to
 `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. If resolution
-fails, canonical execution stops (host script `exit 3` by design). The tag is immutable. Later
-`main`-branch status/audit/remediation records are outside the tagged snapshot.
+fails, canonical execution stops (host script `exit 3` by design). Published tags are immutable.
+Later `main`-branch status/audit/remediation records are outside prior tagged snapshots.
 
 ### HISTORICAL PRE-TAG STATE
 

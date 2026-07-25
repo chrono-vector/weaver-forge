@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Structural validator for Independent Witness evidence directories (C2E-5 / 1.0.0-rc4 / evidence_schema_version=1).
+Structural validator for Independent Witness evidence directories (C2E-5 / 1.0.0-rc5 / evidence_schema_version=1).
 
 Validates presence, format, per-file schema, and vocabulary — not truthfulness,
 independence, or execution. A structural PASS never proves that Docker or
@@ -72,8 +72,29 @@ EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 EXPECTED_CARGO_LOCK_SHA256 = "1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 EXACT_BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
-PACKAGE_TAG_EXPECTED = "grok-build-witness-v1.0.0-rc4"
+# Package-version-aware expected-tag authority (Pi-approved rc5 finalization).
+# Source of authority: package_version from WEAVER_FORGE_PACKAGE_IDENTITY.txt.
+# Tag mismatch never selects historical/active compatibility.
+PACKAGE_TAG_ACTIVE_RC5 = "grok-build-witness-v1.0.0-rc5"
+PACKAGE_TAG_HISTORICAL_RC4 = "grok-build-witness-v1.0.0-rc4"
+PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_RC5  # active package default / docs alias
+PACKAGE_VERSION_EXPECTED_TAG: dict[str, str] = {
+    "1.0.0-rc4": PACKAGE_TAG_HISTORICAL_RC4,
+    "1.0.0-rc5": PACKAGE_TAG_ACTIVE_RC5,
+    "1.0.0-rc5-phase4-s3-fixture": PACKAGE_TAG_ACTIVE_RC5,
+}
 EXPECTED_DOTSLASH_VERSION = "0.5.7"
+
+
+def expected_package_tag_for_version(package_version: str) -> str | None:
+    """Resolve the sole expected package tag for a declared package_version.
+
+    Returns None for unknown/unsupported versions (callers must fail closed).
+    Does not consult the requested tag — mismatch never selects compatibility.
+    """
+    if not package_version:
+        return None
+    return PACKAGE_VERSION_EXPECTED_TAG.get(package_version)
 
 MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
 
@@ -1027,8 +1048,20 @@ def check_weaver_forge_package_identity(fields: dict[str, str], errors: list[str
     elif fields.get("tag_head_match") == "no":
         fail(errors, f"{name}: tag_head_match=no (detached HEAD must equal resolved tag commit)")
     tag = fields.get("weaver_forge_tag_requested", "")
-    if tag and tag != PACKAGE_TAG_EXPECTED and fields.get("canonical_run") == "yes":
-        fail(errors, f"{name}: canonical_run=yes requires weaver_forge_tag_requested={PACKAGE_TAG_EXPECTED}")
+    package_version = fields.get("package_version", "")
+    expected_tag = expected_package_tag_for_version(package_version)
+    if package_version and expected_tag is None:
+        fail(
+            errors,
+            f"{name}: unsupported package_version={package_version!r} "
+            f"(no expected tag mapping; fail closed)",
+        )
+    elif expected_tag is not None and tag and tag != expected_tag and fields.get("canonical_run") == "yes":
+        fail(
+            errors,
+            f"{name}: canonical_run=yes requires weaver_forge_tag_requested={expected_tag} "
+            f"for package_version={package_version!r}",
+        )
     if tag and not re.match(r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$", tag):
         fail(errors, f"{name}: weaver_forge_tag_requested does not match expected tag grammar: {tag!r}")
     canonical_run = fields.get("canonical_run", "")
@@ -1703,8 +1736,19 @@ def detect_identity_mismatch(file_fields: dict[str, dict[str, str]]) -> list[str
     if wfpi.get("tag_head_match") == "no":
         reasons.append("WEAVER_FORGE_PACKAGE_IDENTITY.txt: tag_head_match=no")
     tag = wfpi.get("weaver_forge_tag_requested", "")
-    if tag and tag != PACKAGE_TAG_EXPECTED:
-        reasons.append("WEAVER_FORGE_PACKAGE_IDENTITY.txt: weaver_forge_tag_requested != canonical tag")
+    package_version = wfpi.get("package_version", "")
+    expected_tag = expected_package_tag_for_version(package_version)
+    if package_version and expected_tag is None:
+        reasons.append(
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt: unsupported package_version "
+            f"(no expected tag for {package_version!r})"
+        )
+    elif expected_tag is not None and tag and tag != expected_tag:
+        reasons.append(
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt: weaver_forge_tag_requested != "
+            f"expected tag for package_version={package_version!r} "
+            f"(expected {expected_tag})"
+        )
 
     si = file_fields.get("SOURCE_IDENTITY.txt", {})
     observed_commit = si.get("grok_build_commit_observed", "")

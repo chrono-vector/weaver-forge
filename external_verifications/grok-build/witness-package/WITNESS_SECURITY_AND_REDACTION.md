@@ -1,4 +1,4 @@
-# Security and redaction — Witness package (1.0.0-rc4)
+# Security and redaction — Witness package (1.0.0-rc5)
 
 ## Before staging or opening a PR
 
@@ -89,7 +89,8 @@ marker in the cited file/field. Unreconciled markers or orphaned log entries are
 This validator-enforced list is a floor, not a ceiling — the four-condition test above and the
 absolute "no material softening" rule apply even to fields the validator does not keyword-screen.
 
-Current package identity: version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`;
+Current package identity: version `1.0.0-rc5`; canonical tag `grok-build-witness-v1.0.0-rc5`
+(immutable static-audit candidate only); historical rc4 remains `grok-build-witness-v1.0.0-rc4`;
 package remains **NOT READY**; C-014 **NOT_STARTED**; overall **PARTIAL**.
 
 ## Do not publish

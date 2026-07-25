@@ -1,4 +1,4 @@
-# Correction ledger — format and policy (1.0.0-rc4)
+# Correction ledger — format and policy (1.0.0-rc5)
 
 This is an **immutable, append-only** ledger format for corrections to previously accepted Witness
 evidence or maintainer intake decisions. It exists because accepted public evidence becomes
@@ -99,7 +99,7 @@ leave none blank. `entry_id` must be unique and monotonically increasing (`CL-00
 
 ## Ledger entries
 
-_No entries recorded yet. This ledger is part of the 1.0.0-rc4 package policy set; the first
+_No entries recorded yet. This ledger is part of the 1.0.0-rc5 package policy set; the first
 submission that requires a correction appends here. Do not fabricate ledger rows._
 
 ## Change log

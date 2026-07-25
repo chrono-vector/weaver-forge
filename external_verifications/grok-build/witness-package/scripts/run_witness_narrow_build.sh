@@ -2,11 +2,7 @@
 # Independent Witness host orchestrator — Grok Build narrow clean rebuild.
 # Author-only helper: do not execute from owner remediation sessions without Witness independence.
 #
-# Package version 1.0.0-rc4 (C2E-5 host-orchestrator remediation). Rewritten to align with the
-# rc4 container_narrow_build.sh evidence schema (BEGIN_SCHEMA_BLOCK / END_SCHEMA_BLOCK, explicit
-# outcome model) and to close the host-side blockers recorded in
-# evidence/rc3-static-blind-audit/BATCH_2_FINDINGS.md and BATCH_3_FINDINGS.md (RC3B-003, -005,
-# -006, -007, -008, -010, -012, -013, -019, -020, -021, -024).
+# Package version 1.0.0-rc5 (rc5 immutable static-audit candidate; host-orchestrator).
 #
 # Canonical identity constants are immutable and separate from the "effective" values actually
 # used for a run. Any effective value that differs from its canonical counterpart requires the
@@ -39,9 +35,9 @@ WEAVER_FORGE_PACKAGE_REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 # ---------------------------------------------------------------------------
 # Canonical constants (immutable; never assigned from the environment)
 # ---------------------------------------------------------------------------
-readonly PACKAGE_VERSION="1.0.0-rc4"
+readonly PACKAGE_VERSION="1.0.0-rc5"
 readonly CANONICAL_WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc4"
+readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc5"
 # Package commit identity is derived at runtime from the annotated tag
 # (refs/tags/${CANONICAL_WEAVER_FORGE_TAG}^{commit}). The tagged package MUST
 # NOT embed its own future commit hash — that creates a self-referential

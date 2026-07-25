@@ -23,6 +23,7 @@ LOCK = "1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 WEAVER = "89127c78c3a11492892de7e3b5f0dee18d71775a"
 BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
 TAG = "grok-build-witness-v1.0.0-rc4"
+RC5_TAG = "grok-build-witness-v1.0.0-rc5"
 RUST_IMAGE = f"docker.io/library/rust@sha256:{IMG}"
 ARTIFACT_SHA = "a" * 64
 DESC_A = "b" * 64
@@ -1126,8 +1127,8 @@ def _rc5_s2_package_identity() -> str:
                 ("run_id", RC5_RUN_ID),
                 ("package_version", RC5_PACKAGE_VERSION),
                 ("weaver_forge_url", "https://github.com/chrono-vector/weaver-forge.git"),
-                ("weaver_forge_tag_requested", TAG),
-                ("weaver_forge_tag_ref", f"refs/tags/{TAG}"),
+                ("weaver_forge_tag_requested", RC5_TAG),
+                ("weaver_forge_tag_ref", f"refs/tags/{RC5_TAG}"),
                 ("weaver_forge_tag_raw_object_type_required", "tag"),
                 ("weaver_forge_tag_raw_object_type_observed", "tag"),
                 ("weaver_forge_tag_peeled_commit", WEAVER),
@@ -1141,6 +1142,56 @@ def _rc5_s2_package_identity() -> str:
                 ("canonical_run", "yes"),
             ]
         )
+    )
+
+
+def _rc5_source_acquisition() -> str:
+    return _render(
+        OrderedDict(
+            [
+                ("evidence_schema_version", "1"),
+                ("weaver_forge_url", "https://github.com/chrono-vector/weaver-forge.git"),
+                ("weaver_forge_tag_requested", RC5_TAG),
+                ("weaver_forge_commit_resolved", WEAVER),
+                ("package_clone_head", WEAVER),
+                ("package_clone_clean_status", "yes"),
+                ("tag_head_match", "yes"),
+                ("package_commit_authority", "annotated_tag_resolution"),
+                ("grok_build_url", "https://github.com/xai-org/grok-build.git"),
+                ("grok_build_commit_requested", GROK),
+                ("grok_build_commit_observed", GROK),
+                ("grok_build_clean_tree", "yes"),
+                ("fresh_clones", "yes"),
+            ]
+        )
+    )
+
+
+def _rc5_witness_verdict(scenario: str) -> str:
+    ceiling, proposed = _verdict_params(scenario)
+    kv = _render(
+        OrderedDict(
+            [
+                ("evidence_schema_version", "1"),
+                ("run_id", "run-2026-07-22-001"),
+                ("package_tag", RC5_TAG),
+                ("weaver_forge_commit", WEAVER),
+                ("grok_build_commit", GROK),
+                ("outcome", _outcome(scenario)),
+                ("verdict_ceiling", ceiling),
+                ("product_executed", "NO"),
+                ("ldd_used", "NO"),
+                ("maintainer_intake_verdict", "pending"),
+            ]
+        )
+    )
+    return (
+        kv
+        + "\n"
+        + f"Witness proposed verdict: {proposed}\n\n"
+        + "## Justification\n\n"
+        + "See WITNESS_CLASSIFICATION.md precedence table; proposed verdict is at "
+        + "or below the machine-computed ceiling for this run.\n"
     )
 
 
@@ -1248,6 +1299,7 @@ def build_rc5_preliminary_success() -> "dict[str, str]":
     base.pop("WITNESS_VERDICT.md", None)
     base.pop("REDACTIONS.md", None)
     base["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = _rc5_s2_package_identity()
+    base["SOURCE_ACQUISITION.txt"] = _rc5_source_acquisition()
     base["POST_BUILD_INTEGRITY.txt"] = _rc5_post_build(inventory_complete="no")
     base["HOST_OUTCOME_INGESTION.txt"] = _rc5_host_outcome(completeness="INCOMPLETE")
     base["DEVIATIONS.txt"] = _rc5_prelim_deviations()
@@ -1263,13 +1315,14 @@ def build_rc5_synthetic_final_success() -> "dict[str, str]":
     """Synthetic S2-shaped final-submission fixture (not a real Witness submission)."""
     base = build_scenario("success-artifact-present")
     base["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = _rc5_s2_package_identity()
+    base["SOURCE_ACQUISITION.txt"] = _rc5_source_acquisition()
     base["POST_BUILD_INTEGRITY.txt"] = _rc5_post_build(inventory_complete="yes")
     base["HOST_OUTCOME_INGESTION.txt"] = _rc5_host_outcome(completeness="COMPLETE")
     base["DEVIATIONS.txt"] = _rc5_final_deviations()
     base["HOST_RUN_METADATA.txt"] = _rc5_host_run_metadata()
     # Structural manuals only — synthetic identity is package_version + metadata payload.
     base["WITNESS_STATEMENT.md"] = _witness_statement()
-    base["WITNESS_VERDICT.md"] = _witness_verdict("success-artifact-present")
+    base["WITNESS_VERDICT.md"] = _rc5_witness_verdict("success-artifact-present")
     base["REDACTIONS.md"] = _redactions()
     return base
 

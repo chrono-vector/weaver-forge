@@ -1,6 +1,6 @@
 evidence_schema_version=1
 run_id=run-2026-07-22-001
-package_tag=grok-build-witness-v1.0.0-rc4
+package_tag=grok-build-witness-v1.0.0-rc5
 weaver_forge_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
 grok_build_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT

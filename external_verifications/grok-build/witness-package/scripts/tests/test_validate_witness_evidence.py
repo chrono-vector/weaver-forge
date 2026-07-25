@@ -1,4 +1,4 @@
-"""Structural-validator test suite (1.0.0-rc4).
+"""Structural-validator test suite (1.0.0-rc5).
 
 Covers:
   * schema-block CONTRACT tests (validator FILE_REQUIRED_FIELDS vs the exact
@@ -633,8 +633,8 @@ class HostSafetyStaticTests(unittest.TestCase):
         self.assertIn("set -Eeuo pipefail", self.host)
 
     def test_canonical_constants_present_and_readonly(self):
-        self.assertIn('readonly PACKAGE_VERSION="1.0.0-rc4"', self.host)
-        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc4"', self.host)
+        self.assertIn('readonly PACKAGE_VERSION="1.0.0-rc5"', self.host)
+        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc5"', self.host)
         self.assertIn(f'readonly CANONICAL_GROK_BUILD_COMMIT="{fx.GROK}"', self.host)
         self.assertIn(f'readonly CANONICAL_CARGO_LOCK_SHA256="{fx.LOCK}"', self.host)
         self.assertIn(f'readonly CANONICAL_BUILD_CMD="{fx.BUILD_CMD}"', self.host)
@@ -805,6 +805,155 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
             mode=v.MODE_HOST_PRELIMINARY,
         )
         self.assertEqual(errors, [], errors)
+
+
+class PackageVersionAwareExpectedTagTests(unittest.TestCase):
+    """Pi-approved package-version-aware expected-tag resolution."""
+
+    def test_resolver_mapping_and_unknown_fail_closed(self):
+        self.assertEqual(
+            v.expected_package_tag_for_version("1.0.0-rc4"),
+            v.PACKAGE_TAG_HISTORICAL_RC4,
+        )
+        self.assertEqual(
+            v.expected_package_tag_for_version("1.0.0-rc5"),
+            v.PACKAGE_TAG_ACTIVE_RC5,
+        )
+        self.assertEqual(
+            v.expected_package_tag_for_version("1.0.0-rc5-phase4-s3-fixture"),
+            v.PACKAGE_TAG_ACTIVE_RC5,
+        )
+        self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc3"))
+        self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc99"))
+        self.assertIsNone(v.expected_package_tag_for_version(""))
+
+    def _mutate_identity(self, files: dict[str, str], **replacements: str) -> dict[str, str]:
+        text = files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]
+        for key, value in replacements.items():
+            needle = f"{key}="
+            lines = []
+            for line in text.splitlines():
+                if line.startswith(needle):
+                    lines.append(f"{key}={value}")
+                else:
+                    lines.append(line)
+            text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+        files = dict(files)
+        files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = text
+        return files
+
+    def test_rc4_package_rc4_tag_passes_and_rc5_tag_fails(self):
+        base = fx.build_scenario("success-artifact-present")
+        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_ok_", dir=HERE))
+        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_bad_", dir=HERE))
+        try:
+            fx.write_tree(tmp_ok, base)
+            self.assertEqual(v.validate_dir(tmp_ok), [])
+
+            bad = self._mutate_identity(
+                base,
+                weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC5,
+            )
+            fx.write_tree(tmp_bad, bad)
+            errors = v.validate_dir(tmp_bad)
+            self.assertTrue(
+                any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(
+                any(v.PACKAGE_TAG_HISTORICAL_RC4 in e for e in errors),
+                errors,
+            )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_ok, ignore_errors=True)
+            shutil.rmtree(tmp_bad, ignore_errors=True)
+
+    def test_rc5_package_requires_rc5_tag_not_rc4(self):
+        base = fx.build_scenario("success-artifact-present")
+        # Promote historical builder output to active rc5 identity with matching tag.
+        good = self._mutate_identity(
+            base,
+            package_version="1.0.0-rc5",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC5,
+        )
+        bad = self._mutate_identity(
+            base,
+            package_version="1.0.0-rc5",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC4,
+        )
+        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_rc5ok_", dir=HERE))
+        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_rc5bad_", dir=HERE))
+        try:
+            fx.write_tree(tmp_ok, good)
+            # Also align SOURCE_ACQUISITION / WITNESS_VERDICT tags for internal consistency.
+            (tmp_ok / "SOURCE_ACQUISITION.txt").write_text(
+                (tmp_ok / "SOURCE_ACQUISITION.txt")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC5),
+                encoding="utf-8",
+                newline="\n",
+            )
+            (tmp_ok / "WITNESS_VERDICT.md").write_text(
+                (tmp_ok / "WITNESS_VERDICT.md")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC5),
+                encoding="utf-8",
+                newline="\n",
+            )
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp_ok)
+            self.assertEqual(v.validate_dir(tmp_ok), [])
+
+            fx.write_tree(tmp_bad, bad)
+            errors = v.validate_dir(tmp_bad)
+            self.assertTrue(
+                any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_RC5 in e for e in errors), errors)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp_ok, ignore_errors=True)
+            shutil.rmtree(tmp_bad, ignore_errors=True)
+
+    def test_unknown_package_version_fails_closed(self):
+        base = fx.build_scenario("success-artifact-present")
+        unknown = self._mutate_identity(base, package_version="1.0.0-rc99")
+        tmp = Path(tempfile.mkdtemp(prefix="pv_unk_", dir=HERE))
+        try:
+            fx.write_tree(tmp, unknown)
+            errors = v.validate_dir(tmp)
+            self.assertTrue(
+                any("unsupported package_version=" in e for e in errors),
+                errors,
+            )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_active_rc5_and_historical_rc4_fixtures_pass(self):
+        self.assertEqual(
+            v.validate_dir(FIXTURES / "rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY),
+            [],
+        )
+        self.assertEqual(
+            v.validate_dir(FIXTURES / "rc5-synthetic-final-success", mode=v.MODE_FINAL_SUBMISSION),
+            [],
+        )
+        self.assertEqual(v.validate_dir(FIXTURES / "success-artifact-present"), [])
+        pkg = (FIXTURES / "rc5-preliminary-success" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC5}", pkg)
+        hist = (FIXTURES / "success-artifact-present" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC4}", hist)
 
 
 if __name__ == "__main__":

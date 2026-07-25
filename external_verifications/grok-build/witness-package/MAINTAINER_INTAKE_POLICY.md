@@ -1,4 +1,4 @@
-# Maintainer intake policy (1.0.0-rc4)
+# Maintainer intake policy (1.0.0-rc5)
 
 This document governs how a **maintainer** (not the Witness, not the package author acting as
 Witness) reviews and dispositions a submitted Witness evidence package. It is distinct from
@@ -149,7 +149,8 @@ Rejection requires the maintainer to record, in the PR thread and in the claim r
   `CORRECTION_REQUESTED`, `DISPUTED`, or `SUPERSEDED` intake.
 - The specific accepted run ID(s) that satisfy C-014 must be cited by run ID in the claim register
   entry for C-014 at the moment of transition.
-- Current package identity for this policy revision: version `1.0.0-rc4`; canonical tag
+- Current package identity for this policy revision: version `1.0.0-rc5`; canonical tag
+  `grok-build-witness-v1.0.0-rc5` (immutable static-audit candidate only); historical rc4 remains
   `grok-build-witness-v1.0.0-rc4`; package remains **NOT READY**; overall **PARTIAL**; no
   Independent Witness reproduction has occurred.
 

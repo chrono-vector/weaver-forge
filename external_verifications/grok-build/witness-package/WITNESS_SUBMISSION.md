@@ -1,4 +1,4 @@
-# Witness submission — Grok Build (1.0.0-rc4)
+# Witness submission — Grok Build (1.0.0-rc5)
 
 ## Run ID
 
@@ -34,7 +34,7 @@ Independent Grok Build Witness: <run-id>
 |-------|----------|
 | Run ID | `<run-id>` exactly as recorded in the evidence directory name and every evidence file |
 | Witness ID | The `witness_id` value used for this run (satisfies the `WITNESS_ID` grammar) |
-| Package tag | e.g. `grok-build-witness-v1.0.0-rc4` |
+| Package tag | e.g. `grok-build-witness-v1.0.0-rc5` (historical rc4 submissions used `grok-build-witness-v1.0.0-rc4`) |
 | Resolved Weaver Forge commit | 40-char commit resolved from the requested tag |
 | Grok Build source commit | Observed, 40-char (expected `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce`) |
 | Rust image digest | Observed `sha256:...` from `docker inspect` / `IMAGE_IDENTITY.txt` (expected `sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e`) |
@@ -94,13 +94,11 @@ annotation after ledgered supersession) `SUPERSEDED`. This intake value is recor
 `maintainer_intake_verdict` field must read `pending` at submission time; it is updated by the
 maintainer in a follow-up commit, never by editing the Witness's original submission.
 
-Current package identity: version `1.0.0-rc4`; canonical tag `grok-build-witness-v1.0.0-rc4`;
-fixed commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package remains **NOT READY** (rc4
-static disposition; 40 integrated blockers); Phase 0 audit intake is complete; Phase 1
-documentation and release/status remediation is being performed on `main`; technical
-implementation remediation of scripts, schemas, validators, tests, and execution controls has not
-begun; `main` is being prepared toward a possible future rc5 candidate (**no rc5 tag exists**);
-Independent Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014
+Current package identity: version `1.0.0-rc5`; canonical tag `grok-build-witness-v1.0.0-rc5`
+(immutable static-audit candidate only; **rc5 tag does not yet exist**); historical rc4 remains
+fixed at `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package
+remains **NOT READY** (rc4 static disposition preserved; 40 integrated blockers); Independent
+Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014
 **NOT_STARTED**; overall **PARTIAL**.
 
 ## Corrections policy

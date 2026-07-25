@@ -1,4 +1,4 @@
-# Witness evidence validator (C2E-5 / 1.0.0-rc4 / `evidence_schema_version=1`)
+# Witness evidence validator (C2E-5 / 1.0.0-rc5 / `evidence_schema_version=1`)
 
 | Item | Path |
 |------|------|
@@ -357,8 +357,34 @@ keys are always present but only conditionally non-empty). Renames from rc3:
 | `EXPECTED_IMAGE_DIGEST` | `6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
 | `EXPECTED_CARGO_LOCK_SHA256` | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` |
 | `EXACT_BUILD_CMD` | `cargo build -p xai-grok-pager-bin --locked` |
-| `PACKAGE_TAG_EXPECTED` | `grok-build-witness-v1.0.0-rc4` |
+| `PACKAGE_TAG_ACTIVE_RC5` | `grok-build-witness-v1.0.0-rc5` |
+| `PACKAGE_TAG_HISTORICAL_RC4` | `grok-build-witness-v1.0.0-rc4` |
+| `PACKAGE_TAG_EXPECTED` | alias of active rc5 tag (`grok-build-witness-v1.0.0-rc5`) |
 | `EXPECTED_DOTSLASH_VERSION` | `0.5.7` |
+
+### Package-version-aware expected-tag resolution
+
+Expected package tag is resolved solely from `package_version` in
+`WEAVER_FORGE_PACKAGE_IDENTITY.txt` via `expected_package_tag_for_version`
+(single authority; used by both per-file canonical-run checks and
+`detect_identity_mismatch`):
+
+| Declared `package_version` | Expected tag |
+|----------------------------|--------------|
+| `1.0.0-rc5` | `grok-build-witness-v1.0.0-rc5` |
+| `1.0.0-rc5-phase4-s3-fixture` | `grok-build-witness-v1.0.0-rc5` |
+| `1.0.0-rc4` | `grok-build-witness-v1.0.0-rc4` |
+| any other / unknown value | **fail closed** (unsupported) |
+
+Rules:
+
+- Active rc5 package versions require the rc5 tag.
+- Historical `package_version=1.0.0-rc4` requires the rc4 tag.
+- Synthetic rc5 fixture package version requires the rc5 tag.
+- Unknown package versions fail closed.
+- A mismatching tag must **never** select historical/active compatibility.
+- `canonical_run=yes` means the requested tag exactly equals the expected tag
+  resolved from the declared `package_version`.
 
 Fields recording an **expected/pinned** identity (e.g.
 `grok_build_commit_expected`, `grok_build_source_commit_expected`,

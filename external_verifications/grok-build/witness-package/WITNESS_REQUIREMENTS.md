@@ -1,27 +1,24 @@
-# Witness requirements — Grok Build narrow rebuild (1.0.0-rc4)
+# Witness requirements — Grok Build narrow rebuild (1.0.0-rc5)
 
 ## Current package status
 
-**RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED**
+**RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — RC5 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — C-014 NOT_STARTED**
 
-Package version `1.0.0-rc4`; `canonical_package_tag=grok-build-witness-v1.0.0-rc4`; fixed tagged
-commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`;
-`package_commit_authority=annotated_tag_resolution` (resolved commit is the fixed rc4 release
-identity). Tag availability is verified by annotated-tag resolution; canonical execution requires
-successful resolution; if resolution fails, canonical execution stops. The tag is immutable.
+Package version `1.0.0-rc5`; `canonical_package_tag=grok-build-witness-v1.0.0-rc5`;
+`package_commit_authority=annotated_tag_resolution` (resolved commit is derived at tag
+publication / run time; this tree does not embed a future commit hash). Tag availability is
+verified by annotated-tag resolution; canonical execution requires successful resolution; if
+resolution fails, canonical execution stops. After publication the tag is immutable.
 `grok-build-witness-v1.0.0-rc1` (`89127c78c3a11492892de7e3b5f0dee18d71775a`),
 `grok-build-witness-v1.0.0-rc2` (`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`),
 `grok-build-witness-v1.0.0-rc3` (`77221a224bbd6194cfafb81f6ecb58c800e5bc13`; audit preserved under
 `evidence/rc3-static-blind-audit/`), and `grok-build-witness-v1.0.0-rc4`
 (`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; audit preserved under
 `evidence/rc4-static-blind-audit/`; 40 blockers) are preserved as **immutable releases**, each with
-its own recorded **NOT READY** audit verdict. Independent Witness reproduction **NOT PERFORMED**.
+its own recorded **NOT READY** audit verdict. rc5 is an **immutable static-audit candidate only**.
+Independent Witness reproduction **NOT PERFORMED**.
 Independent Witness PASS **NONE**. C-014 (Independent Witness) remains **`NOT_STARTED`**. Overall
-**PARTIAL**. Package remains **NOT READY** (rc4 static disposition). Phase 0 audit intake is
-complete. Phase 1 documentation and release/status remediation is being performed on `main`.
-Technical implementation remediation of scripts, schemas, validators, tests, and execution
-controls has not begun. `main` is being prepared toward a possible future rc5 candidate; **no
-rc5 tag exists**.
+**PARTIAL**. Package remains **NOT READY**. **rc5 tag does not yet exist**.
 
 ## Evidence schema
 
@@ -119,7 +116,7 @@ outcome is itself a `PROHIBITED`-severity violation (see [WITNESS_CLASSIFICATION
 
 ## Canonical platform
 
-| Environment | Witness 1.0.0-rc4 |
+| Environment | Witness 1.0.0-rc5 |
 |-------------|---------------------|
 | Linux x86_64 + Docker | **Canonical** |
 | WSL2 bash + Docker Desktop Linux containers | **Canonical** |
@@ -135,7 +132,7 @@ Container platform: **`linux/amd64`**.
 |-------------|------|
 | Person | Not the owner / package author |
 | Host | Witness-owned machine, VM, or cloud |
-| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc4` (publication verified by tag resolution; raw object type must be `tag`; canonical execution stops if resolution or type check fails) |
+| Weaver package revision | Resolve **annotated tag** `grok-build-witness-v1.0.0-rc5` (publication verified by tag resolution; raw object type must be `tag`; canonical execution stops if resolution or type check fails). Historical `package_version=1.0.0-rc4` evidence requires `grok-build-witness-v1.0.0-rc4`. |
 | Grok source | Fresh clone at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Target | New empty `CARGO_TARGET_DIR` |
 | Owner caches | **Forbidden** as inputs |
@@ -150,8 +147,8 @@ the explicit `--noncanonical-deviation` flag; without it the host orchestrator r
 | Item | Required value |
 |------|----------------|
 | `WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc4` |
-| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}` only after `git cat-file -t refs/tags/grok-build-witness-v1.0.0-rc4` equals `tag`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). |
+| `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc5` |
+| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc5^{commit}` only after `git cat-file -t refs/tags/grok-build-witness-v1.0.0-rc5` equals `tag`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). Historical rc4 evidence continues to resolve `grok-build-witness-v1.0.0-rc4`. |
 | `GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |

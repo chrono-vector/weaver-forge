@@ -1,19 +1,18 @@
 # Witness package file manifest (package-relative paths)
-# Version 1.0.0-rc4 — excludes binaries, caches, generated build artifacts
-# NOT READY: rc4 fixed immutable at grok-build-witness-v1.0.0-rc4 →
+# Version 1.0.0-rc5 — excludes binaries, caches, generated build artifacts
+# Current: 1.0.0-rc5 / canonical tag grok-build-witness-v1.0.0-rc5 — immutable static-audit
+#   candidate only; not READY; Independent Witness reproduction NOT PERFORMED; Independent
+#   Witness PASS NONE; C-014 NOT_STARTED; overall PARTIAL. rc5 tag/archive/bundle do not yet
+#   exist until after Pi-conformance commit/push/tag.
+# Historical: rc4 fixed immutable at grok-build-witness-v1.0.0-rc4 →
 #   039b46737c5968a81fb756d7a6d1d0dd57b6ad96; static blind audit COMPLETE; final disposition
-#   NOT READY (40 integrated blockers); Phase 0 audit intake COMPLETE; Phase 1 documentation
-#   and release/status remediation on main; technical implementation remediation of scripts,
-#   schemas, validators, tests, and execution controls NOT YET BEGUN; main prepared toward
-#   possible future rc5 candidate; rc5 tag does not exist; Independent Witness reproduction
-#   NOT PERFORMED; Independent Witness PASS NONE; C-014 NOT_STARTED; overall PARTIAL.
-# Canonical package tag: grok-build-witness-v1.0.0-rc4
+#   NOT READY (40 integrated blockers). rc1–rc4 remain immutable NOT READY history.
+# Canonical package tag (active candidate): grok-build-witness-v1.0.0-rc5
 #   (availability verified by annotated-tag resolution; canonical execution requires successful
-#   resolution; if resolution fails, canonical execution stops; tag immutable;
-#   package_commit_authority=annotated_tag_resolution; resolved commit is fixed rc4 identity)
-# Banner: RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY
-#   (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES
-#   NOT EXIST — C-014 NOT_STARTED
+#   resolution; if resolution fails, canonical execution stops; tag immutable after publication;
+#   package_commit_authority=annotated_tag_resolution)
+# Banner: RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE NOT READY
+#   (40 BLOCKERS) — C-014 NOT_STARTED — NO INDEPENDENT WITNESS PASS
 
 README.md
 WITNESS_PACKAGE_VERSION.md
@@ -27,11 +26,16 @@ PACKAGE_FILE_MANIFEST.txt
 PACKAGE_READINESS_POLICY.md
 MAINTAINER_INTAKE_POLICY.md
 CORRECTION_LEDGER.md
+AUTHORITATIVE_OUTCOME_CONTRACT.json
 scripts/run_witness_narrow_build.sh
 scripts/container_narrow_build.sh
+scripts/evidence_inventory.py
+scripts/schema_register_loader.py
 scripts/validate_witness_evidence.py
 scripts/VALIDATOR.md
 scripts/tests/test_validate_witness_evidence.py
+schemas/canonical_schema_register_rc5_phase4_s1.json
+schemas/canonical_schema_register_rc5_phase4_s2.json
 templates/WEAVER_FORGE_PACKAGE_IDENTITY.txt
 templates/SOURCE_ACQUISITION.txt
 templates/SOURCE_IDENTITY.txt
@@ -52,10 +56,13 @@ templates/WITNESS_STATEMENT.md
 templates/WITNESS_VERDICT.md
 templates/REDACTIONS.md
 
-# Release tag policy: canonical package tag grok-build-witness-v1.0.0-rc4
+# Release tag policy: active candidate tag grok-build-witness-v1.0.0-rc5; historical rc4 tag grok-build-witness-v1.0.0-rc4
 #   (availability verified by annotated-tag resolution; package commit authority =
 #   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated
 #   after publication; later main status/audit records are outside the tagged snapshot)
+# rc4 tag grok-build-witness-v1.0.0-rc4 fixed at 039b46737c5968a81fb756d7a6d1d0dd57b6ad96 —
+#   NOT READY integrated four-batch static blind audit (immutable historical release;
+#   audit preserved under evidence/rc4-static-blind-audit/; 40 blockers)
 # rc3 tag grok-build-witness-v1.0.0-rc3 fixed at 77221a224bbd6194cfafb81f6ecb58c800e5bc13 —
 #   NOT READY integrated four-batch static audit (immutable historical release;
 #   audit preserved under evidence/rc3-static-blind-audit/)

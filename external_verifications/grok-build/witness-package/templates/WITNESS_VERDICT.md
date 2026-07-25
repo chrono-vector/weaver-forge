@@ -1,4 +1,4 @@
-# WITNESS_VERDICT.md — required fields (evidence_schema_version=1, 1.0.0-rc4)
+# WITNESS_VERDICT.md — required fields (evidence_schema_version=1, 1.0.0-rc5)
 
 Authored by the independent Witness. The `key=value` lines and the single
 `Witness proposed verdict:` line below are structurally validated.
@@ -17,7 +17,7 @@ Authored by the independent Witness. The `key=value` lines and the single
 ```
 evidence_schema_version=1
 run_id=<run-id-token>
-package_tag=grok-build-witness-v1.0.0-rc4
+package_tag=grok-build-witness-v1.0.0-rc5
 weaver_forge_commit=<40-char lowercase hex commit>
 grok_build_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
