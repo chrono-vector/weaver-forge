@@ -68,6 +68,8 @@ CARGO_EXIT_CODE=""
 EVIDENCE_FINALIZED="NO"
 FINALIZING_IN_PROGRESS="NO"
 CONTAINER_MAIN_ACTIVE="NO"
+CONTAINER_SIGNAL_NAME="NONE"
+CONTAINER_EXIT_TRAP_DONE="NO"
 CARGO_START_UTC=""
 CARGO_END_UTC=""
 CARGO_ELAPSED_SECONDS=""
@@ -732,6 +734,10 @@ finalize_container_terminal_outcome() {
     FINALIZING_IN_PROGRESS="NO"
     if [[ "${CONTAINER_MAIN_ACTIVE}" == "YES" ]]; then
       trap on_err ERR
+      trap on_container_int INT
+      trap on_container_term TERM
+      trap on_container_hup HUP
+      # EXIT trap remains installed for the whole main run.
     else
       trap - ERR
     fi
@@ -918,10 +924,12 @@ finalize_container_terminal_outcome() {
 fail_build_not_started() {
   local stage="$1"
   local exit_code="${2:-1}"
+  trap - EXIT
   if ! finalize_container_terminal_outcome "BUILD_NOT_STARTED" "${exit_code}" "${stage}"; then
     echo "BUILD_NOT_STARTED: finalizer failed at stage=${stage}; evidence not claimed complete" >&2
   fi
   echo "BUILD_NOT_STARTED: failing_stage=${stage} exit_code=${exit_code}" >&2
+  CONTAINER_EXIT_TRAP_DONE="YES"
   exit "${exit_code}"
 }
 
@@ -929,20 +937,71 @@ fail_build_not_started() {
 fail_infrastructure() {
   local stage="$1"
   local exit_code="${2:-1}"
+  trap - EXIT
   if ! finalize_container_terminal_outcome "INFRASTRUCTURE_FAILURE" "${exit_code}" "${stage}"; then
     echo "INFRASTRUCTURE_FAILURE: finalizer failed at stage=${stage}; evidence not claimed complete" >&2
   fi
   echo "INFRASTRUCTURE_FAILURE: stage=${stage} exit_code=${exit_code}" >&2
+  CONTAINER_EXIT_TRAP_DONE="YES"
   exit "${exit_code}"
 }
 
 on_err() {
   local ec=$?
   if [[ "${EVIDENCE_FINALIZED}" == "YES" || "${FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    trap - EXIT
+    CONTAINER_EXIT_TRAP_DONE="YES"
     exit "${ec}"
   fi
   echo "ERROR: container script failed unexpectedly at line ${BASH_LINENO[0]} (exit ${ec}) during stage=${CURRENT_STAGE}" >&2
   fail_infrastructure "${CURRENT_STAGE}" "${ec}"
+}
+
+on_container_signal() {
+  local sig="$1"
+  local sig_ec=1
+  CONTAINER_SIGNAL_NAME="${sig}"
+  case "${sig}" in
+    INT) sig_ec=130 ;;
+    TERM) sig_ec=143 ;;
+    HUP) sig_ec=129 ;;
+  esac
+  trap - ERR INT TERM HUP EXIT
+  if [[ "${EVIDENCE_FINALIZED}" == "YES" || "${FINALIZING_IN_PROGRESS}" == "YES" || "${CONTAINER_EXIT_TRAP_DONE}" == "YES" ]]; then
+    CONTAINER_EXIT_TRAP_DONE="YES"
+    exit "${sig_ec}"
+  fi
+  echo "ERROR: container interrupted by SIG${sig} at stage=${CURRENT_STAGE}" >&2
+  # Truthful negative terminal evidence only; never fabricate Cargo completion.
+  if ! finalize_container_terminal_outcome "INFRASTRUCTURE_FAILURE" "${sig_ec}" "${CURRENT_STAGE:-UNKNOWN}"; then
+    echo "SIG${sig}: finalizer failed; container evidence incomplete (Host incomplete-marker policy applies)" >&2
+  fi
+  CONTAINER_EXIT_TRAP_DONE="YES"
+  exit "${sig_ec}"
+}
+
+on_container_int() { on_container_signal INT; }
+on_container_term() { on_container_signal TERM; }
+on_container_hup() { on_container_signal HUP; }
+
+on_container_exit() {
+  local ec=$?
+  if [[ "${CONTAINER_MAIN_ACTIVE}" != "YES" ]]; then
+    return 0
+  fi
+  if [[ "${CONTAINER_EXIT_TRAP_DONE}" == "YES" || "${EVIDENCE_FINALIZED}" == "YES" || "${FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    return 0
+  fi
+  # EXIT before required terminal finalization — attempt truthful negative evidence.
+  trap - EXIT
+  CONTAINER_EXIT_TRAP_DONE="YES"
+  echo "ERROR: container EXIT before terminal finalization at stage=${CURRENT_STAGE} (exit ${ec})" >&2
+  if ! finalize_container_terminal_outcome "INFRASTRUCTURE_FAILURE" "${ec:-1}" "${CURRENT_STAGE:-UNKNOWN}"; then
+    echo "EXIT-before-finalization: finalizer failed; container evidence incomplete (Host incomplete-marker policy applies)" >&2
+  fi
+  if [[ "${ec}" -eq 0 ]]; then
+    exit 1
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -955,10 +1014,16 @@ CARGO_EXIT_CODE=""
 EVIDENCE_FINALIZED="NO"
 FINALIZING_IN_PROGRESS="NO"
 CONTAINER_MAIN_ACTIVE="YES"
+CONTAINER_SIGNAL_NAME="NONE"
+CONTAINER_EXIT_TRAP_DONE="NO"
 CARGO_START_UTC=""
 CARGO_END_UTC=""
 CARGO_ELAPSED_SECONDS=""
 trap on_err ERR
+trap on_container_int INT
+trap on_container_term TERM
+trap on_container_hup HUP
+trap on_container_exit EXIT
 
 # --- Begin execution ---------------------------------------------------------
 
@@ -1292,6 +1357,8 @@ set_stage "post_cargo_classification"
 if [[ "${CARGO_EXIT_CODE}" -ne 0 ]]; then
   finalize_container_terminal_outcome "CARGO_FAILED" "${CARGO_EXIT_CODE}" "cargo_build" \
     "FAILED" "FAILED" "none" || true
+  trap - EXIT
+  CONTAINER_EXIT_TRAP_DONE="YES"
   exit "${CARGO_EXIT_CODE}"
 fi
 
@@ -1300,6 +1367,8 @@ if [[ ! -f "${ARTIFACT}" ]]; then
   finalize_container_terminal_outcome "CARGO_SUCCEEDED_ARTIFACT_MISSING" "${ARTIFACT_MISSING_EXIT}" \
     "artifact_presence_check" "FAILED" "COMPLETE" "missing_applicable" || true
   echo "CARGO_SUCCEEDED_ARTIFACT_MISSING: cargo exit 0 but artifact absent at ${ARTIFACT}" >&2
+  trap - EXIT
+  CONTAINER_EXIT_TRAP_DONE="YES"
   exit "${ARTIFACT_MISSING_EXIT}"
 fi
 
@@ -1439,6 +1508,8 @@ finalize_container_terminal_outcome "CARGO_SUCCEEDED_ARTIFACT_PRESENT" "${FINAL_
   "${EXIT_FAILURE_STAGE}" "${EXIT_STATUS}" "COMPLETE" "preserve" || true
 
 # Container exits with the classified status (Docker preserves it on host).
+trap - EXIT
+CONTAINER_EXIT_TRAP_DONE="YES"
 exit "${FINAL_EXIT}"
 } # end container_narrow_build_main
 

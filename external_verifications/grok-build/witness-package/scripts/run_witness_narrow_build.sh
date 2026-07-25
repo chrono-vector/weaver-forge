@@ -156,6 +156,12 @@ readonly VALIDATOR_HOST_DIR_NAME="host-validator"
 readonly VALIDATOR_STRUCTURAL_PASS_PREFIX="STRUCTURAL VALIDATION: PASS"
 readonly VALIDATOR_STRUCTURAL_FAIL_PREFIX="STRUCTURAL VALIDATION: FAIL"
 readonly VALIDATOR_GATE_EXIT_CODE=12
+# RC6-R2: Host-owned incomplete-package marker (outside EVIDENCE_DIR; not Witness
+# evidence; not schema-register bound; runtime-only Host control record).
+readonly PACKAGE_INCOMPLETE_SCHEMA_VERSION="1"
+readonly PACKAGE_INCOMPLETE_FILE_NAME="PACKAGE_INCOMPLETE.txt"
+readonly HOST_INCOMPLETE_DIR_NAME="host-incomplete"
+readonly PACKAGE_INCOMPLETE_PACKAGE_STATE="INCOMPLETE_NOT_FINAL_SUBMISSION"
 # Exact Phase 3E/4-S3 note string (non-circular completeness sequencing).
 # Completeness fields are finalized before final manifest generation; the automated
 # host run always records evidence_inventory_complete=no.
@@ -206,6 +212,10 @@ IDENTITY_GATE_CLOSED="no"
 HOST_FINALIZING_IN_PROGRESS="NO"
 HOST_OUTCOME_INGESTION_WRITTEN="NO"
 HOST_OUTCOME_INGESTION_FINGERPRINT=""
+HOST_MAIN_ACTIVE="NO"
+HOST_TERMINAL_HANDLED="NO"
+HOST_SIGNAL_NAME="NONE"
+HOST_INCOMPLETE_MARKER_PATH=""
 CONTAINER_RESULT_PRESENCE="MISSING"
 CONTAINER_RESULT_VALID="NO"
 CONTAINER_RESULT_ERROR="none"
@@ -959,7 +969,7 @@ write_host_post_build_integrity_record() {
   SOURCE_OR_LOCK_CHANGED="${source_or_lock_changed}"
   apply_host_post_build_status_policy
 
-  {
+  if ! {
     echo "evidence_schema_version=1"
     echo "status=${POST_BUILD_STATUS}"
     echo "outcome=${OUTCOME}"
@@ -981,10 +991,10 @@ write_host_post_build_integrity_record() {
     echo "full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
     echo "full_integrity_gate_note=${FULL_INTEGRITY_GATE_NOTE}"
     echo "post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK}"
-  } > "${EVIDENCE_DIR}/POST_BUILD_INTEGRITY.txt" || {
+  } | write_evidence_file_atomic "${dest}"; then
     echo "write_host_post_build_integrity_record: write failed for ${dest}" >&2
     return 1
-  }
+  fi
   PRELIMINARY_SUCCESS_ELIGIBLE="NO"
   return 0
 }
@@ -1071,6 +1081,299 @@ write_host_file_atomic() {
     echo "write_host_file_atomic: rename failed for ${dest}" >&2
     return 1
   fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# RC6-R2: Host-owned PACKAGE_INCOMPLETE.txt (outside EVIDENCE_DIR).
+# Path: ${WORK_ROOT}/tmp/host-incomplete/${RUN_ID}/PACKAGE_INCOMPLETE.txt
+# Runtime-only Host control record (not schema-register bound; not Witness evidence).
+# Container / Witness / validator must never write or modify this marker.
+# ---------------------------------------------------------------------------
+resolve_host_incomplete_marker_path() {
+  local dir
+  if [[ -z "${WORK_ROOT:-}" || -z "${RUN_ID:-}" ]]; then
+    echo "resolve_host_incomplete_marker_path: WORK_ROOT/RUN_ID unset" >&2
+    return 1
+  fi
+  # Exact fixed path only: ${WORK_ROOT}/tmp/host-incomplete/${RUN_ID}/PACKAGE_INCOMPLETE.txt
+  # No environment variable may override this namespace.
+  dir="${WORK_ROOT}/tmp/${HOST_INCOMPLETE_DIR_NAME}/${RUN_ID}"
+  printf '%s' "${dir}/${PACKAGE_INCOMPLETE_FILE_NAME}"
+}
+
+_is_allowed_incomplete_reason() {
+  case "$1" in
+    signal_interrupted|exit_before_terminal_finalization|finalizer_write_failure|missing_build_exit_code|empty_build_exit_code|malformed_build_exit_code|contradictory_build_exit_code|unexpected_host_post_docker_failure|incomplete_terminal_evidence)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+_is_allowed_incomplete_signal_name() {
+  case "$1" in
+    INT|TERM|HUP|NONE)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+_normalize_incomplete_exit_code_field() {
+  local raw="$1"
+  if [[ -z "${raw}" || "${raw}" == "NOT_STARTED" || "${raw}" == "NOT_APPLICABLE" || "${raw}" == "UNKNOWN" ]]; then
+    printf 'UNKNOWN'
+    return 0
+  fi
+  if [[ "${raw}" =~ ^-?[0-9]+$ ]]; then
+    printf '%s' "${raw}"
+    return 0
+  fi
+  printf 'UNKNOWN'
+}
+
+map_incomplete_package_reason_from_container_result_error() {
+  case "${CONTAINER_RESULT_ERROR}" in
+    build_exit_code_file_missing)
+      printf '%s' 'missing_build_exit_code'
+      ;;
+    build_exit_code_file_empty)
+      printf '%s' 'empty_build_exit_code'
+      ;;
+    contradiction_*)
+      printf '%s' 'contradictory_build_exit_code'
+      ;;
+    malformed_key_line|crlf_injection|outcome_field_missing|outcome_field_duplicated|duplicate_tuple_key_*|unsupported_outcome*|terminal_sentinel_rejected_*|missing_cargo_started|missing_cargo_exit_code|missing_artifact_present|missing_artifact_identity_complete|missing_static_inspection_complete|missing_infrastructure_failure_stage|unsupported_artifact_present_*)
+      printf '%s' 'malformed_build_exit_code'
+      ;;
+    docker_run_launch_failure_exit_125)
+      printf '%s' 'unexpected_host_post_docker_failure'
+      ;;
+    *)
+      printf '%s' 'incomplete_terminal_evidence'
+      ;;
+  esac
+}
+
+_package_incomplete_marker_body() {
+  local reason="$1"
+  local signal_name="$2"
+  local failure_stage="$3"
+  local container_exit_code="$4"
+  local docker_exit_code="$5"
+  local authoritative_outcome_available="$6"
+  local evidence_dir_value="$7"
+  local host_ts
+  host_ts="$(utc_now)"
+  printf '%s\n' "record_schema_version=${PACKAGE_INCOMPLETE_SCHEMA_VERSION}"
+  printf '%s\n' "record_owner=host"
+  printf '%s\n' "run_id=${RUN_ID}"
+  printf '%s\n' "evidence_dir=${evidence_dir_value}"
+  printf '%s\n' "package_state=${PACKAGE_INCOMPLETE_PACKAGE_STATE}"
+  printf '%s\n' "rerun_required=yes"
+  printf '%s\n' "reason=${reason}"
+  printf '%s\n' "failure_stage=${failure_stage}"
+  printf '%s\n' "signal_name=${signal_name}"
+  printf '%s\n' "host_timestamp_utc=${host_ts}"
+  printf '%s\n' "container_exit_code=${container_exit_code}"
+  printf '%s\n' "docker_exit_code=${docker_exit_code}"
+  printf '%s\n' "authoritative_outcome_available=${authoritative_outcome_available}"
+}
+
+_read_incomplete_marker_key() {
+  local file="$1" key="$2"
+  read_kv_strict "${file}" "${key}"
+}
+
+_incomplete_marker_semantically_identical() {
+  local existing="$1"
+  local reason="$2"
+  local signal_name="$3"
+  local failure_stage="$4"
+  local container_exit_code="$5"
+  local docker_exit_code="$6"
+  local authoritative_outcome_available="$7"
+  local evidence_dir_value="$8"
+  local v
+  v="$(_read_incomplete_marker_key "${existing}" "record_schema_version")"
+  [[ "${v}" == "${PACKAGE_INCOMPLETE_SCHEMA_VERSION}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "record_owner")"
+  [[ "${v}" == "host" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "run_id")"
+  [[ "${v}" == "${RUN_ID}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "evidence_dir")"
+  [[ "${v}" == "${evidence_dir_value}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "package_state")"
+  [[ "${v}" == "${PACKAGE_INCOMPLETE_PACKAGE_STATE}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "rerun_required")"
+  [[ "${v}" == "yes" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "reason")"
+  [[ "${v}" == "${reason}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "failure_stage")"
+  [[ "${v}" == "${failure_stage}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "signal_name")"
+  [[ "${v}" == "${signal_name}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "container_exit_code")"
+  [[ "${v}" == "${container_exit_code}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "docker_exit_code")"
+  [[ "${v}" == "${docker_exit_code}" ]] || return 1
+  v="$(_read_incomplete_marker_key "${existing}" "authoritative_outcome_available")"
+  [[ "${v}" == "${authoritative_outcome_available}" ]] || return 1
+  # host_timestamp_utc may differ on same-state rewrite; treat other fixed fields as the identity.
+  return 0
+}
+
+_incomplete_marker_has_conflict() {
+  local existing="$1"
+  local reason="$2"
+  local evidence_dir_value="$3"
+  local v
+  v="$(_read_incomplete_marker_key "${existing}" "evidence_dir")"
+  if [[ -n "${v}" && "${v}" != "${evidence_dir_value}" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting evidence_dir existing=${v} proposed=${evidence_dir_value}" >&2
+    return 0
+  fi
+  v="$(_read_incomplete_marker_key "${existing}" "package_state")"
+  if [[ -n "${v}" && "${v}" != "${PACKAGE_INCOMPLETE_PACKAGE_STATE}" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting package_state existing=${v}" >&2
+    return 0
+  fi
+  v="$(_read_incomplete_marker_key "${existing}" "reason")"
+  if [[ -n "${v}" && "${v}" != "${reason}" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting reason existing=${v} proposed=${reason}" >&2
+    return 0
+  fi
+  v="$(_read_incomplete_marker_key "${existing}" "run_id")"
+  if [[ -n "${v}" && "${v}" != "${RUN_ID}" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting run_id existing=${v} proposed=${RUN_ID}" >&2
+    return 0
+  fi
+  v="$(_read_incomplete_marker_key "${existing}" "record_owner")"
+  if [[ -n "${v}" && "${v}" != "host" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting record_owner existing=${v}" >&2
+    return 0
+  fi
+  v="$(_read_incomplete_marker_key "${existing}" "rerun_required")"
+  if [[ -n "${v}" && "${v}" != "yes" ]]; then
+    echo "write_host_package_incomplete_marker: conflicting rerun_required existing=${v}" >&2
+    return 0
+  fi
+  return 1
+}
+
+# Write Host-owned PACKAGE_INCOMPLETE.txt atomically. Never mutates EVIDENCE_DIR.
+# Args:
+#   1: reason (fixed vocabulary)
+#   2: signal_name (INT|TERM|HUP|NONE); default HOST_SIGNAL_NAME or NONE
+#   3: failure_stage; default FAILURE_STAGE or CURRENT_STAGE or UNKNOWN
+write_host_package_incomplete_marker() {
+  local reason="${1:-}"
+  local signal_name="${2:-${HOST_SIGNAL_NAME:-NONE}}"
+  local failure_stage="${3:-}"
+  local dest dir
+  local evidence_dir_value
+  local container_exit_code docker_exit_code
+  local authoritative_outcome_available
+  local build_exit_path
+  local raw_container_exit=""
+
+  if [[ -z "${reason}" ]]; then
+    echo "write_host_package_incomplete_marker: reason required" >&2
+    return 1
+  fi
+  if ! _is_allowed_incomplete_reason "${reason}"; then
+    echo "write_host_package_incomplete_marker: invalid reason=${reason}" >&2
+    return 1
+  fi
+  if ! _is_allowed_incomplete_signal_name "${signal_name}"; then
+    echo "write_host_package_incomplete_marker: invalid signal_name=${signal_name}" >&2
+    return 1
+  fi
+  if [[ -z "${RUN_ID:-}" ]]; then
+    echo "write_host_package_incomplete_marker: RUN_ID unset" >&2
+    return 1
+  fi
+  if [[ ! "${RUN_ID}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "write_host_package_incomplete_marker: RUN_ID not a safe token" >&2
+    return 1
+  fi
+  if [[ -z "${EVIDENCE_DIR:-}" ]]; then
+    echo "write_host_package_incomplete_marker: EVIDENCE_DIR unset" >&2
+    return 1
+  fi
+  evidence_dir_value="${EVIDENCE_DIR}"
+  reject_field_newlines "evidence_dir" "${evidence_dir_value}" || return 1
+  reject_field_newlines "run_id" "${RUN_ID}" || return 1
+
+  if [[ -z "${failure_stage}" ]]; then
+    if [[ -n "${FAILURE_STAGE:-}" && "${FAILURE_STAGE}" != "none" ]]; then
+      failure_stage="${FAILURE_STAGE}"
+    elif [[ -n "${CURRENT_STAGE:-}" ]]; then
+      failure_stage="${CURRENT_STAGE}"
+    else
+      failure_stage="UNKNOWN"
+    fi
+  fi
+  if [[ -z "${failure_stage}" ]]; then
+    failure_stage="UNKNOWN"
+  fi
+  reject_field_newlines "failure_stage" "${failure_stage}" || return 1
+
+  build_exit_path="${EVIDENCE_DIR}/BUILD_EXIT_CODE.txt"
+  if [[ -f "${build_exit_path}" ]]; then
+    raw_container_exit="$(read_kv_strict "${build_exit_path}" "exit_code")"
+    if [[ -z "${raw_container_exit}" ]]; then
+      raw_container_exit="$(read_kv_strict "${build_exit_path}" "cargo_exit_code")"
+    fi
+  fi
+  container_exit_code="$(_normalize_incomplete_exit_code_field "${raw_container_exit}")"
+  docker_exit_code="$(_normalize_incomplete_exit_code_field "${DOCKER_EXIT:-}")"
+
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
+    authoritative_outcome_available="yes"
+  else
+    authoritative_outcome_available="no"
+  fi
+
+  if ! dest="$(resolve_host_incomplete_marker_path)"; then
+    return 1
+  fi
+  dir="$(dirname -- "${dest}")"
+  mkdir -p -- "${dir}" || {
+    echo "write_host_package_incomplete_marker: mkdir failed for ${dir}" >&2
+    return 1
+  }
+
+  if [[ -f "${dest}" ]]; then
+    if _incomplete_marker_semantically_identical \
+      "${dest}" "${reason}" "${signal_name}" "${failure_stage}" \
+      "${container_exit_code}" "${docker_exit_code}" \
+      "${authoritative_outcome_available}" "${evidence_dir_value}"; then
+      HOST_INCOMPLETE_MARKER_PATH="${dest}"
+      return 0
+    fi
+    if _incomplete_marker_has_conflict "${dest}" "${reason}" "${evidence_dir_value}"; then
+      return 1
+    fi
+    # Any remaining non-identical content is a semantic conflict (fail closed).
+    echo "write_host_package_incomplete_marker: existing marker conflicts with proposed incomplete state" >&2
+    return 1
+  fi
+
+  if ! _package_incomplete_marker_body \
+    "${reason}" "${signal_name}" "${failure_stage}" \
+    "${container_exit_code}" "${docker_exit_code}" \
+    "${authoritative_outcome_available}" "${evidence_dir_value}" \
+    | write_host_file_atomic "${dest}"; then
+    echo "write_host_package_incomplete_marker: atomic write failed for ${dest}" >&2
+    return 1
+  fi
+  HOST_INCOMPLETE_MARKER_PATH="${dest}"
   return 0
 }
 
@@ -1611,6 +1914,10 @@ finalize_post_docker_host_failure() {
   prepare_failed_host_post_build_defaults
   if ! write_host_post_build_integrity_record; then
     echo "ERROR: host-owned POST_BUILD_INTEGRITY.txt could not be written; fail-closed" >&2
+    write_host_package_incomplete_marker "finalizer_write_failure" \
+      "${HOST_SIGNAL_NAME:-NONE}" "${stage}" || \
+      echo "ERROR: PACKAGE_INCOMPLETE marker write also failed" >&2
+    HOST_TERMINAL_HANDLED="YES"
     HOST_FINALIZING_IN_PROGRESS="NO"
     if [[ "${abort_after}" == "YES" ]]; then
       abort "${exit_code}" "Host POST_BUILD integrity record write failed during post-Docker finalization (${message})"
@@ -1620,6 +1927,10 @@ finalize_post_docker_host_failure() {
 
   if ! write_host_outcome_ingestion_record "${ingestion_status}"; then
     echo "ERROR: host-owned HOST_OUTCOME_INGESTION.txt could not be written; fail-closed" >&2
+    write_host_package_incomplete_marker "finalizer_write_failure" \
+      "${HOST_SIGNAL_NAME:-NONE}" "${stage}" || \
+      echo "ERROR: PACKAGE_INCOMPLETE marker write also failed" >&2
+    HOST_TERMINAL_HANDLED="YES"
     HOST_FINALIZING_IN_PROGRESS="NO"
     if [[ "${abort_after}" == "YES" ]]; then
       abort "${exit_code}" "Host outcome ingestion record write failed during post-Docker finalization (${message})"
@@ -1636,6 +1947,9 @@ finalize_post_docker_host_failure() {
     build_exit_after="$(cat -- "${build_exit_path}" 2>/dev/null || true)"
     if [[ "${build_exit_after}" != "${build_exit_before}" ]]; then
       echo "FATAL: finalize_post_docker_host_failure mutated container-owned BUILD_EXIT_CODE.txt" >&2
+      write_host_package_incomplete_marker "incomplete_terminal_evidence" \
+        "${HOST_SIGNAL_NAME:-NONE}" "${stage}" || true
+      HOST_TERMINAL_HANDLED="YES"
       HOST_FINALIZING_IN_PROGRESS="NO"
       if [[ "${abort_after}" == "YES" ]]; then
         abort "${exit_code}" "Host finalizer mutated container BUILD_EXIT_CODE.txt"
@@ -1650,6 +1964,27 @@ finalize_post_docker_host_failure() {
       || true
   fi
 
+  # RC6-R2: Host-owned incomplete marker (outside EVIDENCE_DIR). Fail-closed on write.
+  local incomplete_reason="${INCOMPLETE_MARKER_REASON:-}"
+  if [[ -z "${incomplete_reason}" ]]; then
+    if [[ "${HOST_SIGNAL_NAME:-NONE}" != "NONE" ]]; then
+      incomplete_reason="signal_interrupted"
+    else
+      incomplete_reason="$(map_incomplete_package_reason_from_container_result_error)"
+    fi
+  fi
+  if ! write_host_package_incomplete_marker "${incomplete_reason}" \
+    "${HOST_SIGNAL_NAME:-NONE}" "${stage}"; then
+    echo "ERROR: PACKAGE_INCOMPLETE marker write failed; fail-closed" >&2
+    HOST_TERMINAL_HANDLED="YES"
+    HOST_FINALIZING_IN_PROGRESS="NO"
+    if [[ "${abort_after}" == "YES" ]]; then
+      abort "${exit_code}" "Host incomplete-package marker write failed (${message})"
+    fi
+    return "${exit_code}"
+  fi
+
+  HOST_TERMINAL_HANDLED="YES"
   HOST_FINALIZING_IN_PROGRESS="NO"
   echo "ERROR: post-Docker host failure at stage=${stage}: ${message}" >&2
   if [[ "${abort_after}" == "YES" ]]; then
@@ -2385,8 +2720,14 @@ finalize_pre_docker_infrastructure_failure() {
   EVIDENCE_INVENTORY_COMPLETE="no"
   FULL_INTEGRITY_GATE_ALL_FOUR_YES="no"
   POST_BUILD_INTEGRITY_OK="no"
-  write_host_post_build_integrity_record || \
+  write_host_post_build_integrity_record || {
     echo "ERROR: host-owned POST_BUILD_INTEGRITY.txt write failed during pre-Docker finalization" >&2
+    write_host_package_incomplete_marker "finalizer_write_failure" \
+      "${HOST_SIGNAL_NAME:-NONE}" "${stage}" || \
+      echo "ERROR: PACKAGE_INCOMPLETE marker write also failed" >&2
+    HOST_TERMINAL_HANDLED="YES"
+    abort "${exit_code}" "Host POST_BUILD integrity record write failed during pre-Docker finalization (${message})"
+  }
 
   if [[ -n "${EVIDENCE_DIR}" && -f "${EVIDENCE_DIR}/HOST_RUN_METADATA.txt" ]]; then
     append_host_run_metadata_entry "finalize_pre_docker_infrastructure_failure" \
@@ -2394,6 +2735,18 @@ finalize_pre_docker_infrastructure_failure() {
       || true
   fi
 
+  local pre_incomplete_reason="incomplete_terminal_evidence"
+  if [[ "${HOST_SIGNAL_NAME:-NONE}" != "NONE" ]]; then
+    pre_incomplete_reason="signal_interrupted"
+  fi
+  write_host_package_incomplete_marker "${pre_incomplete_reason}" \
+    "${HOST_SIGNAL_NAME:-NONE}" "${stage}" || {
+    echo "ERROR: PACKAGE_INCOMPLETE marker write failed during pre-Docker finalization" >&2
+    HOST_TERMINAL_HANDLED="YES"
+    abort "${exit_code}" "Host incomplete-package marker write failed (${message})"
+  }
+
+  HOST_TERMINAL_HANDLED="YES"
   abort "${exit_code}" "${message}"
 }
 
@@ -2431,22 +2784,26 @@ finalize_post_docker_unexpected_failure() {
         echo "evidence_inventory_complete=no"
         echo "product_executed=NO"
         echo "ldd_used=NO"
-      } > "${path}"
+      } | write_evidence_file_atomic "${path}"
     fi
   done
 
+  INCOMPLETE_MARKER_REASON="${INCOMPLETE_MARKER_REASON:-unexpected_host_post_docker_failure}"
   finalize_post_docker_host_failure \
     "${stage}" "${exit_code}" "${message}" \
     "FAILED" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "YES"
 }
 
 # ---------------------------------------------------------------------------
-# ERR trap: extends generic failure handling without overwriting more
-# specific failure classifications already recorded by abort()-driven paths.
+# ERR / signal / EXIT traps: converge on centralized Host failure finalization.
+# Incomplete or non-final evidence can never produce Host exit zero.
 # ---------------------------------------------------------------------------
 on_err() {
   local ec=$?
-  if [[ "${SPECIFIC_FAILURE_RECORDED}" -eq 1 ]]; then
+  if [[ "${SPECIFIC_FAILURE_RECORDED}" -eq 1 || "${HOST_TERMINAL_HANDLED}" == "YES" ]]; then
+    exit "${ec}"
+  fi
+  if [[ "${HOST_FINALIZING_IN_PROGRESS}" == "YES" ]]; then
     exit "${ec}"
   fi
   local failing_stage="${CURRENT_STAGE}"
@@ -2465,6 +2822,68 @@ on_err() {
     finalize_post_docker_unexpected_failure \
       "unexpected_${failing_stage}" "${ec}" \
       "Unexpected failure after Docker started, at stage=${failing_stage}"
+  fi
+}
+
+on_host_signal() {
+  local sig="$1"
+  local sig_ec=1
+  HOST_SIGNAL_NAME="${sig}"
+  case "${sig}" in
+    INT) sig_ec=130 ;;
+    TERM) sig_ec=143 ;;
+    HUP) sig_ec=129 ;;
+  esac
+  trap - ERR INT TERM HUP EXIT
+  if [[ "${HOST_TERMINAL_HANDLED}" == "YES" || "${HOST_FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    exit "${sig_ec}"
+  fi
+  echo "ERROR: host orchestrator interrupted by SIG${sig} at stage=${CURRENT_STAGE}" >&2
+  INCOMPLETE_MARKER_REASON="signal_interrupted"
+  if [[ -n "${EVIDENCE_DIR:-}" && -d "${EVIDENCE_DIR}" ]]; then
+    if [[ -z "${DOCKER_STARTED_UTC:-}" ]]; then
+      finalize_pre_docker_infrastructure_failure \
+        "signal_${sig}" "${sig_ec}" \
+        "Host interrupted by SIG${sig} before Docker at stage=${CURRENT_STAGE}" || true
+    else
+      finalize_post_docker_host_failure \
+        "signal_${sig}" "${sig_ec}" \
+        "Host interrupted by SIG${sig} after Docker at stage=${CURRENT_STAGE}" \
+        "FAILED" "${HOST_SOURCE_INTEGRITY_STATUS:-OK}" "FAILED" "FAILED" "NO" || true
+      HOST_TERMINAL_HANDLED="YES"
+    fi
+  else
+    HOST_TERMINAL_HANDLED="YES"
+  fi
+  exit "${sig_ec}"
+}
+
+on_host_int() { on_host_signal INT; }
+on_host_term() { on_host_signal TERM; }
+on_host_hup() { on_host_signal HUP; }
+
+on_host_exit() {
+  local ec=$?
+  if [[ "${HOST_MAIN_ACTIVE}" != "YES" ]]; then
+    return 0
+  fi
+  if [[ "${HOST_TERMINAL_HANDLED}" == "YES" || "${HOST_FINALIZING_IN_PROGRESS}" == "YES" ]]; then
+    return 0
+  fi
+  if [[ "${SPECIFIC_FAILURE_RECORDED}" -eq 1 ]]; then
+    return 0
+  fi
+  # EXIT before required terminal finalization / incomplete package path.
+  trap - EXIT
+  if [[ -n "${EVIDENCE_DIR:-}" && -d "${EVIDENCE_DIR}" && -n "${RUN_ID:-}" ]]; then
+    INCOMPLETE_MARKER_REASON="exit_before_terminal_finalization"
+    write_host_package_incomplete_marker "exit_before_terminal_finalization" \
+      "${HOST_SIGNAL_NAME:-NONE}" "${CURRENT_STAGE:-UNKNOWN}" || true
+    HOST_TERMINAL_HANDLED="YES"
+  fi
+  if [[ "${ec}" -eq 0 ]]; then
+    # Incomplete runs must never report success.
+    exit 1
   fi
 }
 
@@ -2876,6 +3295,11 @@ WF_TAG_REF=""
 HOST_FINALIZING_IN_PROGRESS="NO"
 HOST_OUTCOME_INGESTION_WRITTEN="NO"
 HOST_OUTCOME_INGESTION_FINGERPRINT=""
+HOST_MAIN_ACTIVE="YES"
+HOST_TERMINAL_HANDLED="NO"
+HOST_SIGNAL_NAME="NONE"
+HOST_INCOMPLETE_MARKER_PATH=""
+INCOMPLETE_MARKER_REASON=""
 CONTAINER_RESULT_PRESENCE="MISSING"
 CONTAINER_RESULT_VALID="NO"
 CONTAINER_RESULT_ERROR="none"
@@ -2914,6 +3338,10 @@ VALIDATOR_COMMAND=""
 VALIDATOR_RESULT_PATH=""
 HOST_VALIDATOR_GATE_OK="no"
 trap on_err ERR
+trap on_host_int INT
+trap on_host_term TERM
+trap on_host_hup HUP
+trap on_host_exit EXIT
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -2938,6 +3366,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       usage
+      HOST_TERMINAL_HANDLED="YES"
       exit 0
       ;;
     -*)
@@ -3062,7 +3491,7 @@ write_docker_exit_code_authoritative() {
     echo "outcome=${OUTCOME}"
     echo "failure_stage=${FAILURE_STAGE}"
     echo "outcome_source=container_BUILD_EXIT_CODE.txt_authoritative"
-  } > "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
+  } | write_evidence_file_atomic "${EVIDENCE_DIR}/DOCKER_EXIT_CODE.txt"
 }
 
 # ---------------------------------------------------------------------------
@@ -3628,7 +4057,7 @@ patch_build_timing_docker_wallclock() {
     echo "cargo_exit_code=${cargo_exit_code}"
     echo "docker_exit_code=${DOCKER_EXIT}"
     echo "failure_stage=${FAILURE_STAGE}"
-  } > "${build_timing_file}"
+  } | write_evidence_file_atomic "${build_timing_file}"
 }
 
 mark_stage "step18_container_outcome_parsing"
@@ -3901,6 +4330,7 @@ echo "host_exit_0_meaning=AUTOMATED HOST PACKAGE STRUCTURAL VALIDATION SUCCEEDED
 echo "Validator stdout/stderr and VALIDATOR_RESULT.txt are captured OUTSIDE the evidence directory."
 echo "Submit evidence per WITNESS_SUBMISSION.md after redaction review and manifest finalization."
 
+HOST_TERMINAL_HANDLED="YES"
 exit "${FINAL_EXIT_CODE}"
 }
 

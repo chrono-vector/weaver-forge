@@ -148,12 +148,16 @@ def _post_build_keys(path: Path) -> list[str]:
 
 
 def writer_block_keys(text: str, filename: str) -> set[str]:
+    """Extract echo key= keys from the host writer block for filename.
+
+    Supports both historical direct redirects and RC6-R2 atomic
+    `} | write_evidence_file_atomic "${dest}"` pipes.
+    """
     lines = text.splitlines()
     redirect_re = re.compile(r"\}\s*>\s*\"?\$\{EVIDENCE_DIR\}/" + re.escape(filename))
     best: set[str] = set()
-    for idx, line in enumerate(lines):
-        if not redirect_re.search(line):
-            continue
+
+    def _collect_keys_above(idx: int) -> set[str]:
         keys: set[str] = set()
         j = idx - 1
         while j >= 0:
@@ -163,8 +167,36 @@ def writer_block_keys(text: str, filename: str) -> set[str]:
             if lines[j].strip() == "{":
                 break
             j -= 1
-        if len(keys) > len(best):
-            best = keys
+        return keys
+
+    for idx, line in enumerate(lines):
+        if redirect_re.search(line):
+            keys = _collect_keys_above(idx)
+            if len(keys) > len(best):
+                best = keys
+
+    if filename == "POST_BUILD_INTEGRITY.txt":
+        fn = re.search(
+            r"write_host_post_build_integrity_record\(\) \{.*?\n\}",
+            text,
+            flags=re.S,
+        )
+        if fn:
+            block_lines = fn.group(0).splitlines()
+            for idx, line in enumerate(block_lines):
+                if "write_evidence_file_atomic" not in line and not redirect_re.search(line):
+                    continue
+                keys: set[str] = set()
+                j = idx - 1
+                while j >= 0:
+                    m = _KEY_RE.search(block_lines[j])
+                    if m:
+                        keys.add(m.group(1))
+                    if block_lines[j].strip() in ("{", "if ! {"):
+                        break
+                    j -= 1
+                if len(keys) > len(best):
+                    best = keys
     return best
 
 
@@ -249,6 +281,7 @@ class Phase3EPostBuildIntegrityTests(unittest.TestCase):
             # shellcheck disable=SC1091
             source ./{HOST_SCRIPT_NAME}
             EVIDENCE_DIR={shlex.quote(self.evidence_rel)}
+            WORK_ROOT={shlex.quote(self.ws_rel)}
             RUN_ID=phase3e-test-run
             DOCKER_EXIT=0
             DOCKER_STARTED_UTC=2026-01-01T00:00:00Z

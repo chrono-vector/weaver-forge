@@ -101,7 +101,15 @@ non-circular completeness state machine:** `--host-preliminary` rejects
 completeness before the final manifest; no final auxiliary exemption for S2-shaped packages;
 validator captures/`VALIDATOR_RESULT` remain outside `EVIDENCE_DIR`; structural PASS ceilings
 exclude Independent Witness PASS, READY, and rc5 readiness. Synthetic final fixtures are test
-artifacts only. **RC4 remains NOT READY. No
+artifacts only. **RC6-R2 on `main` adds Host incomplete-package finalization policy:** when a
+run is signal-aborted or otherwise cannot produce complete truthful terminal evidence, the Host
+writes a Host-owned runtime control record at
+`${WORK_ROOT}/tmp/host-incomplete/${RUN_ID}/PACKAGE_INCOMPLETE.txt` (outside `EVIDENCE_DIR`).
+The marker is not Witness evidence, is not schema-register bound, and must never be written or
+modified by the container, Witness, or validator. Incomplete evidence must not be resumed or
+manually reconstructed into a final package; rerun requires a new `EVIDENCE_DIR`. The marker is
+retained as Host-owned historical negative operational evidence. Validator inputs are unchanged
+(implicit final-submission prohibition). **RC4 remains NOT READY. No
 rc5 tag exists.** Independent Witness reproduction has not occurred; Independent Witness
 PASS is not claimed; C-014 remains `NOT_STARTED`.
 

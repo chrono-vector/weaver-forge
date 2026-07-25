@@ -340,6 +340,13 @@ stale/spoof/mixed-run rejection, and limited full-main fail-closed smoke; Docker
 are mocked/prohibited in tests. Host exit 0 remains preliminary automated structural success
 only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and
 Independent Witness work remain later.
+**RC6-R2 on `main` adds Host incomplete-package finalization policy:** signal-aborted or
+otherwise incomplete runs write Host-owned
+`${WORK_ROOT}/tmp/host-incomplete/${RUN_ID}/PACKAGE_INCOMPLETE.txt` outside `EVIDENCE_DIR`.
+The marker is not Witness evidence; container/Witness/validator must never write or modify it;
+rerun requires a new `EVIDENCE_DIR`; incomplete evidence must not be manually reconstructed into
+a final package; the marker is retained. Validator inputs remain unchanged (implicit
+final-submission prohibition).
 **RC4 remains NOT READY. No rc5 tag exists.** Independent Witness reproduction has not
 occurred; Independent Witness PASS is not claimed; C-014 remains `NOT_STARTED`. Do not claim
 end-to-end Independent Witness compliance from Phase 3G alone.

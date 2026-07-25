@@ -191,6 +191,7 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
             # shellcheck disable=SC1091
             source ./{HOST_SCRIPT_NAME}
             EVIDENCE_DIR={shlex.quote(self.evidence_rel)}
+            WORK_ROOT={shlex.quote(self.ws_rel)}
             RUN_ID=phase3d-test-run
             DOCKER_EXIT=0
             DOCKER_STARTED_UTC=2026-01-01T00:00:00Z
