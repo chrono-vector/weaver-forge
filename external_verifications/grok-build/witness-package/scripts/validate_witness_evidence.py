@@ -10,13 +10,14 @@ value is true.
 This script writes only to its own stdout/stderr. It never writes into the
 evidence directory it is validating (see VALIDATOR.md "Output policy").
 
-RC6-R1: active canonical schema authority is the committed rc6 JSON register
-(rc6.1 / canonical_schema_register_rc6.json) loaded via schema_register_loader.
-Active structured KV files use exact or exact-with-named-optional key
-enforcement; unknown keys are rejected. Frozen rc5 Phase-4 S2 and S1 registers
-remain explicitly loadable for historical compatibility only and are not
-competing active authorities. Historical fixtures without S2 identity markers
-remain accepted through the explicit historical compatibility path. S2-shaped
+RC6-R3: active canonical schema authority is the committed rc6 JSON register
+(rc6.2 / canonical_schema_register_rc6.json) loaded via schema_register_loader
+(ACTIVE_REGISTER_VERSION). Active structured KV files use exact or
+exact-with-named-optional key enforcement; unknown keys are rejected. Frozen
+rc6.1, rc5 Phase-4 S2, and S1 registers remain explicitly loadable for
+historical compatibility only and are not competing active authorities.
+Historical fixtures without S2 identity markers remain accepted through the
+explicit historical compatibility path for unshaped packages. S2-shaped
 evidence is never silently downgraded to historical rules. Evidence content
 cannot select schema-register authority. Explicit validator modes remain
 --host-preliminary and --final-submission; the default CLI path is a
@@ -37,7 +38,11 @@ from pathlib import Path
 
 import evidence_inventory as ei
 from schema_register_loader import (
+    load_historical_rc61_register,
+    load_historical_register,
+
     ACTIVE_REGISTER_VERSION,
+    HISTORICAL_REGISTER_VERSIONS,
     HOST_RUN_METADATA_ENTRY_BEGIN,
     HOST_RUN_METADATA_ENTRY_END,
     HOST_RUN_METADATA_ENTRY_KEYS,
@@ -63,7 +68,7 @@ MODE_FINAL_SUBMISSION = "final-submission"
 DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
 
 # Canonical schema register (single active machine-readable authority for rc6 path).
-# RC6-R1: default load is rc6.1. Historical S2/S1 are not coequal authorities.
+# RC6-R3: default load is rc6.2. Historical rc6.1/S2/S1 are not coequal authorities.
 _SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
 SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
 if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
@@ -71,6 +76,9 @@ if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
         f"active validator authority must be {ACTIVE_REGISTER_VERSION!r}, "
         f"got {SCHEMA_REGISTER_VERSION!r}"
     )
+# Frozen rc6.1 field projection for pre-R3 S2-shaped packages. Not a competing
+# active authority; evidence cannot select it. Used only when R3 markers absent.
+_HISTORICAL_RC61_REGISTER: CanonicalSchemaRegister = load_historical_rc61_register()
 
 EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
@@ -101,6 +109,8 @@ def expected_package_tag_for_version(package_version: str) -> str | None:
     return PACKAGE_VERSION_EXPECTED_TAG.get(package_version)
 
 MANIFEST_NAME = "EVIDENCE_MANIFEST.sha256"
+FINAL_BINDING_NAME = "WEAVER_FORGE_FINAL_BINDING.txt"
+PACKAGE_IDENTITY_NAME = "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
 
 # Closed inventory of optional host-only auxiliary files. This set is
 # EXHAUSTIVE: any other file present on disk (or declared in the manifest)
@@ -157,14 +167,20 @@ SCHEMA_VERSIONED_FILES = tuple(
 )
 
 
-def required_files_for_mode(mode: str) -> tuple[str, ...]:
-    """Return the mode-specific required-file set from the canonical register."""
-    return _SCHEMA_REGISTER.required_files(mode)
+def required_files_for_mode(
+    mode: str, register: CanonicalSchemaRegister | None = None
+) -> tuple[str, ...]:
+    """Return the mode-specific required-file set from the selected register."""
+    reg = register if register is not None else _SCHEMA_REGISTER
+    return reg.required_files(mode)
 
 
-def accepted_supporting_files_for_mode(mode: str) -> frozenset[str]:
+def accepted_supporting_files_for_mode(
+    mode: str, register: CanonicalSchemaRegister | None = None
+) -> frozenset[str]:
     """Files accepted but not required for the mode (do not elevate eligibility)."""
-    return _SCHEMA_REGISTER.accepted_supporting_files(mode)
+    reg = register if register is not None else _SCHEMA_REGISTER
+    return reg.accepted_supporting_files(mode)
 
 
 def resolve_validation_mode(*, host_preliminary: bool = False, mode: str | None = None) -> str:
@@ -243,7 +259,7 @@ HOST_OUTCOME_EMPTY_OK_FIELDS = frozenset(
         "artifact_present",
         "artifact_identity_complete",
         "static_inspection_complete",
-        "run_id",
+        "container_run_id",
     }
 )
 HOST_OUTCOME_STATUS_VALUES = frozenset({"OK", "FAILED"})
@@ -486,10 +502,13 @@ def enforce_register_field_set(
     fields: dict[str, str],
     mode: str,
     errors: list[str],
+    *,
+    register: CanonicalSchemaRegister | None = None,
 ) -> None:
-    """Apply active-register exact or exact-with-named-optionals policy."""
-    required = _SCHEMA_REGISTER.required_field_names(name, mode)
-    optional = _SCHEMA_REGISTER.optional_field_names(name, mode)
+    """Apply register exact or exact-with-named-optionals policy."""
+    reg = register if register is not None else _SCHEMA_REGISTER
+    required = reg.required_field_names(name, mode)
+    optional = reg.optional_field_names(name, mode)
     if optional:
         require_exact_field_set_with_optional(name, fields, required, optional, errors)
     else:
@@ -623,6 +642,65 @@ def is_not_reached_placeholder(fields: dict[str, str]) -> bool:
     return fields.get("status") == "NOT_REACHED"
 
 
+
+def package_is_r3_shaped(
+    file_fields: dict[str, dict[str, str]],
+    evidence_dir: Path | None = None,
+) -> bool:
+    """Detect RC6-R3 provenance markers for diagnostics/tests only.
+
+    Must never select schema-register authority. Default validation always uses
+    active rc6.2; historical registers are reachable only via the explicit
+    historical validation API.
+    """
+    pkg = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
+    if "weaver_forge_tag_object_id" in pkg:
+        return True
+    post = file_fields.get("POST_BUILD_INTEGRITY.txt") or {}
+    if "authoritative_outcome" in post:
+        return True
+    host = file_fields.get(HOST_OUTCOME_INGESTION_NAME) or {}
+    if "container_run_id" in host:
+        return True
+    build = file_fields.get("BUILD_EXIT_CODE.txt") or {}
+    if "run_id" in build:
+        return True
+    if evidence_dir is not None and (evidence_dir / FINAL_BINDING_NAME).is_file():
+        return True
+    if FINAL_BINDING_NAME in file_fields:
+        return True
+    return False
+
+
+def resolve_validation_register(
+    schema_register_version: str | None,
+) -> tuple[CanonicalSchemaRegister | None, str | None]:
+    """Resolve the schema register for validation.
+
+    Default (None) → active rc6.2 only.
+    Explicit historical versions → historical loader only.
+    Active version requested via historical API → fail closed.
+    Unsupported → fail closed.
+    """
+    if schema_register_version is None:
+        return _SCHEMA_REGISTER, None
+    if schema_register_version == ACTIVE_REGISTER_VERSION:
+        return None, (
+            f"schema_register_version={schema_register_version!r} is the active authority; "
+            "default validation uses active rc6.2 — do not request it through the "
+            "historical validation API"
+        )
+    if schema_register_version not in HISTORICAL_REGISTER_VERSIONS:
+        return None, (
+            f"unsupported schema_register_version: {schema_register_version!r} "
+            f"(accepted historical: {sorted(HISTORICAL_REGISTER_VERSIONS)})"
+        )
+    try:
+        return load_historical_register(schema_register_version), None
+    except SchemaRegisterError as exc:
+        return None, str(exc)
+
+
 def package_is_s2_shaped(
     file_fields: dict[str, dict[str, str]],
     file_texts: dict[str, str] | None = None,
@@ -731,6 +809,7 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     "SOURCE_IDENTITY.txt": (
         "evidence_schema_version",
+        "run_id",
         "grok_build_commit_expected",
         "grok_build_commit_observed",
         "grok_build_detached_head",
@@ -873,6 +952,7 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     # alongside "outcome" (both are always emitted by the container).
     "BUILD_EXIT_CODE.txt": (
         "evidence_schema_version",
+        "run_id",
         "status",
         "cargo_started",
         "outcome",
@@ -899,6 +979,7 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     "ARTIFACT_IDENTITY.txt": (
         "evidence_schema_version",
+        "run_id",
         "outcome",
         "applicable",
         "artifact_present",
@@ -926,8 +1007,10 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     "POST_BUILD_INTEGRITY.txt": (
         "evidence_schema_version",
+        "run_id",
         "status",
         "outcome",
+        "authoritative_outcome",
         "source_head_before",
         "source_head_after",
         "source_head_unchanged",
@@ -949,6 +1032,9 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     "WITNESS_STATEMENT.md": (
         "evidence_schema_version",
+        "run_id",
+        "package_identity_ref",
+        "final_binding_ref",
         "witness_identity_or_handle",
         "not_package_owner",
         "not_owner_side_reproducer",
@@ -961,6 +1047,8 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "WITNESS_VERDICT.md": (
         "evidence_schema_version",
         "run_id",
+        "package_identity_ref",
+        "final_binding_ref",
         "package_tag",
         "weaver_forge_commit",
         "grok_build_commit",
@@ -969,6 +1057,26 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "product_executed",
         "ldd_used",
         "maintainer_intake_verdict",
+    ),
+    "WEAVER_FORGE_FINAL_BINDING.txt": (
+        "evidence_schema_version",
+        "run_id",
+        "package_version",
+        "canonical_tag",
+        "tag_object_id",
+        "peeled_commit",
+        "grok_build_source_commit",
+        "authoritative_outcome",
+        "artifact_sha256",
+        "artifact_byte_size",
+        "final_manifest_sha256",
+        "package_identity_ref",
+        "build_exit_code_ref",
+        "host_outcome_ingestion_ref",
+        "post_build_integrity_ref",
+        "source_identity_ref",
+        "artifact_identity_ref",
+        "evidence_manifest_ref",
     ),
     "DEVIATIONS.txt": (
         "evidence_schema_version",
@@ -1028,11 +1136,19 @@ STATIC_ARTIFACT_INSPECTION_ALWAYS_PRESENT_KEYS = ("artifact_path",) + STATIC_TOO
 # ---------------------------------------------------------------------------
 
 
-def check_weaver_forge_package_identity(fields: dict[str, str], errors: list[str]) -> None:
+def check_weaver_forge_package_identity(
+    fields: dict[str, str],
+    errors: list[str],
+    *,
+    register: CanonicalSchemaRegister | None = None,
+) -> None:
     name = "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    reg = register if register is not None else _SCHEMA_REGISTER
     if is_s2_shaped_package_identity(fields):
-        required = _SCHEMA_REGISTER.required_field_names(name, MODE_HOST_PRELIMINARY)
-        optional = _SCHEMA_REGISTER.optional_field_names(name, MODE_HOST_PRELIMINARY)
+        # Exact field set always comes from the selected validation register.
+        # Evidence shape cannot select a different schema authority.
+        required = reg.required_field_names(name, MODE_HOST_PRELIMINARY)
+        optional = reg.optional_field_names(name, MODE_HOST_PRELIMINARY)
         require_exact_field_set_with_optional(name, fields, required, optional, errors)
         check_s2_legal_values(
             name,
@@ -1066,6 +1182,35 @@ def check_weaver_forge_package_identity(fields: dict[str, str], errors: list[str
                 errors,
                 f"{name}: weaver_forge_tag_ref must be refs/tags/<weaver_forge_tag_requested>",
             )
+        # RC6-R3: successful R3-shaped identity requires a real annotated-tag
+        # object id and rejects UNKNOWN sentinels on the required base tuple.
+        # Pre-R3 S2 packages omit weaver_forge_tag_object_id and stay on the
+        # rc6.1 projection path.
+        status = fields.get("status", "")
+        successful_identity = "status" not in fields or status == "OK"
+        if successful_identity and "weaver_forge_tag_object_id" in fields:
+            object_id = fields.get("weaver_forge_tag_object_id", "")
+            if not is_hex_commit(object_id):
+                fail(
+                    errors,
+                    f"{name}: weaver_forge_tag_object_id must be a 40-char lowercase hex "
+                    f"tag object id for successful R3 identity (found {object_id!r})",
+                )
+            for key in (
+                "run_id",
+                "package_version",
+                "weaver_forge_tag_requested",
+                "weaver_forge_tag_object_id",
+                "weaver_forge_tag_peeled_commit",
+                "grok_build_source_commit_expected",
+            ):
+                value = fields.get(key, "")
+                if value in ("", "UNKNOWN", "NOT_REACHED"):
+                    fail(
+                        errors,
+                        f"{name}: {key} must not be empty/UNKNOWN/NOT_REACHED for "
+                        "successful R3-shaped package identity",
+                    )
     if not is_safe_token(fields.get("witness_id", "")):
         fail(errors, f"{name}: witness_id must be a non-empty token with no path separators, whitespace, or '..'")
     if not is_safe_token(fields.get("run_id", "")):
@@ -1141,11 +1286,29 @@ def check_source_acquisition(fields: dict[str, str], errors: list[str]) -> None:
 
 def check_source_identity(fields: dict[str, str], errors: list[str]) -> None:
     name = "SOURCE_IDENTITY.txt"
+    run_id = fields.get("run_id", "")
+    if "run_id" in fields and not is_safe_token(run_id):
+        fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
     require_exact(name, fields, "grok_build_commit_expected", EXPECTED_GROK_COMMIT, errors)
     require_exact(name, fields, "cargo_lock_sha256_expected", EXPECTED_CARGO_LOCK_SHA256, errors)
     observed_commit = fields.get("grok_build_commit_observed", "")
     if observed_commit and not is_hex_commit(observed_commit):
         fail(errors, f"{name}: grok_build_commit_observed must be a 40-char lowercase hex commit")
+    expected_commit = fields.get("grok_build_commit_expected", "")
+    # RC6-R3: fail closed when both expected/observed are present and neither is
+    # NOT_REACHED — they must match for final active packages.
+    if (
+        expected_commit
+        and observed_commit
+        and expected_commit != "NOT_REACHED"
+        and observed_commit != "NOT_REACHED"
+        and expected_commit != observed_commit
+    ):
+        fail(
+            errors,
+            f"{name}: grok_build_commit_expected must equal grok_build_commit_observed "
+            f"(found expected={expected_commit!r} observed={observed_commit!r})",
+        )
     observed_lock = fields.get("cargo_lock_sha256_before", "")
     if observed_lock and observed_lock not in ("NOT_REACHED",) and not is_sha256(observed_lock):
         fail(errors, f"{name}: cargo_lock_sha256_before must be a 64-char lowercase hex sha256")
@@ -1263,6 +1426,9 @@ def check_clean_target_proof(fields: dict[str, str], errors: list[str]) -> None:
 
 def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> None:
     name = "POST_BUILD_INTEGRITY.txt"
+    run_id = fields.get("run_id", "")
+    if "run_id" in fields and not is_safe_token(run_id):
+        fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
     status = fields.get("status", "")
     if status == "NOT_APPLICABLE":
         fail(errors, f"{name}: status=NOT_APPLICABLE is prohibited as a final POST_BUILD status")
@@ -1307,6 +1473,20 @@ def check_post_build_integrity(fields: dict[str, str], errors: list[str]) -> Non
     outcome = fields.get("outcome", "")
     if outcome and outcome not in OUTCOME_VALUES:
         fail(errors, f"{name}: outcome must be one of {sorted(OUTCOME_VALUES)}")
+    authoritative_outcome = fields.get("authoritative_outcome", "")
+    if "authoritative_outcome" in fields:
+        if authoritative_outcome not in OUTCOME_VALUES:
+            fail(
+                errors,
+                f"{name}: authoritative_outcome must be one of {sorted(OUTCOME_VALUES)} "
+                f"(found {authoritative_outcome!r})",
+            )
+        elif outcome and authoritative_outcome != outcome:
+            fail(
+                errors,
+                f"{name}: authoritative_outcome={authoritative_outcome!r} must equal "
+                f"outcome={outcome!r}",
+            )
     note = fields.get("full_integrity_gate_note", "")
     if note is not None and "full_integrity_gate_note" in fields and note == "":
         fail(errors, f"{name}: full_integrity_gate_note must be non-empty when present")
@@ -1406,24 +1586,46 @@ def check_host_outcome_ingestion(
     fields: dict[str, str],
     errors: list[str],
     authoritative_outcome: str | None,
+    *,
+    register: CanonicalSchemaRegister | None = None,
 ) -> None:
     """Structurally validate host-owned HOST_OUTCOME_INGESTION.txt.
 
     Exact field-set equality; legal vocabularies; outcome agreement with
     authoritative BUILD_EXIT_CODE when the host recorded a valid container
-    result. Never overwrites or repairs container evidence.
+    result. Never overwrites or repairs container evidence. Field set comes
+    from the selected validation register (active by default).
     """
     name = HOST_OUTCOME_INGESTION_NAME
-    required_set = set(HOST_OUTCOME_INGESTION_FIELDS)
+    reg = register if register is not None else _SCHEMA_REGISTER
+    active_validation = reg.is_active_authority
+    if active_validation:
+        required_fields = HOST_OUTCOME_INGESTION_FIELDS
+        empty_ok = HOST_OUTCOME_EMPTY_OK_FIELDS
+    else:
+        required_fields = reg.compatibility_host_outcome_fields()
+        empty_ok = frozenset(
+            {
+                "container_outcome",
+                "container_exit_code",
+                "cargo_started",
+                "cargo_exit_code",
+                "artifact_present",
+                "artifact_identity_complete",
+                "static_inspection_complete",
+                "run_id",
+            }
+        )
+    required_set = set(required_fields)
     actual = set(fields)
     for key in sorted(required_set - actual):
         fail(errors, f"{name}: missing required field '{key}'")
     for key in sorted(actual - required_set):
         fail(errors, f"{name}: unknown/extra field '{key}'")
-    for key in HOST_OUTCOME_INGESTION_FIELDS:
+    for key in required_fields:
         if key not in fields:
             continue
-        if fields[key] == "" and key not in HOST_OUTCOME_EMPTY_OK_FIELDS:
+        if fields[key] == "" and key not in empty_ok:
             fail(errors, f"{name}: missing required field '{key}'")
 
     schema = fields.get("schema_version", "")
@@ -1481,13 +1683,42 @@ def check_host_outcome_ingestion(
     if owner and owner != "HOST":
         fail(errors, f"{name}: record_owner must be HOST")
 
+    # Active rc6.2: Host run_id is mandatory. Historical registers retain their
+    # own empty-ok projection for run_id when selected explicitly.
+    run_id = fields.get("run_id", "")
+    if active_validation and not is_safe_token(run_id):
+        fail(
+            errors,
+            f"{name}: run_id must be a non-empty safe token when HOST_OUTCOME_INGESTION "
+            "is present (empty-ok no longer applies to Host run_id)",
+        )
+    elif (not active_validation) and run_id and not is_safe_token(run_id):
+        fail(
+            errors,
+            f"{name}: run_id must be a safe token when present",
+        )
+
     container_outcome = fields.get("container_outcome", "")
     if valid == "YES":
+        container_run_id = fields.get("container_run_id", "")
+        if active_validation and not is_safe_token(container_run_id):
+            fail(
+                errors,
+                f"{name}: container_run_id must be a non-empty safe token when "
+                "container_result_valid=YES",
+            )
+        elif active_validation and container_run_id != run_id:
+            fail(
+                errors,
+                f"{name}: container_run_id={container_run_id!r} must equal "
+                f"run_id={run_id!r} when container_result_valid=YES",
+            )
         if container_outcome not in OUTCOME_VALUES:
             fail(
                 errors,
                 f"{name}: container_outcome must be an allowed authoritative outcome "
-                f"when container_result_valid=YES (found {container_outcome!r})",
+                f"when container_result_valid=YES (found {container_outcome!r}; "
+                "Docker-exit substitution is not permitted)",
             )
         elif (
             authoritative_outcome is not None
@@ -1583,6 +1814,9 @@ def check_host_preliminary_post_build_subset(
 
 def check_build_exit_code(fields: dict[str, str], errors: list[str], outcome: str | None) -> None:
     name = "BUILD_EXIT_CODE.txt"
+    run_id = fields.get("run_id", "")
+    if "run_id" in fields and not is_safe_token(run_id):
+        fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
     if outcome is None:
         return
     rule = OUTCOME_RULES[outcome]
@@ -1645,6 +1879,9 @@ def check_build_timing(fields: dict[str, str], errors: list[str], outcome: str |
 
 def check_artifact_identity(fields: dict[str, str], errors: list[str], outcome: str | None) -> None:
     name = "ARTIFACT_IDENTITY.txt"
+    run_id = fields.get("run_id", "")
+    if "run_id" in fields and not is_safe_token(run_id):
+        fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
     require_exact(name, fields, "product_executed", "NO", errors)
     require_exact(name, fields, "ldd_used", "NO", errors)
     if outcome is None:
@@ -1726,6 +1963,23 @@ def check_static_artifact_inspection(fields: dict[str, str], errors: list[str], 
 
 def check_witness_statement(fields: dict[str, str], errors: list[str]) -> None:
     name = "WITNESS_STATEMENT.md"
+    run_id = fields.get("run_id", "")
+    if "run_id" in fields and not is_safe_token(run_id):
+        fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
+    package_identity_ref = fields.get("package_identity_ref", "")
+    if "package_identity_ref" in fields and package_identity_ref != PACKAGE_IDENTITY_NAME:
+        fail(
+            errors,
+            f"{name}: package_identity_ref must equal {PACKAGE_IDENTITY_NAME!r} "
+            f"(found {package_identity_ref!r})",
+        )
+    final_binding_ref = fields.get("final_binding_ref", "")
+    if "final_binding_ref" in fields and final_binding_ref != FINAL_BINDING_NAME:
+        fail(
+            errors,
+            f"{name}: final_binding_ref must equal {FINAL_BINDING_NAME!r} "
+            f"(found {final_binding_ref!r})",
+        )
     if not fields.get("witness_identity_or_handle"):
         fail(errors, f"{name}: witness_identity_or_handle is required")
     require_exact(name, fields, "not_package_owner", "yes", errors)
@@ -1859,6 +2113,20 @@ def check_witness_verdict(
     errors.extend(verdict_errors)
     if not is_safe_token(fields.get("run_id", "")):
         fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
+    package_identity_ref = fields.get("package_identity_ref", "")
+    if "package_identity_ref" in fields and package_identity_ref != PACKAGE_IDENTITY_NAME:
+        fail(
+            errors,
+            f"{name}: package_identity_ref must equal {PACKAGE_IDENTITY_NAME!r} "
+            f"(found {package_identity_ref!r})",
+        )
+    final_binding_ref = fields.get("final_binding_ref", "")
+    if "final_binding_ref" in fields and final_binding_ref != FINAL_BINDING_NAME:
+        fail(
+            errors,
+            f"{name}: final_binding_ref must equal {FINAL_BINDING_NAME!r} "
+            f"(found {final_binding_ref!r})",
+        )
     tag = fields.get("package_tag", "")
     if tag and not re.match(r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$", tag):
         fail(errors, f"{name}: package_tag does not match expected tag grammar: {tag!r}")
@@ -2071,6 +2339,190 @@ def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> No
                     "never be redacted",
                 )
                 break
+
+
+def check_weaver_forge_final_binding(
+    fields: dict[str, str],
+    errors: list[str],
+    evidence_dir: Path,
+    file_fields: dict[str, dict[str, str]],
+    outcome: str | None,
+    *,
+    mode: str = MODE_FINAL_SUBMISSION,
+) -> None:
+    """RC6-R3: validate Host-owned WEAVER_FORGE_FINAL_BINDING.txt cross-bindings.
+
+    Mechanical ownership/tuple checks only — does not implement R4–R7 semantics.
+    """
+    name = FINAL_BINDING_NAME
+    enforce_register_field_set(name, fields, mode, errors)
+    check_s2_legal_values(
+        name,
+        fields,
+        _SCHEMA_REGISTER.legal_values(name, mode),
+        errors,
+    )
+
+    if not is_safe_token(fields.get("run_id", "")):
+        fail(errors, f"{name}: run_id must be a non-empty safe token")
+
+    authoritative_outcome = fields.get("authoritative_outcome", "")
+    if authoritative_outcome and authoritative_outcome not in OUTCOME_VALUES:
+        fail(
+            errors,
+            f"{name}: authoritative_outcome must be one of {sorted(OUTCOME_VALUES)} "
+            f"(found {authoritative_outcome!r})",
+        )
+
+    manifest_path = evidence_dir / MANIFEST_NAME
+    if not manifest_path.is_file():
+        fail(errors, f"{name}: cannot verify final_manifest_sha256; {MANIFEST_NAME} missing")
+    else:
+        # Reject if final binding is listed inside the sealed manifest.
+        for line_no, raw_line in enumerate(read_text(manifest_path).splitlines(), start=1):
+            line = raw_line.rstrip("\r\n")
+            if not line.strip():
+                continue
+            _digest, rel, error = parse_manifest_line(line, line_no)
+            if error is not None:
+                continue
+            if rel == FINAL_BINDING_NAME:
+                fail(
+                    errors,
+                    f"{name}: must not be listed inside {MANIFEST_NAME} "
+                    "(final binding seals the manifest and is excluded from it)",
+                )
+                break
+        actual_manifest_sha = sha256_file(manifest_path)
+        recorded = fields.get("final_manifest_sha256", "")
+        if not is_sha256(recorded):
+            fail(errors, f"{name}: final_manifest_sha256 must be a 64-char lowercase hex sha256")
+        elif actual_manifest_sha != recorded:
+            fail(
+                errors,
+                f"{name}: final_manifest_sha256 mismatch "
+                f"(recomputed={actual_manifest_sha} recorded={recorded})",
+            )
+
+    wfpi = file_fields.get(PACKAGE_IDENTITY_NAME, {})
+    build_exit = file_fields.get("BUILD_EXIT_CODE.txt", {})
+    host_outcome = file_fields.get(HOST_OUTCOME_INGESTION_NAME, {})
+    post_build = file_fields.get("POST_BUILD_INTEGRITY.txt", {})
+    source_identity = file_fields.get("SOURCE_IDENTITY.txt", {})
+    artifact_identity = file_fields.get("ARTIFACT_IDENTITY.txt", {})
+
+    binding_run_id = fields.get("run_id", "")
+    for label, peer in (
+        (PACKAGE_IDENTITY_NAME, wfpi),
+        ("BUILD_EXIT_CODE.txt", build_exit),
+        (HOST_OUTCOME_INGESTION_NAME, host_outcome),
+    ):
+        peer_run_id = peer.get("run_id", "")
+        if peer and peer_run_id and binding_run_id and peer_run_id != binding_run_id:
+            fail(
+                errors,
+                f"{name}: run_id={binding_run_id!r} must equal {label} run_id={peer_run_id!r}",
+            )
+
+    if wfpi:
+        if fields.get("package_version") != wfpi.get("package_version"):
+            fail(
+                errors,
+                f"{name}: package_version must equal {PACKAGE_IDENTITY_NAME} package_version",
+            )
+        if fields.get("canonical_tag") != wfpi.get("weaver_forge_tag_requested"):
+            fail(
+                errors,
+                f"{name}: canonical_tag must equal {PACKAGE_IDENTITY_NAME} "
+                "weaver_forge_tag_requested",
+            )
+        if fields.get("tag_object_id") != wfpi.get("weaver_forge_tag_object_id"):
+            fail(
+                errors,
+                f"{name}: tag_object_id must equal {PACKAGE_IDENTITY_NAME} "
+                "weaver_forge_tag_object_id",
+            )
+        if fields.get("peeled_commit") != wfpi.get("weaver_forge_tag_peeled_commit"):
+            fail(
+                errors,
+                f"{name}: peeled_commit must equal {PACKAGE_IDENTITY_NAME} "
+                "weaver_forge_tag_peeled_commit",
+            )
+        expected_source = wfpi.get("grok_build_source_commit_expected", "")
+        if fields.get("grok_build_source_commit") != expected_source:
+            fail(
+                errors,
+                f"{name}: grok_build_source_commit must equal {PACKAGE_IDENTITY_NAME} "
+                "grok_build_source_commit_expected",
+            )
+        observed = source_identity.get("grok_build_commit_observed", "")
+        if (
+            observed
+            and observed != "NOT_REACHED"
+            and fields.get("grok_build_source_commit") != observed
+        ):
+            fail(
+                errors,
+                f"{name}: grok_build_source_commit must equal SOURCE_IDENTITY.txt "
+                "grok_build_commit_observed when observed is present and not NOT_REACHED",
+            )
+
+    if authoritative_outcome:
+        if build_exit.get("outcome") and build_exit.get("outcome") != authoritative_outcome:
+            fail(
+                errors,
+                f"{name}: authoritative_outcome must equal BUILD_EXIT_CODE.txt outcome",
+            )
+        post_auth = post_build.get("authoritative_outcome", "")
+        if post_auth and post_auth != authoritative_outcome:
+            fail(
+                errors,
+                f"{name}: authoritative_outcome must equal POST_BUILD_INTEGRITY.txt "
+                "authoritative_outcome when present",
+            )
+        if (
+            host_outcome.get("container_result_valid") == "YES"
+            and host_outcome.get("container_outcome")
+            and host_outcome.get("container_outcome") != authoritative_outcome
+        ):
+            fail(
+                errors,
+                f"{name}: authoritative_outcome must equal HOST_OUTCOME_INGESTION "
+                "container_outcome when container_result_valid=YES",
+            )
+        if outcome is not None and authoritative_outcome != outcome:
+            fail(
+                errors,
+                f"{name}: authoritative_outcome must equal determined BUILD_EXIT outcome",
+            )
+
+    applicable = artifact_identity.get("applicable", "")
+    if applicable == "yes":
+        if fields.get("artifact_sha256") != artifact_identity.get("artifact_sha256"):
+            fail(
+                errors,
+                f"{name}: artifact_sha256 must equal ARTIFACT_IDENTITY.txt artifact_sha256 "
+                "when applicable=yes",
+            )
+        if fields.get("artifact_byte_size") != artifact_identity.get("artifact_size_bytes"):
+            fail(
+                errors,
+                f"{name}: artifact_byte_size must equal ARTIFACT_IDENTITY.txt "
+                "artifact_size_bytes when applicable=yes",
+            )
+    elif applicable == "no":
+        if fields.get("artifact_sha256") != "NOT_APPLICABLE":
+            fail(
+                errors,
+                f"{name}: artifact_sha256 must be NOT_APPLICABLE when "
+                "ARTIFACT_IDENTITY applicable=no",
+            )
+        if fields.get("artifact_byte_size") != "NOT_APPLICABLE":
+            fail(
+                errors,
+                f"{name}: artifact_byte_size must be NOT_APPLICABLE when "
+                "ARTIFACT_IDENTITY applicable=no",
+            )
 
 
 def check_redaction_marker_consistency(
@@ -2366,13 +2818,15 @@ def validate_manifest(
     *,
     mode: str = MODE_FINAL_SUBMISSION,
     s2_shaped: bool = False,
+    register: CanonicalSchemaRegister | None = None,
 ) -> None:
     manifest_path = evidence_dir / MANIFEST_NAME
     if not manifest_path.is_file():
         return
 
-    mode_required = required_files_for_mode(mode)
-    accepted_supporting = accepted_supporting_files_for_mode(mode)
+    reg = register if register is not None else _SCHEMA_REGISTER
+    mode_required = required_files_for_mode(mode, reg)
+    accepted_supporting = accepted_supporting_files_for_mode(mode, reg)
     allowed = set(mode_required) | set(CLOSED_AUX_EVIDENCE_FILES) | set(accepted_supporting)
 
     listed: dict[str, str] = {}
@@ -2391,9 +2845,15 @@ def validate_manifest(
 
     if MANIFEST_NAME in listed:
         fail(errors, f"{MANIFEST_NAME}: must not list itself")
+    if FINAL_BINDING_NAME in listed:
+        fail(
+            errors,
+            f"{MANIFEST_NAME}: must not list {FINAL_BINDING_NAME} "
+            "(final binding seals the manifest and is excluded from checksum lines)",
+        )
 
     for req in mode_required:
-        if req == MANIFEST_NAME:
+        if req in (MANIFEST_NAME, FINAL_BINDING_NAME):
             continue
         if req not in listed:
             fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
@@ -2435,6 +2895,8 @@ def validate_manifest(
     on_disk_set = set(on_disk)
     if MANIFEST_NAME in on_disk_set:
         on_disk_set.remove(MANIFEST_NAME)
+    if FINAL_BINDING_NAME in on_disk_set:
+        on_disk_set.remove(FINAL_BINDING_NAME)
 
     if s2_shaped:
         # Phase 4-S3: no auxiliary / supporting exemption for S2-shaped packages.
@@ -2475,6 +2937,7 @@ def validate_dir(
     *,
     host_preliminary: bool = False,
     mode: str | None = None,
+    schema_register_version: str | None = None,
 ) -> list[str]:
     """Validate an evidence directory structurally.
 
@@ -2485,6 +2948,11 @@ def validate_dir(
       totality and completeness-state enforcement for S2-shaped packages.
     - default (no explicit mode): compatibility alias to final-submission.
 
+    Schema authority (RC6-R3 / SH-A):
+    - default (``schema_register_version=None``): always active rc6.2
+    - explicit historical version: historical loader only
+    - evidence shape/fields cannot select schema authority
+
     This is not Independent Witness PASS, not final eligibility, not READY, and
     not rc5 readiness. The validator still writes nothing into evidence.
     """
@@ -2492,9 +2960,13 @@ def validate_dir(
     if not evidence_dir.is_dir():
         return [f"Not a directory: {evidence_dir}"]
 
+    field_register, reg_error = resolve_validation_register(schema_register_version)
+    if reg_error is not None or field_register is None:
+        return [reg_error or "schema register resolution failed"]
+
     selected_mode = resolve_validation_mode(host_preliminary=host_preliminary, mode=mode)
-    mode_required = required_files_for_mode(selected_mode)
-    accepted_supporting = accepted_supporting_files_for_mode(selected_mode)
+    mode_required = list(required_files_for_mode(selected_mode, field_register))
+    accepted_supporting = accepted_supporting_files_for_mode(selected_mode, field_register)
     host_preliminary_mode = selected_mode == MODE_HOST_PRELIMINARY
 
     for name in mode_required:
@@ -2560,14 +3032,18 @@ def validate_dir(
     host_outcome_fields: dict[str, str] | None = None
     if HOST_OUTCOME_INGESTION_NAME in file_fields:
         host_outcome_fields = file_fields[HOST_OUTCOME_INGESTION_NAME]
-        check_host_outcome_ingestion(host_outcome_fields, errors, outcome)
+        check_host_outcome_ingestion(
+            host_outcome_fields, errors, outcome, register=field_register
+        )
     else:
         host_outcome_path = evidence_dir / HOST_OUTCOME_INGESTION_NAME
         if host_outcome_path.is_file() and not host_outcome_path.is_symlink():
             host_text = read_text(host_outcome_path)
             host_outcome_fields, host_dup_errors = parse_kv(host_text, HOST_OUTCOME_INGESTION_NAME)
             errors.extend(host_dup_errors)
-            check_host_outcome_ingestion(host_outcome_fields, errors, outcome)
+            check_host_outcome_ingestion(
+                host_outcome_fields, errors, outcome, register=field_register
+            )
         elif host_preliminary_mode:
             # Compatibility message retained for Phase 3F coupled tests when the
             # file is absent and was not already reported via mode_required.
@@ -2615,11 +3091,24 @@ def validate_dir(
         if name == "REDACTIONS.md":
             # Exact base keys (+ indexed when PRESENT) enforced in check_redactions.
             continue
-        policy = _SCHEMA_REGISTER.exact_field_set_policy(name, selected_mode)
-        required = FILE_REQUIRED_FIELDS.get(name, ())
+        policy = field_register.exact_field_set_policy(name, selected_mode)
+        # Active validation uses the active FILE_REQUIRED_FIELDS projection.
+        # Explicit historical validation must use the selected historical
+        # register's own subset/required fields — never active R3 requirements
+        # and never evidence-shape authority selection.
+        if field_register.is_active_authority:
+            required = FILE_REQUIRED_FIELDS.get(name, ())
+        else:
+            hist_compat = field_register.historical_compatibility_required_field_names(
+                name, selected_mode
+            )
+            if hist_compat is not None:
+                required = hist_compat
+            else:
+                required = field_register.required_field_names(name, selected_mode)
         if policy == "exact":
-            # RC6-R1: active exact or exact-with-named-optionals from the register.
-            enforce_register_field_set(name, fields, selected_mode, errors)
+            # Exact or exact-with-named-optionals from the selected register.
+            enforce_register_field_set(name, fields, selected_mode, errors, register=field_register)
         elif policy == "exact_when_s2_shaped_else_historical_subset":
             # Historical unshaped fixtures: required-subset projection only.
             require_fields(name, fields, required, errors)
@@ -2629,7 +3118,11 @@ def validate_dir(
             require_fields(name, fields, required, errors)
 
     if "WEAVER_FORGE_PACKAGE_IDENTITY.txt" in file_fields:
-        check_weaver_forge_package_identity(file_fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"], errors)
+        check_weaver_forge_package_identity(
+            file_fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"],
+            errors,
+            register=field_register,
+        )
     if "SOURCE_ACQUISITION.txt" in file_fields:
         check_source_acquisition(file_fields["SOURCE_ACQUISITION.txt"], errors)
     if "SOURCE_IDENTITY.txt" in file_fields:
@@ -2737,12 +3230,62 @@ def validate_dir(
         errors,
         mode=selected_mode,
         s2_shaped=s2_shaped,
+        register=field_register,
     )
 
     if host_preliminary_mode and "POST_BUILD_INTEGRITY.txt" in file_fields:
         check_host_preliminary_post_build_subset(
             file_fields["POST_BUILD_INTEGRITY.txt"], host_outcome_fields, errors
         )
+
+    if FINAL_BINDING_NAME in file_fields:
+        check_weaver_forge_final_binding(
+            file_fields[FINAL_BINDING_NAME],
+            errors,
+            evidence_dir,
+            file_fields,
+            outcome,
+            mode=selected_mode,
+        )
+
+    # RC6-R3 cross-binding: run_id agreement across package/build/source/artifact/post-build.
+    # Applies under the selected validation register whenever those fields are present.
+    wfpi_fields = file_fields.get(PACKAGE_IDENTITY_NAME, {})
+    build_exit_fields = file_fields.get("BUILD_EXIT_CODE.txt", {})
+    wfpi_run_id = wfpi_fields.get("run_id", "")
+    build_run_id = build_exit_fields.get("run_id", "")
+    if wfpi_run_id and build_run_id and wfpi_run_id != build_run_id:
+        fail(
+            errors,
+            f"{PACKAGE_IDENTITY_NAME} run_id={wfpi_run_id!r} must equal "
+            f"BUILD_EXIT_CODE.txt run_id={build_run_id!r}",
+        )
+    anchor_run_id = wfpi_run_id or build_run_id
+    for peer_name in (
+        "SOURCE_IDENTITY.txt",
+        "ARTIFACT_IDENTITY.txt",
+        "POST_BUILD_INTEGRITY.txt",
+    ):
+        peer = file_fields.get(peer_name, {})
+        peer_run_id = peer.get("run_id", "")
+        if anchor_run_id and peer_run_id and peer_run_id != anchor_run_id:
+            fail(
+                errors,
+                f"{peer_name} run_id={peer_run_id!r} must equal "
+                f"package/build run_id={anchor_run_id!r}",
+            )
+
+    # Optional light check: evidence must not select a historical register authority.
+    for fname, fields in file_fields.items():
+        selected = fields.get("schema_register_version")
+        if selected is None:
+            continue
+        if selected in HISTORICAL_REGISTER_VERSIONS or selected != ACTIVE_REGISTER_VERSION:
+            fail(
+                errors,
+                f"{fname}: schema_register_version={selected!r} cannot select schema "
+                f"authority (active authority is {ACTIVE_REGISTER_VERSION!r})",
+            )
 
     return errors
 
@@ -2783,6 +3326,15 @@ def main(argv: list[str] | None = None) -> int:
             "Independent Witness PASS, final eligibility, READY, or rc5 readiness."
         ),
     )
+    parser.add_argument(
+        "--schema-register-version",
+        default=None,
+        help=(
+            "Explicit historical schema-register version for compatibility validation "
+            f"(accepted: {sorted(HISTORICAL_REGISTER_VERSIONS)}). Default is active "
+            f"{ACTIVE_REGISTER_VERSION}. Active version cannot be requested here."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.host_preliminary:
@@ -2792,7 +3344,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         selected_mode = DEFAULT_MODE_COMPATIBILITY_ALIAS
 
-    errors = validate_dir(args.evidence_dir.resolve(), mode=selected_mode)
+    errors = validate_dir(
+        args.evidence_dir.resolve(),
+        mode=selected_mode,
+        schema_register_version=args.schema_register_version,
+    )
     if errors:
         print("STRUCTURAL VALIDATION: FAIL")
         for e in errors:

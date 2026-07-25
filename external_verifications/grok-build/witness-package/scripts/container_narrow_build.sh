@@ -41,6 +41,8 @@ EXPECTED_CARGO_VERSION="${EXPECTED_CARGO_VERSION:-1.92.0}"
 EXPECTED_DOTSLASH_VERSION="${EXPECTED_DOTSLASH_VERSION:-0.5.7}"
 # Digest-pinned image string (host may pass RUST_IMAGE; default is canonical).
 RUST_IMAGE="${RUST_IMAGE:-docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e}"
+# RC6-R3: Host-supplied RUN_ID (required; validated early in main before cargo).
+RUN_ID="${RUN_ID:-}"
 
 EVIDENCE_SCHEMA_VERSION=1
 
@@ -121,6 +123,22 @@ reject_field_newlines() {
     return 1
   fi
   return 0
+}
+
+# Safe token grammar (matches validate_witness_evidence.is_safe_token):
+# non-empty, ^[a-zA-Z0-9._-]+$, no whitespace, no path separators, no "..".
+is_safe_token() {
+  local value="$1"
+  if [[ -z "${value}" ]]; then
+    return 1
+  fi
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* || "${value}" == *" "* || "${value}" == *$'\t'* ]]; then
+    return 1
+  fi
+  if [[ "${value}" == *"/"* || "${value}" == *"\\"* || "${value}" == *".."* ]]; then
+    return 1
+  fi
+  [[ "${value}" =~ ^[a-zA-Z0-9._-]+$ ]]
 }
 
 # Read first matching key=value from a file (value may be empty).
@@ -229,6 +247,7 @@ write_outcome_evidence() {
   write_evidence_file_atomic "${EVIDENCE}/BUILD_EXIT_CODE.txt" <<EOF || return 1
 BEGIN_SCHEMA_BLOCK BUILD_EXIT_CODE
 evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+run_id=${RUN_ID}
 status=${status}
 outcome=${outcome}
 cargo_started=${cargo_started}
@@ -271,6 +290,7 @@ write_no_artifact_evidence() {
 
   write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF || return 1
 evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+run_id=${RUN_ID}
 outcome=${outcome}
 applicable=${applicable}
 artifact_present=no
@@ -323,6 +343,7 @@ write_artifact_evidence_best_effort() {
   if [[ -f "${ARTIFACT}" ]]; then
     write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF || return 1
 evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+run_id=${RUN_ID}
 applicable=yes
 artifact_present=yes
 artifact_path=${ARTIFACT}
@@ -1033,6 +1054,13 @@ mkdir -p "${BOOTSTRAP_DIR}" "${CARGO_HOME}" "${CARGO_TARGET_DIR_GROK}" "${BOOTST
 set_stage "evidence_init"
 init_evidence
 
+# RC6-R3: require Host RUN_ID before any further evidence / cargo work.
+set_stage "run_id_validation"
+if [[ -z "${RUN_ID:-}" ]] || ! is_safe_token "${RUN_ID}"; then
+  echo "FATAL: RUN_ID missing or invalid (required safe token ^[a-zA-Z0-9._-]+$); refusing evidence generation" >&2
+  fail_infrastructure "run_id_validation" 1
+fi
+
 if [[ -n "${RUSTUP_HOME:-}" ]]; then
   echo "RUSTUP_HOME is set in container env: ${RUSTUP_HOME} (not overridden by Witness script)" >> "${EVIDENCE}/ENVIRONMENT.txt"
 fi
@@ -1480,6 +1508,7 @@ fi
 
 write_evidence_file_atomic "${EVIDENCE}/ARTIFACT_IDENTITY.txt" <<EOF
 evidence_schema_version=${EVIDENCE_SCHEMA_VERSION}
+run_id=${RUN_ID}
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
 applicable=yes
 artifact_present=yes

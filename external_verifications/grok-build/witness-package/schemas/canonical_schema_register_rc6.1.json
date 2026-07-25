@@ -1,0 +1,2735 @@
+{
+  "schema_register_version": "rc6.1",
+  "family": "rc6_remediation_canonical_schema",
+  "evidence_schema_version": "1",
+  "supported_register_versions": [
+    "rc6.1"
+  ],
+  "supersession": {
+    "policy": "additive_supersession_only",
+    "supersedes": "rc5-phase4-s2.1",
+    "historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "historical_compatibility_version": "rc5-phase4-s2.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s1.1",
+    "does_not_rewrite": [
+      "AUTHORITATIVE_OUTCOME_CONTRACT.json",
+      "rc1-rc4 evidence trees",
+      "historical fixtures",
+      "historical Phase 0-3G implementation notes",
+      "Phase 4-S1 register and implementation note",
+      "Phase 4-S2 register and implementation note",
+      "original blocker wording"
+    ],
+    "note": "This rc6.1 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc5-phase4-s2.1. The frozen S2 and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Later RC6-R* slices update this same file with monotonic version bumps (rc6.2, rc6.3, \u2026)."
+  },
+  "lifecycle_modes": [
+    "host-preliminary",
+    "final-submission"
+  ],
+  "default_mode_compatibility_alias": "final-submission",
+  "mode_required_file_sets": {
+    "host-preliminary": [
+      "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+      "ENVIRONMENT.txt",
+      "SOURCE_ACQUISITION.txt",
+      "SOURCE_IDENTITY.txt",
+      "IMAGE_IDENTITY.txt",
+      "BOOTSTRAP.txt",
+      "CLEAN_TARGET_PROOF.txt",
+      "BUILD_COMMAND.txt",
+      "BUILD_ENVIRONMENT.txt",
+      "BUILD_STDOUT.txt",
+      "BUILD_STDERR.txt",
+      "DOCKER_EXIT_CODE.txt",
+      "BUILD_EXIT_CODE.txt",
+      "BUILD_TIMING.txt",
+      "CONTAINER_STDOUT.txt",
+      "CONTAINER_STDERR.txt",
+      "ARTIFACT_IDENTITY.txt",
+      "STATIC_ARTIFACT_INSPECTION.txt",
+      "POST_BUILD_INTEGRITY.txt",
+      "DEVIATIONS.txt",
+      "EVIDENCE_MANIFEST.sha256",
+      "HOST_OUTCOME_INGESTION.txt"
+    ],
+    "final-submission": [
+      "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+      "ENVIRONMENT.txt",
+      "SOURCE_ACQUISITION.txt",
+      "SOURCE_IDENTITY.txt",
+      "IMAGE_IDENTITY.txt",
+      "BOOTSTRAP.txt",
+      "CLEAN_TARGET_PROOF.txt",
+      "BUILD_COMMAND.txt",
+      "BUILD_ENVIRONMENT.txt",
+      "BUILD_STDOUT.txt",
+      "BUILD_STDERR.txt",
+      "DOCKER_EXIT_CODE.txt",
+      "BUILD_EXIT_CODE.txt",
+      "BUILD_TIMING.txt",
+      "CONTAINER_STDOUT.txt",
+      "CONTAINER_STDERR.txt",
+      "ARTIFACT_IDENTITY.txt",
+      "STATIC_ARTIFACT_INSPECTION.txt",
+      "POST_BUILD_INTEGRITY.txt",
+      "WITNESS_STATEMENT.md",
+      "WITNESS_VERDICT.md",
+      "DEVIATIONS.txt",
+      "EVIDENCE_MANIFEST.sha256",
+      "REDACTIONS.md"
+    ]
+  },
+  "mode_accepted_supporting_files": {
+    "host-preliminary": [
+      "REDACTIONS.md",
+      "WITNESS_STATEMENT.md",
+      "WITNESS_VERDICT.md"
+    ],
+    "final-submission": []
+  },
+  "closed_aux_evidence_files": [
+    "CARGO_LOCK_INTEGRITY.txt",
+    "HOST_OUTCOME_INGESTION.txt",
+    "HOST_RUN_METADATA.txt",
+    "IMAGE_PULL_STDERR.txt",
+    "IMAGE_PULL_STDOUT.txt"
+  ],
+  "run_id_policy": {
+    "activation": "enforced_s2_ownership_cross_binding",
+    "require_run_id_for": [
+      "package_identity",
+      "HOST_RUN_METADATA",
+      "HOST_OUTCOME_INGESTION",
+      "POST_BUILD_INTEGRITY_binding_context",
+      "host_validator_result_record",
+      "final_manual_forms_when_structurally_required",
+      "manifest_inventory_lifecycle_metadata_when_represented"
+    ],
+    "do_not_force_into_every_raw_capture": true,
+    "rc4b_025_resolved": false,
+    "note": "Ownership/cross-binding only; RC4B-025 remains unresolved"
+  },
+  "evidence_completeness_inventory": {
+    "activation": "enforced_s3_manifest_completeness",
+    "field_authority": {
+      "evidence_inventory_complete": "POST_BUILD_INTEGRITY.txt",
+      "evidence_completeness_status": "HOST_OUTCOME_INGESTION.txt",
+      "preliminary_success_eligible": "HOST_OUTCOME_INGESTION.txt",
+      "note": "Single canonical owner per field. Validator never mutates these fields. No second completeness authority artifact."
+    },
+    "legal_values": {
+      "evidence_completeness_status": [
+        "INCOMPLETE",
+        "COMPLETE",
+        "FAILED"
+      ],
+      "evidence_inventory_complete": [
+        "no",
+        "yes"
+      ],
+      "preliminary_success_eligible": [
+        "NO",
+        "YES"
+      ],
+      "structural_validation": [
+        "ABSENT",
+        "PASS",
+        "FAIL"
+      ],
+      "final_structural_submission_status": [
+        "NOT_EVALUATED",
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "phase4_invariants": {
+      "preliminary_success_eligible": "NO",
+      "note": "preliminary_success_eligible remains NO throughout Phase 4. Machine must not set Independent Witness PASS or READY."
+    },
+    "states": [
+      {
+        "id": "AUTOMATED_PRELIMINARY_INCOMPLETE",
+        "evidence_inventory_complete": "no",
+        "evidence_completeness_status": "INCOMPLETE",
+        "preliminary_success_eligible": "NO",
+        "note": "Automated host run always records incomplete inventory; host-preliminary structural PASS may occur while inventory_complete remains no"
+      },
+      {
+        "id": "FINAL_WITNESS_INVENTORY_COMPLETE",
+        "evidence_inventory_complete": "yes",
+        "evidence_completeness_status": "COMPLETE",
+        "preliminary_success_eligible": "NO",
+        "requires": [
+          "WITNESS_STATEMENT.md",
+          "WITNESS_VERDICT.md",
+          "DEVIATIONS.txt",
+          "REDACTIONS.md"
+        ],
+        "sequence": [
+          "required_final_structural_inputs_present",
+          "completeness_fields_finalized",
+          "final_manifest_generated_exactly_once",
+          "evidence_tree_immutable_for_validation",
+          "final_submission_validator_consumes_closed_package"
+        ],
+        "note": "Activated in Phase 4-S3. Completeness finalization precedes final manifest generation (non-circular). Not interpretable as Independent Witness PASS or READY."
+      }
+    ],
+    "mode_rules": {
+      "host-preliminary": {
+        "reject_evidence_inventory_complete_yes": true,
+        "preliminary_success_eligible_must_be": "NO",
+        "inventory_complete_expected": "no"
+      },
+      "final-submission": {
+        "s2_shaped_requires_inventory_complete_yes": true,
+        "reject_yes_without_required_final_inputs": true,
+        "reject_incomplete_final_package": true,
+        "historical_s1_compatibility_allows_inventory_complete_no": true
+      }
+    },
+    "note": "Phase 4-S3 activates completeness transitions and final manifest cryptographic closure. Recursive inventory helper remains the enumeration substrate."
+  },
+  "artifacts": [
+    {
+      "artifact_id": "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+      "filename": "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_s2_writer_aligned",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact_when_s2_shaped_else_historical_subset",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "witness_id",
+          "requirement": "required"
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "package_version",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_url",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_requested",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_ref",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_raw_object_type_required",
+          "requirement": "required",
+          "legal_values": [
+            "tag"
+          ]
+        },
+        {
+          "name": "weaver_forge_tag_raw_object_type_observed",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_peeled_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_commit_resolved",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_head",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_detached",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_clean_status",
+          "requirement": "required"
+        },
+        {
+          "name": "tag_head_match",
+          "requirement": "required"
+        },
+        {
+          "name": "package_commit_authority",
+          "requirement": "required",
+          "legal_values": [
+            "annotated_tag_resolution"
+          ]
+        },
+        {
+          "name": "grok_build_source_commit_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "canonical_run",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "status",
+          "requirement": "optional"
+        },
+        {
+          "name": "external_expected_commit_supplied",
+          "requirement": "optional"
+        },
+        {
+          "name": "external_expected_commit",
+          "requirement": "optional"
+        },
+        {
+          "name": "external_expected_commit_match",
+          "requirement": "optional"
+        },
+        {
+          "name": "noncanonical_disclosure",
+          "requirement": "optional"
+        },
+        {
+          "name": "reason",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": true,
+      "historical_compatibility_required_fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "witness_id",
+          "requirement": "required"
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "package_version",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_url",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_requested",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_commit_resolved",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_head",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_detached",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_clean_status",
+          "requirement": "required"
+        },
+        {
+          "name": "tag_head_match",
+          "requirement": "required"
+        },
+        {
+          "name": "package_commit_authority",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_source_commit_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "canonical_run",
+          "requirement": "required"
+        }
+      ],
+      "s1_future_alignment_record": {
+        "note": "At S1 these annotated-tag identity fields were defined_future_s2_writer_alignment and not enforced. S2 activates them for S2-shaped writer output only.",
+        "former_activation": "defined_future_s2_writer_alignment",
+        "fields": [
+          "weaver_forge_tag_ref",
+          "weaver_forge_tag_raw_object_type_required",
+          "weaver_forge_tag_raw_object_type_observed",
+          "weaver_forge_tag_peeled_commit"
+        ]
+      },
+      "note": "RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection."
+    },
+    {
+      "artifact_id": "SOURCE_ACQUISITION.txt",
+      "filename": "SOURCE_ACQUISITION.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "weaver_forge_url",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_tag_requested",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_commit_resolved",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_head",
+          "requirement": "required"
+        },
+        {
+          "name": "package_clone_clean_status",
+          "requirement": "required"
+        },
+        {
+          "name": "tag_head_match",
+          "requirement": "required"
+        },
+        {
+          "name": "package_commit_authority",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_url",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_commit_requested",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_commit_observed",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_clean_tree",
+          "requirement": "required"
+        },
+        {
+          "name": "fresh_clones",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "SOURCE_IDENTITY.txt",
+      "filename": "SOURCE_IDENTITY.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "grok_build_commit_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_commit_observed",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_detached_head",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_sha256_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_sha256_before",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "status",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected. Named optional: status (currently valid writer/fixture field)."
+    },
+    {
+      "artifact_id": "IMAGE_IDENTITY.txt",
+      "filename": "IMAGE_IDENTITY.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        },
+        {
+          "name": "requested_image",
+          "requirement": "required"
+        },
+        {
+          "name": "requested_digest",
+          "requirement": "required"
+        },
+        {
+          "name": "pull_command",
+          "requirement": "required"
+        },
+        {
+          "name": "pull_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_image_id_command",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_image_id_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "image_id",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_repo_digests_command",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_repo_digests_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "repo_digests",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_os_command",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_os_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_os",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_architecture_command",
+          "requirement": "required"
+        },
+        {
+          "name": "inspect_architecture_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_architecture",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_platform",
+          "requirement": "required"
+        },
+        {
+          "name": "image_id_available",
+          "requirement": "required"
+        },
+        {
+          "name": "digest_match_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "platform_match_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "proceeded_to_inspect_or_run",
+          "requirement": "required"
+        },
+        {
+          "name": "cached_image_fallback_used",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "ENVIRONMENT.txt",
+      "filename": "ENVIRONMENT.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "witness_id",
+          "requirement": "required"
+        },
+        {
+          "name": "host_os",
+          "requirement": "required"
+        },
+        {
+          "name": "host_kernel",
+          "requirement": "required"
+        },
+        {
+          "name": "host_arch",
+          "requirement": "required"
+        },
+        {
+          "name": "host_cpu",
+          "requirement": "required"
+        },
+        {
+          "name": "host_ram_gib",
+          "requirement": "required"
+        },
+        {
+          "name": "host_free_disk_gb",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_client_version",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_server_version",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_context",
+          "requirement": "required"
+        },
+        {
+          "name": "canonical_platform",
+          "requirement": "required"
+        },
+        {
+          "name": "wsl2_indicator",
+          "requirement": "required"
+        },
+        {
+          "name": "container_os_release",
+          "requirement": "required"
+        },
+        {
+          "name": "container_uname",
+          "requirement": "required"
+        },
+        {
+          "name": "rustc_version",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_version",
+          "requirement": "required"
+        },
+        {
+          "name": "ai_assistance_used",
+          "requirement": "required"
+        },
+        {
+          "name": "ai_assistance_detail",
+          "requirement": "required"
+        },
+        {
+          "name": "human_review_completed",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        },
+        {
+          "name": "upstream_product_commands_not_run",
+          "requirement": "required"
+        },
+        {
+          "name": "ldd_used",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "BOOTSTRAP.txt",
+      "filename": "BOOTSTRAP.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "apt_packages",
+          "requirement": "required"
+        },
+        {
+          "name": "dotslash_version",
+          "requirement": "required"
+        },
+        {
+          "name": "dotslash_binary_path",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_descriptor_src",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_descriptor_writable",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_descriptor_src_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_descriptor_lf_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "PROTOC",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_version_output",
+          "requirement": "required"
+        },
+        {
+          "name": "protoc_version_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "status",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [
+        {
+          "variant_id": "early_failure_not_reached_placeholder",
+          "activation": "historical_s1_compatibility",
+          "when": {
+            "status": "NOT_REACHED",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "note": "Historical S1/Phase 3C NOT_REACHED placeholder accepted only via explicit historical compatibility; not valid as finalized S2 terminal output.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicable",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ]
+        },
+        {
+          "variant_id": "early_failure_not_applicable_target",
+          "activation": "enforced_s2_writer_aligned",
+          "note": "Outcome-specific NOT_APPLICABLE early-failure schema activated in S2 for new runtime terminal output. Historical NOT_REACHED fixtures remain accepted through the S1 compatibility path.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicability",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "authoritative_outcome",
+              "requirement": "required"
+            },
+            {
+              "name": "failure_stage",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ],
+          "legal_values": {
+            "status": [
+              "NOT_APPLICABLE"
+            ],
+            "applicability": [
+              "not_applicable"
+            ],
+            "product_executed": [
+              "NO"
+            ],
+            "ldd_used": [
+              "NO"
+            ],
+            "authoritative_outcome": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "when": {
+            "status": "NOT_APPLICABLE",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          }
+        }
+      ],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected. Named optional: status (currently valid writer/fixture field)."
+    },
+    {
+      "artifact_id": "CLEAN_TARGET_PROOF.txt",
+      "filename": "CLEAN_TARGET_PROOF.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "target_path_host",
+          "requirement": "required"
+        },
+        {
+          "name": "proof_utc_host",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_entry_count_host",
+          "requirement": "required"
+        },
+        {
+          "name": "target_path_container_prebootstrap",
+          "requirement": "required"
+        },
+        {
+          "name": "proof_utc_container_prebootstrap",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_entry_count_container_prebootstrap",
+          "requirement": "required"
+        },
+        {
+          "name": "target_path_container_precargo",
+          "requirement": "required"
+        },
+        {
+          "name": "proof_utc_container_precargo",
+          "requirement": "required"
+        },
+        {
+          "name": "observed_entry_count_container",
+          "requirement": "required"
+        },
+        {
+          "name": "proof_failed",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "BUILD_COMMAND.txt",
+      "filename": "BUILD_COMMAND.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "exact_build_command",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_incremental",
+          "requirement": "required"
+        },
+        {
+          "name": "working_directory",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [
+        {
+          "variant_id": "early_failure_not_reached_placeholder",
+          "activation": "historical_s1_compatibility",
+          "when": {
+            "status": "NOT_REACHED",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "note": "Historical S1/Phase 3C NOT_REACHED placeholder accepted only via explicit historical compatibility; not valid as finalized S2 terminal output.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicable",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ]
+        },
+        {
+          "variant_id": "early_failure_not_applicable_target",
+          "activation": "enforced_s2_writer_aligned",
+          "note": "Outcome-specific NOT_APPLICABLE early-failure schema activated in S2 for new runtime terminal output. Historical NOT_REACHED fixtures remain accepted through the S1 compatibility path.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicability",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "authoritative_outcome",
+              "requirement": "required"
+            },
+            {
+              "name": "failure_stage",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ],
+          "legal_values": {
+            "status": [
+              "NOT_APPLICABLE"
+            ],
+            "applicability": [
+              "not_applicable"
+            ],
+            "product_executed": [
+              "NO"
+            ],
+            "ldd_used": [
+              "NO"
+            ],
+            "authoritative_outcome": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "when": {
+            "status": "NOT_APPLICABLE",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          }
+        }
+      ],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "BUILD_ENVIRONMENT.txt",
+      "filename": "BUILD_ENVIRONMENT.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_platform",
+          "requirement": "required"
+        },
+        {
+          "name": "network_mode",
+          "requirement": "required"
+        },
+        {
+          "name": "rust_image",
+          "requirement": "required"
+        },
+        {
+          "name": "workdir",
+          "requirement": "required"
+        },
+        {
+          "name": "home",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_home",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_target_dir",
+          "requirement": "required"
+        },
+        {
+          "name": "bootstrap_cargo_target_dir",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_incremental",
+          "requirement": "required"
+        },
+        {
+          "name": "dotslash_cache",
+          "requirement": "required"
+        },
+        {
+          "name": "path",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "expected_cargo_lock_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "canonical_build_command",
+          "requirement": "required"
+        },
+        {
+          "name": "mount_src",
+          "requirement": "required"
+        },
+        {
+          "name": "mount_work",
+          "requirement": "required"
+        },
+        {
+          "name": "mount_evidence",
+          "requirement": "required"
+        },
+        {
+          "name": "mount_container_script",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [
+        {
+          "variant_id": "early_failure_not_reached_placeholder",
+          "activation": "historical_s1_compatibility",
+          "when": {
+            "status": "NOT_REACHED",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "note": "Historical S1/Phase 3C NOT_REACHED placeholder accepted only via explicit historical compatibility; not valid as finalized S2 terminal output.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicable",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ]
+        },
+        {
+          "variant_id": "early_failure_not_applicable_target",
+          "activation": "enforced_s2_writer_aligned",
+          "note": "Outcome-specific NOT_APPLICABLE early-failure schema activated in S2 for new runtime terminal output. Historical NOT_REACHED fixtures remain accepted through the S1 compatibility path.",
+          "fields": [
+            {
+              "name": "evidence_schema_version",
+              "requirement": "required",
+              "legal_values": [
+                "1"
+              ]
+            },
+            {
+              "name": "status",
+              "requirement": "required"
+            },
+            {
+              "name": "applicability",
+              "requirement": "required"
+            },
+            {
+              "name": "reason",
+              "requirement": "required"
+            },
+            {
+              "name": "authoritative_outcome",
+              "requirement": "required"
+            },
+            {
+              "name": "failure_stage",
+              "requirement": "required"
+            },
+            {
+              "name": "product_executed",
+              "requirement": "required"
+            },
+            {
+              "name": "ldd_used",
+              "requirement": "required"
+            }
+          ],
+          "legal_values": {
+            "status": [
+              "NOT_APPLICABLE"
+            ],
+            "applicability": [
+              "not_applicable"
+            ],
+            "product_executed": [
+              "NO"
+            ],
+            "ldd_used": [
+              "NO"
+            ],
+            "authoritative_outcome": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          },
+          "when": {
+            "status": "NOT_APPLICABLE",
+            "outcome_in": [
+              "BUILD_NOT_STARTED",
+              "INFRASTRUCTURE_FAILURE"
+            ]
+          }
+        }
+      ],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "DOCKER_EXIT_CODE.txt",
+      "filename": "DOCKER_EXIT_CODE.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "docker_started_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_finished_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "container_platform",
+          "requirement": "required"
+        },
+        {
+          "name": "network_mode",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        },
+        {
+          "name": "ldd_used",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "status",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected. Named optional: status (currently valid writer/fixture field)."
+    },
+    {
+      "artifact_id": "BUILD_EXIT_CODE.txt",
+      "filename": "BUILD_EXIT_CODE.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_started",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "build_status",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "BUILD_TIMING.txt",
+      "filename": "BUILD_TIMING.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_started_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_finished_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_elapsed_seconds",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_started_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_finished_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_elapsed_seconds",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_started",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+    },
+    {
+      "artifact_id": "ARTIFACT_IDENTITY.txt",
+      "filename": "ARTIFACT_IDENTITY.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "applicable",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_present",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        },
+        {
+          "name": "ldd_used",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "artifact_path",
+          "requirement": "optional"
+        },
+        {
+          "name": "artifact_filename",
+          "requirement": "optional"
+        },
+        {
+          "name": "artifact_size_bytes",
+          "requirement": "optional"
+        },
+        {
+          "name": "artifact_sha256",
+          "requirement": "optional"
+        },
+        {
+          "name": "gnu_build_id",
+          "requirement": "optional"
+        },
+        {
+          "name": "static_inspection_complete",
+          "requirement": "optional"
+        },
+        {
+          "name": "reason",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1 exact required core plus named optionals for present/absent artifact shapes. Unknown keys rejected."
+    },
+    {
+      "artifact_id": "STATIC_ARTIFACT_INSPECTION.txt",
+      "filename": "STATIC_ARTIFACT_INSPECTION.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "applicable",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_present",
+          "requirement": "required"
+        },
+        {
+          "name": "inspection_complete",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        },
+        {
+          "name": "reason",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "artifact_path",
+          "requirement": "optional"
+        },
+        {
+          "name": "sha256sum_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "sha256sum_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "sha256sum_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "stat_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "stat_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "stat_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "file_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "file_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "file_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_h_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_h_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_h_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_n_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_n_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_n_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_d_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_d_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "readelf_d_exit_code",
+          "requirement": "optional"
+        },
+        {
+          "name": "objdump_f_command",
+          "requirement": "optional"
+        },
+        {
+          "name": "objdump_f_output",
+          "requirement": "optional"
+        },
+        {
+          "name": "objdump_f_exit_code",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1 exact required core plus named optional always-present tool keys (may be empty when applicable=no). Unknown keys rejected. Presence of optional tool keys remains enforced by validator require_present."
+    },
+    {
+      "artifact_id": "POST_BUILD_INTEGRITY.txt",
+      "filename": "POST_BUILD_INTEGRITY.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "source_head_before",
+          "requirement": "required"
+        },
+        {
+          "name": "source_head_after",
+          "requirement": "required"
+        },
+        {
+          "name": "source_head_unchanged",
+          "requirement": "required"
+        },
+        {
+          "name": "source_clean_before",
+          "requirement": "required"
+        },
+        {
+          "name": "source_clean_after",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_sha256_before",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_sha256_after",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_unchanged",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_lock_post_matches_expected",
+          "requirement": "required"
+        },
+        {
+          "name": "source_or_lock_changed",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_path",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_exists",
+          "requirement": "required"
+        },
+        {
+          "name": "docker_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        },
+        {
+          "name": "evidence_inventory_complete",
+          "requirement": "required"
+        },
+        {
+          "name": "full_integrity_gate_all_four_yes",
+          "requirement": "required"
+        },
+        {
+          "name": "full_integrity_gate_note",
+          "requirement": "required"
+        },
+        {
+          "name": "post_build_integrity_ok",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "WITNESS_STATEMENT.md",
+      "filename": "WITNESS_STATEMENT.md",
+      "owner": "witness",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "accepted_supporting",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "witness_identity_or_handle",
+          "requirement": "required"
+        },
+        {
+          "name": "not_package_owner",
+          "requirement": "required"
+        },
+        {
+          "name": "not_owner_side_reproducer",
+          "requirement": "required"
+        },
+        {
+          "name": "witness_controlled_host",
+          "requirement": "required"
+        },
+        {
+          "name": "ai_assistance_used",
+          "requirement": "required"
+        },
+        {
+          "name": "human_review_completed",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        },
+        {
+          "name": "ldd_used",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [
+        {
+          "name": "ai_assistance_detail",
+          "requirement": "optional"
+        },
+        {
+          "name": "upstream_product_commands_not_run",
+          "requirement": "optional"
+        }
+      ],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R1 exact required attestation keys plus named optionals ai_assistance_detail and upstream_product_commands_not_run. ai_assistance_detail is conditionally required nonempty when ai_assistance_used=yes (validator semantic); may be omitted or empty when ai_assistance_used=no. Unknown keys rejected."
+    },
+    {
+      "artifact_id": "WITNESS_VERDICT.md",
+      "filename": "WITNESS_VERDICT.md",
+      "owner": "witness",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "accepted_supporting",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "package_tag",
+          "requirement": "required"
+        },
+        {
+          "name": "weaver_forge_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "verdict_ceiling",
+          "requirement": "required"
+        },
+        {
+          "name": "product_executed",
+          "requirement": "required"
+        },
+        {
+          "name": "ldd_used",
+          "requirement": "required"
+        },
+        {
+          "name": "maintainer_intake_verdict",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": true,
+      "note": "RC6-R1 exact required verdict keys. Unknown keys rejected. Later-slice binding semantics are not activated here."
+    },
+    {
+      "artifact_id": "REDACTIONS.md",
+      "filename": "REDACTIONS.md",
+      "owner": "witness",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "accepted_supporting",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "redaction_state",
+          "requirement": "required"
+        },
+        {
+          "name": "semantic_integrity_declaration",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [
+        {
+          "variant_id": "indexed_redactions_present",
+          "when": {
+            "redaction_state": "PRESENT"
+          },
+          "indexed_prefix": "redaction_<n>_",
+          "indexed_keys": [
+            "file",
+            "field",
+            "reason",
+            "replacement_marker"
+          ],
+          "activation": "enforced_current_compatible"
+        }
+      ],
+      "run_id_required": false,
+      "note": "RC6-R1 exact required keys when redaction_state=NONE; when PRESENT, indexed redaction_<n>_* keys are the only additional permitted keys. Unknown keys rejected. Redaction redesign (hash/category) is later-slice."
+    },
+    {
+      "artifact_id": "DEVIATIONS.txt@host-preliminary",
+      "filename": "DEVIATIONS.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "not_applicable_to_this_entry"
+      },
+      "activation": "enforced_s2_writer_aligned",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact_when_s2_shaped_else_historical_subset",
+      "note": "Automated preliminary DEVIATIONS: host-owned; deterministic ordered fields; no Witness persona; no final indexed Witness deviation fabrication. Severity/ceiling beyond structural interface deferred. RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection.",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        },
+        {
+          "name": "deviation_count",
+          "requirement": "required"
+        },
+        {
+          "name": "automated_summary",
+          "requirement": "required"
+        }
+      ],
+      "optional_fields": [],
+      "legal_values": {
+        "deviation_state": [
+          "NONE",
+          "PRESENT"
+        ]
+      },
+      "no_deviation_state": "NONE",
+      "run_id_required": false,
+      "historical_compatibility_required_fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        }
+      ],
+      "s1_future_alignment_record": {
+        "note": "At S1 deviation_count and automated_summary were future optional S2 targets.",
+        "former_activation": "defined_future_s2_writer_alignment",
+        "fields": [
+          "deviation_count",
+          "automated_summary"
+        ]
+      }
+    },
+    {
+      "artifact_id": "DEVIATIONS.txt@final-submission",
+      "filename": "DEVIATIONS.txt",
+      "owner": "witness",
+      "lifecycle_modes": [
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "not_applicable_to_this_entry",
+        "final-submission": "required"
+      },
+      "activation": "enforced_s2_writer_aligned",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact_when_s2_shaped_else_historical_subset",
+      "note": "Final-submission DEVIATIONS: Witness-input indexed deviations; deviation_count required for S2-shaped final forms. RC4B-007/034-036 severity/redaction/ceiling lifecycle not fully implemented. RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection.",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        },
+        {
+          "name": "deviation_count",
+          "requirement": "required"
+        }
+      ],
+      "conditional_variants": [
+        {
+          "variant_id": "indexed_deviations_present",
+          "when": {
+            "deviation_state": "PRESENT"
+          },
+          "indexed_prefix": "deviation_<n>_",
+          "indexed_keys": [
+            "description",
+            "severity",
+            "canonical_identity_impact",
+            "verdict_ceiling"
+          ],
+          "activation": "enforced_current_compatible"
+        }
+      ],
+      "legal_values": {
+        "deviation_state": [
+          "NONE",
+          "PRESENT"
+        ]
+      },
+      "no_deviation_state": "NONE",
+      "run_id_required": false,
+      "historical_compatibility_required_fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        }
+      ]
+    },
+    {
+      "artifact_id": "BUILD_STDERR.txt",
+      "filename": "BUILD_STDERR.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": false,
+      "exact_field_set_policy": "raw_stream",
+      "fields": [],
+      "note": "Raw capture; exempt from evidence_schema_version; may be empty",
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "BUILD_STDOUT.txt",
+      "filename": "BUILD_STDOUT.txt",
+      "owner": "container",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": false,
+      "exact_field_set_policy": "raw_stream",
+      "fields": [],
+      "note": "Raw capture; exempt from evidence_schema_version; may be empty",
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "CONTAINER_STDERR.txt",
+      "filename": "CONTAINER_STDERR.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": false,
+      "exact_field_set_policy": "raw_stream",
+      "fields": [],
+      "note": "Raw capture; exempt from evidence_schema_version; may be empty",
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "CONTAINER_STDOUT.txt",
+      "filename": "CONTAINER_STDOUT.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": false,
+      "exact_field_set_policy": "raw_stream",
+      "fields": [],
+      "note": "Raw capture; exempt from evidence_schema_version; may be empty",
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "EVIDENCE_MANIFEST.sha256",
+      "filename": "EVIDENCE_MANIFEST.sha256",
+      "owner": "mode_aware",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": false,
+      "exact_field_set_policy": "manifest_grammar",
+      "manifest_grammar": {
+        "line_pattern": "^([0-9a-f]{64})  (\\./.+)$",
+        "digest": "lowercase_hex_sha256",
+        "path_prefix": "./",
+        "posix_separators_only": true,
+        "must_not_list_self": true,
+        "deterministic_byte_order_sorting": true,
+        "owner": {
+          "host-preliminary": "host_automation",
+          "final-submission": "final_submission_preparer_structural_role_only"
+        },
+        "mode_notes": {
+          "host-preliminary": "Preliminary manifest includes every regular file in the automated preliminary EVIDENCE_DIR package except the manifest itself; auxiliary evidence present in EVIDENCE_DIR must be listed; recursive fail-closed inventory; SHA-256 only; no unlisted permitted regular file. Manual Witness files are not required. preliminary_success_eligible remains NO. Host-preliminary structural PASS is automated structural package validation only.",
+          "final-submission": "Final manifest includes every regular file in the final EVIDENCE_DIR except the manifest itself; no auxiliary evidence exemption; manual structural inputs included when required; recursive fail-closed inventory; SHA-256 only; no post-final-manifest edit before validation. Final structural PASS is not Independent Witness PASS."
+        }
+      },
+      "fields": [],
+      "activation_detail": {
+        "grammar_enforced": "enforced_current_compatible",
+        "final_cryptographic_closure": "enforced_s3_manifest_completeness",
+        "recursive_inventory_helper": "available_read_only_s2",
+        "evidence_inventory_complete_transition": "enforced_s3_manifest_completeness",
+        "s2_shaped_no_auxiliary_exemption": true,
+        "historical_s1_compatibility_aux_exemption": "explicit_s1_fixture_path_only"
+      },
+      "run_id_required": false
+    },
+    {
+      "artifact_id": "HOST_OUTCOME_INGESTION.txt",
+      "filename": "HOST_OUTCOME_INGESTION.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "closed_aux_optional"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "status",
+          "requirement": "required"
+        },
+        {
+          "name": "container_result_presence",
+          "requirement": "required"
+        },
+        {
+          "name": "container_result_valid",
+          "requirement": "required"
+        },
+        {
+          "name": "container_result_error",
+          "requirement": "required"
+        },
+        {
+          "name": "container_outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "container_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_started",
+          "requirement": "required"
+        },
+        {
+          "name": "cargo_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_present",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_identity_complete",
+          "requirement": "required"
+        },
+        {
+          "name": "static_inspection_complete",
+          "requirement": "required"
+        },
+        {
+          "name": "host_infrastructure_status",
+          "requirement": "required"
+        },
+        {
+          "name": "host_source_integrity_status",
+          "requirement": "required"
+        },
+        {
+          "name": "post_build_integrity_status",
+          "requirement": "required"
+        },
+        {
+          "name": "evidence_completeness_status",
+          "requirement": "required"
+        },
+        {
+          "name": "preliminary_success_eligible",
+          "requirement": "required"
+        },
+        {
+          "name": "record_owner",
+          "requirement": "required"
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        }
+      ],
+      "empty_ok_fields": [
+        "container_outcome",
+        "container_exit_code",
+        "cargo_started",
+        "cargo_exit_code",
+        "artifact_present",
+        "artifact_identity_complete",
+        "static_inspection_complete",
+        "run_id"
+      ],
+      "run_id_required": true,
+      "note": "run_id may be empty when container result missing/invalid; otherwise ownership binding"
+    },
+    {
+      "artifact_id": "HOST_RUN_METADATA.txt",
+      "filename": "HOST_RUN_METADATA.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "closed_aux_optional",
+        "final-submission": "closed_aux_optional"
+      },
+      "activation": "enforced_s2_writer_aligned",
+      "field_order_normative": true,
+      "exact_field_set_policy": "append_entry_grammar",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "witness_id",
+          "requirement": "required"
+        },
+        {
+          "name": "entry_kind",
+          "requirement": "required"
+        },
+        {
+          "name": "entry_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "payload",
+          "requirement": "required"
+        }
+      ],
+      "run_id_required": true,
+      "note": "Append-log preserved. Each S2 entry uses exact canonical grammar with deterministic key order and per-entry run_id. Historical free-form append logs without BEGIN markers remain accepted via S1 compatibility.",
+      "append_entry_grammar": {
+        "entry_begin": "BEGIN_HOST_RUN_METADATA_ENTRY",
+        "entry_end": "END_HOST_RUN_METADATA_ENTRY",
+        "field_order_normative": true,
+        "required_keys": [
+          "evidence_schema_version",
+          "run_id",
+          "witness_id",
+          "entry_kind",
+          "entry_utc",
+          "payload"
+        ],
+        "legal_values": {
+          "evidence_schema_version": [
+            "1"
+          ]
+        },
+        "unknown_keys": "reject",
+        "historical_open_append_log_accepted_without_markers": true
+      },
+      "s1_future_alignment_record": {
+        "note": "At S1 HOST_RUN_METADATA was defined_future_s2_writer_alignment.",
+        "former_activation": "defined_future_s2_writer_alignment"
+      }
+    },
+    {
+      "artifact_id": "host_validator_result_record",
+      "filename": "VALIDATOR_RESULT.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "outside_evidence_dir",
+        "final-submission": "outside_evidence_dir"
+      },
+      "activation": "defined_structural_only_s1",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "location": "outside_EVIDENCE_DIR",
+      "fields": [
+        {
+          "name": "schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "record_owner",
+          "requirement": "required"
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "validator_command",
+          "requirement": "required"
+        },
+        {
+          "name": "validator_script_path",
+          "requirement": "required"
+        },
+        {
+          "name": "evidence_dir",
+          "requirement": "required"
+        },
+        {
+          "name": "preliminary_manifest_path",
+          "requirement": "required"
+        },
+        {
+          "name": "preliminary_manifest_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "validator_process_exit_code",
+          "requirement": "required"
+        },
+        {
+          "name": "structural_status",
+          "requirement": "required"
+        },
+        {
+          "name": "structural_pass",
+          "requirement": "required"
+        },
+        {
+          "name": "explicit_outcome_observed",
+          "requirement": "required"
+        },
+        {
+          "name": "machine_verdict_ceiling",
+          "requirement": "required"
+        },
+        {
+          "name": "stdout_capture_path",
+          "requirement": "required"
+        },
+        {
+          "name": "stdout_capture_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "stderr_capture_path",
+          "requirement": "required"
+        },
+        {
+          "name": "stderr_capture_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "invocation_started_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "invocation_finished_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "failure_stage",
+          "requirement": "required"
+        },
+        {
+          "name": "error_reason",
+          "requirement": "required"
+        }
+      ],
+      "run_id_required": true,
+      "note": "Host-owned outside-EVIDENCE_DIR evidence; validator itself does not write or enforce this record"
+    }
+  ],
+  "historical_compatibility": {
+    "policy": "explicit_historical_path_only",
+    "active_authority": "rc6.1",
+    "immediate_predecessor_version": "rc5-phase4-s2.1",
+    "immediate_predecessor_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s1.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
+    "historical_register_version": "rc5-phase4-s2.1",
+    "not_a_second_schema_authority": true,
+    "detect_s2_shaped_markers": {
+      "WEAVER_FORGE_PACKAGE_IDENTITY.txt": [
+        "weaver_forge_tag_ref",
+        "weaver_forge_tag_raw_object_type_required",
+        "weaver_forge_tag_raw_object_type_observed",
+        "weaver_forge_tag_peeled_commit"
+      ],
+      "DEVIATIONS.txt@host-preliminary": [
+        "deviation_count",
+        "automated_summary"
+      ],
+      "HOST_RUN_METADATA.txt": [
+        "BEGIN_HOST_RUN_METADATA_ENTRY"
+      ],
+      "early_failure_terminal": {
+        "files": [
+          "BOOTSTRAP.txt",
+          "BUILD_COMMAND.txt",
+          "BUILD_ENVIRONMENT.txt"
+        ],
+        "status": "NOT_APPLICABLE"
+      }
+    },
+    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path. Historical S2 and S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
+  },
+  "recursive_inventory_helper": {
+    "activation": "available_read_only_s2",
+    "capabilities": [
+      "recursive_enumeration",
+      "deterministic_normalized_relative_paths",
+      "symlink_rejection",
+      "special_object_rejection",
+      "path_escape_rejection",
+      "duplicate_normalized_path_rejection",
+      "deterministic_sha256_manifest_generation"
+    ],
+    "does_not_include": [
+      "human_witness_verdict_generation",
+      "independent_witness_pass_claim",
+      "readiness_claim"
+    ],
+    "rc4b_020_026_027_028_implemented_on_main_pending_reaudit": true,
+    "rc4b_020_026_027_028_closed": false,
+    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
+  }
+}

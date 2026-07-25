@@ -73,10 +73,10 @@ class PreliminaryManifestTests(unittest.TestCase):
         nested_line = next(ln for ln in lines if ln.endswith("  ./nested/extra.txt"))
         self.assertEqual(nested_line.split("  ./", 1)[0], _sha(nested))
         # Valid closed preliminary package with nested file must PASS.
-        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY), [])
+        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
         # Unlisted nested file fails totality.
         (tree / "nested" / "orphan.txt").write_text("orphan\n", encoding="utf-8", newline="\n")
-        errors_unlisted = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY)
+        errors_unlisted = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertTrue(
             any("no auxiliary exemption" in e and "nested/orphan.txt" in e for e in errors_unlisted),
             errors_unlisted,
@@ -90,7 +90,7 @@ class PreliminaryManifestTests(unittest.TestCase):
         self.assertTrue((tree / "HOST_RUN_METADATA.txt").is_file())
         manifest = (tree / v.MANIFEST_NAME).read_text(encoding="utf-8")
         self.assertIn("./HOST_RUN_METADATA.txt", manifest)
-        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY), [])
+        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
 
         # Unlisted closed-aux rejection for S2-shaped.
         lines = [
@@ -99,7 +99,7 @@ class PreliminaryManifestTests(unittest.TestCase):
             if "HOST_RUN_METADATA.txt" not in ln
         ]
         (tree / v.MANIFEST_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY)
+        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertTrue(any("no auxiliary exemption" in e for e in errors), errors)
 
         # Stale hash rejection.
@@ -108,14 +108,14 @@ class PreliminaryManifestTests(unittest.TestCase):
         bad = (tree2 / v.MANIFEST_NAME).read_text(encoding="utf-8").splitlines()
         bad[0] = ("0" * 64) + bad[0][64:]
         (tree2 / v.MANIFEST_NAME).write_text("\n".join(bad) + "\n", encoding="utf-8", newline="\n")
-        errors2 = v.validate_dir(tree2, mode=v.MODE_HOST_PRELIMINARY)
+        errors2 = v.validate_dir(tree2, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertTrue(any("hash mismatch" in e for e in errors2), errors2)
 
 
 class FinalManifestTests(unittest.TestCase):
     def test_03_final_total_closure_manual_inputs_no_aux_exemption(self) -> None:
         tree = FIXTURES / "rc5-synthetic-final-success"
-        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION)
+        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         manifest = (tree / v.MANIFEST_NAME).read_text(encoding="utf-8")
         for name in (
@@ -138,7 +138,7 @@ class FinalManifestTests(unittest.TestCase):
             encoding="utf-8",
             newline="\n",
         )
-        errors2 = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION)
+        errors2 = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(any("hash mismatch" in e for e in errors2), errors2)
 
         # Extra undeclared file.
@@ -147,7 +147,7 @@ class FinalManifestTests(unittest.TestCase):
         shutil.rmtree(tree3)
         shutil.copytree(tree, tree3)
         (tree3 / "UNDECLARED_AUX.txt").write_text("nope\n", encoding="utf-8")
-        errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION)
+        errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(
             any("no auxiliary exemption" in e or "outside the closed" in e for e in errors3),
             errors3,
@@ -164,7 +164,7 @@ class CompletenessStateMachineTests(unittest.TestCase):
         self.assertIn("evidence_inventory_complete=no", post)
         self.assertIn("evidence_completeness_status=INCOMPLETE", host)
         self.assertIn("preliminary_success_eligible=NO", host)
-        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY), [])
+        self.assertEqual(v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
 
         # yes rejected in preliminary.
         (tree / "POST_BUILD_INTEGRITY.txt").write_text(
@@ -173,7 +173,7 @@ class CompletenessStateMachineTests(unittest.TestCase):
             newline="\n",
         )
         ei.write_evidence_manifest(tree)
-        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY)
+        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertTrue(any("rejected in host-preliminary" in e for e in errors), errors)
 
     def test_05_final_transition_and_invalid_combinations(self) -> None:
@@ -190,7 +190,7 @@ class CompletenessStateMachineTests(unittest.TestCase):
         )
         # Still no manuals.
         fx.write_tree(tree, files)
-        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION)
+        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(any("required final structural inputs are absent" in e for e in errors), errors)
 
         # Valid final transition via synthetic helper (completeness before manifest).
@@ -203,11 +203,11 @@ class CompletenessStateMachineTests(unittest.TestCase):
         files2["DEVIATIONS.txt"] = fx._rc5_final_deviations()
         fx.write_tree(tree2, files2)
         # Manifest-before-completeness: final mode with inventory=no fails.
-        errors_pre = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION)
+        errors_pre = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(any("evidence_inventory_complete=yes" in e for e in errors_pre), errors_pre)
         # Finalize completeness then remanifest.
         syn.synthesize_final_submission_package(tree2)
-        self.assertEqual(v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION), [])
+        self.assertEqual(v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"), [])
 
         # Mutation after finalization rejected.
         (tree2 / "DEVIATIONS.txt").write_text(
@@ -217,7 +217,7 @@ class CompletenessStateMachineTests(unittest.TestCase):
             encoding="utf-8",
             newline="\n",
         )
-        errors_mut = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION)
+        errors_mut = v.validate_dir(tree2, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(any("hash mismatch" in e for e in errors_mut), errors_mut)
 
     def test_06_machine_cannot_set_independent_witness_or_ready(self) -> None:
@@ -235,8 +235,8 @@ class FixtureFamilyTests(unittest.TestCase):
         final = FIXTURES / "rc5-synthetic-final-success"
         before_p = {p.name: p.read_bytes() for p in prelim.iterdir() if p.is_file()}
         before_f = {p.name: p.read_bytes() for p in final.iterdir() if p.is_file()}
-        self.assertEqual(v.validate_dir(prelim, mode=v.MODE_HOST_PRELIMINARY), [])
-        self.assertEqual(v.validate_dir(final, mode=v.MODE_FINAL_SUBMISSION), [])
+        self.assertEqual(v.validate_dir(prelim, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
+        self.assertEqual(v.validate_dir(final, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"), [])
         for name, data in before_p.items():
             self.assertEqual((prelim / name).read_bytes(), data)
         for name, data in before_f.items():
@@ -254,14 +254,14 @@ class FixtureFamilyTests(unittest.TestCase):
         hist = FIXTURES / "success-artifact-present"
         pkg = (hist / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
         self.assertNotIn("weaver_forge_tag_peeled_commit=", pkg)
-        self.assertEqual(v.validate_dir(hist, mode=v.MODE_FINAL_SUBMISSION), [])
-        self.assertEqual(v.validate_dir(hist, mode=v.MODE_HOST_PRELIMINARY), [])
+        self.assertEqual(v.validate_dir(hist, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"), [])
+        self.assertEqual(v.validate_dir(hist, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
 
 
 class SchemaRuntimeAlignmentTests(unittest.TestCase):
     def test_09_active_s2_s3_activation_and_s1_compat(self) -> None:
         active = srl.load_active_register()
-        self.assertEqual(active.schema_register_version, "rc6.1")
+        self.assertEqual(active.schema_register_version, "rc6.2")
         s2 = srl.load_historical_s2_register()
         self.assertEqual(s2.schema_register_version, "rc5-phase4-s2.1")
         self.assertTrue(active.is_s3_manifest_completeness_enforced())
@@ -292,7 +292,14 @@ class AntiOverclaimTests(unittest.TestCase):
 
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = v.main([str(FIXTURES / "rc5-preliminary-success"), "--host-preliminary"])
+            rc = v.main(
+                [
+                    str(FIXTURES / "rc5-preliminary-success"),
+                    "--host-preliminary",
+                    "--schema-register-version",
+                    "rc5-phase4-s2.1",
+                ]
+            )
         self.assertEqual(rc, 0)
         out = buf.getvalue()
         self.assertIn("not final success eligibility", out)
@@ -300,7 +307,14 @@ class AntiOverclaimTests(unittest.TestCase):
 
         buf2 = io.StringIO()
         with redirect_stdout(buf2):
-            rc2 = v.main([str(FIXTURES / "rc5-synthetic-final-success"), "--final-submission"])
+            rc2 = v.main(
+                [
+                    str(FIXTURES / "rc5-synthetic-final-success"),
+                    "--final-submission",
+                    "--schema-register-version",
+                    "rc5-phase4-s2.1",
+                ]
+            )
         self.assertEqual(rc2, 0)
         out2 = buf2.getvalue()
         self.assertIn("final-submission structural PASS", out2)

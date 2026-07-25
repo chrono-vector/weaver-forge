@@ -1,4 +1,4 @@
-# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1, Phase 3E)
+# POST_BUILD_INTEGRITY.txt — required fields (evidence_schema_version=1, RC6-R3)
 #
 # Host-owned. Confirms the source tree and Cargo.lock were unchanged by the
 # build, and records the technical post-build integrity gate result.
@@ -11,7 +11,7 @@
 # source_or_lock_changed / evidence_inventory_complete /
 # full_integrity_gate_all_four_yes / post_build_integrity_ok / artifact_exists
 # fields are yes|no. outcome must equal the authoritative container outcome
-# when one exists.
+# when one exists. authoritative_outcome must equal outcome when both present.
 #
 # evidence_inventory_complete is ALWAYS no from the automated host run.
 # Phase 4-S3 non-circular sequence: required final structural inputs must be
@@ -19,16 +19,18 @@
 # generated exactly once; the evidence tree is then immutable for validation.
 #
 # Exact ordered field set (writer / template / validator / fixtures must match):
-# evidence_schema_version, status, outcome, source_head_before, source_head_after,
-# source_head_unchanged, source_clean_before, source_clean_after,
-# cargo_lock_sha256_before, cargo_lock_sha256_after, cargo_lock_unchanged,
-# cargo_lock_post_matches_expected, source_or_lock_changed, artifact_path,
-# artifact_exists, docker_exit_code, failure_stage, evidence_inventory_complete,
-# full_integrity_gate_all_four_yes, full_integrity_gate_note,
-# post_build_integrity_ok
+# evidence_schema_version, run_id, status, outcome, authoritative_outcome,
+# source_head_before, source_head_after, source_head_unchanged,
+# source_clean_before, source_clean_after, cargo_lock_sha256_before,
+# cargo_lock_sha256_after, cargo_lock_unchanged, cargo_lock_post_matches_expected,
+# source_or_lock_changed, artifact_path, artifact_exists, docker_exit_code,
+# failure_stage, evidence_inventory_complete, full_integrity_gate_all_four_yes,
+# full_integrity_gate_note, post_build_integrity_ok
 evidence_schema_version=1
+run_id=<run-id-token>
 status=OK
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+authoritative_outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
 source_head_before=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 source_head_after=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 source_head_unchanged=yes

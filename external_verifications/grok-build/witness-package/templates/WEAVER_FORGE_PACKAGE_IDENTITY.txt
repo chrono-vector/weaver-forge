@@ -22,6 +22,7 @@ weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc5
 weaver_forge_tag_ref=refs/tags/grok-build-witness-v1.0.0-rc5
 weaver_forge_tag_raw_object_type_required=tag
 weaver_forge_tag_raw_object_type_observed=tag
+weaver_forge_tag_object_id=<40-char lowercase hex annotated tag object id; not the peeled commit>
 weaver_forge_tag_peeled_commit=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>
 weaver_forge_commit_resolved=<40-char lowercase hex commit>
 package_clone_head=<40-char lowercase hex commit; equals weaver_forge_commit_resolved>

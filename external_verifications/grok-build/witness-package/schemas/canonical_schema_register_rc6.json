@@ -1,17 +1,19 @@
 {
-  "schema_register_version": "rc6.1",
+  "schema_register_version": "rc6.2",
   "family": "rc6_remediation_canonical_schema",
   "evidence_schema_version": "1",
   "supported_register_versions": [
-    "rc6.1"
+    "rc6.2"
   ],
   "supersession": {
     "policy": "additive_supersession_only",
-    "supersedes": "rc5-phase4-s2.1",
-    "historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
-    "historical_compatibility_version": "rc5-phase4-s2.1",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
-    "earlier_historical_compatibility_version": "rc5-phase4-s1.1",
+    "supersedes": "rc6.1",
+    "historical_compatibility_register": "canonical_schema_register_rc6.1.json",
+    "historical_compatibility_version": "rc6.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s2.1",
+    "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
+    "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
     "does_not_rewrite": [
       "AUTHORITATIVE_OUTCOME_CONTRACT.json",
       "rc1-rc4 evidence trees",
@@ -19,9 +21,11 @@
       "historical Phase 0-3G implementation notes",
       "Phase 4-S1 register and implementation note",
       "Phase 4-S2 register and implementation note",
-      "original blocker wording"
+      "original blocker wording",
+      "canonical_schema_register_rc6.1.json",
+      "rc6.1 historical fixtures"
     ],
-    "note": "This rc6.1 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc5-phase4-s2.1. The frozen S2 and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Later RC6-R* slices update this same file with monotonic version bumps (rc6.2, rc6.3, \u2026)."
+    "note": "This rc6.2 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.1. Frozen rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps."
   },
   "lifecycle_modes": [
     "host-preliminary",
@@ -51,6 +55,7 @@
       "POST_BUILD_INTEGRITY.txt",
       "DEVIATIONS.txt",
       "EVIDENCE_MANIFEST.sha256",
+      "WEAVER_FORGE_FINAL_BINDING.txt",
       "HOST_OUTCOME_INGESTION.txt"
     ],
     "final-submission": [
@@ -77,6 +82,7 @@
       "WITNESS_VERDICT.md",
       "DEVIATIONS.txt",
       "EVIDENCE_MANIFEST.sha256",
+      "WEAVER_FORGE_FINAL_BINDING.txt",
       "REDACTIONS.md"
     ]
   },
@@ -104,11 +110,17 @@
       "POST_BUILD_INTEGRITY_binding_context",
       "host_validator_result_record",
       "final_manual_forms_when_structurally_required",
-      "manifest_inventory_lifecycle_metadata_when_represented"
+      "manifest_inventory_lifecycle_metadata_when_represented",
+      "BUILD_EXIT_CODE",
+      "SOURCE_IDENTITY",
+      "ARTIFACT_IDENTITY",
+      "POST_BUILD_INTEGRITY",
+      "WEAVER_FORGE_FINAL_BINDING",
+      "WITNESS_STATEMENT_mechanical"
     ],
     "do_not_force_into_every_raw_capture": true,
     "rc4b_025_resolved": false,
-    "note": "Ownership/cross-binding only; RC4B-025 remains unresolved"
+    "note": "RC6-R3 ownership/cross-binding for the authoritative run/package tuple. RC4B-025 remains unresolved for broader run_id coverage policy."
   },
   "evidence_completeness_inventory": {
     "activation": "enforced_s3_manifest_completeness",
@@ -251,6 +263,11 @@
           "requirement": "required"
         },
         {
+          "name": "weaver_forge_tag_object_id",
+          "requirement": "required",
+          "note": "Annotated tag object ID (git rev-parse refs/tags/<tag>); not the peeled commit."
+        },
+        {
           "name": "weaver_forge_tag_peeled_commit",
           "requirement": "required"
         },
@@ -389,7 +406,7 @@
           "weaver_forge_tag_peeled_commit"
         ]
       },
-      "note": "RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection."
+      "note": "RC6-R2/R3: Host-owned base package identity. Written atomically before container evidence; immutable after successful base identity closure. Required base tuple fields must not be UNKNOWN. weaver_forge_tag_object_id binds the annotated tag object ID directly."
     },
     {
       "artifact_id": "SOURCE_ACQUISITION.txt",
@@ -492,6 +509,10 @@
           ]
         },
         {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
           "name": "grok_build_commit_expected",
           "requirement": "required"
         },
@@ -519,8 +540,8 @@
         }
       ],
       "conditional_variants": [],
-      "run_id_required": false,
-      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected. Named optional: status (currently valid writer/fixture field)."
+      "run_id_required": true,
+      "note": "RC6-R3: run_id required; expected/observed Grok Build source commit must match for final active rc6 evidence."
     },
     {
       "artifact_id": "IMAGE_IDENTITY.txt",
@@ -1506,6 +1527,10 @@
           ]
         },
         {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
           "name": "status",
           "requirement": "required"
         },
@@ -1532,8 +1557,8 @@
       ],
       "optional_fields": [],
       "conditional_variants": [],
-      "run_id_required": false,
-      "note": "RC6-R1: exact required-key enforcement; unknown keys rejected."
+      "run_id_required": true,
+      "note": "RC6-R3: container-owned; run_id echoes Host RUN_ID via Docker -e; Host must not write/repair."
     },
     {
       "artifact_id": "BUILD_TIMING.txt",
@@ -1636,6 +1661,10 @@
           ]
         },
         {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
           "name": "outcome",
           "requirement": "required"
         },
@@ -1687,8 +1716,8 @@
         }
       ],
       "conditional_variants": [],
-      "run_id_required": false,
-      "note": "RC6-R1 exact required core plus named optionals for present/absent artifact shapes. Unknown keys rejected."
+      "run_id_required": true,
+      "note": "RC6-R3: run_id required. For CARGO_SUCCEEDED_ARTIFACT_PRESENT, artifact_sha256 and artifact_size_bytes mandatory; other outcomes use applicable=no + reason (existing NOT_APPLICABLE-class semantics)."
     },
     {
       "artifact_id": "STATIC_ARTIFACT_INSPECTION.txt",
@@ -1860,12 +1889,21 @@
           ]
         },
         {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
           "name": "status",
           "requirement": "required"
         },
         {
           "name": "outcome",
           "requirement": "required"
+        },
+        {
+          "name": "authoritative_outcome",
+          "requirement": "required",
+          "note": "Must equal container BUILD_EXIT_CODE outcome and HOST_OUTCOME_INGESTION container_outcome when valid."
         },
         {
           "name": "source_head_before",
@@ -1942,7 +1980,8 @@
       ],
       "optional_fields": [],
       "conditional_variants": [],
-      "run_id_required": false
+      "run_id_required": true,
+      "note": "RC6-R3: direct run_id and authoritative_outcome binding to Host/container/HOST_OUTCOME."
     },
     {
       "artifact_id": "WITNESS_STATEMENT.md",
@@ -1965,6 +2004,24 @@
           "requirement": "required",
           "legal_values": [
             "1"
+          ]
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "package_identity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+          ]
+        },
+        {
+          "name": "final_binding_ref",
+          "requirement": "required",
+          "legal_values": [
+            "WEAVER_FORGE_FINAL_BINDING.txt"
           ]
         },
         {
@@ -2011,8 +2068,8 @@
         }
       ],
       "conditional_variants": [],
-      "run_id_required": false,
-      "note": "RC6-R1 exact required attestation keys plus named optionals ai_assistance_detail and upstream_product_commands_not_run. ai_assistance_detail is conditionally required nonempty when ai_assistance_used=yes (validator semantic); may be omitted or empty when ai_assistance_used=no. Unknown keys rejected."
+      "run_id_required": true,
+      "note": "RC6-R3 MV-A: mechanical run_id/package_identity_ref/final_binding_ref only. R6 owns Witness identity sufficiency and semantic bindings."
     },
     {
       "artifact_id": "WITNESS_VERDICT.md",
@@ -2040,6 +2097,20 @@
         {
           "name": "run_id",
           "requirement": "required"
+        },
+        {
+          "name": "package_identity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+          ]
+        },
+        {
+          "name": "final_binding_ref",
+          "requirement": "required",
+          "legal_values": [
+            "WEAVER_FORGE_FINAL_BINDING.txt"
+          ]
         },
         {
           "name": "package_tag",
@@ -2077,7 +2148,7 @@
       "optional_fields": [],
       "conditional_variants": [],
       "run_id_required": true,
-      "note": "RC6-R1 exact required verdict keys. Unknown keys rejected. Later-slice binding semantics are not activated here."
+      "note": "RC6-R3 MV-A: mechanical run/package refs. R6 owns semantic verdict/statement/timing/intake/correction."
     },
     {
       "artifact_id": "REDACTIONS.md",
@@ -2371,9 +2442,14 @@
           "final-submission": "final_submission_preparer_structural_role_only"
         },
         "mode_notes": {
-          "host-preliminary": "Preliminary manifest includes every regular file in the automated preliminary EVIDENCE_DIR package except the manifest itself; auxiliary evidence present in EVIDENCE_DIR must be listed; recursive fail-closed inventory; SHA-256 only; no unlisted permitted regular file. Manual Witness files are not required. preliminary_success_eligible remains NO. Host-preliminary structural PASS is automated structural package validation only.",
-          "final-submission": "Final manifest includes every regular file in the final EVIDENCE_DIR except the manifest itself; no auxiliary evidence exemption; manual structural inputs included when required; recursive fail-closed inventory; SHA-256 only; no post-final-manifest edit before validation. Final structural PASS is not Independent Witness PASS."
-        }
+          "host-preliminary": "Preliminary manifest includes every regular file in the automated preliminary EVIDENCE_DIR package except EVIDENCE_MANIFEST.sha256 itself and WEAVER_FORGE_FINAL_BINDING.txt (final binding contains final_manifest_sha256); auxiliary evidence present in EVIDENCE_DIR must be listed; recursive fail-closed inventory; SHA-256 only; no unlisted permitted regular file. Manual Witness files are not required. preliminary_success_eligible remains NO. Host-preliminary structural PASS is automated structural package validation only.",
+          "final-submission": "Final manifest includes every regular file in the final EVIDENCE_DIR except EVIDENCE_MANIFEST.sha256 itself and WEAVER_FORGE_FINAL_BINDING.txt; no auxiliary evidence exemption; manual structural inputs included when required; recursive fail-closed inventory; SHA-256 only; no post-final-manifest edit before validation. Final structural PASS is not Independent Witness PASS."
+        },
+        "must_not_list_final_binding": true,
+        "excluded_from_checksum_lines": [
+          "EVIDENCE_MANIFEST.sha256",
+          "WEAVER_FORGE_FINAL_BINDING.txt"
+        ]
       },
       "fields": [],
       "activation_detail": {
@@ -2384,7 +2460,126 @@
         "s2_shaped_no_auxiliary_exemption": true,
         "historical_s1_compatibility_aux_exemption": "explicit_s1_fixture_path_only"
       },
-      "run_id_required": false
+      "run_id_required": false,
+      "note": "RC6-R3 FM-C: checksum-line grammar retained; excludes self and WEAVER_FORGE_FINAL_BINDING.txt."
+    },
+    {
+      "artifact_id": "WEAVER_FORGE_FINAL_BINDING.txt",
+      "filename": "WEAVER_FORGE_FINAL_BINDING.txt",
+      "owner": "host",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "required",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "package_version",
+          "requirement": "required"
+        },
+        {
+          "name": "canonical_tag",
+          "requirement": "required"
+        },
+        {
+          "name": "tag_object_id",
+          "requirement": "required"
+        },
+        {
+          "name": "peeled_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "grok_build_source_commit",
+          "requirement": "required"
+        },
+        {
+          "name": "authoritative_outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_byte_size",
+          "requirement": "required"
+        },
+        {
+          "name": "final_manifest_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "package_identity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+          ]
+        },
+        {
+          "name": "build_exit_code_ref",
+          "requirement": "required",
+          "legal_values": [
+            "BUILD_EXIT_CODE.txt"
+          ]
+        },
+        {
+          "name": "host_outcome_ingestion_ref",
+          "requirement": "required",
+          "legal_values": [
+            "HOST_OUTCOME_INGESTION.txt"
+          ]
+        },
+        {
+          "name": "post_build_integrity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "POST_BUILD_INTEGRITY.txt"
+          ]
+        },
+        {
+          "name": "source_identity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "SOURCE_IDENTITY.txt"
+          ]
+        },
+        {
+          "name": "artifact_identity_ref",
+          "requirement": "required",
+          "legal_values": [
+            "ARTIFACT_IDENTITY.txt"
+          ]
+        },
+        {
+          "name": "evidence_manifest_ref",
+          "requirement": "required",
+          "legal_values": [
+            "EVIDENCE_MANIFEST.sha256"
+          ]
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": true,
+      "note": "RC6-R3 R3-P1/FM-C: Host-owned final binding record. Written atomically once after final manifest generation and manifest SHA-256 calculation. Immutable after successful write. Not listed in EVIDENCE_MANIFEST.sha256. Not required as a complete final record for R2 incomplete packages. Validator recomputes final_manifest_sha256 from EVIDENCE_MANIFEST.sha256 bytes and verifies every tuple field against authoritative sources. artifact_sha256/artifact_byte_size use NOT_APPLICABLE when artifact identity applicable=no."
     },
     {
       "artifact_id": "HOST_OUTCOME_INGESTION.txt",
@@ -2478,6 +2673,11 @@
           "requirement": "required"
         },
         {
+          "name": "container_run_id",
+          "requirement": "required",
+          "note": "Parsed container BUILD_EXIT_CODE run_id when present; empty only when container result absent/invalid and no parse."
+        },
+        {
           "name": "run_id",
           "requirement": "required"
         },
@@ -2494,10 +2694,10 @@
         "artifact_present",
         "artifact_identity_complete",
         "static_inspection_complete",
-        "run_id"
+        "container_run_id"
       ],
       "run_id_required": true,
-      "note": "run_id may be empty when container result missing/invalid; otherwise ownership binding"
+      "note": "RC6-R3: Host run_id mandatory; container_run_id mandatory when container_result_valid=YES; Host run_id must equal container_run_id; no PARSED_RUN_ID fallback; no Docker-exit-as-outcome substitution."
     },
     {
       "artifact_id": "HOST_RUN_METADATA.txt",
@@ -2680,12 +2880,18 @@
   ],
   "historical_compatibility": {
     "policy": "explicit_historical_path_only",
-    "active_authority": "rc6.1",
-    "immediate_predecessor_version": "rc5-phase4-s2.1",
-    "immediate_predecessor_register": "canonical_schema_register_rc5_phase4_s2.json",
-    "earlier_historical_compatibility_version": "rc5-phase4-s1.1",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
-    "historical_register_version": "rc5-phase4-s2.1",
+    "active_authority": "rc6.2",
+    "immediate_predecessor_version": "rc6.1",
+    "immediate_predecessor_register": "canonical_schema_register_rc6.1.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s2.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
+    "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
+    "historical_register_versions": [
+      "rc6.1",
+      "rc5-phase4-s2.1",
+      "rc5-phase4-s1.1"
+    ],
     "not_a_second_schema_authority": true,
     "detect_s2_shaped_markers": {
       "WEAVER_FORGE_PACKAGE_IDENTITY.txt": [
@@ -2710,7 +2916,7 @@
         "status": "NOT_APPLICABLE"
       }
     },
-    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path. Historical S2 and S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
+    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path. Historical rc6.1, S2, and S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
   },
   "recursive_inventory_helper": {
     "activation": "available_read_only_s2",

@@ -12,6 +12,9 @@ non-empty ai_assistance_detail is required. human_review_completed must be
 
 ```
 evidence_schema_version=1
+run_id=<run-id-token>
+package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
+final_binding_ref=WEAVER_FORGE_FINAL_BINDING.txt
 witness_identity_or_handle=<name or public handle>
 not_package_owner=yes
 not_owner_side_reproducer=yes

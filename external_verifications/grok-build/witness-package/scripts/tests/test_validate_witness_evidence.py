@@ -77,22 +77,32 @@ def schema_block_keys(text: str, name: str) -> set[str]:
 
 
 def writer_block_keys(text: str, filename: str) -> set[str]:
-    """Keys echoed in the `{ ... } > "${EVIDENCE_DIR}/<filename>"` writer with
-    the most keys (used for writers that are not wrapped in a schema block,
-    e.g. POST_BUILD_INTEGRITY.txt)."""
+    """Keys echoed in host writer blocks for ``filename``.
+
+    Supports both classic ``{ ... } > "${EVIDENCE_DIR}/<filename>"`` redirects and
+    RC6 atomic writers of the form ``{ ... } | write_evidence_file_atomic "${dest}"``
+    where ``dest`` is assigned to the target filename in the surrounding function.
+    """
     lines = text.splitlines()
     redirect_re = re.compile(r"\}\s*>\s*\"?\$\{EVIDENCE_DIR\}/" + re.escape(filename))
+    atomic_re = re.compile(r"\}\s*\|\s*write_evidence_file_atomic\s+\"\$\{dest\}\"")
     best: set[str] = set()
     for idx, line in enumerate(lines):
-        if not redirect_re.search(line):
+        is_redirect = bool(redirect_re.search(line))
+        is_atomic = bool(atomic_re.search(line))
+        if not is_redirect and not is_atomic:
             continue
+        if is_atomic:
+            window = "\n".join(lines[max(0, idx - 120) : idx])
+            if filename not in window:
+                continue
         keys: set[str] = set()
         j = idx - 1
         while j >= 0:
             m = _KEY_RE.search(lines[j])
             if m:
                 keys.add(m.group(1))
-            if lines[j].strip() == "{":
+            if lines[j].strip() in ("{", "if ! {"):
                 break
             j -= 1
         if len(keys) > len(best):
@@ -236,7 +246,7 @@ class ParseKvTests(unittest.TestCase):
         files["BUILD_COMMAND.txt"] = files["BUILD_COMMAND.txt"] + "cargo_incremental=0\n"
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("duplicate key 'cargo_incremental'" in e for e in errors), errors)
 
 
@@ -251,18 +261,24 @@ class GoldenFixtureTests(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 d = FIXTURES / scenario
                 self.assertTrue(d.is_dir(), f"missing committed fixture: {d}")
-                errors = v.validate_dir(d)
+                errors = v.validate_dir(d, schema_register_version="rc6.1")
                 self.assertEqual(errors, [], f"{scenario}: {errors}")
 
     def test_all_scenarios_build_and_pass(self):
         for scenario in fx.ALL_SCENARIOS:
             with self.subTest(scenario=scenario):
                 tmp = _mktree(scenario)
-                errors = v.validate_dir(tmp)
+                errors = v.validate_dir(tmp, schema_register_version="rc6.1")
                 self.assertEqual(errors, [], f"{scenario}: {errors}")
 
     def test_main_entrypoint_returns_zero_on_success_fixture(self):
-        rc = v.main([str(FIXTURES / "success-artifact-present")])
+        rc = v.main(
+            [
+                str(FIXTURES / "success-artifact-present"),
+                "--schema-register-version",
+                "rc6.1",
+            ]
+        )
         self.assertEqual(rc, 0)
 
 
@@ -279,7 +295,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("DOCKER_EXIT_CODE.txt: outcome" in e for e in errors), errors)
 
     def test_timing_outcome_disagreement_fails(self):
@@ -289,7 +305,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("BUILD_TIMING.txt: outcome" in e for e in errors), errors)
 
     def test_missing_outcome_fails(self):
@@ -301,7 +317,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         # outcome when explicit outcome= is absent (inference removed).
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("explicit 'outcome'" in e or "outcome" in e.lower() for e in errors), errors)
         self.assertTrue(
             any("inference" in e.lower() or "explicit" in e.lower() for e in errors),
@@ -315,7 +331,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(errors)
 
     def test_duplicate_outcome_line_fails(self):
@@ -325,7 +341,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("duplicate key 'outcome'" in e for e in errors), errors)
 
     def test_witness_verdict_outcome_mismatch_fails(self):
@@ -335,7 +351,7 @@ class OutcomeConsistencyTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("WITNESS_VERDICT.md: outcome" in e for e in errors), errors)
 
 
@@ -395,7 +411,7 @@ class VerdictCeilingTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("exceeds the machine-computed verdict" in e for e in errors), errors)
 
     def test_proposed_pass_on_cargo_failed_rejected(self):
@@ -403,7 +419,7 @@ class VerdictCeilingTests(unittest.TestCase):
         files["WITNESS_VERDICT.md"] = _witness_verdict("CARGO_FAILED", "PASS", "PASS")
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("exceeds" in e for e in errors), errors)
 
 
@@ -425,7 +441,7 @@ class ManifestTests(unittest.TestCase):
         first, _, rest = text.partition("\n")
         first_bad = first.replace("  ./", " ./", 1)
         mpath.write_text(first_bad + "\n" + rest, encoding="utf-8")
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("malformed line" in e for e in errors), errors)
 
     def test_hash_mismatch_rejected(self):
@@ -433,7 +449,7 @@ class ManifestTests(unittest.TestCase):
         (tmp / "DEVIATIONS.txt").write_text(
             "evidence_schema_version=1\ndeviation_state=NONE\n# tampered\n", encoding="utf-8"
         )
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("hash mismatch" in e for e in errors), errors)
 
     def test_missing_manifest_entry_rejected(self):
@@ -441,13 +457,13 @@ class ManifestTests(unittest.TestCase):
         mpath = tmp / v.MANIFEST_NAME
         lines = [l for l in mpath.read_text(encoding="utf-8").splitlines() if "DEVIATIONS.txt" not in l]
         mpath.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("missing mandatory entry for DEVIATIONS.txt" in e for e in errors), errors)
 
     def test_prohibited_aux_file_rejected(self):
         tmp = self._tree()
         (tmp / "BOOTSTRAP_PROTOC_VERSION.txt").write_text("libprotoc 29.3\n", encoding="utf-8")
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(
             any("BOOTSTRAP_PROTOC_VERSION.txt must never appear" in e for e in errors), errors
         )
@@ -461,13 +477,13 @@ class ManifestTests(unittest.TestCase):
         mpath.write_text(
             mpath.read_text(encoding="utf-8") + f"{digest}  ./SOMETHING_ELSE.txt\n", encoding="utf-8"
         )
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("outside the closed" in e for e in errors), errors)
 
     def test_allowed_aux_file_accepted(self):
         tmp = self._tree()
         (tmp / "HOST_RUN_METADATA.txt").write_text("run metadata\n", encoding="utf-8")
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
 
@@ -484,7 +500,7 @@ class RedactionTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("[REDACTED" in e for e in errors), errors)
 
     def test_prohibited_category_redaction_rejected(self):
@@ -500,7 +516,7 @@ class RedactionTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("prohibited category" in e for e in errors), errors)
 
     def test_valid_present_redaction_accepted(self):
@@ -520,7 +536,7 @@ class RedactionTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
 
@@ -537,7 +553,7 @@ class UpstreamProductCommandsTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(
             any("upstream_product_commands_not_run must be yes" in e for e in errors), errors
         )
@@ -549,7 +565,7 @@ class UpstreamProductCommandsTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(
             any("upstream_product_commands_not_run must be yes" in e for e in errors), errors
         )
@@ -563,7 +579,7 @@ class UpstreamProductCommandsTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("exceeds" in e for e in errors), errors)
 
 
@@ -580,7 +596,7 @@ class ProductLddTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(errors)
 
     def test_ldd_used_yes_rejected(self):
@@ -590,7 +606,7 @@ class ProductLddTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(errors)
 
 
@@ -604,7 +620,7 @@ class StructuralTests(unittest.TestCase):
         tmp = _mktree("success-artifact-present")
         (tmp / "SOURCE_IDENTITY.txt").unlink()
         # keep manifest consistent so we exercise the required-file check
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("SOURCE_IDENTITY.txt" in e for e in errors), errors)
 
     def test_cargo_exit_code_na_alias_rejected(self):
@@ -614,7 +630,7 @@ class StructuralTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(any("cargo_exit_code" in e for e in errors), errors)
 
 
@@ -741,7 +757,7 @@ class DeviationCeilingTests(unittest.TestCase):
         )
         tmp = Path(tempfile.mkdtemp())
         fx.write_tree(tmp, files)
-        errors = v.validate_dir(tmp)
+        errors = v.validate_dir(tmp, schema_register_version="rc6.1")
         self.assertTrue(
             any("exceeds the recorded verdict_ceiling" in e or "PARTIAL" in e for e in errors),
             errors,
@@ -755,11 +771,11 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
         import schema_register_loader as srl
 
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.1")
-        errors = v.validate_dir(FIXTURES / "success-artifact-present")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
+        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         # Historical NOT_REACHED fixtures remain accepted via historical compatibility.
-        errors2 = v.validate_dir(FIXTURES / "image-pull-failure")
+        errors2 = v.validate_dir(FIXTURES / "image-pull-failure", schema_register_version="rc6.1")
         self.assertEqual(errors2, [], errors2)
 
     def test_s2_shaped_package_identity_enforced_and_no_write(self):
@@ -781,7 +797,7 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
                 for p in tmp.iterdir()
                 if p.is_file()
             }
-            errors = v.validate_dir(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
             after_names = {p.name for p in tmp.iterdir() if p.is_file()}
             self.assertEqual(after_names, set(before))
             for name, (mtime, data) in before.items():
@@ -803,8 +819,7 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
     def test_host_preliminary_mode_still_explicit(self):
         errors = v.validate_dir(
             FIXTURES / "success-artifact-present",
-            mode=v.MODE_HOST_PRELIMINARY,
-        )
+            mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
 
@@ -849,14 +864,14 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
         tmp_bad = Path(tempfile.mkdtemp(prefix="pv_bad_", dir=HERE))
         try:
             fx.write_tree(tmp_ok, base)
-            self.assertEqual(v.validate_dir(tmp_ok), [])
+            self.assertEqual(v.validate_dir(tmp_ok, schema_register_version="rc6.1"), [])
 
             bad = self._mutate_identity(
                 base,
                 weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC5,
             )
             fx.write_tree(tmp_bad, bad)
-            errors = v.validate_dir(tmp_bad)
+            errors = v.validate_dir(tmp_bad, schema_register_version="rc6.1")
             self.assertTrue(
                 any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
                 errors,
@@ -906,10 +921,10 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             import evidence_inventory as ei
 
             ei.write_evidence_manifest(tmp_ok)
-            self.assertEqual(v.validate_dir(tmp_ok), [])
+            self.assertEqual(v.validate_dir(tmp_ok, schema_register_version="rc6.1"), [])
 
             fx.write_tree(tmp_bad, bad)
-            errors = v.validate_dir(tmp_bad)
+            errors = v.validate_dir(tmp_bad, schema_register_version="rc6.1")
             self.assertTrue(
                 any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
                 errors,
@@ -927,7 +942,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="pv_unk_", dir=HERE))
         try:
             fx.write_tree(tmp, unknown)
-            errors = v.validate_dir(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
             self.assertTrue(
                 any("unsupported package_version=" in e for e in errors),
                 errors,
@@ -939,14 +954,14 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
 
     def test_active_rc5_and_historical_rc4_fixtures_pass(self):
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY),
+            v.validate_dir(FIXTURES / "rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"),
             [],
         )
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-synthetic-final-success", mode=v.MODE_FINAL_SUBMISSION),
+            v.validate_dir(FIXTURES / "rc5-synthetic-final-success", mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"),
             [],
         )
-        self.assertEqual(v.validate_dir(FIXTURES / "success-artifact-present"), [])
+        self.assertEqual(v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1"), [])
         pkg = (FIXTURES / "rc5-preliminary-success" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
             encoding="utf-8"
         )

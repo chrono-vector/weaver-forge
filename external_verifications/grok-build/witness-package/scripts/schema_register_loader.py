@@ -4,10 +4,11 @@
 Loads committed plain-JSON registers under witness-package/schemas/ and
 exposes fail-closed structural accessors for the validator and tests.
 
-RC6-R1: the active default register is rc6.1
-(canonical_schema_register_rc6.json). Frozen rc5 Phase-4 S2 and S1 registers
-remain explicitly loadable for historical compatibility only and are not
-competing active authorities.
+RC6-R3: the active default register is rc6.2
+(canonical_schema_register_rc6.json). Frozen rc6.1, rc5 Phase-4 S2, and S1
+registers remain explicitly loadable for historical compatibility only and are
+not competing active authorities. Evidence content cannot select schema
+authority; unsupported versions fail closed.
 
 This module does not generate executable code from the register and uses only
 the Python standard library.
@@ -19,16 +20,24 @@ import json
 from pathlib import Path
 from typing import Any
 
-ACTIVE_REGISTER_VERSION = "rc6.1"
+ACTIVE_REGISTER_VERSION = "rc6.2"
+HISTORICAL_RC61_REGISTER_VERSION = "rc6.1"
 HISTORICAL_S2_REGISTER_VERSION = "rc5-phase4-s2.1"
 HISTORICAL_S1_REGISTER_VERSION = "rc5-phase4-s1.1"
 HISTORICAL_REGISTER_VERSIONS = frozenset(
-    {HISTORICAL_S2_REGISTER_VERSION, HISTORICAL_S1_REGISTER_VERSION}
+    {
+        HISTORICAL_RC61_REGISTER_VERSION,
+        HISTORICAL_S2_REGISTER_VERSION,
+        HISTORICAL_S1_REGISTER_VERSION,
+    }
 )
 SUPPORTED_REGISTER_VERSIONS = frozenset(
     {ACTIVE_REGISTER_VERSION} | HISTORICAL_REGISTER_VERSIONS
 )
 DEFAULT_REGISTER_RELATIVE = Path("schemas") / "canonical_schema_register_rc6.json"
+HISTORICAL_RC61_REGISTER_RELATIVE = (
+    Path("schemas") / "canonical_schema_register_rc6.1.json"
+)
 HISTORICAL_S2_REGISTER_RELATIVE = (
     Path("schemas") / "canonical_schema_register_rc5_phase4_s2.json"
 )
@@ -155,8 +164,13 @@ def schemas_dir() -> Path:
 
 
 def default_register_path() -> Path:
-    """Active (rc6.1) committed register path."""
+    """Active (rc6.2) committed register path."""
     return schemas_dir() / DEFAULT_REGISTER_RELATIVE.name
+
+
+def historical_rc61_register_path() -> Path:
+    """Frozen rc6.1 historical register path."""
+    return schemas_dir() / HISTORICAL_RC61_REGISTER_RELATIVE.name
 
 
 def historical_s2_register_path() -> Path:
@@ -173,6 +187,8 @@ def register_path_for_version(version: str) -> Path:
     """Deterministic path lookup by explicit register version. No content guessing."""
     if version == ACTIVE_REGISTER_VERSION:
         return default_register_path()
+    if version == HISTORICAL_RC61_REGISTER_VERSION:
+        return historical_rc61_register_path()
     if version == HISTORICAL_S2_REGISTER_VERSION:
         return historical_s2_register_path()
     if version == HISTORICAL_S1_REGISTER_VERSION:
@@ -322,6 +338,10 @@ class CanonicalSchemaRegister:
     @property
     def is_active_authority(self) -> bool:
         return self.schema_register_version == ACTIVE_REGISTER_VERSION
+
+    @property
+    def is_historical_rc61(self) -> bool:
+        return self.schema_register_version == HISTORICAL_RC61_REGISTER_VERSION
 
     @property
     def is_historical_s2(self) -> bool:
@@ -526,10 +546,10 @@ def validate_register_document(data: dict[str, Any]) -> None:
             raise SchemaRegisterError(
                 "active rc6 register family must be 'rc6_remediation_canonical_schema'"
             )
-        if supersession.get("supersedes") != HISTORICAL_S2_REGISTER_VERSION:
+        if supersession.get("supersedes") != HISTORICAL_RC61_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "rc6 register supersession.supersedes must be "
-                f"{HISTORICAL_S2_REGISTER_VERSION!r}"
+                f"{HISTORICAL_RC61_REGISTER_VERSION!r}"
             )
         hist = _require_mapping(data.get("historical_compatibility"), "historical_compatibility")
         if hist.get("not_a_second_schema_authority") is not True:
@@ -540,15 +560,42 @@ def validate_register_document(data: dict[str, Any]) -> None:
             raise SchemaRegisterError(
                 f"historical_compatibility.active_authority must be {ACTIVE_REGISTER_VERSION!r}"
             )
-        if hist.get("immediate_predecessor_version") != HISTORICAL_S2_REGISTER_VERSION:
+        if hist.get("immediate_predecessor_version") != HISTORICAL_RC61_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "historical_compatibility.immediate_predecessor_version must be "
-                f"{HISTORICAL_S2_REGISTER_VERSION!r}"
+                f"{HISTORICAL_RC61_REGISTER_VERSION!r}"
             )
-        if hist.get("earlier_historical_compatibility_version") != HISTORICAL_S1_REGISTER_VERSION:
+        if hist.get("earlier_historical_compatibility_version") != HISTORICAL_S2_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "historical_compatibility.earlier_historical_compatibility_version must be "
+                f"{HISTORICAL_S2_REGISTER_VERSION!r}"
+            )
+        if hist.get("earliest_historical_compatibility_version") != HISTORICAL_S1_REGISTER_VERSION:
+            raise SchemaRegisterError(
+                "historical_compatibility.earliest_historical_compatibility_version must be "
                 f"{HISTORICAL_S1_REGISTER_VERSION!r}"
+            )
+        hist_versions = hist.get("historical_register_versions")
+        if not isinstance(hist_versions, list) or set(hist_versions) != set(
+            HISTORICAL_REGISTER_VERSIONS
+        ):
+            raise SchemaRegisterError(
+                "historical_compatibility.historical_register_versions must list exactly "
+                f"{sorted(HISTORICAL_REGISTER_VERSIONS)}"
+            )
+        _require_mapping(data.get("recursive_inventory_helper"), "recursive_inventory_helper")
+    elif version == HISTORICAL_RC61_REGISTER_VERSION:
+        # Frozen rc6.1 documents retain their freeze-time historical_compatibility
+        # block naming rc6.1 as active_authority; they are never the loader default.
+        if data.get("family") != "rc6_remediation_canonical_schema":
+            raise SchemaRegisterError(
+                "historical rc6.1 register family must be 'rc6_remediation_canonical_schema'"
+            )
+        hist = _require_mapping(data.get("historical_compatibility"), "historical_compatibility")
+        if hist.get("not_a_second_schema_authority") is not True:
+            raise SchemaRegisterError(
+                "historical rc6.1 register historical_compatibility.not_a_second_schema_authority "
+                "must be true"
             )
         _require_mapping(data.get("recursive_inventory_helper"), "recursive_inventory_helper")
     elif version == HISTORICAL_S2_REGISTER_VERSION:
@@ -646,18 +693,19 @@ def load_canonical_register(
 
 
 def load_active_register() -> CanonicalSchemaRegister:
-    """Load the single active rc6.1 canonical authority."""
+    """Load the single active rc6.2 canonical authority."""
     reg = load_canonical_register(version=ACTIVE_REGISTER_VERSION)
     if not reg.is_active_authority:
-        raise SchemaRegisterError("active register load did not yield rc6.1 authority")
+        raise SchemaRegisterError("active register load did not yield rc6.2 authority")
     return reg
 
 
 def load_historical_register(version: str) -> CanonicalSchemaRegister:
     """Explicit historical-version load (compatibility only; never the default).
 
-    Accepts only the two fixed historical versions:
-    rc5-phase4-s2.1 and rc5-phase4-s1.1. Unsupported versions fail closed.
+    Accepts only the fixed historical versions:
+    rc6.1, rc5-phase4-s2.1, and rc5-phase4-s1.1. Unsupported versions fail closed.
+    Evidence content cannot select the active/historical authority.
     """
     if version not in HISTORICAL_REGISTER_VERSIONS:
         raise SchemaRegisterError(
@@ -665,6 +713,8 @@ def load_historical_register(version: str) -> CanonicalSchemaRegister:
             f"(accepted: {sorted(HISTORICAL_REGISTER_VERSIONS)})"
         )
     reg = load_canonical_register(version=version)
+    if version == HISTORICAL_RC61_REGISTER_VERSION and not reg.is_historical_rc61:
+        raise SchemaRegisterError("historical rc6.1 load did not yield rc6.1 register")
     if version == HISTORICAL_S2_REGISTER_VERSION and not reg.is_historical_s2:
         raise SchemaRegisterError("historical S2 load did not yield S2 register")
     if version == HISTORICAL_S1_REGISTER_VERSION and not reg.is_historical_s1:
@@ -672,6 +722,11 @@ def load_historical_register(version: str) -> CanonicalSchemaRegister:
     if reg.is_active_authority:
         raise SchemaRegisterError("historical load must not yield active authority")
     return reg
+
+
+def load_historical_rc61_register() -> CanonicalSchemaRegister:
+    """Convenience wrapper for explicit rc6.1 historical load."""
+    return load_historical_register(HISTORICAL_RC61_REGISTER_VERSION)
 
 
 def load_historical_s1_register() -> CanonicalSchemaRegister:

@@ -5,7 +5,10 @@
 # canonical values. grok_build_detached_head records whether the source clone
 # was checked out at a detached HEAD (yes|no). cargo_lock_sha256_before is the
 # SHA-256 of Cargo.lock as acquired (or NOT_REACHED on an early failure path).
+# RC6-R3: run_id required; expected/observed Grok Build commits must match when
+# both are present and neither is NOT_REACHED.
 evidence_schema_version=1
+run_id=<run-id-token>
 status=OK
 grok_build_commit_expected=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 grok_build_commit_observed=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce

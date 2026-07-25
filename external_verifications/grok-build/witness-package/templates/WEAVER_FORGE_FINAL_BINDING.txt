@@ -1,0 +1,36 @@
+# WEAVER_FORGE_FINAL_BINDING.txt — required fields (evidence_schema_version=1, RC6-R3)
+#
+# Host-owned final binding record. Written atomically once after final manifest
+# generation and manifest SHA-256 calculation. Immutable after successful write.
+# Not listed in EVIDENCE_MANIFEST.sha256 (it seals that manifest).
+#
+# Validator recomputes final_manifest_sha256 from EVIDENCE_MANIFEST.sha256 bytes
+# and cross-binds every tuple field against authoritative sources
+# (WFPI / BUILD_EXIT / HOST_OUTCOME / POST_BUILD / SOURCE_IDENTITY /
+# ARTIFACT_IDENTITY). artifact_sha256 / artifact_byte_size use NOT_APPLICABLE
+# when ARTIFACT_IDENTITY applicable=no.
+#
+# Exact ordered field set (writer / template / validator / fixtures must match):
+# evidence_schema_version, run_id, package_version, canonical_tag, tag_object_id,
+# peeled_commit, grok_build_source_commit, authoritative_outcome, artifact_sha256,
+# artifact_byte_size, final_manifest_sha256, package_identity_ref,
+# build_exit_code_ref, host_outcome_ingestion_ref, post_build_integrity_ref,
+# source_identity_ref, artifact_identity_ref, evidence_manifest_ref
+evidence_schema_version=1
+run_id=<run-id-token>
+package_version=1.0.0-rc5
+canonical_tag=grok-build-witness-v1.0.0-rc5
+tag_object_id=<40-char lowercase hex annotated tag object id>
+peeled_commit=<40-char lowercase hex peeled commit>
+grok_build_source_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+authoritative_outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+artifact_sha256=<64-char lowercase hex sha256 OR NOT_APPLICABLE>
+artifact_byte_size=<numeric byte count OR NOT_APPLICABLE>
+final_manifest_sha256=<64-char lowercase hex sha256 of EVIDENCE_MANIFEST.sha256 bytes>
+package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
+build_exit_code_ref=BUILD_EXIT_CODE.txt
+host_outcome_ingestion_ref=HOST_OUTCOME_INGESTION.txt
+post_build_integrity_ref=POST_BUILD_INTEGRITY.txt
+source_identity_ref=SOURCE_IDENTITY.txt
+artifact_identity_ref=ARTIFACT_IDENTITY.txt
+evidence_manifest_ref=EVIDENCE_MANIFEST.sha256

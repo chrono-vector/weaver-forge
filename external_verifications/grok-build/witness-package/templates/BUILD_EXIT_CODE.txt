@@ -10,7 +10,9 @@
 # exactly NOT_APPLICABLE (never "N/A") when cargo never started.
 # status is OK when the run fully succeeded (artifact present AND static
 # inspection complete) and FAILED otherwise.
+# RC6-R3: run_id echoes Host RUN_ID (Docker -e); Host must not write/repair.
 evidence_schema_version=1
+run_id=<run-id-token>
 status=OK
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
 cargo_started=YES

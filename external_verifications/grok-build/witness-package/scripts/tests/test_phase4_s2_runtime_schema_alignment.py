@@ -175,15 +175,15 @@ def _read_kv(path: Path, key: str) -> str:
 
 class S2RegisterAndLoaderTests(unittest.TestCase):
     def test_01_s2_register_parses_and_supersedes_s1(self) -> None:
-        # S2 is historical under RC6-R1; active authority is rc6.1.
+        # S2 is historical under RC6; active authority is rc6.2.
         s2 = srl.load_historical_s2_register()
         s1 = srl.load_historical_s1_register()
         active = srl.load_active_register()
-        self.assertEqual(active.schema_register_version, "rc6.1")
+        self.assertEqual(active.schema_register_version, "rc6.2")
         self.assertEqual(s2.schema_register_version, "rc5-phase4-s2.1")
         self.assertEqual(s1.schema_register_version, "rc5-phase4-s1.1")
         self.assertEqual(s2.supersession().get("supersedes"), "rc5-phase4-s1.1")
-        self.assertEqual(active.supersession().get("supersedes"), "rc5-phase4-s2.1")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.1")
         self.assertTrue(s2.historical_compatibility().get("not_a_second_schema_authority"))
         self.assertTrue(active.historical_compatibility().get("not_a_second_schema_authority"))
         self.assertTrue(S1_REGISTER.is_file())
@@ -201,16 +201,19 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
     def test_02_loader_defaults_s2_explicit_s1_unsupported_fail_closed(self) -> None:
         default = srl.load_canonical_register()
         self.assertEqual(default.schema_register_version, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(default.schema_register_version, "rc6.1")
+        self.assertEqual(default.schema_register_version, "rc6.2")
         hist_s1 = srl.load_historical_register(srl.HISTORICAL_S1_REGISTER_VERSION)
         self.assertTrue(hist_s1.is_historical_s1)
         hist_s2 = srl.load_historical_register(srl.HISTORICAL_S2_REGISTER_VERSION)
         self.assertTrue(hist_s2.is_historical_s2)
+        hist_rc61 = srl.load_historical_register("rc6.1")
+        self.assertTrue(hist_rc61.is_historical_rc61)
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_canonical_register(version="rc5-phase4-s9.9")
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.1")
-
+            srl.load_historical_register("rc6.2")
+        with self.assertRaises(srl.SchemaRegisterError):
+            srl.load_historical_register("rc7.0")
     def test_03_s1_historical_future_targets_preserved_and_s2_activates(self) -> None:
         s1 = srl.load_historical_s1_register()
         pkg = next(
@@ -592,7 +595,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         tree = _mktmp()
         fx.write_tree(tree, files)
         # Final S2 deviations ok.
-        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION)
+        errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
         # Preliminary S2 deviations require automated_summary.
@@ -615,7 +618,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         # Ensure HOST_OUTCOME present for prelim.
         tree2 = _mktmp()
         fx.write_tree(tree2, files2)
-        errors2 = v.validate_dir(tree2, mode=v.MODE_HOST_PRELIMINARY)
+        errors2 = v.validate_dir(tree2, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertEqual(errors2, [], errors2)
 
         # Mode crossover: automated_summary in final mode rejected.
@@ -624,7 +627,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         files3["HOST_OUTCOME_INGESTION.txt"] = files["HOST_OUTCOME_INGESTION.txt"]
         tree3 = _mktmp()
         fx.write_tree(tree3, files3)
-        errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION)
+        errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(any("mode crossover" in e for e in errors3), errors3)
 
         # Illegal S2 observed type.
@@ -636,7 +639,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         files4["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = bad_pkg
         tree4 = _mktmp()
         fx.write_tree(tree4, files4)
-        errors4 = v.validate_dir(tree4)
+        errors4 = v.validate_dir(tree4, schema_register_version="rc6.1")
         self.assertTrue(any("raw_object_type_observed" in e for e in errors4), errors4)
 
         # Finalized S2 package rejecting leftover NOT_REACHED.
@@ -644,7 +647,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         files5["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]
         tree5 = _mktmp()
         fx.write_tree(tree5, files5)
-        errors5 = v.validate_dir(tree5)
+        errors5 = v.validate_dir(tree5, schema_register_version="rc6.1")
         self.assertTrue(
             any("initialization-only" in e or "NOT_REACHED" in e for e in errors5),
             errors5,
@@ -677,7 +680,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         # Final mode requires manuals; keep from build_scenario.
         tree6 = _mktmp()
         fx.write_tree(tree6, files6)
-        errors6 = v.validate_dir(tree6)
+        errors6 = v.validate_dir(tree6, schema_register_version="rc6.1")
         self.assertEqual(errors6, [], errors6)
 
     def test_09_historical_fixtures_not_required_to_have_s2_fields(self) -> None:
@@ -685,9 +688,9 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertNotIn("weaver_forge_tag_peeled_commit=", pkg)
-        errors = v.validate_dir(FIXTURES / "success-artifact-present")
+        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
-        errors2 = v.validate_dir(FIXTURES / "image-pull-failure")
+        errors2 = v.validate_dir(FIXTURES / "image-pull-failure", schema_register_version="rc6.1")
         self.assertEqual(errors2, [], errors2)
         boot = (FIXTURES / "image-pull-failure" / "BOOTSTRAP.txt").read_text(encoding="utf-8")
         self.assertIn("status=NOT_REACHED", boot)
@@ -704,7 +707,7 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
             for p in tree.iterdir()
             if p.is_file()
         }
-        errors = v.validate_dir(tree, host_preliminary=True)
+        errors = v.validate_dir(tree, host_preliminary=True, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         for name, (mtime, data) in before.items():
             p = tree / name

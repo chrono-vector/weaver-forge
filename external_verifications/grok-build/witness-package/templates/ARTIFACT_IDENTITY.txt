@@ -6,7 +6,9 @@
 # When artifact_present=yes, artifact_sha256 (64-char lowercase hex),
 # artifact_size_bytes (numeric), artifact_filename, and artifact_path are all
 # required. When artifact_present=no, a non-empty reason is required.
+# RC6-R3: run_id required.
 evidence_schema_version=1
+run_id=<run-id-token>
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
 applicable=yes
 artifact_present=yes

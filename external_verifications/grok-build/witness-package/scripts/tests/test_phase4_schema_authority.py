@@ -226,7 +226,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             for p in tree.iterdir()
             if p.is_file()
         }
-        errors = v.validate_dir(tree, host_preliminary=True)
+        errors = v.validate_dir(tree, host_preliminary=True, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         after = {p.name for p in tree.iterdir() if p.is_file()}
         self.assertEqual(after, set(before))
@@ -243,9 +243,9 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         tree = _copy_success_without_manuals(_mktmp())
         for name in MANUAL_FILES:
             self.assertFalse((tree / name).exists())
-        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY)
+        errors = v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
-        rc = v.main([str(tree), "--host-preliminary"])
+        rc = v.main([str(tree), "--host-preliminary", "--schema-register-version", "rc6.1"])
         self.assertEqual(rc, 0)
 
     def test_12_manual_looking_fixture_content_not_required(self) -> None:
@@ -256,7 +256,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         fx.write_tree(tree, files)
         # Ensure HOST_OUTCOME present for preliminary.
         self.assertTrue((tree / v.HOST_OUTCOME_INGESTION_NAME).is_file())
-        errors = v.validate_dir(tree, host_preliminary=True)
+        errors = v.validate_dir(tree, host_preliminary=True, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         host = (tree / v.HOST_OUTCOME_INGESTION_NAME).read_text(encoding="utf-8")
         self.assertIn("preliminary_success_eligible=NO", host)
@@ -268,7 +268,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
 
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = v.main([str(tree), "--final-submission"])
+            rc = v.main([str(tree), "--final-submission", "--schema-register-version", "rc6.1"])
         self.assertEqual(rc, 0)
         out = buf.getvalue()
         self.assertIn("final-submission structural PASS", out)
@@ -326,12 +326,12 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             variants_s1["early_failure_not_applicable_target"]["activation"],
             "defined_future_s2_writer_alignment",
         )
-        # Active rc6 register supersedes S2 and retains S2 writer-aligned activations.
+        # Active rc6 register supersedes rc6.1 and retains S2 writer-aligned activations.
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.1")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
         self.assertEqual(
             v._SCHEMA_REGISTER.supersession().get("supersedes"),
-            srl.HISTORICAL_S2_REGISTER_VERSION,
+            srl.HISTORICAL_RC61_REGISTER_VERSION,
         )
         boot_active = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
         variants_active = {x["variant_id"]: x for x in boot_active["conditional_variants"]}
@@ -353,7 +353,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
 
 class HistoricalNonModificationSmoke(unittest.TestCase):
     def test_15_default_mode_still_validates_existing_fixture(self) -> None:
-        errors = v.validate_dir(FIXTURES / "success-artifact-present")
+        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
 

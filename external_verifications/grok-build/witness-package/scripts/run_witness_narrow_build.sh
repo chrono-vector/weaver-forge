@@ -147,6 +147,7 @@ readonly OUTCOME_NONTERMINAL_SENTINELS=(
 readonly HOST_OUTCOME_INGESTION_SCHEMA_VERSION="1"
 readonly HOST_OUTCOME_INGESTION_FILE_NAME="HOST_OUTCOME_INGESTION.txt"
 readonly POST_BUILD_INTEGRITY_FILE_NAME="POST_BUILD_INTEGRITY.txt"
+readonly FINAL_BINDING_FILE_NAME="WEAVER_FORGE_FINAL_BINDING.txt"
 # Phase 3F-B host-owned validator observation (outside EVIDENCE_DIR; never in manifest).
 readonly VALIDATOR_RESULT_SCHEMA_VERSION="1"
 readonly VALIDATOR_RESULT_FILE_NAME="VALIDATOR_RESULT.txt"
@@ -199,6 +200,8 @@ FAILURE_STAGE="none"
 
 WF_TAG_RAW_OBJECT_TYPE=""
 WF_TAG_REF=""
+WF_TAG_OBJECT_ID=""
+BASE_PACKAGE_IDENTITY_CLOSED="no"
 EVIDENCE_DIR=""
 # Pre-Docker source integrity snapshot (Phase 2B); filled before docker run.
 PRE_DOCKER_SRC_HEAD=""
@@ -396,6 +399,22 @@ reject_field_newlines() {
     return 1
   fi
   return 0
+}
+
+# Safe token grammar (matches validate_witness_evidence.is_safe_token):
+# non-empty, ^[a-zA-Z0-9._-]+$, no whitespace, no path separators, no "..".
+is_safe_token() {
+  local value="$1"
+  if [[ -z "${value}" ]]; then
+    return 1
+  fi
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* || "${value}" == *" "* || "${value}" == *$'\t'* ]]; then
+    return 1
+  fi
+  if [[ "${value}" == *"/"* || "${value}" == *"\\"* || "${value}" == *".."* ]]; then
+    return 1
+  fi
+  [[ "${value}" =~ ^[a-zA-Z0-9._-]+$ ]]
 }
 
 # Atomic same-directory write + rename for host-owned evidence. No eval.
@@ -710,8 +729,21 @@ parse_container_result_tuple() {
   PARSED_SCHEMA_VERSION="$(read_kv_strict "${build_exit_file}" "evidence_schema_version")"
   PARSED_FAILURE_STAGE="$(read_kv_strict "${build_exit_file}" "failure_stage")"
   PARSED_RUN_ID="$(read_kv_strict "${build_exit_file}" "run_id")"
-  if [[ -z "${PARSED_RUN_ID}" && -n "${RUN_ID:-}" ]]; then
-    PARSED_RUN_ID="${RUN_ID}"
+  # RC6-R3: no Host RUN_ID fallback — container must emit run_id explicitly.
+  if [[ -z "${PARSED_RUN_ID}" ]]; then
+    CONTAINER_RESULT_ERROR="missing_run_id"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if ! is_safe_token "${PARSED_RUN_ID}"; then
+    CONTAINER_RESULT_ERROR="invalid_run_id"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
+  fi
+  if [[ "${PARSED_RUN_ID}" != "${RUN_ID}" ]]; then
+    CONTAINER_RESULT_ERROR="mismatch_run_id"
+    CONTAINER_RESULT_VALID="NO"
+    return 1
   fi
 
   # artifact_present: explicit only — BUILD_EXIT_CODE or ARTIFACT_IDENTITY.
@@ -783,6 +815,14 @@ parse_container_result_tuple() {
 }
 
 # Build HOST_OUTCOME_INGESTION.txt content on stdout (caller pipes to atomic writer).
+# Exact field order (RC6-R3): schema_version, status, container_result_presence,
+# container_result_valid, container_result_error, container_outcome,
+# container_exit_code, cargo_started, cargo_exit_code, artifact_present,
+# artifact_identity_complete, static_inspection_complete,
+# host_infrastructure_status, host_source_integrity_status,
+# post_build_integrity_status, evidence_completeness_status,
+# preliminary_success_eligible, record_owner, container_run_id, run_id,
+# failure_stage.
 _host_outcome_ingestion_body() {
   local status="$1"
   local container_outcome_field="${PARSED_CONTAINER_OUTCOME}"
@@ -812,7 +852,10 @@ _host_outcome_ingestion_body() {
   printf '%s\n' "evidence_completeness_status=${HOST_EVIDENCE_COMPLETENESS_STATUS}"
   printf '%s\n' "preliminary_success_eligible=NO"
   printf '%s\n' "record_owner=HOST"
-  printf '%s\n' "run_id=${PARSED_RUN_ID:-${RUN_ID:-}}"
+  # RC6-R3: container_run_id from parsed container only (may be empty when invalid);
+  # run_id is Host RUN_ID only — never PARSED_RUN_ID fallback.
+  printf '%s\n' "container_run_id=${PARSED_RUN_ID}"
+  printf '%s\n' "run_id=${RUN_ID}"
   printf '%s\n' "failure_stage=${FAILURE_STAGE:-none}"
 }
 
@@ -845,6 +888,20 @@ write_host_outcome_ingestion_record() {
   reject_field_newlines "failure_stage" "${FAILURE_STAGE:-none}" || return 1
   reject_field_newlines "host_infrastructure_status" "${HOST_INFRASTRUCTURE_STATUS}" || return 1
   reject_field_newlines "host_source_integrity_status" "${HOST_SOURCE_INTEGRITY_STATUS}" || return 1
+  reject_field_newlines "run_id" "${RUN_ID:-}" || return 1
+
+  # RC6-R3: when container result is valid, require non-empty PARSED_RUN_ID == Host RUN_ID
+  # before writing success-path records. container_outcome remains parsed-only.
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" ]]; then
+    if [[ -z "${PARSED_RUN_ID}" || "${PARSED_RUN_ID}" != "${RUN_ID}" ]]; then
+      echo "write_host_outcome_ingestion_record: valid container requires PARSED_RUN_ID equal to Host RUN_ID" >&2
+      return 1
+    fi
+    if [[ -z "${PARSED_CONTAINER_OUTCOME}" ]] || ! is_allowed_outcome "${PARSED_CONTAINER_OUTCOME}"; then
+      echo "write_host_outcome_ingestion_record: valid container requires parsed container_outcome" >&2
+      return 1
+    fi
+  fi
 
   fingerprint="$(_host_outcome_ingestion_fingerprint "${status}")"
   if [[ "${HOST_OUTCOME_INGESTION_WRITTEN}" == "YES" ]]; then
@@ -876,10 +933,10 @@ write_host_outcome_ingestion_record() {
 # status=OK iff post_build_integrity_ok=yes; otherwise status=FAILED.
 # NOT_APPLICABLE is prohibited as a final POST_BUILD status.
 # Exact ordered field set (must match template / validator / fixtures):
-#   evidence_schema_version, status, outcome, source_head_before,
-#   source_head_after, source_head_unchanged, source_clean_before,
-#   source_clean_after, cargo_lock_sha256_before, cargo_lock_sha256_after,
-#   cargo_lock_unchanged, cargo_lock_post_matches_expected,
+#   evidence_schema_version, run_id, status, outcome, authoritative_outcome,
+#   source_head_before, source_head_after, source_head_unchanged,
+#   source_clean_before, source_clean_after, cargo_lock_sha256_before,
+#   cargo_lock_sha256_after, cargo_lock_unchanged, cargo_lock_post_matches_expected,
 #   source_or_lock_changed, artifact_path, artifact_exists, docker_exit_code,
 #   failure_stage, evidence_inventory_complete,
 #   full_integrity_gate_all_four_yes, full_integrity_gate_note,
@@ -952,6 +1009,7 @@ prepare_failed_host_post_build_defaults() {
 write_host_post_build_integrity_record() {
   local dest
   local source_or_lock_changed
+  local authoritative_outcome
   if [[ -z "${EVIDENCE_DIR:-}" || ! -d "${EVIDENCE_DIR}" ]]; then
     echo "write_host_post_build_integrity_record: evidence directory unavailable" >&2
     return 1
@@ -960,6 +1018,7 @@ write_host_post_build_integrity_record() {
   reject_field_newlines "outcome" "${OUTCOME:-}" || return 1
   reject_field_newlines "failure_stage" "${FAILURE_STAGE:-none}" || return 1
   reject_field_newlines "artifact_path" "${ARTIFACT_PATH:-}" || return 1
+  reject_field_newlines "run_id" "${RUN_ID:-}" || return 1
 
   if [[ "${SOURCE_HEAD_UNCHANGED}" == "yes" && "${CARGO_LOCK_UNCHANGED}" == "yes" ]]; then
     source_or_lock_changed="no"
@@ -969,10 +1028,20 @@ write_host_post_build_integrity_record() {
   SOURCE_OR_LOCK_CHANGED="${source_or_lock_changed}"
   apply_host_post_build_status_policy
 
+  # RC6-R3: authoritative_outcome from parsed container when valid; else OUTCOME.
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" && -n "${PARSED_CONTAINER_OUTCOME}" ]]; then
+    authoritative_outcome="${PARSED_CONTAINER_OUTCOME}"
+  else
+    authoritative_outcome="${OUTCOME}"
+  fi
+  reject_field_newlines "authoritative_outcome" "${authoritative_outcome}" || return 1
+
   if ! {
     echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
     echo "status=${POST_BUILD_STATUS}"
     echo "outcome=${OUTCOME}"
+    echo "authoritative_outcome=${authoritative_outcome}"
     echo "source_head_before=${SRC_HEAD}"
     echo "source_head_after=${SRC_HEAD_AFTER}"
     echo "source_head_unchanged=${SOURCE_HEAD_UNCHANGED}"
@@ -996,6 +1065,94 @@ write_host_post_build_integrity_record() {
     return 1
   fi
   PRELIMINARY_SUCCESS_ELIGIBLE="NO"
+  return 0
+}
+
+# RC6-R3: write WEAVER_FORGE_FINAL_BINDING.txt atomically once after a successful
+# preliminary EVIDENCE_MANIFEST.sha256 write. Not written on R2 incomplete-marker paths.
+write_weaver_forge_final_binding() {
+  local dest manifest_path artifact_file
+  local final_manifest_sha256 authoritative_outcome
+  local artifact_sha256 artifact_byte_size artifact_applicable
+  local raw_sha raw_size
+
+  if [[ -z "${EVIDENCE_DIR:-}" || ! -d "${EVIDENCE_DIR}" ]]; then
+    echo "write_weaver_forge_final_binding: evidence directory unavailable" >&2
+    return 1
+  fi
+  manifest_path="${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
+  if [[ ! -f "${manifest_path}" ]]; then
+    echo "write_weaver_forge_final_binding: EVIDENCE_MANIFEST.sha256 missing" >&2
+    return 1
+  fi
+  if [[ -z "${WF_TAG_OBJECT_ID:-}" || "${WF_TAG_OBJECT_ID}" == "UNKNOWN" || ! "${WF_TAG_OBJECT_ID}" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "write_weaver_forge_final_binding: WF_TAG_OBJECT_ID missing or invalid" >&2
+    return 1
+  fi
+
+  dest="${EVIDENCE_DIR}/${FINAL_BINDING_FILE_NAME}"
+  if [[ -e "${dest}" ]]; then
+    echo "write_weaver_forge_final_binding: refusing to overwrite existing ${FINAL_BINDING_FILE_NAME}" >&2
+    return 1
+  fi
+
+  final_manifest_sha256="$(sha256_of "${manifest_path}")"
+  if [[ -z "${final_manifest_sha256}" || ! "${final_manifest_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "write_weaver_forge_final_binding: could not hash EVIDENCE_MANIFEST.sha256" >&2
+    return 1
+  fi
+
+  if [[ "${CONTAINER_RESULT_VALID}" == "YES" && -n "${PARSED_CONTAINER_OUTCOME}" ]]; then
+    authoritative_outcome="${PARSED_CONTAINER_OUTCOME}"
+  else
+    authoritative_outcome="${OUTCOME}"
+  fi
+
+  artifact_sha256="NOT_APPLICABLE"
+  artifact_byte_size="NOT_APPLICABLE"
+  artifact_file="${EVIDENCE_DIR}/ARTIFACT_IDENTITY.txt"
+  if [[ -f "${artifact_file}" ]]; then
+    artifact_applicable="$(read_kv_strict "${artifact_file}" "applicable")"
+    if [[ "${artifact_applicable}" == "yes" ]]; then
+      raw_sha="$(read_kv_strict "${artifact_file}" "artifact_sha256")"
+      raw_size="$(read_kv_strict "${artifact_file}" "artifact_size_bytes")"
+      if [[ -n "${raw_sha}" ]]; then
+        artifact_sha256="${raw_sha}"
+      fi
+      if [[ -n "${raw_size}" ]]; then
+        artifact_byte_size="${raw_size}"
+      fi
+    fi
+  fi
+
+  reject_field_newlines "run_id" "${RUN_ID}" || return 1
+  reject_field_newlines "authoritative_outcome" "${authoritative_outcome}" || return 1
+  reject_field_newlines "artifact_sha256" "${artifact_sha256}" || return 1
+  reject_field_newlines "artifact_byte_size" "${artifact_byte_size}" || return 1
+
+  if ! {
+    echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
+    echo "package_version=${PACKAGE_VERSION}"
+    echo "canonical_tag=${EFFECTIVE_WEAVER_FORGE_TAG}"
+    echo "tag_object_id=${WF_TAG_OBJECT_ID}"
+    echo "peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT}"
+    echo "grok_build_source_commit=${EFFECTIVE_GROK_BUILD_COMMIT}"
+    echo "authoritative_outcome=${authoritative_outcome}"
+    echo "artifact_sha256=${artifact_sha256}"
+    echo "artifact_byte_size=${artifact_byte_size}"
+    echo "final_manifest_sha256=${final_manifest_sha256}"
+    echo "package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    echo "build_exit_code_ref=BUILD_EXIT_CODE.txt"
+    echo "host_outcome_ingestion_ref=HOST_OUTCOME_INGESTION.txt"
+    echo "post_build_integrity_ref=POST_BUILD_INTEGRITY.txt"
+    echo "source_identity_ref=SOURCE_IDENTITY.txt"
+    echo "artifact_identity_ref=ARTIFACT_IDENTITY.txt"
+    echo "evidence_manifest_ref=EVIDENCE_MANIFEST.sha256"
+  } | write_evidence_file_atomic "${dest}"; then
+    echo "write_weaver_forge_final_binding: atomic write failed for ${dest}" >&2
+    return 1
+  fi
   return 0
 }
 
@@ -1561,7 +1718,7 @@ verify_host_validator_result_bindings() {
   return 0
 }
 
-# Invoke repository validator in host-preliminary mode after preliminary manifest.
+# Invoke repository validator in host-preliminary mode after final binding.
 # Always attempts to write VALIDATOR_RESULT (errexit cannot bypass recording).
 # Does not modify EVIDENCE_DIR after invocation. Never called from failure finalizers.
 invoke_host_preliminary_validator() {
@@ -2047,6 +2204,7 @@ allocate_atomic_evidence_dir() {
 
 # Require raw annotated-tag object type before checkout acceptance and before
 # any Docker CLI invocation (RC4B-005). Accepted value is exactly "tag".
+# Also captures annotated tag object ID (RC6-R3) when type is tag.
 assert_raw_annotated_package_tag_type() {
   local tag_ref="refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}"
   local observed=""
@@ -2060,6 +2218,7 @@ assert_raw_annotated_package_tag_type() {
   fi
 
   if [[ "${observed}" != "tag" ]]; then
+    WF_TAG_OBJECT_ID="NOT_REACHED"
     {
       echo "evidence_schema_version=1"
       echo "status=FAILED"
@@ -2072,6 +2231,7 @@ assert_raw_annotated_package_tag_type() {
       echo "weaver_forge_tag_ref=${tag_ref}"
       echo "weaver_forge_tag_raw_object_type_required=tag"
       echo "weaver_forge_tag_raw_object_type_observed=${observed:-<empty>}"
+      echo "weaver_forge_tag_object_id=${WF_TAG_OBJECT_ID}"
       echo "weaver_forge_tag_peeled_commit=NOT_REACHED"
       echo "weaver_forge_commit_resolved=NOT_REACHED"
       echo "package_clone_head=NOT_REACHED"
@@ -2085,6 +2245,39 @@ assert_raw_annotated_package_tag_type() {
     } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
     finalize_pre_docker_infrastructure_failure "weaver_forge_tag_raw_object_type" 3 \
       "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} raw object type must be 'tag' (annotated); observed='${observed:-<empty>}'"
+  fi
+
+  # RC6-R3: annotated tag object ID (not the peeled commit). Fail closed if
+  # missing / UNKNOWN / not full 40-char lowercase hex.
+  WF_TAG_OBJECT_ID="$(git -C "${WF_DIR}" rev-parse "${tag_ref}" 2>/dev/null || true)"
+  if [[ -z "${WF_TAG_OBJECT_ID}" || "${WF_TAG_OBJECT_ID}" == "UNKNOWN" || ! "${WF_TAG_OBJECT_ID}" =~ ^[0-9a-f]{40}$ ]]; then
+    WF_TAG_OBJECT_ID="${WF_TAG_OBJECT_ID:-UNKNOWN}"
+    {
+      echo "evidence_schema_version=1"
+      echo "status=FAILED"
+      echo "reason=package_tag_object_id_invalid"
+      echo "witness_id=${WITNESS_ID}"
+      echo "run_id=${RUN_ID}"
+      echo "package_version=${PACKAGE_VERSION}"
+      echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
+      echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
+      echo "weaver_forge_tag_ref=${tag_ref}"
+      echo "weaver_forge_tag_raw_object_type_required=tag"
+      echo "weaver_forge_tag_raw_object_type_observed=${observed}"
+      echo "weaver_forge_tag_object_id=${WF_TAG_OBJECT_ID}"
+      echo "weaver_forge_tag_peeled_commit=NOT_REACHED"
+      echo "weaver_forge_commit_resolved=NOT_REACHED"
+      echo "package_clone_head=NOT_REACHED"
+      echo "package_clone_detached=no"
+      echo "package_clone_clean_status=no"
+      echo "tag_head_match=no"
+      echo "package_commit_authority=annotated_tag_resolution"
+      echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
+      echo "canonical_run=no"
+      echo "noncanonical_disclosure=tag_object_id_not_40_char_hex"
+    } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+    finalize_pre_docker_infrastructure_failure "weaver_forge_tag_object_id" 3 \
+      "Weaver Forge tag ${EFFECTIVE_WEAVER_FORGE_TAG} object ID must be 40-char lowercase hex; observed='${WF_TAG_OBJECT_ID}'"
   fi
 }
 
@@ -2554,6 +2747,10 @@ finalize_pre_docker_infrastructure_failure() {
   for f in "${pre_gate_sensitive[@]}"; do
     path="${EVIDENCE_DIR}/${f}"
     if [[ "${f}" == "WEAVER_FORGE_PACKAGE_IDENTITY.txt" ]]; then
+      # RC6-R3: refuse mutation after successful base package identity closure.
+      if [[ "${BASE_PACKAGE_IDENTITY_CLOSED}" == "yes" ]]; then
+        continue
+      fi
       {
         echo "evidence_schema_version=1"
         echo "status=FAILED"
@@ -2565,6 +2762,7 @@ finalize_pre_docker_infrastructure_failure() {
         echo "weaver_forge_tag_ref=${WF_TAG_REF:-refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG:-NOT_REACHED}}"
         echo "weaver_forge_tag_raw_object_type_required=tag"
         echo "weaver_forge_tag_raw_object_type_observed=${WF_TAG_RAW_OBJECT_TYPE:-NOT_REACHED}"
+        echo "weaver_forge_tag_object_id=${WF_TAG_OBJECT_ID:-NOT_REACHED}"
         echo "weaver_forge_tag_peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT:-NOT_REACHED}"
         echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT:-NOT_REACHED}"
         echo "package_clone_head=${WF_HEAD:-NOT_REACHED}"
@@ -2576,6 +2774,21 @@ finalize_pre_docker_infrastructure_failure() {
         echo "canonical_run=no"
         echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
         echo "noncanonical_disclosure=pre_docker_infrastructure_failure"
+      } > "${path}"
+    elif [[ "${f}" == "SOURCE_IDENTITY.txt" ]]; then
+      {
+        echo "evidence_schema_version=1"
+        echo "run_id=${RUN_ID:-NOT_REACHED}"
+        echo "status=FAILED"
+        echo "outcome=INFRASTRUCTURE_FAILURE"
+        echo "applicable=no"
+        echo "inspection_applicable=no"
+        echo "artifact_present=no"
+        echo "reason=pre_docker_infrastructure_failure_at_stage_${stage}"
+        echo "failure_stage=${stage}"
+        echo "cargo_started=NO"
+        echo "product_executed=NO"
+        echo "ldd_used=NO"
       } > "${path}"
     else
       {
@@ -3292,6 +3505,8 @@ EVIDENCE_DIR=""
 RUN_ID=""
 WF_TAG_RAW_OBJECT_TYPE=""
 WF_TAG_REF=""
+WF_TAG_OBJECT_ID=""
+BASE_PACKAGE_IDENTITY_CLOSED="no"
 HOST_FINALIZING_IN_PROGRESS="NO"
 HOST_OUTCOME_INGESTION_WRITTEN="NO"
 HOST_OUTCOME_INGESTION_FINGERPRINT=""
@@ -3632,7 +3847,16 @@ if [[ "${EXTERNAL_EXPECTED_SUPPLIED}" == "yes" && "${EXTERNAL_EXPECTED_MATCH}" !
     "WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT mismatch: external=${WEAVER_FORGE_EXTERNAL_EXPECTED_COMMIT} resolved_tag=${WEAVER_FORGE_RESOLVED_COMMIT} head=${WF_HEAD}"
 fi
 
-{
+# RC6-R3: successful base package identity — atomic write, then close against mutation.
+if [[ "${BASE_PACKAGE_IDENTITY_CLOSED}" == "yes" ]]; then
+  finalize_pre_docker_infrastructure_failure "weaver_forge_package_identity_already_closed" 3 \
+    "WEAVER_FORGE_PACKAGE_IDENTITY.txt already closed; refusing mutation"
+fi
+if [[ -z "${WF_TAG_OBJECT_ID}" || "${WF_TAG_OBJECT_ID}" == "UNKNOWN" || ! "${WF_TAG_OBJECT_ID}" =~ ^[0-9a-f]{40}$ ]]; then
+  finalize_pre_docker_infrastructure_failure "weaver_forge_tag_object_id_missing" 3 \
+    "Weaver Forge tag object ID missing or invalid at base identity closure"
+fi
+if ! {
   echo "evidence_schema_version=1"
   echo "status=OK"
   echo "witness_id=${WITNESS_ID}"
@@ -3643,6 +3867,7 @@ fi
   echo "weaver_forge_tag_ref=${WF_TAG_REF:-refs/tags/${EFFECTIVE_WEAVER_FORGE_TAG}}"
   echo "weaver_forge_tag_raw_object_type_required=tag"
   echo "weaver_forge_tag_raw_object_type_observed=${WF_TAG_RAW_OBJECT_TYPE}"
+  echo "weaver_forge_tag_object_id=${WF_TAG_OBJECT_ID}"
   echo "weaver_forge_tag_peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT}"
   echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
   echo "package_clone_head=${WF_HEAD}"
@@ -3656,7 +3881,11 @@ fi
   echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
   echo "canonical_run=$([[ "${NONCANONICAL_RUN}" -eq 1 ]] && echo no || echo yes)"
   echo "noncanonical_disclosure=${NONCANONICAL_DISCLOSURE_TEXT}"
-} > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+} | write_evidence_file_atomic "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"; then
+  finalize_pre_docker_infrastructure_failure "weaver_forge_package_identity_write_failed" 3 \
+    "WEAVER_FORGE_PACKAGE_IDENTITY.txt atomic write failed"
+fi
+BASE_PACKAGE_IDENTITY_CLOSED="yes"
 
 {
   echo "evidence_schema_version=1"
@@ -3710,6 +3939,7 @@ fi
 if [[ "${GB_DETACHED}" != "yes" ]]; then
   {
     echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
     echo "status=FAILED"
     echo "reason=grok_build_not_detached"
     echo "grok_build_detached_head=${GB_DETACHED}"
@@ -3720,6 +3950,7 @@ fi
 if [[ "${SRC_HEAD}" != "${EFFECTIVE_GROK_BUILD_COMMIT}" ]]; then
   {
     echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
     echo "status=FAILED"
     echo "reason=grok_build_commit_mismatch"
     echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
@@ -3731,6 +3962,7 @@ fi
 if [[ -n "${SRC_STATUS}" ]]; then
   {
     echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
     echo "status=FAILED"
     echo "reason=grok_build_dirty_clone"
   } > "${EVIDENCE_DIR}/SOURCE_IDENTITY.txt"
@@ -3756,6 +3988,7 @@ CARGO_LOCK_PRE_MATCH="no"
 if [[ "${CARGO_LOCK_PRE_MATCH}" != "yes" ]]; then
   {
     echo "evidence_schema_version=1"
+    echo "run_id=${RUN_ID}"
     echo "status=FAILED"
     echo "reason=cargo_lock_pre_docker_mismatch"
     echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
@@ -3769,6 +4002,7 @@ fi
 
 {
   echo "evidence_schema_version=1"
+  echo "run_id=${RUN_ID}"
   echo "status=OK"
   echo "grok_build_url=${EFFECTIVE_GROK_BUILD_URL}"
   echo "grok_build_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
@@ -3996,6 +4230,7 @@ DOCKER_RUN_ARGV+=(
   -e DOTSLASH_CACHE=/work/dotslash-cache
   -e TMPDIR=/work/tmp
   -e PATH=/work/cargo-home/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  -e RUN_ID="${RUN_ID}"
   -e GROK_BUILD_COMMIT="${EFFECTIVE_GROK_BUILD_COMMIT}"
   -e EXPECTED_CARGO_LOCK_SHA256="${EFFECTIVE_EXPECTED_CARGO_LOCK_SHA256}"
   -e CANONICAL_BUILD_CMD="${EFFECTIVE_BUILD_CMD}"
@@ -4245,8 +4480,19 @@ enforce_closed_aux_inventory
 
 # ---------------------------------------------------------------------------
 # STEP 21: Manifest lifecycle — preliminary manifest via recursive inventory helper.
+# RC6-R3 FM-C order (Pi conformance):
+#   1) finalize every manifest-covered evidence file (including HOST_RUN_METADATA)
+#   2) generate EVIDENCE_MANIFEST.sha256
+#   3) compute final_manifest_sha256 and write WEAVER_FORGE_FINAL_BINDING.txt
+#   4) invoke validator only after final binding (writes outside EVIDENCE_DIR)
+# No manifest-covered evidence may be mutated after step 2.
 # ---------------------------------------------------------------------------
 mark_stage "step21_manifest_generation"
+# Record seal-ready HOST_RUN_METADATA before manifest bytes are generated.
+append_host_run_metadata_entry "preliminary_manifest_generated" \
+  "manifest_generation=preliminary;recorded_before_manifest_bytes=yes;final_outcome=${OUTCOME};final_failure_stage=${FAILURE_STAGE};final_verdict_ceiling=${VERDICT_CEILING};final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK};final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
+append_host_run_metadata_entry "final_binding_written" \
+  "final_binding=${FINAL_BINDING_FILE_NAME};tag_object_id=${WF_TAG_OBJECT_ID};recorded_before_manifest_bytes=yes;write_follows_manifest=yes"
 {
   # Prefer the committed Python inventory helper for recursive fail-closed
   # enumeration and deterministic SHA-256 manifest generation. Falls back only
@@ -4260,15 +4506,18 @@ mark_stage "step21_manifest_generation"
   else
     (
       cd "${EVIDENCE_DIR}"
-      find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' -print0 | sort -z | xargs -0 sha256sum
+      find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' ! -name 'WEAVER_FORGE_FINAL_BINDING.txt' -print0 | sort -z | xargs -0 sha256sum
     ) > "${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
   fi
 }
-append_host_run_metadata_entry "preliminary_manifest_generated" \
-  "manifest_generation=preliminary;final_outcome=${OUTCOME};final_failure_stage=${FAILURE_STAGE};final_verdict_ceiling=${VERDICT_CEILING};final_post_build_integrity_ok=${POST_BUILD_INTEGRITY_OK};final_full_integrity_gate_all_four_yes=${FULL_INTEGRITY_GATE_ALL_FOUR_YES}"
+# RC6-R3: final binding after successful preliminary manifest (not on R2 incomplete paths).
+# FINAL_BINDING is excluded from the manifest; HOST_RUN_METADATA must not be appended after this.
+if ! write_weaver_forge_final_binding; then
+  abort 11 "WEAVER_FORGE_FINAL_BINDING.txt write failed after preliminary manifest"
+fi
 
 # ---------------------------------------------------------------------------
-# STEP 21b (Phase 3F-B): host-preliminary validator after preliminary manifest.
+# STEP 21b (Phase 3F-B): host-preliminary validator after final binding.
 # Captures stdout/stderr + VALIDATOR_RESULT outside EVIDENCE_DIR. Does not
 # modify evidence after invocation. Not invoked from failure finalizers.
 # ---------------------------------------------------------------------------
