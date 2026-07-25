@@ -163,27 +163,36 @@ Final-submission structural PASS does **not** claim Independent Witness PASS,
 final eligibility, READY, or rc5 readiness. Synthetic final fixtures are test
 artifacts only and are not real Witness submissions.
 
-### Canonical schema register (Phase 4-S2 active; S3 completeness activated)
+### Canonical schema register (RC6-R1 active; S3 completeness retained)
 
-Machine-readable schema authority for the rc5 remediation path:
+Machine-readable schema authority for the rc6 remediation path:
 
-- Active register: `schemas/canonical_schema_register_rc5_phase4_s2.json`
-- Active version: `rc5-phase4-s2.1`
-- Historical compatibility register (frozen): `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
-- Loader: `scripts/schema_register_loader.py` (default load = S2; explicit S1 load for historical compatibility only)
+- Active register: `schemas/canonical_schema_register_rc6.json`
+- Active version: `rc6.1`
+- Family: `rc6_remediation_canonical_schema`
+- Immediate historical predecessor (frozen): `schemas/canonical_schema_register_rc5_phase4_s2.json` (`rc5-phase4-s2.1`)
+- Earlier historical compatibility (frozen): `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
+- Loader: `scripts/schema_register_loader.py` (default load = rc6.1 only; one explicit
+  historical-version loader accepts only `rc5-phase4-s2.1` and `rc5-phase4-s1.1`)
 - Completeness activation: `enforced_s3_manifest_completeness`
 - Field authority: `evidence_inventory_complete` → `POST_BUILD_INTEGRITY.txt`;
   `evidence_completeness_status` / `preliminary_success_eligible` →
   `HOST_OUTCOME_INGESTION.txt`
 
-The active S2 register fails closed on unsupported versions, unknown keys, duplicate
-artifact/mode definitions, unknown lifecycle modes, and contradictory
-required/optional field definitions. Historical fixtures without S2 identity
-markers remain accepted through the explicit S1 compatibility path. S2-shaped
-evidence is never silently downgraded.
+Active rc6 structured KV files use **exact** required-key enforcement, or exact
+required keys plus **explicitly named optional** keys. Unknown keys, duplicate
+keys, and missing required keys fail closed. Raw capture streams remain outside
+KV exact closure. Historical S2/S1 registers are not competing active authorities
+and must never become the loader default. Evidence content cannot select
+schema-register authority. Later RC6-R* slices update the same
+`canonical_schema_register_rc6.json` file with monotonic bumps (`rc6.2`, …).
 
-**RC4 remains NOT READY. No rc5 tag exists.** No Independent Witness
-reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
+Historical fixtures without S2 identity markers remain accepted through the
+explicit historical compatibility path. S2-shaped evidence is never silently
+downgraded.
+
+No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
+RC6 does not yet exist as a release; RC6-R1 is schema-authority foundation only.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 

@@ -326,22 +326,26 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             variants_s1["early_failure_not_applicable_target"]["activation"],
             "defined_future_s2_writer_alignment",
         )
-        # Active S2 register additively supersedes those S1 future targets.
+        # Active rc6 register supersedes S2 and retains S2 writer-aligned activations.
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.1")
         self.assertEqual(
             v._SCHEMA_REGISTER.supersession().get("supersedes"),
-            srl.HISTORICAL_S1_REGISTER_VERSION,
+            srl.HISTORICAL_S2_REGISTER_VERSION,
         )
-        boot_s2 = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
-        variants_s2 = {x["variant_id"]: x for x in boot_s2["conditional_variants"]}
+        boot_active = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
+        variants_active = {x["variant_id"]: x for x in boot_active["conditional_variants"]}
         self.assertEqual(
-            variants_s2["early_failure_not_applicable_target"]["activation"],
+            variants_active["early_failure_not_applicable_target"]["activation"],
             "enforced_s2_writer_aligned",
         )
         self.assertEqual(
             v._SCHEMA_REGISTER.activation("HOST_RUN_METADATA.txt", "host-preliminary"),
             "enforced_s2_writer_aligned",
         )
+        # Frozen S2 remains explicitly loadable as historical predecessor.
+        s2 = srl.load_historical_s2_register()
+        self.assertEqual(s2.supersession().get("supersedes"), srl.HISTORICAL_S1_REGISTER_VERSION)
         # Historical contract path unchanged / present.
         contract = PACKAGE_DIR / "AUTHORITATIVE_OUTCOME_CONTRACT.json"
         self.assertTrue(contract.is_file())

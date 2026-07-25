@@ -1,0 +1,5 @@
+evidence_schema_version=1
+exact_build_command=cargo build -p xai-grok-pager-bin --locked
+cargo_incremental=0
+working_directory=/src
+product_executed=NO

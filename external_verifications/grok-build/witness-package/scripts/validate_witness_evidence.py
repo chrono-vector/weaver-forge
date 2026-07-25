@@ -10,17 +10,21 @@ value is true.
 This script writes only to its own stdout/stderr. It never writes into the
 evidence directory it is validating (see VALIDATOR.md "Output policy").
 
-Phase 4-S2: active canonical schema authority is the committed S2 JSON register
-(rc5-phase4-s2.1) loaded via schema_register_loader. Historical S1 fixtures are
-accepted through an explicit compatibility path when they lack S2 identity
-markers. S2-shaped evidence is never silently downgraded to historical rules.
-Explicit validator modes remain --host-preliminary and --final-submission; the
-default CLI path is a compatibility alias to final-submission.
+RC6-R1: active canonical schema authority is the committed rc6 JSON register
+(rc6.1 / canonical_schema_register_rc6.json) loaded via schema_register_loader.
+Active structured KV files use exact or exact-with-named-optional key
+enforcement; unknown keys are rejected. Frozen rc5 Phase-4 S2 and S1 registers
+remain explicitly loadable for historical compatibility only and are not
+competing active authorities. Historical fixtures without S2 identity markers
+remain accepted through the explicit historical compatibility path. S2-shaped
+evidence is never silently downgraded to historical rules. Evidence content
+cannot select schema-register authority. Explicit validator modes remain
+--host-preliminary and --final-submission; the default CLI path is a
+compatibility alias to final-submission.
 
-Phase 4-S3: activates preliminary/final manifest totality, eliminates final
-auxiliary exemptions for S2-shaped packages, and enforces the non-circular
-evidence-completeness state machine. Structural PASS is never Independent
-Witness PASS, READY, or rc5 readiness.
+Phase 4-S3 completeness/manifest rules remain enforced under the active rc6
+register. Structural PASS is never Independent Witness PASS, READY, or package
+readiness.
 """
 
 from __future__ import annotations
@@ -58,8 +62,8 @@ MODE_HOST_PRELIMINARY = "host-preliminary"
 MODE_FINAL_SUBMISSION = "final-submission"
 DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
 
-# Canonical schema register (single active machine-readable authority for rc5 path).
-# Phase 4-S2: default load is S2 (rc5-phase4-s2.1). Historical S1 is not coequal.
+# Canonical schema register (single active machine-readable authority for rc6 path).
+# RC6-R1: default load is rc6.1. Historical S2/S1 are not coequal authorities.
 _SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
 SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
 if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
@@ -453,6 +457,43 @@ def require_exact_field_set_with_optional(
     for key in required:
         if key in fields and fields[key] == "":
             fail(errors, f"{name}: missing required field '{key}'")
+
+
+def require_exact_field_set_with_indexed(
+    name: str,
+    fields: dict[str, str],
+    required: tuple[str, ...],
+    indexed_key_re: re.Pattern[str],
+    errors: list[str],
+    *,
+    allow_indexed: bool,
+) -> None:
+    """Exact required keys; optionally permit indexed keys; reject all other unknowns."""
+    actual = set(fields)
+    for key in sorted(set(required) - actual):
+        fail(errors, f"{name}: missing required field '{key}'")
+    for key in required:
+        if key in fields and fields[key] == "":
+            fail(errors, f"{name}: missing required field '{key}'")
+    for key in sorted(actual - set(required)):
+        if allow_indexed and indexed_key_re.match(key):
+            continue
+        fail(errors, f"{name}: unknown/extra field '{key}'")
+
+
+def enforce_register_field_set(
+    name: str,
+    fields: dict[str, str],
+    mode: str,
+    errors: list[str],
+) -> None:
+    """Apply active-register exact or exact-with-named-optionals policy."""
+    required = _SCHEMA_REGISTER.required_field_names(name, mode)
+    optional = _SCHEMA_REGISTER.optional_field_names(name, mode)
+    if optional:
+        require_exact_field_set_with_optional(name, fields, required, optional, errors)
+    else:
+        require_exact_field_set(name, fields, required, errors)
 
 
 def check_s2_legal_values(
@@ -1918,10 +1959,19 @@ def check_deviations(
         return
 
     if s2_final:
-        # Required core fields; indexed keys allowed when PRESENT.
-        for key in ("evidence_schema_version", "deviation_state", "deviation_count"):
-            if key not in fields or fields[key] == "":
-                fail(errors, f"{name}: missing required field '{key}'")
+        # Required core fields; indexed keys allowed when PRESENT; unknowns rejected.
+        core = ("evidence_schema_version", "deviation_state", "deviation_count")
+        indexed_re = re.compile(
+            r"^deviation_\w+_(description|severity|canonical_identity_impact|verdict_ceiling)$"
+        )
+        require_exact_field_set_with_indexed(
+            name,
+            fields,
+            core,
+            indexed_re,
+            errors,
+            allow_indexed=(state == "PRESENT"),
+        )
         count_raw = fields.get("deviation_count", "")
         if not count_raw.isdigit():
             fail(errors, f"{name}: deviation_count must be a non-negative integer")
@@ -1976,6 +2026,17 @@ def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> No
     if state not in ("NONE", "PRESENT"):
         fail(errors, f"{name}: redaction_state must be NONE or PRESENT")
         return
+    # RC6-R1: exact required base keys; indexed keys only when PRESENT.
+    core = ("evidence_schema_version", "redaction_state", "semantic_integrity_declaration")
+    indexed_re = re.compile(r"^redaction_\w+_(file|field|reason|replacement_marker)$")
+    require_exact_field_set_with_indexed(
+        name,
+        fields,
+        core,
+        indexed_re,
+        errors,
+        allow_indexed=(state == "PRESENT"),
+    )
     require_exact(name, fields, "semantic_integrity_declaration", "yes", errors)
     if state == "NONE":
         return
@@ -2543,18 +2604,26 @@ def validate_dir(
             )
             continue
         if name == "WEAVER_FORGE_PACKAGE_IDENTITY.txt" and is_s2_shaped_package_identity(fields):
-            # Exact S2 field enforcement happens in check_weaver_forge_package_identity.
+            # Exact S2/rc6 field enforcement happens in check_weaver_forge_package_identity.
             continue
         if name == "DEVIATIONS.txt" and (
             (selected_mode == MODE_HOST_PRELIMINARY and is_s2_shaped_preliminary_deviations(fields))
             or (selected_mode == MODE_FINAL_SUBMISSION and is_s2_shaped_final_deviations(fields))
         ):
-            # Exact S2 field enforcement happens in check_deviations.
+            # Exact S2/rc6 field enforcement happens in check_deviations.
             continue
+        if name == "REDACTIONS.md":
+            # Exact base keys (+ indexed when PRESENT) enforced in check_redactions.
+            continue
+        policy = _SCHEMA_REGISTER.exact_field_set_policy(name, selected_mode)
         required = FILE_REQUIRED_FIELDS.get(name, ())
-        if name == "POST_BUILD_INTEGRITY.txt":
-            # Phase 3E: exact POST_BUILD field-set equality (no subset matching).
-            # Bound to canonical register exact policy (enforced_current_compatible).
+        if policy == "exact":
+            # RC6-R1: active exact or exact-with-named-optionals from the register.
+            enforce_register_field_set(name, fields, selected_mode, errors)
+        elif policy == "exact_when_s2_shaped_else_historical_subset":
+            # Historical unshaped fixtures: required-subset projection only.
+            require_fields(name, fields, required, errors)
+        elif name == "POST_BUILD_INTEGRITY.txt":
             require_exact_field_set(name, fields, required, errors)
         else:
             require_fields(name, fields, required, errors)

@@ -175,27 +175,41 @@ def _read_kv(path: Path, key: str) -> str:
 
 class S2RegisterAndLoaderTests(unittest.TestCase):
     def test_01_s2_register_parses_and_supersedes_s1(self) -> None:
-        s2 = srl.load_active_register()
+        # S2 is historical under RC6-R1; active authority is rc6.1.
+        s2 = srl.load_historical_s2_register()
         s1 = srl.load_historical_s1_register()
+        active = srl.load_active_register()
+        self.assertEqual(active.schema_register_version, "rc6.1")
         self.assertEqual(s2.schema_register_version, "rc5-phase4-s2.1")
         self.assertEqual(s1.schema_register_version, "rc5-phase4-s1.1")
         self.assertEqual(s2.supersession().get("supersedes"), "rc5-phase4-s1.1")
+        self.assertEqual(active.supersession().get("supersedes"), "rc5-phase4-s2.1")
         self.assertTrue(s2.historical_compatibility().get("not_a_second_schema_authority"))
+        self.assertTrue(active.historical_compatibility().get("not_a_second_schema_authority"))
         self.assertTrue(S1_REGISTER.is_file())
         self.assertTrue(S2_REGISTER.is_file())
-        # Frozen S1 bytes must remain the committed historical register.
+        # Frozen S1/S2 bytes must remain the committed historical registers.
         self.assertEqual(
             s1.source_path.resolve(),
             S1_REGISTER.resolve(),
+        )
+        self.assertEqual(
+            s2.source_path.resolve(),
+            S2_REGISTER.resolve(),
         )
 
     def test_02_loader_defaults_s2_explicit_s1_unsupported_fail_closed(self) -> None:
         default = srl.load_canonical_register()
         self.assertEqual(default.schema_register_version, srl.ACTIVE_REGISTER_VERSION)
-        hist = srl.load_canonical_register(version=srl.HISTORICAL_S1_REGISTER_VERSION)
-        self.assertTrue(hist.is_historical_s1)
+        self.assertEqual(default.schema_register_version, "rc6.1")
+        hist_s1 = srl.load_historical_register(srl.HISTORICAL_S1_REGISTER_VERSION)
+        self.assertTrue(hist_s1.is_historical_s1)
+        hist_s2 = srl.load_historical_register(srl.HISTORICAL_S2_REGISTER_VERSION)
+        self.assertTrue(hist_s2.is_historical_s2)
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_canonical_register(version="rc5-phase4-s9.9")
+        with self.assertRaises(srl.SchemaRegisterError):
+            srl.load_historical_register("rc6.1")
 
     def test_03_s1_historical_future_targets_preserved_and_s2_activates(self) -> None:
         s1 = srl.load_historical_s1_register()
@@ -206,12 +220,13 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
             pkg["future_alignment_fields"]["activation"],
             "defined_future_s2_writer_alignment",
         )
-        s2 = srl.load_active_register()
+        # Active rc6 register retains S2 writer-aligned activations.
+        active = srl.load_active_register()
         self.assertEqual(
-            s2.activation("HOST_RUN_METADATA.txt", "host-preliminary"),
+            active.activation("HOST_RUN_METADATA.txt", "host-preliminary"),
             "enforced_s2_writer_aligned",
         )
-        boot = s2.lookup("BOOTSTRAP.txt", "host-preliminary")
+        boot = active.lookup("BOOTSTRAP.txt", "host-preliminary")
         variants = {x["variant_id"]: x for x in boot["conditional_variants"]}
         self.assertEqual(
             variants["early_failure_not_applicable_target"]["activation"],
@@ -221,13 +236,13 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
             variants["early_failure_not_reached_placeholder"]["activation"],
             "historical_s1_compatibility",
         )
-        man = s2.lookup("EVIDENCE_MANIFEST.sha256", "final-submission")
+        man = active.lookup("EVIDENCE_MANIFEST.sha256", "final-submission")
         self.assertEqual(
             man["activation_detail"]["final_cryptographic_closure"],
             "enforced_s3_manifest_completeness",
         )
         self.assertEqual(
-            s2.raw["evidence_completeness_inventory"]["activation"],
+            active.raw["evidence_completeness_inventory"]["activation"],
             "enforced_s3_manifest_completeness",
         )
 
