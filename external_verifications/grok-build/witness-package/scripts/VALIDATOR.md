@@ -133,7 +133,10 @@ finalized automated host evidence and the preliminary manifest. Semantics:
 - Nested regular files are included under recursive total manifest closure when
   present (normalized relative path + SHA-256). Absolute paths, path escapes,
   backslashes, symlinks, special objects, and duplicate normalized paths remain
-  rejected.
+  rejected. Under active rc6.3 (RC6-R4), every nested regular file must also
+  resolve to exactly one registered typed nested evidence class; listed+hashed
+  is not sufficient authorization. Empty directories are rejected for active
+  rc6.3 before manifest generation and again during validator filesystem closure.
 - The automatable RC4B-017 subset is enforced for host-preliminary PASS:
   `POST_BUILD` `status=OK`, `post_build_integrity_ok=yes`,
   `source_head_unchanged=yes`, `source_clean_before=yes`,
@@ -163,18 +166,25 @@ Final-submission structural PASS does **not** claim Independent Witness PASS,
 final eligibility, READY, or rc5 readiness. Synthetic final fixtures are test
 artifacts only and are not real Witness submissions.
 
-### Canonical schema register (RC6-R1 active; S3 completeness retained)
+### Canonical schema register (RC6-R4 active; S3 completeness retained)
 
 Machine-readable schema authority for the rc6 remediation path:
 
 - Active register: `schemas/canonical_schema_register_rc6.json`
-- Active version: `rc6.1`
+- Active version: `rc6.3`
 - Family: `rc6_remediation_canonical_schema`
-- Immediate historical predecessor (frozen): `schemas/canonical_schema_register_rc5_phase4_s2.json` (`rc5-phase4-s2.1`)
-- Earlier historical compatibility (frozen): `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
-- Loader: `scripts/schema_register_loader.py` (default load = rc6.1 only; one explicit
-  historical-version loader accepts only `rc5-phase4-s2.1` and `rc5-phase4-s1.1`)
+- Immediate historical predecessor (frozen): `schemas/canonical_schema_register_rc6.2.json` (`rc6.2`)
+- Earlier historical: `schemas/canonical_schema_register_rc6.1.json` (`rc6.1`)
+- Prior historical: `schemas/canonical_schema_register_rc5_phase4_s2.json` (`rc5-phase4-s2.1`)
+- Earliest historical: `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
+- Loader: `scripts/schema_register_loader.py` (default load = rc6.3 only; explicit
+  historical-version loader accepts only `rc6.2`, `rc6.1`, `rc5-phase4-s2.1`, and
+  `rc5-phase4-s1.1`)
 - Completeness activation: `enforced_s3_manifest_completeness`
+- Typed nested evidence classes (RC6-R4): `nested_evidence_classes` in the active
+  register (`host_support_record`, `container_support_record`); unknown prefixes
+  and arbitrary nested files fail closed
+- Empty-directory policy (RC6-R4): `reject_all` for active rc6.3
 - Field authority: `evidence_inventory_complete` → `POST_BUILD_INTEGRITY.txt`;
   `evidence_completeness_status` / `preliminary_success_eligible` →
   `HOST_OUTCOME_INGESTION.txt`
@@ -182,17 +192,18 @@ Machine-readable schema authority for the rc6 remediation path:
 Active rc6 structured KV files use **exact** required-key enforcement, or exact
 required keys plus **explicitly named optional** keys. Unknown keys, duplicate
 keys, and missing required keys fail closed. Raw capture streams remain outside
-KV exact closure. Historical S2/S1 registers are not competing active authorities
-and must never become the loader default. Evidence content cannot select
-schema-register authority. Later RC6-R* slices update the same
-`canonical_schema_register_rc6.json` file with monotonic bumps (`rc6.2`, …).
+KV exact closure. Historical rc6.2/rc6.1/S2/S1 registers are not competing active
+authorities and must never become the loader default. Evidence content cannot
+select schema-register authority. Later RC6-R* slices update the same
+`canonical_schema_register_rc6.json` file with monotonic bumps (`rc6.4`, …).
 
 Historical fixtures without S2 identity markers remain accepted through the
 explicit historical compatibility path. S2-shaped evidence is never silently
 downgraded.
 
 No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
-RC6 does not yet exist as a release; RC6-R1 is schema-authority foundation only.
+RC6 does not yet exist as a release; RC6-R4 is typed nested inventory /
+empty-directory closure only.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 

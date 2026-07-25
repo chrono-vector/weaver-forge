@@ -1,0 +1,4 @@
+evidence_schema_version=1
+deviation_state=NONE
+deviation_count=0
+automated_summary=no_automated_identity_deviations

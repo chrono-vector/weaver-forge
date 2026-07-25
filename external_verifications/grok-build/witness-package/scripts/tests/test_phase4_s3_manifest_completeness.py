@@ -261,7 +261,7 @@ class FixtureFamilyTests(unittest.TestCase):
 class SchemaRuntimeAlignmentTests(unittest.TestCase):
     def test_09_active_s2_s3_activation_and_s1_compat(self) -> None:
         active = srl.load_active_register()
-        self.assertEqual(active.schema_register_version, "rc6.2")
+        self.assertEqual(active.schema_register_version, "rc6.3")
         s2 = srl.load_historical_s2_register()
         self.assertEqual(s2.schema_register_version, "rc5-phase4-s2.1")
         self.assertTrue(active.is_s3_manifest_completeness_enforced())

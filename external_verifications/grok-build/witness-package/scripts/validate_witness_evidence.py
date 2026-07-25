@@ -68,7 +68,7 @@ MODE_FINAL_SUBMISSION = "final-submission"
 DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
 
 # Canonical schema register (single active machine-readable authority for rc6 path).
-# RC6-R3: default load is rc6.2. Historical rc6.1/S2/S1 are not coequal authorities.
+# RC6-R4: default load is rc6.3. Historical rc6.2/rc6.1/S2/S1 are not coequal authorities.
 _SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
 SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
 if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
@@ -76,8 +76,7 @@ if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
         f"active validator authority must be {ACTIVE_REGISTER_VERSION!r}, "
         f"got {SCHEMA_REGISTER_VERSION!r}"
     )
-# Frozen rc6.1 field projection for pre-R3 S2-shaped packages. Not a competing
-# active authority; evidence cannot select it. Used only when R3 markers absent.
+# Frozen historical rc6.1 projection retained for explicit historical loads/tests.
 _HISTORICAL_RC61_REGISTER: CanonicalSchemaRegister = load_historical_rc61_register()
 
 EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
@@ -687,7 +686,7 @@ def resolve_validation_register(
     if schema_register_version == ACTIVE_REGISTER_VERSION:
         return None, (
             f"schema_register_version={schema_register_version!r} is the active authority; "
-            "default validation uses active rc6.2 — do not request it through the "
+            "default validation uses active rc6.3 — do not request it through the "
             "historical validation API"
         )
     if schema_register_version not in HISTORICAL_REGISTER_VERSIONS:
@@ -2706,6 +2705,121 @@ def check_no_symlinks(evidence_dir: Path, errors: list[str]) -> None:
             fail(errors, f"Symlinks are not permitted in the evidence directory: {rel}")
 
 
+def check_no_empty_directories(
+    evidence_dir: Path,
+    errors: list[str],
+    *,
+    register: CanonicalSchemaRegister | None = None,
+) -> None:
+    """RC6-R4-E1: reject every empty directory under active rc6 evidence."""
+    reg = register if register is not None else _SCHEMA_REGISTER
+    if not reg.enforces_empty_directory_rejection():
+        return
+    try:
+        empty = ei.find_empty_directories(evidence_dir)
+    except ei.EvidenceInventoryError as exc:
+        fail(errors, f"Empty-directory inspection fail-closed: {exc}")
+        return
+    for rel in empty:
+        fail(errors, f"Empty directory rejected: {rel}")
+
+
+def check_typed_nested_evidence_files(
+    evidence_dir: Path,
+    errors: list[str],
+    *,
+    register: CanonicalSchemaRegister | None = None,
+    package_run_id: str | None = None,
+    mode: str = MODE_FINAL_SUBMISSION,
+) -> None:
+    """RC6-R4-N2: every nested regular file must match exactly one registered class.
+
+    Enforces owner/purpose/lifecycle/exact grammar from the active register.
+    Historical registers skip this check (frozen semantics).
+    """
+    reg = register if register is not None else _SCHEMA_REGISTER
+    if not reg.enforces_typed_nested_classes():
+        return
+    try:
+        on_disk = ei.enumerate_evidence_files(evidence_dir)
+    except ei.EvidenceInventoryError as exc:
+        fail(errors, f"Evidence inventory fail-closed: {exc}")
+        return
+    for rel in on_disk:
+        if "/" not in rel:
+            continue
+        try:
+            rec = reg.resolve_nested_class_for_path(rel)
+        except SchemaRegisterError as exc:
+            fail(errors, str(exc))
+            continue
+        if rec is None:
+            fail(
+                errors,
+                f"Unauthorized nested evidence file (no registered typed class): {rel}",
+            )
+            continue
+        class_id = str(rec.get("class_id") or "")
+        basename = rel.rsplit("/", 1)[-1]
+        grammar = str(rec.get("filename_grammar") or "")
+        if not grammar or re.fullmatch(grammar, basename) is None:
+            fail(
+                errors,
+                f"{rel}: basename does not match registered filename_grammar "
+                f"for class_id={class_id!r}",
+            )
+            continue
+        modes = rec.get("lifecycle_modes") or []
+        if mode not in modes:
+            fail(
+                errors,
+                f"{rel}: class_id={class_id!r} is not authorized for lifecycle mode {mode!r}",
+            )
+            continue
+        path = evidence_dir / rel
+        text = read_text(path)
+        fields, dup_errors = parse_kv(text, rel)
+        errors.extend(dup_errors)
+        required = tuple(
+            f["name"]
+            for f in (rec.get("fields") or [])
+            if isinstance(f, dict) and f.get("requirement", "required") == "required"
+        )
+        if rec.get("exact_field_set_policy") == "exact":
+            require_exact_field_set(rel, fields, required, errors)
+        else:
+            require_fields(rel, fields, required, errors)
+        legal = rec.get("legal_values") or {}
+        if isinstance(legal, dict):
+            check_s2_legal_values(rel, fields, {k: tuple(v) for k, v in legal.items() if isinstance(v, list)}, errors)
+        # Enforce path/class/purpose/owner consistency from register authority.
+        if fields.get("class_id") and fields.get("class_id") != class_id:
+            fail(
+                errors,
+                f"{rel}: class_id={fields.get('class_id')!r} does not match "
+                f"registered class for path prefix ({class_id!r})",
+            )
+        if fields.get("purpose") and fields.get("purpose") != rec.get("purpose"):
+            fail(
+                errors,
+                f"{rel}: purpose={fields.get('purpose')!r} does not match "
+                f"registered purpose {rec.get('purpose')!r}",
+            )
+        if fields.get("owner") and fields.get("owner") != rec.get("owner"):
+            fail(
+                errors,
+                f"{rel}: owner={fields.get('owner')!r} does not match "
+                f"registered owner {rec.get('owner')!r}",
+            )
+        nested_run_id = fields.get("run_id", "")
+        if nested_run_id and package_run_id and nested_run_id != package_run_id:
+            fail(
+                errors,
+                f"{rel}: run_id={nested_run_id!r} must equal package run_id "
+                f"{package_run_id!r} (class-level R3 provenance binding)",
+            )
+
+
 def check_forbidden_files(evidence_dir: Path, errors: list[str]) -> None:
     for path in sorted(evidence_dir.rglob("*")):
         if path.is_symlink() or not path.is_file():
@@ -2859,12 +2973,23 @@ def validate_manifest(
             fail(errors, f"{MANIFEST_NAME}: missing mandatory entry for {req}")
 
     # Closed inventory allow-list for top-level declared paths.
-    # Nested relative paths (containing '/') are permitted under recursive total
-    # closure when produced by the canonical inventory helper / safe manifest
-    # grammar; they are not subject to the top-level closed-name allow-list.
+    # Nested relative paths (containing '/') require registered typed-class
+    # authority under active rc6.3 (RC6-R4). Historical registers retain
+    # recursive total-closure acceptance without typed-class authority.
     for rel in listed:
         if "/" in rel:
-            # Nested path safety is enforced by parse_manifest_line + inventory.
+            if reg.enforces_typed_nested_classes():
+                try:
+                    rec = reg.resolve_nested_class_for_path(rel)
+                except SchemaRegisterError as exc:
+                    fail(errors, f"{MANIFEST_NAME}: {exc}")
+                    continue
+                if rec is None:
+                    fail(
+                        errors,
+                        f"{MANIFEST_NAME}: declares nested path {rel} without registered "
+                        "typed-class authority (listed+hashed is not sufficient)",
+                    )
             continue
         if rel not in allowed:
             fail(
@@ -2949,7 +3074,7 @@ def validate_dir(
     - default (no explicit mode): compatibility alias to final-submission.
 
     Schema authority (RC6-R3 / SH-A):
-    - default (``schema_register_version=None``): always active rc6.2
+    - default (``schema_register_version=None``): always active rc6.3
     - explicit historical version: historical loader only
     - evidence shape/fields cannot select schema authority
 
@@ -2977,6 +3102,7 @@ def validate_dir(
             fail(errors, f"Empty required file: {name}")
 
     check_no_symlinks(evidence_dir, errors)
+    check_no_empty_directories(evidence_dir, errors, register=field_register)
     check_forbidden_files(evidence_dir, errors)
     check_no_raw_carriage_returns(evidence_dir, errors)
 
@@ -3123,6 +3249,14 @@ def validate_dir(
             errors,
             register=field_register,
         )
+    package_run_id = (file_fields.get(PACKAGE_IDENTITY_NAME) or {}).get("run_id")
+    check_typed_nested_evidence_files(
+        evidence_dir,
+        errors,
+        register=field_register,
+        package_run_id=package_run_id,
+        mode=selected_mode,
+    )
     if "SOURCE_ACQUISITION.txt" in file_fields:
         check_source_acquisition(file_fields["SOURCE_ACQUISITION.txt"], errors)
     if "SOURCE_IDENTITY.txt" in file_fields:

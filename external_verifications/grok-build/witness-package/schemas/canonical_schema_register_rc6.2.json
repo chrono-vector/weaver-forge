@@ -1,19 +1,17 @@
 {
-  "schema_register_version": "rc6.3",
+  "schema_register_version": "rc6.2",
   "family": "rc6_remediation_canonical_schema",
   "evidence_schema_version": "1",
   "supported_register_versions": [
-    "rc6.3"
+    "rc6.2"
   ],
   "supersession": {
     "policy": "additive_supersession_only",
-    "supersedes": "rc6.2",
-    "historical_compatibility_register": "canonical_schema_register_rc6.2.json",
-    "historical_compatibility_version": "rc6.2",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.1.json",
-    "earlier_historical_compatibility_version": "rc6.1",
-    "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
-    "prior_historical_compatibility_version": "rc5-phase4-s2.1",
+    "supersedes": "rc6.1",
+    "historical_compatibility_register": "canonical_schema_register_rc6.1.json",
+    "historical_compatibility_version": "rc6.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s2.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
     "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
     "does_not_rewrite": [
@@ -25,11 +23,9 @@
       "Phase 4-S2 register and implementation note",
       "original blocker wording",
       "canonical_schema_register_rc6.1.json",
-      "canonical_schema_register_rc6.2.json",
-      "rc6.1 historical fixtures",
-      "rc6.2 historical fixtures"
+      "rc6.1 historical fixtures"
     ],
-    "note": "This rc6.3 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.2. Frozen rc6.2, rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps."
+    "note": "This rc6.2 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.1. Frozen rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps."
   },
   "lifecycle_modes": [
     "host-preliminary",
@@ -2465,7 +2461,7 @@
         "historical_s1_compatibility_aux_exemption": "explicit_s1_fixture_path_only"
       },
       "run_id_required": false,
-      "note": "RC6-R3 FM-C: checksum-line grammar retained; excludes self and WEAVER_FORGE_FINAL_BINDING.txt. RC6-R4: nested regular files require registered typed-class authority; empty directories are rejected for active rc6.3; exclusions remain EVIDENCE_MANIFEST.sha256 and WEAVER_FORGE_FINAL_BINDING.txt."
+      "note": "RC6-R3 FM-C: checksum-line grammar retained; excludes self and WEAVER_FORGE_FINAL_BINDING.txt."
     },
     {
       "artifact_id": "WEAVER_FORGE_FINAL_BINDING.txt",
@@ -2884,17 +2880,14 @@
   ],
   "historical_compatibility": {
     "policy": "explicit_historical_path_only",
-    "active_authority": "rc6.3",
-    "immediate_predecessor_version": "rc6.2",
-    "immediate_predecessor_register": "canonical_schema_register_rc6.2.json",
-    "earlier_historical_compatibility_version": "rc6.1",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.1.json",
-    "prior_historical_compatibility_version": "rc5-phase4-s2.1",
-    "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
+    "active_authority": "rc6.2",
+    "immediate_predecessor_version": "rc6.1",
+    "immediate_predecessor_register": "canonical_schema_register_rc6.1.json",
+    "earlier_historical_compatibility_version": "rc5-phase4-s2.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
     "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
     "historical_register_versions": [
-      "rc6.2",
       "rc6.1",
       "rc5-phase4-s2.1",
       "rc5-phase4-s1.1"
@@ -2923,7 +2916,7 @@
         "status": "NOT_APPLICABLE"
       }
     },
-    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path under an explicit historical loader version. Historical rc6.2/rc6.1/S2/S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
+    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path. Historical rc6.1, S2, and S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
   },
   "recursive_inventory_helper": {
     "activation": "available_read_only_s2",
@@ -2934,10 +2927,7 @@
       "special_object_rejection",
       "path_escape_rejection",
       "duplicate_normalized_path_rejection",
-      "deterministic_sha256_manifest_generation",
-      "empty_directory_rejection",
-      "typed_nested_evidence_class_resolution",
-      "unknown_nested_prefix_rejection"
+      "deterministic_sha256_manifest_generation"
     ],
     "does_not_include": [
       "human_witness_verdict_generation",
@@ -2946,149 +2936,6 @@
     ],
     "rc4b_020_026_027_028_implemented_on_main_pending_reaudit": true,
     "rc4b_020_026_027_028_closed": false,
-    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. RC6-R4 adds empty-directory rejection and typed nested evidence-class resolution for active rc6.3. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
-  },
-  "nested_evidence_classes": {
-    "activation": "enforced_rc6_r4_typed_nested",
-    "policy": "exact_registered_class_only",
-    "empty_directory_policy": "reject_all",
-    "path_normalization": "posix_relative_no_dotdot_no_absolute_no_backslash_escape",
-    "unknown_prefix_policy": "fail_closed",
-    "unknown_class_policy": "fail_closed",
-    "overlap_policy": "fail_closed",
-    "manifest_inclusion": "all_allowed_nested_regular_files_required",
-    "classes": [
-      {
-        "class_id": "host_support_record",
-        "purpose": "host_owned_supporting_nested_evidence",
-        "owner": "host",
-        "allowed_path_prefix": "host_support/",
-        "filename_grammar": "^[a-z0-9][a-z0-9._-]{0,63}\\.txt$",
-        "lifecycle_modes": [
-          "host-preliminary",
-          "final-submission"
-        ],
-        "presence": "optional",
-        "load_bearing_provenance": false,
-        "provenance_rule": "class_level_run_id_and_manifest_membership",
-        "exact_field_set_policy": "exact",
-        "fields": [
-          {
-            "name": "evidence_schema_version",
-            "requirement": "required"
-          },
-          {
-            "name": "class_id",
-            "requirement": "required"
-          },
-          {
-            "name": "purpose",
-            "requirement": "required"
-          },
-          {
-            "name": "owner",
-            "requirement": "required"
-          },
-          {
-            "name": "run_id",
-            "requirement": "required"
-          },
-          {
-            "name": "status",
-            "requirement": "required"
-          },
-          {
-            "name": "summary",
-            "requirement": "required"
-          }
-        ],
-        "legal_values": {
-          "evidence_schema_version": [
-            "1"
-          ],
-          "class_id": [
-            "host_support_record"
-          ],
-          "purpose": [
-            "host_owned_supporting_nested_evidence"
-          ],
-          "owner": [
-            "host"
-          ],
-          "status": [
-            "OK",
-            "INFO",
-            "NOT_APPLICABLE"
-          ]
-        },
-        "note": "RC6-R4 optional host-owned nested support record. Nested files under host_support/ must match this class exactly. Not a second provenance authority; run_id binds to the R3 package identity when present."
-      },
-      {
-        "class_id": "container_support_record",
-        "purpose": "container_owned_supporting_nested_evidence",
-        "owner": "container",
-        "allowed_path_prefix": "container_support/",
-        "filename_grammar": "^[a-z0-9][a-z0-9._-]{0,63}\\.txt$",
-        "lifecycle_modes": [
-          "host-preliminary",
-          "final-submission"
-        ],
-        "presence": "optional",
-        "load_bearing_provenance": false,
-        "provenance_rule": "class_level_run_id_and_manifest_membership",
-        "exact_field_set_policy": "exact",
-        "fields": [
-          {
-            "name": "evidence_schema_version",
-            "requirement": "required"
-          },
-          {
-            "name": "class_id",
-            "requirement": "required"
-          },
-          {
-            "name": "purpose",
-            "requirement": "required"
-          },
-          {
-            "name": "owner",
-            "requirement": "required"
-          },
-          {
-            "name": "run_id",
-            "requirement": "required"
-          },
-          {
-            "name": "status",
-            "requirement": "required"
-          },
-          {
-            "name": "summary",
-            "requirement": "required"
-          }
-        ],
-        "legal_values": {
-          "evidence_schema_version": [
-            "1"
-          ],
-          "class_id": [
-            "container_support_record"
-          ],
-          "purpose": [
-            "container_owned_supporting_nested_evidence"
-          ],
-          "owner": [
-            "container"
-          ],
-          "status": [
-            "OK",
-            "INFO",
-            "NOT_APPLICABLE"
-          ]
-        },
-        "note": "RC6-R4 optional container-owned nested support record. Nested files under container_support/ must match this class exactly. Not a second provenance authority; run_id binds to the R3 package identity when present."
-      }
-    ],
-    "note": "RC6-R4 typed nested evidence-class authority. Arbitrary nested regular files are rejected. Empty directories are rejected for active rc6.3. Historical registers omit this block and retain frozen nested/empty-directory semantics via explicit historical loading only."
+    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
   }
 }

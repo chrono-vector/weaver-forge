@@ -175,15 +175,15 @@ def _read_kv(path: Path, key: str) -> str:
 
 class S2RegisterAndLoaderTests(unittest.TestCase):
     def test_01_s2_register_parses_and_supersedes_s1(self) -> None:
-        # S2 is historical under RC6; active authority is rc6.2.
+        # S2 is historical under RC6; active authority is rc6.3.
         s2 = srl.load_historical_s2_register()
         s1 = srl.load_historical_s1_register()
         active = srl.load_active_register()
-        self.assertEqual(active.schema_register_version, "rc6.2")
+        self.assertEqual(active.schema_register_version, "rc6.3")
         self.assertEqual(s2.schema_register_version, "rc5-phase4-s2.1")
         self.assertEqual(s1.schema_register_version, "rc5-phase4-s1.1")
         self.assertEqual(s2.supersession().get("supersedes"), "rc5-phase4-s1.1")
-        self.assertEqual(active.supersession().get("supersedes"), "rc6.1")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.2")
         self.assertTrue(s2.historical_compatibility().get("not_a_second_schema_authority"))
         self.assertTrue(active.historical_compatibility().get("not_a_second_schema_authority"))
         self.assertTrue(S1_REGISTER.is_file())
@@ -201,7 +201,7 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
     def test_02_loader_defaults_s2_explicit_s1_unsupported_fail_closed(self) -> None:
         default = srl.load_canonical_register()
         self.assertEqual(default.schema_register_version, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(default.schema_register_version, "rc6.2")
+        self.assertEqual(default.schema_register_version, "rc6.3")
         hist_s1 = srl.load_historical_register(srl.HISTORICAL_S1_REGISTER_VERSION)
         self.assertTrue(hist_s1.is_historical_s1)
         hist_s2 = srl.load_historical_register(srl.HISTORICAL_S2_REGISTER_VERSION)
@@ -211,7 +211,7 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_canonical_register(version="rc5-phase4-s9.9")
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.2")
+            srl.load_historical_register("rc6.3")
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc7.0")
     def test_03_s1_historical_future_targets_preserved_and_s2_activates(self) -> None:

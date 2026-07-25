@@ -4,10 +4,10 @@
 Loads committed plain-JSON registers under witness-package/schemas/ and
 exposes fail-closed structural accessors for the validator and tests.
 
-RC6-R3: the active default register is rc6.2
-(canonical_schema_register_rc6.json). Frozen rc6.1, rc5 Phase-4 S2, and S1
-registers remain explicitly loadable for historical compatibility only and are
-not competing active authorities. Evidence content cannot select schema
+RC6-R4: the active default register is rc6.3
+(canonical_schema_register_rc6.json). Frozen rc6.2, rc6.1, rc5 Phase-4 S2, and
+S1 registers remain explicitly loadable for historical compatibility only and
+are not competing active authorities. Evidence content cannot select schema
 authority; unsupported versions fail closed.
 
 This module does not generate executable code from the register and uses only
@@ -17,15 +17,18 @@ the Python standard library.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-ACTIVE_REGISTER_VERSION = "rc6.2"
+ACTIVE_REGISTER_VERSION = "rc6.3"
+HISTORICAL_RC62_REGISTER_VERSION = "rc6.2"
 HISTORICAL_RC61_REGISTER_VERSION = "rc6.1"
 HISTORICAL_S2_REGISTER_VERSION = "rc5-phase4-s2.1"
 HISTORICAL_S1_REGISTER_VERSION = "rc5-phase4-s1.1"
 HISTORICAL_REGISTER_VERSIONS = frozenset(
     {
+        HISTORICAL_RC62_REGISTER_VERSION,
         HISTORICAL_RC61_REGISTER_VERSION,
         HISTORICAL_S2_REGISTER_VERSION,
         HISTORICAL_S1_REGISTER_VERSION,
@@ -35,6 +38,9 @@ SUPPORTED_REGISTER_VERSIONS = frozenset(
     {ACTIVE_REGISTER_VERSION} | HISTORICAL_REGISTER_VERSIONS
 )
 DEFAULT_REGISTER_RELATIVE = Path("schemas") / "canonical_schema_register_rc6.json"
+HISTORICAL_RC62_REGISTER_RELATIVE = (
+    Path("schemas") / "canonical_schema_register_rc6.2.json"
+)
 HISTORICAL_RC61_REGISTER_RELATIVE = (
     Path("schemas") / "canonical_schema_register_rc6.1.json"
 )
@@ -98,6 +104,7 @@ REGISTER_TOP_LEVEL_KEYS = frozenset(
         "run_id_policy",
         "evidence_completeness_inventory",
         "recursive_inventory_helper",
+        "nested_evidence_classes",
         "artifacts",
     }
 )
@@ -164,8 +171,13 @@ def schemas_dir() -> Path:
 
 
 def default_register_path() -> Path:
-    """Active (rc6.2) committed register path."""
+    """Active (rc6.3) committed register path."""
     return schemas_dir() / DEFAULT_REGISTER_RELATIVE.name
+
+
+def historical_rc62_register_path() -> Path:
+    """Frozen rc6.2 historical register path."""
+    return schemas_dir() / HISTORICAL_RC62_REGISTER_RELATIVE.name
 
 
 def historical_rc61_register_path() -> Path:
@@ -187,6 +199,8 @@ def register_path_for_version(version: str) -> Path:
     """Deterministic path lookup by explicit register version. No content guessing."""
     if version == ACTIVE_REGISTER_VERSION:
         return default_register_path()
+    if version == HISTORICAL_RC62_REGISTER_VERSION:
+        return historical_rc62_register_path()
     if version == HISTORICAL_RC61_REGISTER_VERSION:
         return historical_rc61_register_path()
     if version == HISTORICAL_S2_REGISTER_VERSION:
@@ -340,6 +354,10 @@ class CanonicalSchemaRegister:
         return self.schema_register_version == ACTIVE_REGISTER_VERSION
 
     @property
+    def is_historical_rc62(self) -> bool:
+        return self.schema_register_version == HISTORICAL_RC62_REGISTER_VERSION
+
+    @property
     def is_historical_rc61(self) -> bool:
         return self.schema_register_version == HISTORICAL_RC61_REGISTER_VERSION
 
@@ -350,6 +368,53 @@ class CanonicalSchemaRegister:
     @property
     def is_historical_s1(self) -> bool:
         return self.schema_register_version == HISTORICAL_S1_REGISTER_VERSION
+
+    def nested_evidence_classes(self) -> dict[str, Any] | None:
+        raw = self._data.get("nested_evidence_classes")
+        if raw is None:
+            return None
+        return dict(raw)
+
+    def nested_class_records(self) -> tuple[dict[str, Any], ...]:
+        block = self.nested_evidence_classes()
+        if not block:
+            return ()
+        classes = block.get("classes") or []
+        return tuple(dict(c) for c in classes if isinstance(c, dict))
+
+    def nested_class_by_id(self, class_id: str) -> dict[str, Any] | None:
+        for rec in self.nested_class_records():
+            if rec.get("class_id") == class_id:
+                return dict(rec)
+        return None
+
+    def resolve_nested_class_for_path(self, rel_path: str) -> dict[str, Any] | None:
+        """Return the unique registered class for a nested relative path, or None.
+
+        Caller must fail closed on None for active authority. Overlaps fail closed.
+        """
+        if "/" not in rel_path:
+            return None
+        matches: list[dict[str, Any]] = []
+        for rec in self.nested_class_records():
+            prefix = str(rec.get("allowed_path_prefix") or "")
+            if prefix and rel_path.startswith(prefix):
+                matches.append(rec)
+        if len(matches) == 1:
+            return dict(matches[0])
+        if len(matches) > 1:
+            raise SchemaRegisterError(
+                f"nested path {rel_path!r} matches multiple nested evidence classes: "
+                f"{sorted(m.get('class_id', '') for m in matches)}"
+            )
+        return None
+
+    def enforces_typed_nested_classes(self) -> bool:
+        return self.is_active_authority and bool(self.nested_class_records())
+
+    def enforces_empty_directory_rejection(self) -> bool:
+        block = self.nested_evidence_classes() or {}
+        return self.is_active_authority and block.get("empty_directory_policy") == "reject_all"
 
     def require_mode(self, mode: str) -> str:
         if mode not in LEGAL_LIFECYCLE_MODES:
@@ -512,6 +577,130 @@ class CanonicalSchemaRegister:
         return dict(self._data.get("historical_compatibility") or {})
 
 
+def _validate_nested_evidence_classes(block: dict[str, Any]) -> None:
+    """Fail-closed structural validation for active typed nested class authority."""
+    required_top = {
+        "activation",
+        "policy",
+        "empty_directory_policy",
+        "path_normalization",
+        "unknown_prefix_policy",
+        "unknown_class_policy",
+        "overlap_policy",
+        "manifest_inclusion",
+        "classes",
+        "note",
+    }
+    _reject_unknown_keys(block, required_top, "nested_evidence_classes")
+    if block.get("activation") != "enforced_rc6_r4_typed_nested":
+        raise SchemaRegisterError(
+            "nested_evidence_classes.activation must be 'enforced_rc6_r4_typed_nested'"
+        )
+    if block.get("policy") != "exact_registered_class_only":
+        raise SchemaRegisterError(
+            "nested_evidence_classes.policy must be 'exact_registered_class_only'"
+        )
+    if block.get("empty_directory_policy") != "reject_all":
+        raise SchemaRegisterError(
+            "nested_evidence_classes.empty_directory_policy must be 'reject_all'"
+        )
+    for key in (
+        "unknown_prefix_policy",
+        "unknown_class_policy",
+        "overlap_policy",
+    ):
+        if block.get(key) != "fail_closed":
+            raise SchemaRegisterError(f"nested_evidence_classes.{key} must be 'fail_closed'")
+    classes = _require_list(block.get("classes"), "nested_evidence_classes.classes")
+    if not classes:
+        raise SchemaRegisterError("nested_evidence_classes.classes must be non-empty")
+    class_keys = frozenset(
+        {
+            "class_id",
+            "purpose",
+            "owner",
+            "allowed_path_prefix",
+            "filename_grammar",
+            "lifecycle_modes",
+            "presence",
+            "load_bearing_provenance",
+            "provenance_rule",
+            "exact_field_set_policy",
+            "fields",
+            "legal_values",
+            "note",
+        }
+    )
+    seen_ids: set[str] = set()
+    seen_prefixes: set[str] = set()
+    for idx, raw in enumerate(classes):
+        rec = _require_mapping(raw, f"nested_evidence_classes.classes[{idx}]")
+        _reject_unknown_keys(rec, class_keys, f"nested_evidence_classes.classes[{idx}]")
+        class_id = rec.get("class_id")
+        if not isinstance(class_id, str) or not class_id:
+            raise SchemaRegisterError(
+                f"nested_evidence_classes.classes[{idx}]: class_id must be non-empty"
+            )
+        if class_id in seen_ids:
+            raise SchemaRegisterError(f"duplicate nested class_id {class_id!r}")
+        seen_ids.add(class_id)
+        prefix = rec.get("allowed_path_prefix")
+        if not isinstance(prefix, str) or not prefix or not prefix.endswith("/"):
+            raise SchemaRegisterError(
+                f"{class_id}: allowed_path_prefix must be a non-empty POSIX prefix ending with '/'"
+            )
+        if "\\" in prefix or prefix.startswith("/") or ".." in prefix.split("/"):
+            raise SchemaRegisterError(f"{class_id}: allowed_path_prefix is unsafe: {prefix!r}")
+        if prefix in seen_prefixes:
+            raise SchemaRegisterError(f"duplicate nested allowed_path_prefix {prefix!r}")
+        # Reject overlapping prefixes (one is prefix of another).
+        for other in seen_prefixes:
+            if prefix.startswith(other) or other.startswith(prefix):
+                raise SchemaRegisterError(
+                    f"overlapping nested allowed_path_prefix {prefix!r} vs {other!r}"
+                )
+        seen_prefixes.add(prefix)
+        grammar = rec.get("filename_grammar")
+        if not isinstance(grammar, str) or not grammar:
+            raise SchemaRegisterError(f"{class_id}: filename_grammar must be a non-empty string")
+        try:
+            re.compile(grammar)
+        except re.error as exc:
+            raise SchemaRegisterError(
+                f"{class_id}: filename_grammar is not a valid regex: {exc}"
+            ) from exc
+        modes = rec.get("lifecycle_modes")
+        if not isinstance(modes, list) or not modes:
+            raise SchemaRegisterError(f"{class_id}: lifecycle_modes must be a non-empty array")
+        for mode in modes:
+            if mode not in LEGAL_LIFECYCLE_MODES:
+                raise SchemaRegisterError(f"{class_id}: unknown lifecycle mode {mode!r}")
+        if rec.get("presence") not in ("optional", "conditional", "mandatory"):
+            raise SchemaRegisterError(
+                f"{class_id}: presence must be optional|conditional|mandatory"
+            )
+        if not isinstance(rec.get("load_bearing_provenance"), bool):
+            raise SchemaRegisterError(f"{class_id}: load_bearing_provenance must be boolean")
+        if rec.get("exact_field_set_policy") != "exact":
+            raise SchemaRegisterError(f"{class_id}: exact_field_set_policy must be 'exact'")
+        fields = _validate_field_list(
+            _require_list(rec.get("fields"), f"{class_id}.fields"), f"{class_id}.fields"
+        )
+        required_names = {f["name"] for f in fields if f.get("requirement", "required") == "required"}
+        for need in ("evidence_schema_version", "class_id", "purpose", "owner", "run_id"):
+            if need not in required_names:
+                raise SchemaRegisterError(f"{class_id}: fields must require {need}")
+        legal = _require_mapping(rec.get("legal_values"), f"{class_id}.legal_values")
+        for key in ("class_id", "purpose", "owner"):
+            values = legal.get(key)
+            if not isinstance(values, list) or not values:
+                raise SchemaRegisterError(f"{class_id}.legal_values.{key} must be a non-empty array")
+            if key == "class_id" and values != [class_id]:
+                raise SchemaRegisterError(
+                    f"{class_id}.legal_values.class_id must equal [{class_id!r}]"
+                )
+
+
 def validate_register_document(data: dict[str, Any]) -> None:
     _reject_unknown_keys(data, REGISTER_TOP_LEVEL_KEYS, "register")
     version = data.get("schema_register_version")
@@ -546,10 +735,10 @@ def validate_register_document(data: dict[str, Any]) -> None:
             raise SchemaRegisterError(
                 "active rc6 register family must be 'rc6_remediation_canonical_schema'"
             )
-        if supersession.get("supersedes") != HISTORICAL_RC61_REGISTER_VERSION:
+        if supersession.get("supersedes") != HISTORICAL_RC62_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "rc6 register supersession.supersedes must be "
-                f"{HISTORICAL_RC61_REGISTER_VERSION!r}"
+                f"{HISTORICAL_RC62_REGISTER_VERSION!r}"
             )
         hist = _require_mapping(data.get("historical_compatibility"), "historical_compatibility")
         if hist.get("not_a_second_schema_authority") is not True:
@@ -560,14 +749,19 @@ def validate_register_document(data: dict[str, Any]) -> None:
             raise SchemaRegisterError(
                 f"historical_compatibility.active_authority must be {ACTIVE_REGISTER_VERSION!r}"
             )
-        if hist.get("immediate_predecessor_version") != HISTORICAL_RC61_REGISTER_VERSION:
+        if hist.get("immediate_predecessor_version") != HISTORICAL_RC62_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "historical_compatibility.immediate_predecessor_version must be "
-                f"{HISTORICAL_RC61_REGISTER_VERSION!r}"
+                f"{HISTORICAL_RC62_REGISTER_VERSION!r}"
             )
-        if hist.get("earlier_historical_compatibility_version") != HISTORICAL_S2_REGISTER_VERSION:
+        if hist.get("earlier_historical_compatibility_version") != HISTORICAL_RC61_REGISTER_VERSION:
             raise SchemaRegisterError(
                 "historical_compatibility.earlier_historical_compatibility_version must be "
+                f"{HISTORICAL_RC61_REGISTER_VERSION!r}"
+            )
+        if hist.get("prior_historical_compatibility_version") != HISTORICAL_S2_REGISTER_VERSION:
+            raise SchemaRegisterError(
+                "historical_compatibility.prior_historical_compatibility_version must be "
                 f"{HISTORICAL_S2_REGISTER_VERSION!r}"
             )
         if hist.get("earliest_historical_compatibility_version") != HISTORICAL_S1_REGISTER_VERSION:
@@ -584,6 +778,26 @@ def validate_register_document(data: dict[str, Any]) -> None:
                 f"{sorted(HISTORICAL_REGISTER_VERSIONS)}"
             )
         _require_mapping(data.get("recursive_inventory_helper"), "recursive_inventory_helper")
+        _validate_nested_evidence_classes(
+            _require_mapping(data.get("nested_evidence_classes"), "nested_evidence_classes")
+        )
+    elif version == HISTORICAL_RC62_REGISTER_VERSION:
+        if data.get("family") != "rc6_remediation_canonical_schema":
+            raise SchemaRegisterError(
+                "historical rc6.2 register family must be 'rc6_remediation_canonical_schema'"
+            )
+        hist = _require_mapping(data.get("historical_compatibility"), "historical_compatibility")
+        if hist.get("not_a_second_schema_authority") is not True:
+            raise SchemaRegisterError(
+                "historical rc6.2 register historical_compatibility.not_a_second_schema_authority "
+                "must be true"
+            )
+        _require_mapping(data.get("recursive_inventory_helper"), "recursive_inventory_helper")
+        if "nested_evidence_classes" in data:
+            raise SchemaRegisterError(
+                "historical rc6.2 register must not declare nested_evidence_classes "
+                "(typed nested authority is active rc6.3 only)"
+            )
     elif version == HISTORICAL_RC61_REGISTER_VERSION:
         # Frozen rc6.1 documents retain their freeze-time historical_compatibility
         # block naming rc6.1 as active_authority; they are never the loader default.
@@ -693,10 +907,10 @@ def load_canonical_register(
 
 
 def load_active_register() -> CanonicalSchemaRegister:
-    """Load the single active rc6.2 canonical authority."""
+    """Load the single active rc6.3 canonical authority."""
     reg = load_canonical_register(version=ACTIVE_REGISTER_VERSION)
     if not reg.is_active_authority:
-        raise SchemaRegisterError("active register load did not yield rc6.2 authority")
+        raise SchemaRegisterError("active register load did not yield rc6.3 authority")
     return reg
 
 
@@ -704,8 +918,8 @@ def load_historical_register(version: str) -> CanonicalSchemaRegister:
     """Explicit historical-version load (compatibility only; never the default).
 
     Accepts only the fixed historical versions:
-    rc6.1, rc5-phase4-s2.1, and rc5-phase4-s1.1. Unsupported versions fail closed.
-    Evidence content cannot select the active/historical authority.
+    rc6.2, rc6.1, rc5-phase4-s2.1, and rc5-phase4-s1.1. Unsupported versions
+    fail closed. Evidence content cannot select the active/historical authority.
     """
     if version not in HISTORICAL_REGISTER_VERSIONS:
         raise SchemaRegisterError(
@@ -713,6 +927,8 @@ def load_historical_register(version: str) -> CanonicalSchemaRegister:
             f"(accepted: {sorted(HISTORICAL_REGISTER_VERSIONS)})"
         )
     reg = load_canonical_register(version=version)
+    if version == HISTORICAL_RC62_REGISTER_VERSION and not reg.is_historical_rc62:
+        raise SchemaRegisterError("historical rc6.2 load did not yield rc6.2 register")
     if version == HISTORICAL_RC61_REGISTER_VERSION and not reg.is_historical_rc61:
         raise SchemaRegisterError("historical rc6.1 load did not yield rc6.1 register")
     if version == HISTORICAL_S2_REGISTER_VERSION and not reg.is_historical_s2:
@@ -722,6 +938,11 @@ def load_historical_register(version: str) -> CanonicalSchemaRegister:
     if reg.is_active_authority:
         raise SchemaRegisterError("historical load must not yield active authority")
     return reg
+
+
+def load_historical_rc62_register() -> CanonicalSchemaRegister:
+    """Convenience wrapper for explicit rc6.2 historical load."""
+    return load_historical_register(HISTORICAL_RC62_REGISTER_VERSION)
 
 
 def load_historical_rc61_register() -> CanonicalSchemaRegister:

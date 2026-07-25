@@ -483,14 +483,15 @@ Phase 4-S3 non-circular sequence:
    exemption for S2-shaped packages). Preferred helper:
 
    ```bash
-   python scripts/evidence_inventory.py --write-manifest "${EVIDENCE_DIR}"
+   python scripts/evidence_inventory.py --write-manifest --enforce-active-nested-classes "${EVIDENCE_DIR}"
    ```
 
 5. The structural validator is run with `--final-submission` against the closed package, with
    validator stdout/stderr and `VALIDATOR_RESULT` captured **outside** `EVIDENCE_DIR`. Valid
-   nested regular files must be included and hashed under recursive total closure. Symlinks,
-   special objects, path escapes, duplicates, stale hashes, and unlisted regular files fail
-   closed.
+   nested regular files must be included and hashed under recursive total closure, and under
+   active rc6.3 must resolve to a registered typed nested evidence class. Empty directories are
+   rejected for active rc6.3. Symlinks, special objects, path escapes, duplicates, stale
+   hashes, unauthorized nested files, and unlisted regular files fail closed.
 6. No further evidence-directory edits occur after step 5; any correction after this point
    follows [CORRECTION_LEDGER.md](CORRECTION_LEDGER.md), never an in-place edit of accepted
    evidence.

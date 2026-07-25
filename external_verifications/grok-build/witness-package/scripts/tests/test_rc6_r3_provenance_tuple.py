@@ -71,16 +71,16 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
     def test_01_active_default_is_rc6_2(self) -> None:
         default = srl.load_canonical_register()
         active = srl.load_active_register()
-        self.assertEqual(default.schema_register_version, "rc6.2")
-        self.assertEqual(active.schema_register_version, "rc6.2")
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
-        self.assertEqual(active.supersession().get("supersedes"), "rc6.1")
+        self.assertEqual(default.schema_register_version, "rc6.3")
+        self.assertEqual(active.schema_register_version, "rc6.3")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.2")
         hist = active.historical_compatibility()
-        self.assertEqual(hist.get("active_authority"), "rc6.2")
-        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.1")
+        self.assertEqual(hist.get("active_authority"), "rc6.3")
+        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.2")
         self.assertEqual(
             set(hist.get("historical_register_versions") or []),
-            {"rc6.1", "rc5-phase4-s2.1", "rc5-phase4-s1.1"},
+            {"rc6.2", "rc6.1", "rc5-phase4-s2.1", "rc5-phase4-s1.1"},
         )
 
     def test_02_historical_rc61_s2_s1_explicit_only(self) -> None:
@@ -93,7 +93,7 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
         self.assertTrue(s2.is_historical_s2)
         self.assertTrue(s1.is_historical_s1)
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.2")
+            srl.load_historical_register("rc6.3")
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc7.0")
 
@@ -104,7 +104,7 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
         frozen = RC61_REGISTER.read_bytes()
         self.assertIn(b'"schema_register_version": "rc6.1"', frozen)
         active = RC6_REGISTER.read_text(encoding="utf-8")
-        self.assertIn('"schema_register_version": "rc6.2"', active)
+        self.assertIn('"schema_register_version": "rc6.3"', active)
         self.assertIn("WEAVER_FORGE_FINAL_BINDING.txt", active)
 
     def test_04_active_fixtures_pass_historical_bytes_preserved(self) -> None:
@@ -241,11 +241,11 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
             newline="\n",
         )
         errors = v.validate_dir(tree)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
         self.assertTrue(any("schema_register_version" in e for e in errors), errors)
 
     def test_13_default_validation_never_selects_rc61_by_shape(self) -> None:
-        # Omitting R3 markers must fail under active rc6.2 — not silently use rc6.1.
+        # Omitting R3 markers must fail under active rc6.3 — not silently use rc6.1.
         tree = _copy_fixture("rc6-r1-synthetic-final")
         self.assertFalse(v.package_is_r3_shaped({}, evidence_dir=tree))
         errors = v.validate_dir(tree)
@@ -253,7 +253,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         # Explicit historical API still accepts the same bytes.
         self.assertEqual(v.validate_dir(tree, schema_register_version="rc6.1"), [])
         # Active version cannot be requested through the historical API.
-        reject_active = v.validate_dir(tree, schema_register_version="rc6.2")
+        reject_active = v.validate_dir(tree, schema_register_version="rc6.3")
         self.assertTrue(any("active authority" in e for e in reject_active), reject_active)
         unsupported = v.validate_dir(tree, schema_register_version="rc7.0")
         self.assertTrue(any("unsupported schema_register_version" in e for e in unsupported), unsupported)

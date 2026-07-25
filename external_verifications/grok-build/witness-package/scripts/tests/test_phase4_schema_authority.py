@@ -326,12 +326,12 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             variants_s1["early_failure_not_applicable_target"]["activation"],
             "defined_future_s2_writer_alignment",
         )
-        # Active rc6 register supersedes rc6.1 and retains S2 writer-aligned activations.
+        # Active rc6 register supersedes rc6.2 and retains S2 writer-aligned activations.
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
         self.assertEqual(
             v._SCHEMA_REGISTER.supersession().get("supersedes"),
-            srl.HISTORICAL_RC61_REGISTER_VERSION,
+            srl.HISTORICAL_RC62_REGISTER_VERSION,
         )
         boot_active = v._SCHEMA_REGISTER.lookup("BOOTSTRAP.txt", "host-preliminary")
         variants_active = {x["variant_id"]: x for x in boot_active["conditional_variants"]}

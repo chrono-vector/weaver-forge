@@ -4495,19 +4495,16 @@ append_host_run_metadata_entry "final_binding_written" \
   "final_binding=${FINAL_BINDING_FILE_NAME};tag_object_id=${WF_TAG_OBJECT_ID};recorded_before_manifest_bytes=yes;write_follows_manifest=yes"
 {
   # Prefer the committed Python inventory helper for recursive fail-closed
-  # enumeration and deterministic SHA-256 manifest generation. Falls back only
-  # if the helper cannot be invoked (should not happen in supported hosts).
+  # enumeration, RC6-R4 empty-directory rejection, typed nested-class
+  # authorization, and deterministic SHA-256 manifest generation.
   _inv_py="$(command -v python3 || command -v python || true)"
   _inv_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evidence_inventory.py"
   if [[ -n "${_inv_py}" && -f "${_inv_script}" ]]; then
-    if ! "${_inv_py}" "${_inv_script}" --write-manifest "${EVIDENCE_DIR}"; then
-      abort 11 "preliminary manifest generation via evidence_inventory.py failed"
+    if ! "${_inv_py}" "${_inv_script}" --write-manifest --enforce-active-nested-classes "${EVIDENCE_DIR}"; then
+      abort 11 "preliminary manifest generation via evidence_inventory.py failed (empty directory, unauthorized nested file, or inventory error)"
     fi
   else
-    (
-      cd "${EVIDENCE_DIR}"
-      find . -type f ! -name 'EVIDENCE_MANIFEST.sha256' ! -name 'WEAVER_FORGE_FINAL_BINDING.txt' -print0 | sort -z | xargs -0 sha256sum
-    ) > "${EVIDENCE_DIR}/EVIDENCE_MANIFEST.sha256"
+    abort 11 "evidence_inventory.py unavailable; RC6-R4 requires the Python inventory helper for empty-directory and typed nested-class enforcement"
   fi
 }
 # RC6-R3: final binding after successful preliminary manifest (not on R2 incomplete paths).

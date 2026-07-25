@@ -1,0 +1,7 @@
+evidence_schema_version=1
+class_id=container_support_record
+purpose=container_owned_supporting_nested_evidence
+owner=container
+run_id=run-rc6-r3-schema-synthetic-001
+status=OK
+summary=rc6-r4-container-support

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RC6-R1 focused tests: schema register foundation retained under RC6-R3.
 
-Active authority is now rc6.2; this file keeps the R1 exact-key / historical
+Active authority is now rc6.3; this file keeps the R1 exact-key / historical
 compatibility regressions and updates version expectations accordingly.
 Uses only the Python standard library and local controlled temporary directories.
 Does not invoke Docker, Cargo, compilers, product binaries, network, or Witness
@@ -62,11 +62,11 @@ class Rc6R1RegisterAuthorityTests(unittest.TestCase):
     def test_01_active_default_is_rc6_2(self) -> None:
         default = srl.load_canonical_register()
         active = srl.load_active_register()
-        self.assertEqual(default.schema_register_version, "rc6.2")
-        self.assertEqual(active.schema_register_version, "rc6.2")
+        self.assertEqual(default.schema_register_version, "rc6.3")
+        self.assertEqual(active.schema_register_version, "rc6.3")
         self.assertEqual(active.raw["family"], "rc6_remediation_canonical_schema")
         self.assertEqual(active.source_path.resolve(), RC6_REGISTER.resolve())
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
         self.assertTrue(RC6_REGISTER.is_file())
 
     def test_02_historical_rc61_s2_s1_explicit_only(self) -> None:
@@ -83,17 +83,18 @@ class Rc6R1RegisterAuthorityTests(unittest.TestCase):
         self.assertEqual(s2.source_path.resolve(), S2_REGISTER.resolve())
         self.assertEqual(s1.source_path.resolve(), S1_REGISTER.resolve())
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.2")
+            srl.load_historical_register("rc6.3")
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_canonical_register(version="rc6.99")
 
     def test_03_supersession_and_non_competing_historical(self) -> None:
         active = srl.load_active_register()
         hist = active.historical_compatibility()
-        self.assertEqual(active.supersession().get("supersedes"), "rc6.1")
-        self.assertEqual(hist.get("active_authority"), "rc6.2")
-        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.1")
-        self.assertEqual(hist.get("earlier_historical_compatibility_version"), "rc5-phase4-s2.1")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.2")
+        self.assertEqual(hist.get("active_authority"), "rc6.3")
+        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.2")
+        self.assertEqual(hist.get("earlier_historical_compatibility_version"), "rc6.1")
+        self.assertEqual(hist.get("prior_historical_compatibility_version"), "rc5-phase4-s2.1")
         self.assertEqual(hist.get("earliest_historical_compatibility_version"), "rc5-phase4-s1.1")
         self.assertTrue(hist.get("not_a_second_schema_authority"))
 
@@ -177,7 +178,7 @@ class Rc6R1RegisterAuthorityTests(unittest.TestCase):
         files["ENVIRONMENT.txt"] += "schema_register_version=rc5-phase4-s1.1\n"
         fx.write_tree(tree, files)
         errors = v.validate_dir(tree, schema_register_version="rc6.1")
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.2")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
         self.assertTrue(any("schema_register_version" in e for e in errors), errors)
 
     def test_10_historical_rc4_and_rc5_fixtures_still_pass(self) -> None:
@@ -208,7 +209,7 @@ class Rc6R1RegisterAuthorityTests(unittest.TestCase):
             self.assertNotIn("weaver_forge_tag_object_id", pkg)
         r3p = FIXTURES / "rc6-r3-synthetic-preliminary"
         r3f = FIXTURES / "rc6-r3-synthetic-final"
-        # Active rc6.2 fixtures validate under default authority only.
+        # Active rc6.3 fixtures validate under default authority only.
         self.assertEqual(v.validate_dir(r3p, host_preliminary=True), [])
         self.assertEqual(v.validate_dir(r3f), [])
         self.assertIn(
