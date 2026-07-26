@@ -152,12 +152,13 @@ Rejection requires the maintainer to record, in the PR thread and in the claim r
   `CORRECTION_REQUESTED`, `DISPUTED`, or `SUPERSEDED` intake.
 - The specific accepted run ID(s) that satisfy C-014 must be cited by run ID in the claim register
   entry for C-014 at the moment of transition.
-- Current package identity for this policy revision: last immutable version `1.0.0-rc5`;
-  canonical tag `grok-build-witness-v1.0.0-rc5` (FIXED_IMMUTABLE; Source Weaver disposition
-  **NOT READY**; Independent Witness handoff **not authorized**); historical rc4 remains
-  `grok-build-witness-v1.0.0-rc4`; current `main` is pre-tag RC6-R1–R7 remediation only; package
-  remains **NOT READY**; overall **PARTIAL**; no Independent Witness reproduction has occurred;
-  C-014 remains **NOT_STARTED**.
+- Current package identity for this policy revision: last immutable version `1.0.0-rc6`;
+  canonical tag `grok-build-witness-v1.0.0-rc6` (FIXED_IMMUTABLE; disposition
+  **NOT READY**; Independent Witness handoff **not authorized**); historical rc5 remains
+  `grok-build-witness-v1.0.0-rc5`; historical rc4 remains
+  `grok-build-witness-v1.0.0-rc4`; current `main` is pre-tag / prospective RC7 next-candidate
+  only; package remains **NOT READY**; overall **PARTIAL**; no Independent Witness reproduction
+  has occurred; C-014 remains **NOT_STARTED**; no finding CLEAR/CLOSED.
 
 ## Required public history
 

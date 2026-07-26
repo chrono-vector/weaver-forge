@@ -124,13 +124,15 @@ than being omitted.
   (integrated four-batch static blind audit **NOT READY**; 40 blockers; audit preserved under
   `evidence/rc4-static-blind-audit/`). Fixed immutable release. Independent Witness reproduction
   **NOT PERFORMED**. C-014 **NOT_STARTED**.
-- Last immutable tag **`grok-build-witness-v1.0.0-rc5`** (package version `1.0.0-rc5`) is
-  **FIXED_IMMUTABLE** (annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled
-  commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree
-  `97ad93d80480b23a49f1636ff55dae449202aa3c`). Source Weaver disposition **NOT READY**.
-  Independent Witness handoff **not authorized**. Current `main` is pre-tag RC6-R1–R7
-  remediation / prospective RC6 fixed candidate only; RC6 tag/archive/bundle do not yet exist.
-- Witness must record package tag **`grok-build-witness-v1.0.0-rc5`** for `1.0.0-rc5` evidence
+- Last immutable tag **`grok-build-witness-v1.0.0-rc6`** (package version `1.0.0-rc6`) is
+  **FIXED_IMMUTABLE** (annotated tag object `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled
+  commit `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; tree
+  `77369ab099414167df658b25eac3adcb4f264eb3`). Disposition **NOT READY**.
+  Independent Witness handoff **not authorized**. Historical
+  **`grok-build-witness-v1.0.0-rc5`** remains FIXED_IMMUTABLE **NOT READY**. Current `main` is
+  pre-tag / prospective RC7 next-candidate only; RC7 tag/archive/bundle do not yet exist.
+  RC7 Source Weaver audit has not occurred.
+- Witness must record package tag **`grok-build-witness-v1.0.0-rc6`** for `1.0.0-rc6` evidence
   (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**) and the
   **full Weaver peeled commit** resolved from the annotated tag (distinct from annotated tag
   object ID). Tag availability is verified by Git resolution; canonical execution requires
@@ -167,17 +169,17 @@ redirected into `EVIDENCE_DIR` at any stage.
 
 | Field | Value |
 |-------|-------|
-| Package version | `1.0.0-rc5` (last immutable tagged) |
-| Canonical package tag | `grok-build-witness-v1.0.0-rc5` |
-| Annotated tag object ID | `9c01e314249f59945e93597af6ece2e3fb33e6cd` |
-| Peeled commit | `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07` |
-| Tree | `97ad93d80480b23a49f1636ff55dae449202aa3c` |
+| Package version | `1.0.0-rc6` (last immutable tagged) |
+| Canonical package tag | `grok-build-witness-v1.0.0-rc6` |
+| Annotated tag object ID | `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8` |
+| Peeled commit | `7b76842bfa1adcedf0c00221cb574d9c3175b7e7` |
+| Tree | `77369ab099414167df658b25eac3adcb4f264eb3` |
 | Package commit authority | `annotated_tag_resolution` |
-| Package readiness | **NOT READY** (RC5 Source Weaver disposition; Independent Witness handoff not authorized; rc4 historical disposition also NOT READY) |
+| Package readiness | **NOT READY** (RC6 disposition; Independent Witness handoff not authorized; rc5/rc4 historical dispositions also NOT READY) |
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | `NOT_STARTED` |
-| Current `main` | Pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only; RC6 tag/archive/bundle absent |
+| Current `main` | Pre-tag / prospective RC7 next-candidate only; RC7 tag/archive/bundle absent; RC7 Source Weaver audit has not occurred |
 | Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |

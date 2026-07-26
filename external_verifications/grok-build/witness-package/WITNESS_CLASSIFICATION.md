@@ -1,21 +1,22 @@
-# Witness classification — precedence (RC5 immutable / pre-tag RC6 on main)
+# Witness classification — precedence (RC6 immutable / pre-tag RC7 on main)
 
-Applies to package version **1.0.0-rc5** (canonical package tag
-`grok-build-witness-v1.0.0-rc5`; annotated tag object
-`9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit
-`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; package commit authority =
-`annotated_tag_resolution`). RC5 is **FIXED_IMMUTABLE**, Source Weaver disposition **NOT READY**,
-and Independent Witness handoff is **not authorized**. Historical rc4 remains fixed at tag
+Applies to last immutable package version **1.0.0-rc6** (canonical package tag
+`grok-build-witness-v1.0.0-rc6`; annotated tag object
+`c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled commit
+`7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; package commit authority =
+`annotated_tag_resolution`). RC6 is **FIXED_IMMUTABLE**, disposition **NOT READY**,
+and Independent Witness handoff is **not authorized**. Historical rc5 remains fixed at tag
+`grok-build-witness-v1.0.0-rc5`. Historical rc4 remains fixed at tag
 `grok-build-witness-v1.0.0-rc4`, peeled commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`.
 Superseded rc3 text (tag `grok-build-witness-v1.0.0-rc3`, commit
 `77221a224bbd6194cfafb81f6ecb58c800e5bc13`), rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
 `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
-history at those tags; this file states **current** policy only. rc1–rc5 were each ruled/audited
-**NOT READY**. Current `main` hosts pre-tag RC6-R1–R7 remediation only; RC6 tag/archive/bundle
-do not yet exist. Independent Witness reproduction **NOT PERFORMED**. Independent Witness PASS
-**NONE**. C-014 remains **NOT_STARTED**. Overall package status remains **PARTIAL** /
-**NOT READY**.
+history at those tags; this file states **current** policy only. rc1–rc6 were each ruled/audited
+**NOT READY**. Current `main` hosts pre-tag / prospective RC7 next-candidate identity only; RC7
+tag/archive/bundle do not yet exist. RC7 Source Weaver audit has not occurred. Independent
+Witness reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 remains
+**NOT_STARTED**. Overall package status remains **PARTIAL** / **NOT READY**.
 
 Apply rules **in order**; the first matching row governs the **proposed Witness verdict**
 recorded in `WITNESS_VERDICT.md`. Maintainers assign an **intake verdict** separately, using

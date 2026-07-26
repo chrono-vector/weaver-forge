@@ -3,13 +3,13 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — RC5 FIXED IMMUTABLE — NOT READY — Independent Witness handoff not authorized — C-014 NOT_STARTED — RC6-R1–R7 remediation implemented on `main` (pre-tag / prospective RC6 fixed candidate only) — RC6 tag/archive/bundle do not yet exist — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — RC6 FIXED IMMUTABLE — NOT READY — Independent Witness handoff not authorized — C-014 NOT_STARTED — no finding CLEAR/CLOSED — next-candidate identity RC7 (`1.0.0-rc7` / `grok-build-witness-v1.0.0-rc7`) fixed in active Host/templates and validator mapping — RC7 tag/archive/bundle do not yet exist — RC7 Source Weaver audit has not occurred — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
 | Prepared date | `2026-07-26` |
-| Verification-plan version / date | RC6-R7 documentation/status alignment 2026-07-26 |
-| Current package version | Last immutable `1.0.0-rc5` / tag `grok-build-witness-v1.0.0-rc5`; annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256 `5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256 `5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`; current `main` = pre-tag RC6-R1–R7 remediation only (not an RC6 release); package commit authority = annotated_tag_resolution |
-| Immutable releases | `rc1`→NOT READY (C-024); `rc2`→NOT READY (C-025); `rc3`→NOT READY (C-026); `rc4`→NOT READY (C-027; 40 blockers); `rc5`→NOT READY (Source Weaver; Independent Witness handoff not authorized); Independent Witness reproduction NOT_PERFORMED; C-014 NOT_STARTED; RC6 tag absent |
+| Verification-plan version / date | RC7 next-candidate identity/status alignment 2026-07-26 |
+| Current package version | Last immutable `1.0.0-rc6` / tag `grok-build-witness-v1.0.0-rc6`; annotated tag object `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled commit `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; tree `77369ab099414167df658b25eac3adcb4f264eb3`; archive SHA-256 `1f411f65735d6e2f8aeb0cb968d0e6b2108af00ef0a0264dc15daed114da0fee`; transfer-bundle SHA-256 `ed23824246563db17d9adb7e5b5c95b633077b79b2681c04c46d8de544de6d26`; current `main` = pre-tag / prospective RC7 next-candidate only (not an RC7 release); package commit authority = annotated_tag_resolution |
+| Immutable releases | `rc1`→NOT READY (C-024); `rc2`→NOT READY (C-025); `rc3`→NOT READY (C-026); `rc4`→NOT READY (C-027; 40 blockers); `rc5`→NOT READY (Source Weaver; Independent Witness handoff not authorized); `rc6`→NOT READY (Independent Witness handoff not authorized); Independent Witness reproduction NOT_PERFORMED; C-014 NOT_STARTED; RC7 tag absent |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 | **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
@@ -168,11 +168,13 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **RC5 Phase 1 (historical):** rc4 prospective/pending wording corrected on `main`; did **not** close technical blockers and did **not** create RC5.
 
-**RC6-R7 (current — documentation/status alignment on `main`):** RC5 is FIXED_IMMUTABLE at tag `grok-build-witness-v1.0.0-rc5`; annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256 `5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256 `5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`; Source Weaver disposition **NOT READY**; Independent Witness handoff **not authorized**; C-014 **NOT_STARTED**. RC6-R1–R7 remediation is implemented on `main` as a pre-tag / prospective RC6 fixed candidate only. RC6 tag/archive/bundle **do not yet exist**. Implementation/docs alignment does **not** mark findings CLEAR/CLOSED.
+**RC6-R7 (historical — documentation/status alignment on `main`):** recorded RC5 FIXED_IMMUTABLE wording and pre-tag RC6 remediation status at the time. That wording is superseded by RC6 FIXED_IMMUTABLE publication.
 
-### HISTORICAL PRE-TAG / PRE-RC5 STATE
+**RC7 next-candidate (current):** RC6 is FIXED_IMMUTABLE at tag `grok-build-witness-v1.0.0-rc6`; annotated tag object `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled commit `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; tree `77369ab099414167df658b25eac3adcb4f264eb3`; archive SHA-256 `1f411f65735d6e2f8aeb0cb968d0e6b2108af00ef0a0264dc15daed114da0fee`; transfer-bundle SHA-256 `ed23824246563db17d9adb7e5b5c95b633077b79b2681c04c46d8de544de6d26`; disposition **NOT READY**; Independent Witness handoff **not authorized**; C-014 **NOT_STARTED**; no finding CLEAR/CLOSED. Next-candidate RC7 identity (`1.0.0-rc7` / `grok-build-witness-v1.0.0-rc7`) is fixed in active Host/templates and validator mapping on `main` only. RC7 tag/archive/bundle **do not yet exist**. RC7 Source Weaver audit has **not** occurred. Identity/validator alignment does **not** mark findings CLEAR/CLOSED.
 
-Prior wording described rc3/rc4/rc5 prospectively or said “rc5 tag does not exist” / “technical remediation not yet begun.” Those states are superseded by the immutable RC5 identity and pre-tag RC6 remediation status above.
+### HISTORICAL PRE-TAG / PRE-RC6 STATE
+
+Prior wording described rc3/rc4/rc5/rc6 prospectively or said “rc5/rc6 tag does not exist” / “technical remediation not yet begun” / “prospective RC6.” Those states are superseded by the immutable RC6 identity and pre-tag RC7 next-candidate status above.
 
 ---
 

@@ -1,6 +1,6 @@
 evidence_schema_version=1
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc5
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc7
 weaver_forge_commit_resolved=89127c78c3a11492892de7e3b5f0dee18d71775a
 package_clone_head=89127c78c3a11492892de7e3b5f0dee18d71775a
 package_clone_clean_status=yes
