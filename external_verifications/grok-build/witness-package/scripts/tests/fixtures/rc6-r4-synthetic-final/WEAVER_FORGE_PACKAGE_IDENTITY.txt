@@ -1,10 +1,10 @@
 evidence_schema_version=1
 witness_id=witness-rc5-s3-fixture
 run_id=run-rc6-r3-schema-synthetic-001
-package_version=1.0.0-rc7
+package_version=1.0.0-rc8
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc7
-weaver_forge_tag_ref=refs/tags/grok-build-witness-v1.0.0-rc7
+weaver_forge_tag_requested=grok-build-witness-v1.0.0-rc8
+weaver_forge_tag_ref=refs/tags/grok-build-witness-v1.0.0-rc8
 weaver_forge_tag_raw_object_type_required=tag
 weaver_forge_tag_raw_object_type_observed=tag
 weaver_forge_tag_object_id=9c01e314249f59945e93597af6ece2e3fb33e6cd
