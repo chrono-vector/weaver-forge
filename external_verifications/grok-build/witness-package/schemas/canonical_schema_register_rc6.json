@@ -1,17 +1,17 @@
 {
-  "schema_register_version": "rc6.4",
+  "schema_register_version": "rc6.5",
   "family": "rc6_remediation_canonical_schema",
   "evidence_schema_version": "1",
   "supported_register_versions": [
-    "rc6.4"
+    "rc6.5"
   ],
   "supersession": {
     "policy": "additive_supersession_only",
-    "supersedes": "rc6.3",
-    "historical_compatibility_register": "canonical_schema_register_rc6.3.json",
-    "historical_compatibility_version": "rc6.3",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.2.json",
-    "earlier_historical_compatibility_version": "rc6.2",
+    "supersedes": "rc6.4",
+    "historical_compatibility_register": "canonical_schema_register_rc6.4.json",
+    "historical_compatibility_version": "rc6.4",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.3.json",
+    "earlier_historical_compatibility_version": "rc6.3",
     "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
     "prior_historical_compatibility_version": "rc5-phase4-s2.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
@@ -30,9 +30,11 @@
       "rc6.2 historical fixtures",
       "canonical_schema_register_rc6.3.json",
       "rc6.3 historical fixtures",
-      "canonical_schema_register_rc5_phase4_s2.json"
+      "canonical_schema_register_rc5_phase4_s2.json",
+      "canonical_schema_register_rc6.4.json",
+      "rc6.4 historical fixtures"
     ],
-    "note": "This rc6.4 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.3. Frozen rc6.3, rc6.2, rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps. RC6-R5 adds distinct preliminary/final deviation transition binding and validator-authoritative machine-ceiling recomputation fields."
+    "note": "This rc6.5 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.4. Frozen rc6.4, rc6.3, rc6.2, rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps. RC6-R6 adds WITNESS_STATEMENT central-ref plus direct critical equality bindings (including BUILD_TIMING timing-source fields), paired REDACTIONS.md + REDACTIONS_INDEX.txt machine index, and final-submission maintainer_intake_verdict=pending with external append-only intake/correction sidecars outside hashed evidence."
   },
   "lifecycle_modes": [
     "host-preliminary",
@@ -90,14 +92,16 @@
       "DEVIATIONS.txt",
       "EVIDENCE_MANIFEST.sha256",
       "WEAVER_FORGE_FINAL_BINDING.txt",
-      "REDACTIONS.md"
+      "REDACTIONS.md",
+      "REDACTIONS_INDEX.txt"
     ]
   },
   "mode_accepted_supporting_files": {
     "host-preliminary": [
       "REDACTIONS.md",
       "WITNESS_STATEMENT.md",
-      "WITNESS_VERDICT.md"
+      "WITNESS_VERDICT.md",
+      "REDACTIONS_INDEX.txt"
     ],
     "final-submission": []
   },
@@ -183,7 +187,8 @@
           "WITNESS_STATEMENT.md",
           "WITNESS_VERDICT.md",
           "DEVIATIONS.txt",
-          "REDACTIONS.md"
+          "REDACTIONS.md",
+          "REDACTIONS_INDEX.txt"
         ],
         "sequence": [
           "required_final_structural_inputs_present",
@@ -2032,6 +2037,78 @@
           ]
         },
         {
+          "name": "authoritative_outcome",
+          "requirement": "required"
+        },
+        {
+          "name": "artifact_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "evidence_manifest_ref",
+          "requirement": "required",
+          "legal_values": [
+            "EVIDENCE_MANIFEST.sha256"
+          ]
+        },
+        {
+          "name": "statement_identity_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "deviations_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        },
+        {
+          "name": "redactions_index_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "redaction_state",
+          "requirement": "required"
+        },
+        {
+          "name": "final_machine_ceiling",
+          "requirement": "required"
+        },
+        {
+          "name": "execution_date_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "execution_started_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "execution_finished_utc",
+          "requirement": "required"
+        },
+        {
+          "name": "execution_timing_source_file",
+          "requirement": "required",
+          "legal_values": [
+            "BUILD_TIMING.txt"
+          ]
+        },
+        {
+          "name": "execution_timing_source_start_field",
+          "requirement": "required",
+          "legal_values": [
+            "docker_started_utc"
+          ]
+        },
+        {
+          "name": "execution_timing_source_end_field",
+          "requirement": "required",
+          "legal_values": [
+            "docker_finished_utc"
+          ]
+        },
+        {
           "name": "witness_identity_or_handle",
           "requirement": "required"
         },
@@ -2062,21 +2139,74 @@
         {
           "name": "ldd_used",
           "requirement": "required"
+        },
+        {
+          "name": "upstream_product_commands_not_run",
+          "requirement": "required"
         }
       ],
       "optional_fields": [
         {
           "name": "ai_assistance_detail",
           "requirement": "optional"
-        },
-        {
-          "name": "upstream_product_commands_not_run",
-          "requirement": "optional"
         }
       ],
       "conditional_variants": [],
       "run_id_required": true,
-      "note": "RC6-R3 MV-A: mechanical run_id/package_identity_ref/final_binding_ref only. R6 owns Witness identity sufficiency and semantic bindings."
+      "note": "RC6-R6 R6-M2: central package/final-binding refs plus direct critical equality bindings to run/outcome/artifact/manifest/statement/deviation/redaction/ceiling identities, and RC4B-033/034 timing-source equality to BUILD_TIMING.txt docker_started_utc/docker_finished_utc. Statement copies authoritative values only.",
+      "legal_values": {
+        "deviation_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "redaction_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "final_machine_ceiling": [
+          "PASS",
+          "PARTIAL",
+          "FAIL",
+          "INDETERMINATE"
+        ],
+        "not_package_owner": [
+          "yes"
+        ],
+        "not_owner_side_reproducer": [
+          "yes"
+        ],
+        "witness_controlled_host": [
+          "yes"
+        ],
+        "ai_assistance_used": [
+          "yes",
+          "no"
+        ],
+        "human_review_completed": [
+          "yes"
+        ],
+        "product_executed": [
+          "NO"
+        ],
+        "ldd_used": [
+          "NO"
+        ],
+        "upstream_product_commands_not_run": [
+          "yes"
+        ],
+        "execution_timing_source_file": [
+          "BUILD_TIMING.txt"
+        ],
+        "execution_timing_source_start_field": [
+          "docker_started_utc"
+        ],
+        "execution_timing_source_end_field": [
+          "docker_finished_utc"
+        ],
+        "evidence_manifest_ref": [
+          "EVIDENCE_MANIFEST.sha256"
+        ]
+      }
     },
     {
       "artifact_id": "WITNESS_VERDICT.md",
@@ -2149,13 +2279,75 @@
         },
         {
           "name": "maintainer_intake_verdict",
+          "requirement": "required",
+          "legal_values": [
+            "pending"
+          ]
+        },
+        {
+          "name": "witness_statement_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "statement_identity_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "deviations_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "deviation_state",
+          "requirement": "required"
+        },
+        {
+          "name": "redactions_index_sha256",
+          "requirement": "required"
+        },
+        {
+          "name": "redaction_state",
+          "requirement": "required"
+        },
+        {
+          "name": "final_machine_ceiling",
           "requirement": "required"
         }
       ],
       "optional_fields": [],
       "conditional_variants": [],
       "run_id_required": true,
-      "note": "RC6-R3 MV-A: mechanical run/package refs. R6 owns semantic verdict/statement/timing/intake/correction."
+      "note": "RC6-R6: final submission freezes maintainer_intake_verdict=pending; later intake is append-only outside the hashed package. Verdict equality-binds statement, deviation, redaction, and machine-ceiling identities.",
+      "legal_values": {
+        "maintainer_intake_verdict": [
+          "pending"
+        ],
+        "deviation_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "redaction_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "final_machine_ceiling": [
+          "PASS",
+          "PARTIAL",
+          "FAIL",
+          "INDETERMINATE"
+        ],
+        "verdict_ceiling": [
+          "PASS",
+          "PARTIAL",
+          "FAIL",
+          "INDETERMINATE"
+        ],
+        "product_executed": [
+          "NO"
+        ],
+        "ldd_used": [
+          "NO"
+        ]
+      }
     },
     {
       "artifact_id": "REDACTIONS.md",
@@ -2187,6 +2379,66 @@
         {
           "name": "semantic_integrity_declaration",
           "requirement": "required"
+        },
+        {
+          "name": "redactions_index_ref",
+          "requirement": "required",
+          "legal_values": [
+            "REDACTIONS_INDEX.txt"
+          ]
+        }
+      ],
+      "optional_fields": [],
+      "conditional_variants": [],
+      "run_id_required": false,
+      "note": "RC6-R6 R6-RD2: human-readable redaction explanation. Machine-readable index lives in paired REDACTIONS_INDEX.txt. Indexed entries and marker reconciliation are enforced against the index, not free-text narrative.",
+      "legal_values": {
+        "redaction_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "semantic_integrity_declaration": [
+          "yes"
+        ],
+        "redactions_index_ref": [
+          "REDACTIONS_INDEX.txt"
+        ]
+      }
+    },
+    {
+      "artifact_id": "REDACTIONS_INDEX.txt",
+      "filename": "REDACTIONS_INDEX.txt",
+      "owner": "witness",
+      "lifecycle_modes": [
+        "host-preliminary",
+        "final-submission"
+      ],
+      "required_file_classification": {
+        "host-preliminary": "accepted_supporting",
+        "final-submission": "required"
+      },
+      "activation": "enforced_current_compatible",
+      "field_order_normative": true,
+      "exact_field_set_policy": "exact",
+      "fields": [
+        {
+          "name": "evidence_schema_version",
+          "requirement": "required",
+          "legal_values": [
+            "1"
+          ]
+        },
+        {
+          "name": "run_id",
+          "requirement": "required"
+        },
+        {
+          "name": "redaction_state",
+          "requirement": "required"
+        },
+        {
+          "name": "redaction_count",
+          "requirement": "required"
         }
       ],
       "optional_fields": [],
@@ -2200,14 +2452,27 @@
           "indexed_keys": [
             "file",
             "field",
-            "reason",
+            "category",
+            "original_value_sha256",
             "replacement_marker"
           ],
           "activation": "enforced_current_compatible"
         }
       ],
-      "run_id_required": false,
-      "note": "RC6-R1 exact required keys when redaction_state=NONE; when PRESENT, indexed redaction_<n>_* keys are the only additional permitted keys. Unknown keys rejected. Redaction redesign (hash/category) is later-slice."
+      "legal_values": {
+        "redaction_state": [
+          "NONE",
+          "PRESENT"
+        ],
+        "redaction_<n>_category": [
+          "FILESYSTEM_PATH",
+          "HOME_PATH_IDENTIFIER",
+          "COMMAND_TEXT",
+          "CAPTURED_COMMAND_OUTPUT"
+        ]
+      },
+      "run_id_required": true,
+      "note": "RC6-R6 R6-RD2 machine-readable redaction index. Contiguous numeric IDs 1..n; categories FILESYSTEM_PATH | HOME_PATH_IDENTIFIER | COMMAND_TEXT | CAPTURED_COMMAND_OUTPUT remain distinct. Active rc6.5 PRESENT replacement_marker grammar is exactly [REDACTED:<CATEGORY>:<marker-id>] where CATEGORY is one of those four tokens with no aliases or case folding; the category token in the physical marker is the independent category authority and must exactly equal redaction_<n>_category. Marker reconciliation and integrity-critical improper redaction fail closed and feed R5 ceiling FAIL."
     },
     {
       "artifact_id": "DEVIATIONS.txt@host-preliminary",
@@ -2923,16 +3188,17 @@
   ],
   "historical_compatibility": {
     "policy": "explicit_historical_path_only",
-    "active_authority": "rc6.4",
-    "immediate_predecessor_version": "rc6.3",
-    "immediate_predecessor_register": "canonical_schema_register_rc6.3.json",
-    "earlier_historical_compatibility_version": "rc6.2",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.2.json",
+    "active_authority": "rc6.5",
+    "immediate_predecessor_version": "rc6.4",
+    "immediate_predecessor_register": "canonical_schema_register_rc6.4.json",
+    "earlier_historical_compatibility_version": "rc6.3",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.3.json",
     "prior_historical_compatibility_version": "rc5-phase4-s2.1",
     "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
     "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
     "historical_register_versions": [
+      "rc6.4",
       "rc6.3",
       "rc6.2",
       "rc6.1",

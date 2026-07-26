@@ -62,20 +62,23 @@ class Rc6R5SchemaAuthorityTests(unittest.TestCase):
     def tearDown(self) -> None:
         _cleanup()
 
-    def test_01_active_default_is_rc6_4(self) -> None:
+    def test_01_active_default_is_rc6_5(self) -> None:
         active = srl.load_active_register()
         default = srl.load_canonical_register()
-        self.assertEqual(default.schema_register_version, "rc6.4")
-        self.assertEqual(active.schema_register_version, "rc6.4")
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.4")
-        self.assertEqual(active.supersession().get("supersedes"), "rc6.3")
+        self.assertEqual(default.schema_register_version, "rc6.5")
+        self.assertEqual(active.schema_register_version, "rc6.5")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.5")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.4")
 
-    def test_02_historical_rc63_explicit_only(self) -> None:
+    def test_02_historical_rc64_and_rc63_explicit_only(self) -> None:
+        rc64 = srl.load_historical_register("rc6.4")
+        self.assertTrue(rc64.is_historical_rc64)
+        self.assertTrue((PACKAGE_DIR / "schemas" / "canonical_schema_register_rc6.4.json").is_file())
         rc63 = srl.load_historical_register("rc6.3")
         self.assertTrue(rc63.is_historical_rc63)
         self.assertTrue(RC63_REGISTER.is_file())
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.4")
+            srl.load_historical_register("rc6.5")
 
     def test_03_final_deviations_require_r5_binding_fields(self) -> None:
         active = srl.load_active_register()
@@ -328,8 +331,8 @@ class Rc6R5FixtureValidatorTests(unittest.TestCase):
         _cleanup()
 
     def test_12_active_r5_fixtures_conform(self) -> None:
-        prelim = FIXTURES / "rc6-r5-synthetic-preliminary"
-        final = FIXTURES / "rc6-r5-synthetic-final"
+        prelim = FIXTURES / "rc6-r6-synthetic-preliminary"
+        final = FIXTURES / "rc6-r6-synthetic-final"
         self.assertTrue(prelim.is_dir())
         self.assertTrue(final.is_dir())
         self.assertEqual(v.validate_dir(prelim, host_preliminary=True), [])

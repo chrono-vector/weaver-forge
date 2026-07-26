@@ -20,9 +20,12 @@ itself records a subsequent successful run).
 
 - The canonical ledger is this file, appended to via ordinary commits (never `--amend`, never
   force-push, never history rewrite).
-- Each Witness submission directory may additionally carry its own local
-  `CORRECTION_LEDGER_ENTRIES.txt` (optional) cross-referencing entries here by entry ID, but this
-  file is the single authoritative index across all submissions.
+- Each Witness submission directory under
+  `external_verifications/grok-build/witness-submissions/<run_id>/` carries its own
+  append-only `CORRECTION_LEDGER_ENTRIES.txt` sidecar (RC6-R6 / R6-I2) outside the
+  hashed evidence package, cross-referencing entries here by entry ID. Integrity-critical
+  property changes require a superseding package; a sidecar entry alone is insufficient.
+  This file remains the single human-readable index across all submissions.
 
 ## Entry format (template)
 

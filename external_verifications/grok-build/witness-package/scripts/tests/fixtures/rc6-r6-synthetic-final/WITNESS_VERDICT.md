@@ -1,0 +1,25 @@
+evidence_schema_version=1
+run_id=run-rc6-r3-schema-synthetic-001
+package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
+final_binding_ref=WEAVER_FORGE_FINAL_BINDING.txt
+package_tag=grok-build-witness-v1.0.0-rc5
+weaver_forge_commit=89127c78c3a11492892de7e3b5f0dee18d71775a
+grok_build_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
+outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
+verdict_ceiling=PASS
+product_executed=NO
+ldd_used=NO
+maintainer_intake_verdict=pending
+witness_statement_sha256=53fb09d9d643a63232404a6d68a3147d9455472bc3f8603bf6195ca9b7f2728b
+statement_identity_sha256=8febcd5f5fa32198e415934f4bcc13619bdb1d559f79b5afca234c27d8f8281c
+deviations_sha256=dd293b6e000cdbcbc3ba9f2d23f9f2f3b3dd60b55283b48adc1e78139ffaca03
+deviation_state=NONE
+redactions_index_sha256=f9d3a263aa440f9b52d3f14bdaa8a66dc96f78be8029cb10e942ea0da1fcb229
+redaction_state=NONE
+final_machine_ceiling=PASS
+
+Witness proposed verdict: PASS
+
+## Justification
+
+See WITNESS_CLASSIFICATION.md precedence table; proposed verdict is at or below the machine-computed ceiling for this run.

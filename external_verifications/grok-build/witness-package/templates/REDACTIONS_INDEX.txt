@@ -1,0 +1,19 @@
+# REDACTIONS_INDEX.txt — machine-readable redaction index (RC6-R6 / R6-RD2)
+#
+# Contiguous numeric IDs 1..redaction_count when PRESENT.
+# Categories (distinct; not interchangeable):
+#   FILESYSTEM_PATH
+#   HOME_PATH_IDENTIFIER
+#   COMMAND_TEXT
+#   CAPTURED_COMMAND_OUTPUT
+#
+# Each entry binds: file, field, category, original_value_sha256, replacement_marker.
+# Active rc6.5 PRESENT replacement_marker grammar (exact; no aliases / case folding):
+#   [REDACTED:<CATEGORY>:<marker-id>]
+# The physical marker carries the authoritative CATEGORY token and must exactly
+# equal redaction_<n>_replacement_marker at the declared file and field/section.
+# Parsed marker CATEGORY must exactly equal redaction_<n>_category.
+evidence_schema_version=1
+run_id=<run-id-token>
+redaction_state=NONE
+redaction_count=0

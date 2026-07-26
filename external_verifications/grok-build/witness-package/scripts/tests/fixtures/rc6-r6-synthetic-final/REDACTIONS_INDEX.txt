@@ -1,0 +1,4 @@
+evidence_schema_version=1
+run_id=run-rc6-r3-schema-synthetic-001
+redaction_state=NONE
+redaction_count=0

@@ -88,9 +88,12 @@ Acceptance requires all of:
    conflict was hidden, altered, or softened (see
    [WITNESS_SECURITY_AND_REDACTION.md](WITNESS_SECURITY_AND_REDACTION.md)).
 
-On acceptance, the maintainer merges the PR and updates `WITNESS_VERDICT.md`'s
-`maintainer_intake_verdict` field (via a maintainer-authored follow-up commit, never by rewriting
-the Witness's original commit) from `pending` to `accepted`, and records the merge commit SHA.
+On acceptance, the maintainer records the disposition in the external append-only
+sidecar
+`external_verifications/grok-build/witness-submissions/<run_id>/MAINTAINER_INTAKE_LEDGER.txt`
+(RC6-R6 / R6-I2). The submitted `WITNESS_VERDICT.md` keeps
+`maintainer_intake_verdict=pending` forever and is never rewritten to claim later
+maintainer acceptance. The original evidence package and manifest remain immutable.
 
 ## Rejection
 

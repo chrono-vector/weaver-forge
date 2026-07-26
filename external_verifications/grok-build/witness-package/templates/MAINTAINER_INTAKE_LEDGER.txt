@@ -1,0 +1,14 @@
+# MAINTAINER_INTAKE_LEDGER.txt — append-only external intake sidecar (RC6-R6 / R6-I2)
+#
+# Path: external_verifications/grok-build/witness-submissions/<run_id>/MAINTAINER_INTAKE_LEDGER.txt
+# Outside hashed evidence. mutates_original_package must always be no.
+#
+# BEGIN_ENTRY
+# run_id=<run-id>
+# recorded_utc=YYYY-MM-DDTHH:MM:SSZ
+# maintainer_identity=<handle>
+# maintainer_intake_verdict=pending|accepted|rejected|correction_requested|disputed|superseded
+# original_evidence_manifest_sha256=<64-hex>
+# mutates_original_package=no
+# note=<optional>
+# END_ENTRY

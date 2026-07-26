@@ -118,8 +118,8 @@ class Rc6R4SchemaAuthorityTests(unittest.TestCase):
 
     def test_01_active_default_is_rc6_4(self) -> None:
         active = srl.load_active_register()
-        self.assertEqual(active.schema_register_version, "rc6.4")
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.4")
+        self.assertEqual(active.schema_register_version, "rc6.5")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.5")
         self.assertTrue(active.enforces_typed_nested_classes())
         self.assertTrue(active.enforces_empty_directory_rejection())
         self.assertEqual(
@@ -133,14 +133,14 @@ class Rc6R4SchemaAuthorityTests(unittest.TestCase):
         self.assertFalse(hist.enforces_typed_nested_classes())
         self.assertEqual(hist.source_path.resolve(), RC62_REGISTER.resolve())
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.4")
-        reject = v.validate_dir(FIXTURES / "rc6-r5-synthetic-final", schema_register_version="rc6.4")
+            srl.load_historical_register("rc6.5")
+        reject = v.validate_dir(FIXTURES / "rc6-r6-synthetic-final", schema_register_version="rc6.5")
         self.assertTrue(any("active authority" in e for e in reject), reject)
 
     def test_03_active_and_historical_fixtures(self) -> None:
-        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r5-synthetic-final"), [])
+        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r6-synthetic-final"), [])
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r5-synthetic-preliminary", host_preliminary=True),
+            v.validate_dir(FIXTURES / "rc6-r6-synthetic-preliminary", host_preliminary=True),
             [],
         )
         self.assertEqual(
@@ -169,7 +169,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         _cleanup()
 
     def test_04_arbitrary_listed_hashed_nested_rejected(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         nested = tree / "nested"
         nested.mkdir()
         (nested / "extra.txt").write_text("hello\n", encoding="utf-8", newline="\n")
@@ -201,7 +201,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         )
 
     def test_05_unknown_prefix_and_path_class_mismatch(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         bad = tree / "unknown_prefix"
         bad.mkdir()
         (bad / "x.txt").write_text("a=b\n", encoding="utf-8", newline="\n")
@@ -211,7 +211,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
                 reject_empty_directories=True,
                 nested_classes=srl.load_active_register().nested_class_records(),
             )
-        tree2 = _copy_fixture("rc6-r5-synthetic-final")
+        tree2 = _copy_fixture("rc6-r6-synthetic-final")
         run_id = next(
             line.split("=", 1)[1]
             for line in (tree2 / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8").splitlines()
@@ -233,7 +233,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         self.assertTrue(any("class_id" in e for e in errors), errors)
 
     def test_06_malformed_class_content_and_run_id_binding(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         (tree / "host_support" / "aux_note.txt").write_text(
             "evidence_schema_version=1\nclass_id=host_support_record\n",
             encoding="utf-8",
@@ -243,7 +243,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         errors = v.validate_dir(tree)
         self.assertTrue(any("host_support/aux_note.txt" in e for e in errors), errors)
 
-        tree2 = _copy_fixture("rc6-r5-synthetic-final")
+        tree2 = _copy_fixture("rc6-r6-synthetic-final")
         (tree2 / "host_support" / "aux_note.txt").write_text(
             _support_record(
                 class_id="host_support_record",
@@ -259,7 +259,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         self.assertTrue(any("run_id" in e for e in errors2), errors2)
 
     def test_07_manifest_missing_extra_nested_entries(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         man = tree / "EVIDENCE_MANIFEST.sha256"
         lines = [ln for ln in man.read_text(encoding="utf-8").splitlines() if ln.strip()]
         # Drop nested entry.
@@ -268,7 +268,7 @@ class Rc6R4NestedClassTests(unittest.TestCase):
         errors = v.validate_dir(tree)
         self.assertTrue(any("host_support/aux_note.txt" in e for e in errors), errors)
 
-        tree2 = _copy_fixture("rc6-r5-synthetic-final")
+        tree2 = _copy_fixture("rc6-r6-synthetic-final")
         man2 = tree2 / "EVIDENCE_MANIFEST.sha256"
         man2.write_text(
             man2.read_text(encoding="utf-8")
@@ -289,7 +289,7 @@ class Rc6R4EmptyDirectoryTests(unittest.TestCase):
         _cleanup()
 
     def test_08_empty_directory_rejected_before_manifest_and_validator(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         (tree / "empty_child").mkdir()
         with self.assertRaises(ei.EvidenceInventoryError) as ctx:
             ei.write_evidence_manifest(
@@ -299,7 +299,7 @@ class Rc6R4EmptyDirectoryTests(unittest.TestCase):
             )
         self.assertIn("empty directory rejected", str(ctx.exception))
 
-        tree2 = _copy_fixture("rc6-r5-synthetic-final")
+        tree2 = _copy_fixture("rc6-r6-synthetic-final")
         (tree2 / "host_support" / "empty_nested").mkdir()
         errors = v.validate_dir(tree2)
         self.assertTrue(any("Empty directory rejected" in e for e in errors), errors)
@@ -318,7 +318,7 @@ class Rc6R4EmptyDirectoryTests(unittest.TestCase):
         self.assertIn("typed nested", host.lower())
 
     def test_11_r3_final_binding_and_exclusions_preserved(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         man = (tree / "EVIDENCE_MANIFEST.sha256").read_text(encoding="utf-8")
         self.assertNotIn("WEAVER_FORGE_FINAL_BINDING.txt", man)
         self.assertNotIn("EVIDENCE_MANIFEST.sha256\n", man.replace("  ./EVIDENCE_MANIFEST.sha256", ""))
@@ -328,7 +328,7 @@ class Rc6R4EmptyDirectoryTests(unittest.TestCase):
         self.assertEqual(v.validate_dir(tree), [])
 
     def test_12_evidence_cannot_select_historical_authority(self) -> None:
-        tree = _copy_fixture("rc6-r5-synthetic-final")
+        tree = _copy_fixture("rc6-r6-synthetic-final")
         env = tree / "ENVIRONMENT.txt"
         env.write_text(
             env.read_text(encoding="utf-8") + "schema_register_version=rc6.2\n",

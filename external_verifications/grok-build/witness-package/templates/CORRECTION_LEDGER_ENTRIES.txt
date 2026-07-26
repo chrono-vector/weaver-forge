@@ -1,0 +1,20 @@
+# CORRECTION_LEDGER_ENTRIES.txt — append-only external correction sidecar (RC6-R6 / R6-I2)
+#
+# Path: external_verifications/grok-build/witness-submissions/<run_id>/CORRECTION_LEDGER_ENTRIES.txt
+# Outside hashed evidence. Never rewrites the original immutable package.
+#
+# If affected_integrity_critical_properties is non-empty, supersession_relationship
+# must be REQUIRES_SUPERSEDING_PACKAGE or FULL_SUPERSESSION.
+#
+# BEGIN_ENTRY
+# entry_id=CL-0001
+# recorded_utc=YYYY-MM-DDTHH:MM:SSZ
+# original_run_id=<run-id>
+# original_evidence_manifest_sha256=<64-hex>
+# supersession_relationship=ADDENDUM|CLARIFICATION|PARTIAL_SUPERSESSION|FULL_SUPERSESSION|REQUIRES_SUPERSEDING_PACKAGE
+# affected_integrity_critical_properties=<comma-separated or empty>
+# superseding_run_id=<required when REQUIRES_SUPERSEDING_PACKAGE>
+# original_negative_evidence_preserved=yes
+# mutates_original_package=no
+# reason=<text>
+# END_ENTRY

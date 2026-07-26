@@ -1,0 +1,4 @@
+evidence_schema_version=1
+redaction_state=NONE
+semantic_integrity_declaration=yes
+redactions_index_ref=REDACTIONS_INDEX.txt

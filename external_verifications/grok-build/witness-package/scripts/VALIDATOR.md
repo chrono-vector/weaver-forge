@@ -166,26 +166,27 @@ Final-submission structural PASS does **not** claim Independent Witness PASS,
 final eligibility, READY, or rc5 readiness. Synthetic final fixtures are test
 artifacts only and are not real Witness submissions.
 
-### Canonical schema register (RC6-R5 active; R4 nested/empty retained)
+### Canonical schema register (RC6-R6 active; R4 nested/empty and R5 deviation/ceiling retained)
 
 Machine-readable schema authority for the rc6 remediation path:
 
 - Active register: `schemas/canonical_schema_register_rc6.json`
-- Active version: `rc6.4`
+- Active version: `rc6.5`
 - Family: `rc6_remediation_canonical_schema`
-- Immediate historical predecessor (frozen): `schemas/canonical_schema_register_rc6.3.json` (`rc6.3`)
+- Immediate historical predecessor (frozen): `schemas/canonical_schema_register_rc6.4.json` (`rc6.4`)
+- Earlier historical: `schemas/canonical_schema_register_rc6.3.json` (`rc6.3`)
 - Earlier historical: `schemas/canonical_schema_register_rc6.2.json` (`rc6.2`)
 - Prior historical: `schemas/canonical_schema_register_rc5_phase4_s2.json` (`rc5-phase4-s2.1`)
 - Earliest historical: `schemas/canonical_schema_register_rc5_phase4_s1.json` (`rc5-phase4-s1.1`)
 - Also loadable historical: `schemas/canonical_schema_register_rc6.1.json` (`rc6.1`)
-- Loader: `scripts/schema_register_loader.py` (default load = rc6.4 only; explicit
-  historical-version loader accepts only `rc6.3`, `rc6.2`, `rc6.1`, `rc5-phase4-s2.1`, and
+- Loader: `scripts/schema_register_loader.py` (default load = rc6.5 only; explicit
+  historical-version loader accepts only `rc6.4`, `rc6.3`, `rc6.2`, `rc6.1`, `rc5-phase4-s2.1`, and
   `rc5-phase4-s1.1`)
 - Completeness activation: `enforced_s3_manifest_completeness`
 - Typed nested evidence classes (RC6-R4): `nested_evidence_classes` in the active
   register (`host_support_record`, `container_support_record`); unknown prefixes
   and arbitrary nested files fail closed
-- Empty-directory policy (RC6-R4): `reject_all` for active rc6.4
+- Empty-directory policy (RC6-R4): `reject_all` for active rc6.5
 - Deviation transition (RC6-R5 / R5-D1): distinct Host preliminary vs final Witness
   `DEVIATIONS.txt` schemas; final packages bind via `preliminary_deviations_sha256`,
   require contiguous numeric IDs `1..n`, exact `deviation_count`, and truthful
@@ -194,6 +195,15 @@ Machine-readable schema authority for the rc6 remediation path:
   strictest wins; `NONMATERIAL_DISCLOSED` caps at `PARTIAL`; `PROHIBITED` and
   `EXPECTED_RUSTC_VERSION` / `EXPECTED_DOTSLASH_VERSION` / `RUST_IMAGE` identity
   overrides force `FAIL`
+- Manual forms (RC6-R6 / R6-M2): `WITNESS_STATEMENT.md` central refs plus direct
+  critical equality bindings (run/outcome/artifact/manifest-ref/statement/
+  deviation/redaction/ceiling) and BUILD_TIMING timing-source equality
+- Intake/correction (RC6-R6 / R6-I2): final `maintainer_intake_verdict=pending`;
+  append-only sidecars under `witness-submissions/<run_id>/` outside hashed evidence
+- Redactions (RC6-R6 / R6-RD2): paired `REDACTIONS.md` + `REDACTIONS_INDEX.txt`
+  with distinct categories `FILESYSTEM_PATH` | `HOME_PATH_IDENTIFIER` |
+  `COMMAND_TEXT` | `CAPTURED_COMMAND_OUTPUT`; marker reconciliation; integrity-critical
+  improper redaction feeds R5 ceiling FAIL
 - Field authority: `evidence_inventory_complete` → `POST_BUILD_INTEGRITY.txt`;
   `evidence_completeness_status` / `preliminary_success_eligible` →
   `HOST_OUTCOME_INGESTION.txt`
@@ -201,18 +211,18 @@ Machine-readable schema authority for the rc6 remediation path:
 Active rc6 structured KV files use **exact** required-key enforcement, or exact
 required keys plus **explicitly named optional** keys. Unknown keys, duplicate
 keys, and missing required keys fail closed. Raw capture streams remain outside
-KV exact closure. Historical rc6.3/rc6.2/rc6.1/S2/S1 registers are not competing
+KV exact closure. Historical rc6.4/rc6.3/rc6.2/rc6.1/S2/S1 registers are not competing
 active authorities and must never become the loader default. Evidence content
 cannot select schema-register authority. Later RC6-R* slices update the same
-`canonical_schema_register_rc6.json` file with monotonic bumps (`rc6.5`, …).
+`canonical_schema_register_rc6.json` file with monotonic bumps (`rc6.6`, …).
 
 Historical fixtures without S2 identity markers remain accepted through the
 explicit historical compatibility path. S2-shaped evidence is never silently
 downgraded.
 
 No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
-RC6 does not yet exist as a release; RC6-R5 is deviation transition and
-validator-authoritative machine-ceiling recomputation only.
+RC6 does not yet exist as a release; RC6-R6 is manual-form / intake / correction /
+redaction remediation on `main` only.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 

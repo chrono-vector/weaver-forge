@@ -38,6 +38,9 @@ from pathlib import Path
 
 import evidence_inventory as ei
 import deviation_transition as dxt
+import statement_binding as sb
+import redaction_index as ridx
+import submission_sidecars as sidecars
 from schema_register_loader import (
     load_historical_rc61_register,
     load_historical_register,
@@ -677,7 +680,7 @@ def resolve_validation_register(
 ) -> tuple[CanonicalSchemaRegister | None, str | None]:
     """Resolve the schema register for validation.
 
-    Default (None) → active rc6.4 only.
+    Default (None) → active rc6.5 only.
     Explicit historical versions → historical loader only.
     Active version requested via historical API → fail closed.
     Unsupported → fail closed.
@@ -687,7 +690,7 @@ def resolve_validation_register(
     if schema_register_version == ACTIVE_REGISTER_VERSION:
         return None, (
             f"schema_register_version={schema_register_version!r} is the active authority; "
-            "default validation uses active rc6.4 — do not request it through the "
+            "default validation uses active rc6.5 — do not request it through the "
             "historical validation API"
         )
     if schema_register_version not in HISTORICAL_REGISTER_VERSIONS:
@@ -1035,6 +1038,21 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "run_id",
         "package_identity_ref",
         "final_binding_ref",
+        "authoritative_outcome",
+        "artifact_sha256",
+        "evidence_manifest_ref",
+        "statement_identity_sha256",
+        "deviations_sha256",
+        "deviation_state",
+        "redactions_index_sha256",
+        "redaction_state",
+        "final_machine_ceiling",
+        "execution_date_utc",
+        "execution_started_utc",
+        "execution_finished_utc",
+        "execution_timing_source_file",
+        "execution_timing_source_start_field",
+        "execution_timing_source_end_field",
         "witness_identity_or_handle",
         "not_package_owner",
         "not_owner_side_reproducer",
@@ -1043,6 +1061,7 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "human_review_completed",
         "product_executed",
         "ldd_used",
+        "upstream_product_commands_not_run",
     ),
     "WITNESS_VERDICT.md": (
         "evidence_schema_version",
@@ -1057,6 +1076,13 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "product_executed",
         "ldd_used",
         "maintainer_intake_verdict",
+        "witness_statement_sha256",
+        "statement_identity_sha256",
+        "deviations_sha256",
+        "deviation_state",
+        "redactions_index_sha256",
+        "redaction_state",
+        "final_machine_ceiling",
     ),
     "WEAVER_FORGE_FINAL_BINDING.txt": (
         "evidence_schema_version",
@@ -1086,6 +1112,13 @@ FILE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
         "evidence_schema_version",
         "redaction_state",
         "semantic_integrity_declaration",
+        "redactions_index_ref",
+    ),
+    "REDACTIONS_INDEX.txt": (
+        "evidence_schema_version",
+        "run_id",
+        "redaction_state",
+        "redaction_count",
     ),
 }
 
@@ -1961,8 +1994,17 @@ def check_static_artifact_inspection(fields: dict[str, str], errors: list[str], 
                 fail(errors, f"{name}: {key} must be numeric or a NOT_APPLICABLE/NOT_REACHED sentinel when present")
 
 
-def check_witness_statement(fields: dict[str, str], errors: list[str]) -> None:
+def check_witness_statement(
+    fields: dict[str, str],
+    errors: list[str],
+    *,
+    file_fields: dict[str, dict[str, str]] | None = None,
+    evidence_dir: Path | None = None,
+    recomputed_ceiling: str | None = None,
+) -> None:
+    """RC6-R6 R6-M2: central refs + direct critical equality bindings + timing."""
     name = "WITNESS_STATEMENT.md"
+    file_fields = file_fields or {}
     run_id = fields.get("run_id", "")
     if "run_id" in fields and not is_safe_token(run_id):
         fail(errors, f"{name}: run_id must be a non-empty token with no path separators, whitespace, or '..'")
@@ -1996,6 +2038,127 @@ def check_witness_statement(fields: dict[str, str], errors: list[str]) -> None:
     upstream = fields.get("upstream_product_commands_not_run", "")
     if upstream != "yes":
         fail(errors, f"{name}: upstream_product_commands_not_run must be yes")
+
+    # Timing grammar + fixed source refs (RC4B-033/034).
+    for err in sb.validate_timing_grammar(
+        execution_date_utc=fields.get("execution_date_utc", ""),
+        execution_started_utc=fields.get("execution_started_utc", ""),
+        execution_finished_utc=fields.get("execution_finished_utc", ""),
+        source_file=fields.get("execution_timing_source_file", ""),
+        source_start_field=fields.get("execution_timing_source_start_field", ""),
+        source_end_field=fields.get("execution_timing_source_end_field", ""),
+    ):
+        fail(errors, f"{name}: {err}")
+
+    build_timing = file_fields.get("BUILD_TIMING.txt") or {}
+    if build_timing:
+        for err in sb.validate_timing_equality_against_build_timing(
+            execution_started_utc=fields.get("execution_started_utc", ""),
+            execution_finished_utc=fields.get("execution_finished_utc", ""),
+            build_timing_fields=build_timing,
+        ):
+            fail(errors, f"{name}: {err}")
+    else:
+        fail(errors, f"{name}: BUILD_TIMING.txt required to equality-bind execution timing")
+
+    # Direct critical equality bindings to authoritative package values.
+    final_binding = file_fields.get(FINAL_BINDING_NAME) or {}
+    artifact = file_fields.get("ARTIFACT_IDENTITY.txt") or {}
+    deviations = file_fields.get("DEVIATIONS.txt") or {}
+    red_index = file_fields.get("REDACTIONS_INDEX.txt") or {}
+    red_md = file_fields.get("REDACTIONS.md") or {}
+
+    auth_outcome = fields.get("authoritative_outcome", "")
+    if final_binding.get("authoritative_outcome") and auth_outcome != final_binding.get(
+        "authoritative_outcome"
+    ):
+        fail(
+            errors,
+            f"{name}: authoritative_outcome must equal {FINAL_BINDING_NAME} "
+            "authoritative_outcome",
+        )
+    if run_id and final_binding.get("run_id") and run_id != final_binding.get("run_id"):
+        fail(errors, f"{name}: run_id must equal {FINAL_BINDING_NAME} run_id")
+    pkg = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
+    if run_id and pkg.get("run_id") and run_id != pkg.get("run_id"):
+        fail(errors, f"{name}: run_id must equal {PACKAGE_IDENTITY_NAME} run_id")
+
+    expected_artifact = final_binding.get("artifact_sha256") or artifact.get("artifact_sha256", "")
+    if expected_artifact and fields.get("artifact_sha256") != expected_artifact:
+        fail(
+            errors,
+            f"{name}: artifact_sha256 must equal authoritative artifact identity "
+            f"(found {fields.get('artifact_sha256')!r}, expected {expected_artifact!r})",
+        )
+    if fields.get("evidence_manifest_ref") != MANIFEST_NAME:
+        fail(
+            errors,
+            f"{name}: evidence_manifest_ref must equal {MANIFEST_NAME!r} "
+            f"(found {fields.get('evidence_manifest_ref')!r})",
+        )
+    # Manifest identity is carried by WEAVER_FORGE_FINAL_BINDING.txt (excluded from
+    # the sealed manifest). Statement binds via final_binding_ref + evidence_manifest_ref
+    # and equality against the final-binding recorded hash when present.
+    expected_manifest = final_binding.get("final_manifest_sha256", "")
+    if expected_manifest and evidence_dir is not None:
+        manifest_path = evidence_dir / MANIFEST_NAME
+        if manifest_path.is_file():
+            actual_manifest = sha256_file(manifest_path)
+            if expected_manifest != actual_manifest:
+                fail(
+                    errors,
+                    f"{name}: {FINAL_BINDING_NAME} final_manifest_sha256 does not match "
+                    f"recomputed {MANIFEST_NAME} identity (manifest identity binding)",
+                )
+
+    if evidence_dir is not None:
+        dev_path = evidence_dir / "DEVIATIONS.txt"
+        idx_path = evidence_dir / "REDACTIONS_INDEX.txt"
+        if dev_path.is_file():
+            actual_dev = sha256_file(dev_path)
+            if fields.get("deviations_sha256") != actual_dev:
+                fail(
+                    errors,
+                    f"{name}: deviations_sha256 must equal SHA-256 of DEVIATIONS.txt "
+                    "(deviation identity)",
+                )
+        if idx_path.is_file():
+            actual_idx = sha256_file(idx_path)
+            if fields.get("redactions_index_sha256") != actual_idx:
+                fail(
+                    errors,
+                    f"{name}: redactions_index_sha256 must equal SHA-256 of "
+                    "REDACTIONS_INDEX.txt (redaction identity)",
+                )
+
+    if deviations.get("deviation_state") and fields.get("deviation_state") != deviations.get(
+        "deviation_state"
+    ):
+        fail(errors, f"{name}: deviation_state must equal DEVIATIONS.txt deviation_state")
+    index_state = red_index.get("redaction_state") or red_md.get("redaction_state")
+    if index_state and fields.get("redaction_state") != index_state:
+        fail(
+            errors,
+            f"{name}: redaction_state must equal REDACTIONS_INDEX.txt/REDACTIONS.md "
+            "redaction_state",
+        )
+
+    expected_ceiling = recomputed_ceiling or deviations.get("final_machine_ceiling")
+    if expected_ceiling and fields.get("final_machine_ceiling") != expected_ceiling:
+        fail(
+            errors,
+            f"{name}: final_machine_ceiling must equal validator-authoritative "
+            f"recomputed ceiling {expected_ceiling!r} "
+            f"(found {fields.get('final_machine_ceiling')!r})",
+        )
+
+    expected_identity = sb.compute_statement_identity_sha256(fields)
+    if fields.get("statement_identity_sha256") != expected_identity:
+        fail(
+            errors,
+            f"{name}: statement_identity_sha256 mismatch "
+            f"(recomputed={expected_identity} recorded={fields.get('statement_identity_sha256')})",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2077,11 +2240,13 @@ def compute_verdict_ceiling(
     identity_mismatch: bool,
     static_inspection_incomplete: bool,
     deviation_final_ceiling: str | None = None,
+    redaction_integrity_critical: bool = False,
 ) -> str:
     """Machine-enforced verdict ceiling (R5-C3 validator-authoritative).
 
     Precedence (strictest wins):
       - proven product execution / ldd use / upstream command use -> FAIL
+      - integrity-critical improper redaction (R6-RD2)            -> FAIL
       - canonical identity mismatch (tag/commit/image/lock/source)  -> FAIL
       - outcome is CARGO_FAILED or CARGO_SUCCEEDED_ARTIFACT_MISSING -> FAIL
       - outcome is BUILD_NOT_STARTED or INFRASTRUCTURE_FAILURE (or
@@ -2096,7 +2261,7 @@ def compute_verdict_ceiling(
     """
     return dxt.recompute_machine_ceiling(
         outcome=outcome,
-        prohibited=prohibited,
+        prohibited=prohibited or redaction_integrity_critical,
         identity_mismatch=identity_mismatch,
         static_inspection_incomplete=static_inspection_incomplete,
         deviation_final_ceiling=deviation_final_ceiling,
@@ -2109,8 +2274,15 @@ def check_witness_verdict(
     errors: list[str],
     outcome: str | None,
     computed_ceiling: str,
+    *,
+    mode: str = MODE_FINAL_SUBMISSION,
+    file_fields: dict[str, dict[str, str]] | None = None,
+    evidence_dir: Path | None = None,
+    statement_text: str | None = None,
+    enforce_r6_bindings: bool = True,
 ) -> None:
     name = "WITNESS_VERDICT.md"
+    file_fields = file_fields or {}
     matches, verdict_errors = parse_verdict_selection(text)
     errors.extend(verdict_errors)
     if not is_safe_token(fields.get("run_id", "")):
@@ -2140,7 +2312,17 @@ def check_witness_verdict(
     require_exact(name, fields, "ldd_used", "NO", errors)
 
     maintainer_intake = fields.get("maintainer_intake_verdict", "")
-    if maintainer_intake not in MAINTAINER_INTAKE_VALUES:
+    # RC6-R6 / R6-I2: final submission freezes intake at pending; later intake is
+    # append-only outside the hashed package and must not mutate this field.
+    if enforce_r6_bindings and mode == MODE_FINAL_SUBMISSION:
+        if maintainer_intake != "pending":
+            fail(
+                errors,
+                f"{name}: maintainer_intake_verdict must be pending for active final "
+                f"submission (found {maintainer_intake!r}); later dispositions append to "
+                "the external MAINTAINER_INTAKE_LEDGER.txt sidecar",
+            )
+    elif maintainer_intake not in MAINTAINER_INTAKE_VALUES:
         fail(
             errors,
             f"{name}: maintainer_intake_verdict must be one of {sorted(MAINTAINER_INTAKE_VALUES)} "
@@ -2177,6 +2359,74 @@ def check_witness_verdict(
                 f"{name}: proposed verdict {verdict_value} exceeds the recorded verdict_ceiling "
                 f"{recorded_ceiling!r} (machine-computed ceiling is {computed_ceiling!r})",
             )
+
+    # R6 equality bindings to statement / deviation / redaction / ceiling identities.
+    if not enforce_r6_bindings:
+        return
+    stmt = file_fields.get("WITNESS_STATEMENT.md") or {}
+    deviations = file_fields.get("DEVIATIONS.txt") or {}
+    red_index = file_fields.get("REDACTIONS_INDEX.txt") or {}
+    if stmt:
+        if fields.get("statement_identity_sha256") != stmt.get("statement_identity_sha256"):
+            fail(
+                errors,
+                f"{name}: statement_identity_sha256 must equal WITNESS_STATEMENT.md "
+                "statement_identity_sha256",
+            )
+        if fields.get("deviations_sha256") != stmt.get("deviations_sha256"):
+            fail(errors, f"{name}: deviations_sha256 must equal WITNESS_STATEMENT.md deviations_sha256")
+        if fields.get("redactions_index_sha256") != stmt.get("redactions_index_sha256"):
+            fail(
+                errors,
+                f"{name}: redactions_index_sha256 must equal WITNESS_STATEMENT.md "
+                "redactions_index_sha256",
+            )
+        if fields.get("deviation_state") != stmt.get("deviation_state"):
+            fail(errors, f"{name}: deviation_state must equal WITNESS_STATEMENT.md deviation_state")
+        if fields.get("redaction_state") != stmt.get("redaction_state"):
+            fail(errors, f"{name}: redaction_state must equal WITNESS_STATEMENT.md redaction_state")
+        if fields.get("final_machine_ceiling") != stmt.get("final_machine_ceiling"):
+            fail(
+                errors,
+                f"{name}: final_machine_ceiling must equal WITNESS_STATEMENT.md "
+                "final_machine_ceiling",
+            )
+        if fields.get("run_id") and stmt.get("run_id") and fields.get("run_id") != stmt.get("run_id"):
+            fail(errors, f"{name}: run_id must equal WITNESS_STATEMENT.md run_id")
+    if deviations.get("deviation_state") and fields.get("deviation_state") != deviations.get(
+        "deviation_state"
+    ):
+        fail(errors, f"{name}: deviation_state must equal DEVIATIONS.txt deviation_state")
+    if red_index.get("redaction_state") and fields.get("redaction_state") != red_index.get(
+        "redaction_state"
+    ):
+        fail(errors, f"{name}: redaction_state must equal REDACTIONS_INDEX.txt redaction_state")
+    if fields.get("final_machine_ceiling") != computed_ceiling:
+        fail(
+            errors,
+            f"{name}: final_machine_ceiling must equal validator-authoritative "
+            f"recomputed ceiling {computed_ceiling!r} "
+            f"(found {fields.get('final_machine_ceiling')!r})",
+        )
+    if evidence_dir is not None and statement_text is not None:
+        actual_stmt = hashlib.sha256(statement_text.encode("utf-8")).hexdigest()
+        if fields.get("witness_statement_sha256") != actual_stmt:
+            fail(
+                errors,
+                f"{name}: witness_statement_sha256 must equal SHA-256 of "
+                "WITNESS_STATEMENT.md bytes (statement identity)",
+            )
+        if evidence_dir.joinpath("DEVIATIONS.txt").is_file():
+            actual_dev = sha256_file(evidence_dir / "DEVIATIONS.txt")
+            if fields.get("deviations_sha256") != actual_dev:
+                fail(errors, f"{name}: deviations_sha256 must equal SHA-256 of DEVIATIONS.txt")
+        if evidence_dir.joinpath("REDACTIONS_INDEX.txt").is_file():
+            actual_idx = sha256_file(evidence_dir / "REDACTIONS_INDEX.txt")
+            if fields.get("redactions_index_sha256") != actual_idx:
+                fail(
+                    errors,
+                    f"{name}: redactions_index_sha256 must equal SHA-256 of REDACTIONS_INDEX.txt",
+                )
 
 
 def check_deviations(
@@ -2319,14 +2569,47 @@ def check_deviations(
 
 
 def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> None:
+    """RC6-R6: human-readable REDACTIONS.md paired with REDACTIONS_INDEX.txt."""
     name = "REDACTIONS.md"
     state = fields.get("redaction_state", "")
     if state not in ("NONE", "PRESENT"):
         fail(errors, f"{name}: redaction_state must be NONE or PRESENT")
         return
-    # RC6-R1: exact required base keys; indexed keys only when PRESENT.
-    core = ("evidence_schema_version", "redaction_state", "semantic_integrity_declaration")
-    indexed_re = re.compile(r"^redaction_\w+_(file|field|reason|replacement_marker)$")
+    core = (
+        "evidence_schema_version",
+        "redaction_state",
+        "semantic_integrity_declaration",
+        "redactions_index_ref",
+    )
+    # Human file has no machine indexed entries under R6-RD2; index owns those.
+    require_exact_field_set(name, fields, core, errors)
+    require_exact(name, fields, "semantic_integrity_declaration", "yes", errors)
+    require_exact(name, fields, "redactions_index_ref", "REDACTIONS_INDEX.txt", errors)
+
+
+def check_redactions_index(
+    fields: dict[str, str],
+    text: str,
+    errors: list[str],
+    *,
+    expected_run_id: str | None = None,
+    redactions_md_fields: dict[str, str] | None = None,
+) -> bool:
+    """Validate REDACTIONS_INDEX.txt. Returns integrity_critical flag for ceiling."""
+    name = "REDACTIONS_INDEX.txt"
+    if expected_run_id and fields.get("run_id") and fields.get("run_id") != expected_run_id:
+        fail(errors, f"{name}: run_id must equal package run_id {expected_run_id!r}")
+    if redactions_md_fields:
+        if fields.get("redaction_state") != redactions_md_fields.get("redaction_state"):
+            fail(
+                errors,
+                f"{name}: redaction_state must equal REDACTIONS.md redaction_state",
+            )
+    state = fields.get("redaction_state", "")
+    core = ("evidence_schema_version", "run_id", "redaction_state", "redaction_count")
+    indexed_re = re.compile(
+        r"^redaction_\d+_(file|field|category|original_value_sha256|replacement_marker)$"
+    )
     require_exact_field_set_with_indexed(
         name,
         fields,
@@ -2335,40 +2618,10 @@ def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> No
         errors,
         allow_indexed=(state == "PRESENT"),
     )
-    require_exact(name, fields, "semantic_integrity_declaration", "yes", errors)
-    if state == "NONE":
-        return
-    indices: set[str] = set()
-    for match in re.finditer(r"redaction_(\w+)_reason", text):
-        indices.add(match.group(1))
-    if not indices:
-        fail(errors, f"{name}: redaction_state=PRESENT but no enumerated redaction_<n>_* entries were found")
-        return
-    for idx in sorted(indices):
-        file_field = fields.get(f"redaction_{idx}_file", "")
-        target_field = fields.get(f"redaction_{idx}_field", "")
-        reason = fields.get(f"redaction_{idx}_reason", "")
-        marker = fields.get(f"redaction_{idx}_replacement_marker", "")
-        if not file_field:
-            fail(errors, f"{name}: redaction_{idx}_file is required")
-        if not target_field:
-            fail(errors, f"{name}: redaction_{idx}_field is required")
-        if not reason:
-            fail(errors, f"{name}: redaction_{idx}_reason is required")
-        if not marker or "[REDACTED" not in marker.upper():
-            fail(errors, f"{name}: redaction_{idx}_replacement_marker must be a visible '[REDACTED: ...]' marker")
-        haystack = f"{target_field} {reason}".lower()
-        for keyword in PROHIBITED_REDACTION_KEYWORDS:
-            if keyword in haystack:
-                fail(
-                    errors,
-                    f"{name}: redaction_{idx} appears to redact a prohibited category "
-                    f"(matched {keyword!r}); commits, digests, exact commands, exit codes, "
-                    "outcome/build_status/failure_stage, proposed/intake verdicts, canonical_run, "
-                    "verdict_ceiling, artifact SHA-256/size, and independence statements must "
-                    "never be redacted",
-                )
-                break
+    index_errors, integrity_critical = ridx.validate_redaction_index_fields(fields, name=name)
+    for msg in index_errors:
+        fail(errors, msg)
+    return integrity_critical
 
 
 def check_weaver_forge_final_binding(
@@ -2556,63 +2809,24 @@ def check_weaver_forge_final_binding(
 
 
 def check_redaction_marker_consistency(
-    all_texts: dict[str, str], redaction_fields: dict[str, str], errors: list[str]
+    all_texts: dict[str, str], redaction_index_fields: dict[str, str], errors: list[str]
 ) -> None:
-    """Cross-checks every literal '[REDACTED...]' marker found anywhere in the
-    evidence set against REDACTIONS.md's enumerated entries: a marker without
-    a matching declaration (or a declaration without a matching marker) is a
-    structural defect."""
-    name = "REDACTIONS.md"
-    state = redaction_fields.get("redaction_state", "")
-
-    files_with_markers: dict[str, int] = {}
-    for fname, text in all_texts.items():
-        if fname in (name, MANIFEST_NAME):
-            continue
-        count = len(REDACTION_MARKER_RE.findall(text))
-        if count:
-            files_with_markers[fname] = count
-
-    if state == "NONE":
-        for fname, count in sorted(files_with_markers.items()):
-            fail(
-                errors,
-                f"{name}: redaction_state=NONE but {fname} contains {count} '[REDACTED...]' marker(s)",
-            )
-        return
-
-    if state != "PRESENT":
-        return
-
-    declared_files: set[str] = set()
-    for key, value in redaction_fields.items():
-        if re.match(r"^redaction_\w+_file$", key) and value:
-            declared_files.add(value)
-
-    for fname in sorted(files_with_markers):
-        if fname not in declared_files:
-            fail(
-                errors,
-                f"{name}: {fname} contains a '[REDACTED...]' marker but no redaction_<n>_file entry "
-                f"declares {fname}",
-            )
-    for fname in sorted(declared_files):
-        if fname not in files_with_markers and fname in all_texts:
-            fail(
-                errors,
-                f"{name}: a redaction_<n>_file entry declares {fname} but no '[REDACTED...]' marker "
-                f"was found in that file",
-            )
+    """Cross-check markers against REDACTIONS_INDEX.txt indexed entries (R6-RD2)."""
+    for msg in ridx.reconcile_markers(
+        index_fields=redaction_index_fields,
+        all_texts=all_texts,
+    ):
+        fail(errors, msg)
 
 
 # Files where the container script's escape_oneline() convention applies
 # (multiline command output flattened into a single `key=value` line using
 # an embedded literal '\n' with the CR stripped). Human-authored markdown
 # files (WITNESS_STATEMENT.md, WITNESS_VERDICT.md, DEVIATIONS.txt,
-# REDACTIONS.md) and dual-owned free-text files (ENVIRONMENT.txt) are
-# intentionally excluded — they may legitimately contain real multi-line
-# text (or CRLF from a Windows editor) that has nothing to do with this
-# escaping convention.
+# REDACTIONS.md, REDACTIONS_INDEX.txt) and dual-owned free-text files
+# (ENVIRONMENT.txt) are intentionally excluded — they may legitimately contain
+# real multi-line text (or CRLF from a Windows editor) that has nothing to do
+# with this escaping convention.
 ESCAPE_ONELINE_FILES = frozenset({"BOOTSTRAP.txt", "STATIC_ARTIFACT_INSPECTION.txt"})
 
 
@@ -2870,6 +3084,13 @@ FINAL_STRUCTURAL_REQUIRED_INPUTS = (
     "WITNESS_VERDICT.md",
     "DEVIATIONS.txt",
     "REDACTIONS.md",
+    "REDACTIONS_INDEX.txt",
+)
+FINAL_STRUCTURAL_REQUIRED_INPUTS_PRE_R6 = (
+    "WITNESS_STATEMENT.md",
+    "WITNESS_VERDICT.md",
+    "DEVIATIONS.txt",
+    "REDACTIONS.md",
 )
 
 
@@ -2881,6 +3102,7 @@ def check_completeness_state_machine(
     post_build: dict[str, str] | None,
     host_outcome: dict[str, str] | None,
     errors: list[str],
+    register: CanonicalSchemaRegister | None = None,
 ) -> None:
     """Enforce Phase 4-S3 completeness transitions without mutating evidence.
 
@@ -2891,7 +3113,8 @@ def check_completeness_state_machine(
     Does not create Independent Witness PASS or READY. Historical S1-shaped
     packages retain inventory_complete=no compatibility under final-submission.
     """
-    if not _SCHEMA_REGISTER.is_s3_manifest_completeness_enforced():
+    reg = register if register is not None else _SCHEMA_REGISTER
+    if not reg.is_s3_manifest_completeness_enforced():
         return
 
     inventory = (post_build or {}).get("evidence_inventory_complete", "")
@@ -2929,12 +3152,17 @@ def check_completeness_state_machine(
         # Historical S1 compatibility: inventory_complete=no remains accepted.
         return
 
-    required_present = all((evidence_dir / name).is_file() for name in FINAL_STRUCTURAL_REQUIRED_INPUTS)
+    required_inputs = (
+        FINAL_STRUCTURAL_REQUIRED_INPUTS
+        if reg.is_active_authority
+        else FINAL_STRUCTURAL_REQUIRED_INPUTS_PRE_R6
+    )
+    required_present = all((evidence_dir / name).is_file() for name in required_inputs)
     if inventory == "yes":
         if not required_present:
             missing = [
                 name
-                for name in FINAL_STRUCTURAL_REQUIRED_INPUTS
+                for name in required_inputs
                 if not (evidence_dir / name).is_file()
             ]
             fail(
@@ -3105,8 +3333,8 @@ def validate_dir(
       totality and completeness-state enforcement for S2-shaped packages.
     - default (no explicit mode): compatibility alias to final-submission.
 
-    Schema authority (RC6-R3 / SH-A):
-    - default (``schema_register_version=None``): always active rc6.4
+    Schema authority (RC6-R6 / SH-A retained):
+    - default (``schema_register_version=None``): always active rc6.5
     - explicit historical version: historical loader only
     - evidence shape/fields cannot select schema authority
 
@@ -3247,8 +3475,14 @@ def validate_dir(
             # Exact S2/rc6 field enforcement happens in check_deviations.
             continue
         if name == "REDACTIONS.md":
-            # Exact base keys (+ indexed when PRESENT) enforced in check_redactions.
+            # Exact base keys enforced in check_redactions (R6-RD2 paired human file).
             continue
+        if name == "REDACTIONS_INDEX.txt":
+            # Exact base + indexed keys enforced in check_redactions_index.
+            continue
+        # Active WITNESS_STATEMENT.md / WITNESS_VERDICT.md must use register exact
+        # field-set enforcement here (R1 authority). Semantic R6 bindings remain in
+        # check_witness_statement / check_witness_verdict and do not replace this.
         policy = field_register.exact_field_set_policy(name, selected_mode)
         # Active validation uses the active FILE_REQUIRED_FIELDS projection.
         # Explicit historical validation must use the selected historical
@@ -3311,14 +3545,12 @@ def validate_dir(
             check_build_command(file_fields["BUILD_COMMAND.txt"], errors)
     if "POST_BUILD_INTEGRITY.txt" in file_fields:
         check_post_build_integrity(file_fields["POST_BUILD_INTEGRITY.txt"], errors)
-    if "WITNESS_STATEMENT.md" in file_fields:
-        check_witness_statement(file_fields["WITNESS_STATEMENT.md"], errors)
     deviation_ceiling: str | None = None
+    package_run_id = None
+    pkg_fields = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
+    if pkg_fields.get("run_id"):
+        package_run_id = pkg_fields.get("run_id")
     if "DEVIATIONS.txt" in file_fields:
-        package_run_id = None
-        pkg_fields = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
-        if pkg_fields.get("run_id"):
-            package_run_id = pkg_fields.get("run_id")
         deviation_ceiling = check_deviations(
             file_fields["DEVIATIONS.txt"],
             file_texts["DEVIATIONS.txt"],
@@ -3328,7 +3560,83 @@ def validate_dir(
             expected_run_id=package_run_id,
         )
     if "REDACTIONS.md" in file_fields:
-        check_redactions(file_fields["REDACTIONS.md"], file_texts["REDACTIONS.md"], errors)
+        if field_register.is_active_authority:
+            check_redactions(file_fields["REDACTIONS.md"], file_texts["REDACTIONS.md"], errors)
+        else:
+            # Historical pre-R6 REDACTIONS.md: base keys + optional indexed entries.
+            hname = "REDACTIONS.md"
+            hfields = file_fields["REDACTIONS.md"]
+            htext = file_texts["REDACTIONS.md"]
+            hstate = hfields.get("redaction_state", "")
+            if hstate not in ("NONE", "PRESENT"):
+                fail(errors, f"{hname}: redaction_state must be NONE or PRESENT")
+            else:
+                core = (
+                    "evidence_schema_version",
+                    "redaction_state",
+                    "semantic_integrity_declaration",
+                )
+                indexed_re = re.compile(
+                    r"^redaction_\w+_(file|field|reason|replacement_marker)$"
+                )
+                require_exact_field_set_with_indexed(
+                    hname,
+                    hfields,
+                    core,
+                    indexed_re,
+                    errors,
+                    allow_indexed=(hstate == "PRESENT"),
+                )
+                require_exact(hname, hfields, "semantic_integrity_declaration", "yes", errors)
+                if hstate == "PRESENT":
+                    indices: set[str] = set()
+                    for match in re.finditer(r"redaction_(\w+)_reason", htext):
+                        indices.add(match.group(1))
+                    if not indices:
+                        fail(
+                            errors,
+                            f"{hname}: redaction_state=PRESENT but no enumerated "
+                            "redaction_<n>_* entries were found",
+                        )
+                    for idx in sorted(indices):
+                        if not hfields.get(f"redaction_{idx}_file"):
+                            fail(errors, f"{hname}: redaction_{idx}_file is required")
+                        if not hfields.get(f"redaction_{idx}_field"):
+                            fail(errors, f"{hname}: redaction_{idx}_field is required")
+                        if not hfields.get(f"redaction_{idx}_reason"):
+                            fail(errors, f"{hname}: redaction_{idx}_reason is required")
+                        marker = hfields.get(f"redaction_{idx}_replacement_marker", "")
+                        if not marker or "[REDACTED" not in marker.upper():
+                            fail(
+                                errors,
+                                f"{hname}: redaction_{idx}_replacement_marker must be a "
+                                "visible '[REDACTED: ...]' marker",
+                            )
+                        haystack = (
+                            f"{hfields.get(f'redaction_{idx}_field', '')} "
+                            f"{hfields.get(f'redaction_{idx}_reason', '')}"
+                        ).lower()
+                        for keyword in PROHIBITED_REDACTION_KEYWORDS:
+                            if keyword in haystack:
+                                fail(
+                                    errors,
+                                    f"{hname}: redaction_{idx} appears to redact a prohibited "
+                                    f"category (matched {keyword!r}); commits, digests, exact "
+                                    "commands, exit codes, outcome/build_status/failure_stage, "
+                                    "proposed/intake verdicts, canonical_run, verdict_ceiling, "
+                                    "artifact SHA-256/size, and independence statements must "
+                                    "never be redacted",
+                                )
+                                break
+    redaction_integrity_critical = False
+    if "REDACTIONS_INDEX.txt" in file_fields and field_register.is_active_authority:
+        redaction_integrity_critical = check_redactions_index(
+            file_fields["REDACTIONS_INDEX.txt"],
+            file_texts["REDACTIONS_INDEX.txt"],
+            errors,
+            expected_run_id=package_run_id,
+            redactions_md_fields=file_fields.get("REDACTIONS.md"),
+        )
 
     if "BUILD_EXIT_CODE.txt" in file_fields:
         check_build_exit_code(file_fields["BUILD_EXIT_CODE.txt"], errors, outcome)
@@ -3382,16 +3690,95 @@ def validate_dir(
         bool(identity_reasons),
         static_inspection_incomplete,
         deviation_final_ceiling=deviation_ceiling,
+        redaction_integrity_critical=redaction_integrity_critical,
     )
+
+    # R6-M2 statement bindings require timing/deviation/redaction/ceiling peers.
+    if "WITNESS_STATEMENT.md" in file_fields and field_register.is_active_authority:
+        check_witness_statement(
+            file_fields["WITNESS_STATEMENT.md"],
+            errors,
+            file_fields=file_fields,
+            evidence_dir=evidence_dir,
+            recomputed_ceiling=ceiling,
+        )
+    elif "WITNESS_STATEMENT.md" in file_fields:
+        # Historical schemas: independence/product checks only (pre-R6 fields).
+        hist_fields = file_fields["WITNESS_STATEMENT.md"]
+        name = "WITNESS_STATEMENT.md"
+        if not hist_fields.get("witness_identity_or_handle"):
+            fail(errors, f"{name}: witness_identity_or_handle is required")
+        require_exact(name, hist_fields, "not_package_owner", "yes", errors)
+        require_exact(name, hist_fields, "not_owner_side_reproducer", "yes", errors)
+        require_exact(name, hist_fields, "witness_controlled_host", "yes", errors)
+        ai_used = hist_fields.get("ai_assistance_used", "")
+        if ai_used not in ("yes", "no"):
+            fail(errors, f"{name}: ai_assistance_used must be yes|no")
+        elif ai_used == "yes" and not hist_fields.get("ai_assistance_detail"):
+            fail(errors, f"{name}: ai_assistance_detail is required when ai_assistance_used=yes")
+        require_exact(name, hist_fields, "human_review_completed", "yes", errors)
+        require_exact(name, hist_fields, "product_executed", "NO", errors)
+        require_exact(name, hist_fields, "ldd_used", "NO", errors)
+        upstream = hist_fields.get("upstream_product_commands_not_run", "")
+        if upstream and upstream != "yes":
+            fail(errors, f"{name}: upstream_product_commands_not_run must be yes")
 
     if "WITNESS_VERDICT.md" in file_fields:
         check_witness_verdict(
-            file_texts["WITNESS_VERDICT.md"], file_fields["WITNESS_VERDICT.md"], errors, outcome, ceiling
+            file_texts["WITNESS_VERDICT.md"],
+            file_fields["WITNESS_VERDICT.md"],
+            errors,
+            outcome,
+            ceiling,
+            mode=selected_mode,
+            file_fields=file_fields,
+            evidence_dir=evidence_dir,
+            statement_text=file_texts.get("WITNESS_STATEMENT.md"),
+            enforce_r6_bindings=field_register.is_active_authority,
         )
 
     all_texts = collect_all_texts(evidence_dir)
-    if "REDACTIONS.md" in file_fields:
-        check_redaction_marker_consistency(all_texts, file_fields.get("REDACTIONS.md", {}), errors)
+    if "REDACTIONS_INDEX.txt" in file_fields:
+        check_redaction_marker_consistency(
+            all_texts, file_fields.get("REDACTIONS_INDEX.txt", {}), errors
+        )
+    elif "REDACTIONS.md" in file_fields and not field_register.is_active_authority:
+        # Historical pre-R6 marker reconciliation against REDACTIONS.md declarations.
+        hist_red = file_fields.get("REDACTIONS.md", {})
+        state = hist_red.get("redaction_state", "")
+        files_with_markers: dict[str, int] = {}
+        for fname, text in all_texts.items():
+            if fname in ("REDACTIONS.md", MANIFEST_NAME):
+                continue
+            count = len(REDACTION_MARKER_RE.findall(text))
+            if count:
+                files_with_markers[fname] = count
+        if state == "NONE":
+            for fname, count in sorted(files_with_markers.items()):
+                fail(
+                    errors,
+                    f"REDACTIONS.md: redaction_state=NONE but {fname} contains {count} "
+                    "'[REDACTED...]' marker(s)",
+                )
+        elif state == "PRESENT":
+            declared_files: set[str] = set()
+            for key, value in hist_red.items():
+                if re.match(r"^redaction_\w+_file$", key) and value:
+                    declared_files.add(value)
+            for fname in sorted(files_with_markers):
+                if fname not in declared_files:
+                    fail(
+                        errors,
+                        f"REDACTIONS.md: {fname} contains a '[REDACTED...]' marker but no "
+                        f"redaction_<n>_file entry declares {fname}",
+                    )
+            for fname in sorted(declared_files):
+                if fname not in files_with_markers and fname in all_texts:
+                    fail(
+                        errors,
+                        f"REDACTIONS.md: a redaction_<n>_file entry declares {fname} but no "
+                        "'[REDACTED...]' marker was found in that file",
+                    )
 
     check_completeness_state_machine(
         mode=selected_mode,
@@ -3400,6 +3787,7 @@ def validate_dir(
         post_build=file_fields.get("POST_BUILD_INTEGRITY.txt"),
         host_outcome=host_outcome_fields,
         errors=errors,
+        register=field_register,
     )
 
     validate_manifest(

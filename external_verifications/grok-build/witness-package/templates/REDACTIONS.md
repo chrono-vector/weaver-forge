@@ -1,25 +1,27 @@
-# REDACTIONS.md — required fields (evidence_schema_version=1, 1.0.0-rc4)
+# REDACTIONS.md — human-readable redaction explanation (RC6-R6 / R6-RD2)
+
+Paired with machine-readable `REDACTIONS_INDEX.txt`. This file explains
+redactions for human review. The index owns exact target/file/field/category/
+original-value SHA-256 / replacement-marker bindings and marker reconciliation.
 
 redaction_state is NONE or PRESENT. semantic_integrity_declaration must be
-`yes` (redactions never alter any structural/semantic value).
+`yes`. redactions_index_ref must be `REDACTIONS_INDEX.txt`.
 
-NEVER-REDACT categories (rejected if a redaction targets them): commits,
-digests, sha256, exit codes, independence statements, artifact_size,
-artifact_sha256, outcome, build_status, failure_stage, the Witness proposed
-verdict, the maintainer intake verdict, canonical_run, and verdict_ceiling.
+NEVER-REDACT integrity-critical content (commits, digests, sha256, exit codes,
+outcomes, verdicts, ceilings, independence, authoritative tuple, etc.).
+Integrity-critical improper redaction is a structural FAIL input to the R5
+machine ceiling.
 
-When redaction_state=PRESENT, enumerate each redaction with an index <n> and
-place a matching visible `[REDACTED: ...]` marker in the target file:
-
-```
-redaction_<n>_file=<evidence filename>
-redaction_<n>_field=<field/section redacted>
-redaction_<n>_reason=<why>
-redaction_<n>_replacement_marker=[REDACTED: <short label>]
-```
+Machine-readable categories (index only; remain distinct):
+FILESYSTEM_PATH | HOME_PATH_IDENTIFIER | COMMAND_TEXT | CAPTURED_COMMAND_OUTPUT
 
 ```
 evidence_schema_version=1
 redaction_state=NONE
 semantic_integrity_declaration=yes
+redactions_index_ref=REDACTIONS_INDEX.txt
 ```
+
+When redaction_state=PRESENT, add human prose below explaining each redaction.
+Do not place machine indexed `redaction_<n>_*` keys in this file — those belong
+exclusively in REDACTIONS_INDEX.txt.

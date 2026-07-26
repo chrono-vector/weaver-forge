@@ -1,18 +1,16 @@
-# WITNESS_VERDICT.md — required fields (evidence_schema_version=1, 1.0.0-rc5)
+# WITNESS_VERDICT.md — required fields (evidence_schema_version=1, RC6-R6 / rc6.5)
 
 Authored by the independent Witness. The `key=value` lines and the single
 `Witness proposed verdict:` line below are structurally validated.
 
-- `outcome` must be one of the five build outcomes and must equal the
-  authoritative BUILD_EXIT_CODE.txt outcome.
-- `verdict_ceiling` is one of PASS | PARTIAL | FAIL | INDETERMINATE and is the
-  highest verdict the evidence permits. The validator recomputes a machine
-  ceiling and REJECTS any proposed verdict above it.
-- `grok_build_commit` must equal the pinned canonical commit.
-- `product_executed` and `ldd_used` must be exactly NO.
-- `maintainer_intake_verdict` is `pending` at submission time.
-- The `Witness proposed verdict:` line must be exact uppercase
-  PASS | PARTIAL | FAIL | INDETERMINATE and must not exceed verdict_ceiling.
+- `outcome` must equal the authoritative BUILD_EXIT_CODE.txt outcome.
+- `verdict_ceiling` is one of PASS | PARTIAL | FAIL | INDETERMINATE.
+- The validator recomputes a machine ceiling and REJECTS any proposed verdict above it.
+- `maintainer_intake_verdict` must be exactly `pending` at final submission.
+  Later maintainer dispositions append outside the hashed package at
+  `external_verifications/grok-build/witness-submissions/<run_id>/MAINTAINER_INTAKE_LEDGER.txt`
+  and must not mutate this file.
+- Equality-bind statement / deviation / redaction / ceiling identities.
 
 ```
 evidence_schema_version=1
@@ -27,6 +25,13 @@ verdict_ceiling=PASS
 product_executed=NO
 ldd_used=NO
 maintainer_intake_verdict=pending
+witness_statement_sha256=<sha256 of WITNESS_STATEMENT.md>
+statement_identity_sha256=<equals WITNESS_STATEMENT.md statement_identity_sha256>
+deviations_sha256=<sha256 of DEVIATIONS.txt>
+deviation_state=NONE
+redactions_index_sha256=<sha256 of REDACTIONS_INDEX.txt>
+redaction_state=NONE
+final_machine_ceiling=<validator-authoritative ceiling>
 ```
 
 Witness proposed verdict: PASS
@@ -34,5 +39,4 @@ Witness proposed verdict: PASS
 ## Justification
 
 Reference WITNESS_CLASSIFICATION.md's precedence table and cite the specific
-evidence fields (outcome, identity matches, static-inspection completeness)
-that support the proposed verdict at or below the ceiling.
+evidence fields that support the proposed verdict at or below the ceiling.
