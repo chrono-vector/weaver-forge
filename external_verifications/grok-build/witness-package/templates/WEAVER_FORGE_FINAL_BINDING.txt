@@ -18,8 +18,8 @@
 # source_identity_ref, artifact_identity_ref, evidence_manifest_ref
 evidence_schema_version=1
 run_id=<run-id-token>
-package_version=1.0.0-rc5
-canonical_tag=grok-build-witness-v1.0.0-rc5
+package_version=1.0.0-rc7
+canonical_tag=grok-build-witness-v1.0.0-rc7
 tag_object_id=<40-char lowercase hex annotated tag object id>
 peeled_commit=<40-char lowercase hex peeled commit>
 grok_build_source_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
