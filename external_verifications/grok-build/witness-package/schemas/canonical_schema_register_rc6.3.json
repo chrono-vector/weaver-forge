@@ -1,17 +1,17 @@
 {
-  "schema_register_version": "rc6.4",
+  "schema_register_version": "rc6.3",
   "family": "rc6_remediation_canonical_schema",
   "evidence_schema_version": "1",
   "supported_register_versions": [
-    "rc6.4"
+    "rc6.3"
   ],
   "supersession": {
     "policy": "additive_supersession_only",
-    "supersedes": "rc6.3",
-    "historical_compatibility_register": "canonical_schema_register_rc6.3.json",
-    "historical_compatibility_version": "rc6.3",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.2.json",
-    "earlier_historical_compatibility_version": "rc6.2",
+    "supersedes": "rc6.2",
+    "historical_compatibility_register": "canonical_schema_register_rc6.2.json",
+    "historical_compatibility_version": "rc6.2",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.1.json",
+    "earlier_historical_compatibility_version": "rc6.1",
     "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
     "prior_historical_compatibility_version": "rc5-phase4-s2.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
@@ -27,12 +27,9 @@
       "canonical_schema_register_rc6.1.json",
       "canonical_schema_register_rc6.2.json",
       "rc6.1 historical fixtures",
-      "rc6.2 historical fixtures",
-      "canonical_schema_register_rc6.3.json",
-      "rc6.3 historical fixtures",
-      "canonical_schema_register_rc5_phase4_s2.json"
+      "rc6.2 historical fixtures"
     ],
-    "note": "This rc6.4 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.3. Frozen rc6.3, rc6.2, rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps. RC6-R5 adds distinct preliminary/final deviation transition binding and validator-authoritative machine-ceiling recomputation fields."
+    "note": "This rc6.3 register is the single active canonical schema authority for the rc6 remediation path. It additively supersedes rc6.2. Frozen rc6.2, rc6.1, S2, and S1 registers remain loadable for explicit historical compatibility only and are not competing active authorities. Evidence content cannot select schema-register authority. Later RC6-R* slices update this same file with monotonic version bumps."
   },
   "lifecycle_modes": [
     "host-preliminary",
@@ -2223,7 +2220,7 @@
       "activation": "enforced_s2_writer_aligned",
       "field_order_normative": true,
       "exact_field_set_policy": "exact_when_s2_shaped_else_historical_subset",
-      "note": "Automated preliminary DEVIATIONS: host-owned; deterministic ordered fields; no Witness persona; no final indexed Witness deviation fabrication. RC6-R5: preliminary schema remains distinct from final; final packages bind to these bytes via preliminary_deviations_sha256.",
+      "note": "Automated preliminary DEVIATIONS: host-owned; deterministic ordered fields; no Witness persona; no final indexed Witness deviation fabrication. Severity/ceiling beyond structural interface deferred. RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection.",
       "fields": [
         {
           "name": "evidence_schema_version",
@@ -2290,7 +2287,7 @@
       "activation": "enforced_s2_writer_aligned",
       "field_order_normative": true,
       "exact_field_set_policy": "exact_when_s2_shaped_else_historical_subset",
-      "note": "Final-submission DEVIATIONS (RC6-R5): Witness-owned indexed package bound to Host preliminary bytes via preliminary_deviations_sha256. Requires run_id, exact deviation_count, contiguous numeric IDs 1..n, truthful aggregate severity/canonicality impact, and final_machine_ceiling. Validator recomputes aggregates and ceiling authoritatively; disagreement fails closed. Unknown and orphan keys are rejected.",
+      "note": "Final-submission DEVIATIONS: Witness-input indexed deviations; deviation_count required for S2-shaped final forms. RC4B-007/034-036 severity/redaction/ceiling lifecycle not fully implemented. RC6-R1: S2-shaped evidence uses exact/exact-with-optionals from this active register; historical unshaped fixtures use historical compatibility projection.",
       "fields": [
         {
           "name": "evidence_schema_version",
@@ -2300,31 +2297,11 @@
           ]
         },
         {
-          "name": "run_id",
-          "requirement": "required"
-        },
-        {
           "name": "deviation_state",
           "requirement": "required"
         },
         {
           "name": "deviation_count",
-          "requirement": "required"
-        },
-        {
-          "name": "preliminary_deviations_sha256",
-          "requirement": "required"
-        },
-        {
-          "name": "aggregate_severity",
-          "requirement": "required"
-        },
-        {
-          "name": "aggregate_canonical_identity_impact",
-          "requirement": "required"
-        },
-        {
-          "name": "final_machine_ceiling",
           "requirement": "required"
         }
       ],
@@ -2348,26 +2325,10 @@
         "deviation_state": [
           "NONE",
           "PRESENT"
-        ],
-        "aggregate_severity": [
-          "NONE",
-          "NONMATERIAL_DISCLOSED",
-          "MATERIAL_NONCANONICAL",
-          "PROHIBITED"
-        ],
-        "aggregate_canonical_identity_impact": [
-          "yes",
-          "no"
-        ],
-        "final_machine_ceiling": [
-          "PASS",
-          "PARTIAL",
-          "FAIL",
-          "INDETERMINATE"
         ]
       },
       "no_deviation_state": "NONE",
-      "run_id_required": true,
+      "run_id_required": false,
       "historical_compatibility_required_fields": [
         {
           "name": "evidence_schema_version",
@@ -2923,17 +2884,16 @@
   ],
   "historical_compatibility": {
     "policy": "explicit_historical_path_only",
-    "active_authority": "rc6.4",
-    "immediate_predecessor_version": "rc6.3",
-    "immediate_predecessor_register": "canonical_schema_register_rc6.3.json",
-    "earlier_historical_compatibility_version": "rc6.2",
-    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.2.json",
+    "active_authority": "rc6.3",
+    "immediate_predecessor_version": "rc6.2",
+    "immediate_predecessor_register": "canonical_schema_register_rc6.2.json",
+    "earlier_historical_compatibility_version": "rc6.1",
+    "earlier_historical_compatibility_register": "canonical_schema_register_rc6.1.json",
     "prior_historical_compatibility_version": "rc5-phase4-s2.1",
     "prior_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s2.json",
     "earliest_historical_compatibility_version": "rc5-phase4-s1.1",
     "earliest_historical_compatibility_register": "canonical_schema_register_rc5_phase4_s1.json",
     "historical_register_versions": [
-      "rc6.3",
       "rc6.2",
       "rc6.1",
       "rc5-phase4-s2.1",
@@ -2963,7 +2923,7 @@
         "status": "NOT_APPLICABLE"
       }
     },
-    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path under an explicit historical loader version. Historical rc6.3/rc6.2/rc6.1/S2/S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
+    "note": "Presence of S2 markers selects exact S2/rc6 field enforcement from this active register. Absence of S2 markers on historical fixtures selects the historical compatibility acceptance path under an explicit historical loader version. Historical rc6.2/rc6.1/S2/S1 registers are never the default active authority. Evidence content cannot select schema-register authority."
   },
   "recursive_inventory_helper": {
     "activation": "available_read_only_s2",
@@ -2986,7 +2946,7 @@
     ],
     "rc4b_020_026_027_028_implemented_on_main_pending_reaudit": true,
     "rc4b_020_026_027_028_closed": false,
-    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. RC6-R4 adds empty-directory rejection and typed nested evidence-class resolution retained under active rc6.4. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
+    "note": "Enumeration and manifest-generation substrate. Phase 4-S3 wires helper into validator/runtime for total closure. RC6-R4 adds empty-directory rejection and typed nested evidence-class resolution for active rc6.3. Validator captures and VALIDATOR_RESULT remain outside EVIDENCE_DIR. Ledger blockers remain not CLOSED."
   },
   "nested_evidence_classes": {
     "activation": "enforced_rc6_r4_typed_nested",

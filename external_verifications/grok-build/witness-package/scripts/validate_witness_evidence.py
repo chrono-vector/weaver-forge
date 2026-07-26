@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 import evidence_inventory as ei
+import deviation_transition as dxt
 from schema_register_loader import (
     load_historical_rc61_register,
     load_historical_register,
@@ -68,7 +69,7 @@ MODE_FINAL_SUBMISSION = "final-submission"
 DEFAULT_MODE_COMPATIBILITY_ALIAS = MODE_FINAL_SUBMISSION
 
 # Canonical schema register (single active machine-readable authority for rc6 path).
-# RC6-R4: default load is rc6.3. Historical rc6.2/rc6.1/S2/S1 are not coequal authorities.
+# RC6-R5: default load is rc6.4. Historical rc6.3/rc6.2/rc6.1/S2/S1 are not coequal authorities.
 _SCHEMA_REGISTER: CanonicalSchemaRegister = load_canonical_register()
 SCHEMA_REGISTER_VERSION = _SCHEMA_REGISTER.schema_register_version
 if SCHEMA_REGISTER_VERSION != ACTIVE_REGISTER_VERSION:
@@ -649,7 +650,7 @@ def package_is_r3_shaped(
     """Detect RC6-R3 provenance markers for diagnostics/tests only.
 
     Must never select schema-register authority. Default validation always uses
-    active rc6.2; historical registers are reachable only via the explicit
+    active rc6.4; historical registers are reachable only via the explicit
     historical validation API.
     """
     pkg = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
@@ -676,7 +677,7 @@ def resolve_validation_register(
 ) -> tuple[CanonicalSchemaRegister | None, str | None]:
     """Resolve the schema register for validation.
 
-    Default (None) → active rc6.2 only.
+    Default (None) → active rc6.4 only.
     Explicit historical versions → historical loader only.
     Active version requested via historical API → fail closed.
     Unsupported → fail closed.
@@ -686,7 +687,7 @@ def resolve_validation_register(
     if schema_register_version == ACTIVE_REGISTER_VERSION:
         return None, (
             f"schema_register_version={schema_register_version!r} is the active authority; "
-            "default validation uses active rc6.3 — do not request it through the "
+            "default validation uses active rc6.4 — do not request it through the "
             "historical validation API"
         )
     if schema_register_version not in HISTORICAL_REGISTER_VERSIONS:
@@ -2075,9 +2076,11 @@ def compute_verdict_ceiling(
     prohibited: bool,
     identity_mismatch: bool,
     static_inspection_incomplete: bool,
+    deviation_final_ceiling: str | None = None,
 ) -> str:
-    """Machine-enforced verdict ceiling, mirroring WITNESS_CLASSIFICATION.md's
-    precedence table:
+    """Machine-enforced verdict ceiling (R5-C3 validator-authoritative).
+
+    Precedence (strictest wins):
       - proven product execution / ldd use / upstream command use -> FAIL
       - canonical identity mismatch (tag/commit/image/lock/source)  -> FAIL
       - outcome is CARGO_FAILED or CARGO_SUCCEEDED_ARTIFACT_MISSING -> FAIL
@@ -2086,18 +2089,18 @@ def compute_verdict_ceiling(
       - outcome is CARGO_SUCCEEDED_ARTIFACT_PRESENT with incomplete
         static inspection                                           -> PARTIAL (max)
       - outcome is CARGO_SUCCEEDED_ARTIFACT_PRESENT, fully complete  -> PASS (eligible)
+      - deviation final_machine_ceiling / severity caps (incl.
+        NONMATERIAL_DISCLOSED→PARTIAL, PROHIBITED→FAIL, and FAIL for
+        EXPECTED_RUSTC_VERSION / EXPECTED_DOTSLASH_VERSION / RUST_IMAGE
+        identity overrides) fold in via strictest-wins recomputation
     """
-    if prohibited:
-        return "FAIL"
-    if identity_mismatch:
-        return "FAIL"
-    if outcome in ("CARGO_FAILED", "CARGO_SUCCEEDED_ARTIFACT_MISSING"):
-        return "FAIL"
-    if outcome in ("BUILD_NOT_STARTED", "INFRASTRUCTURE_FAILURE") or outcome is None:
-        return "INDETERMINATE"
-    if outcome == "CARGO_SUCCEEDED_ARTIFACT_PRESENT":
-        return "PARTIAL" if static_inspection_incomplete else "PASS"
-    return "INDETERMINATE"
+    return dxt.recompute_machine_ceiling(
+        outcome=outcome,
+        prohibited=prohibited,
+        identity_mismatch=identity_mismatch,
+        static_inspection_incomplete=static_inspection_incomplete,
+        deviation_final_ceiling=deviation_final_ceiling,
+    )
 
 
 def check_witness_verdict(
@@ -2182,15 +2185,23 @@ def check_deviations(
     errors: list[str],
     *,
     mode: str = MODE_FINAL_SUBMISSION,
-) -> None:
+    register: CanonicalSchemaRegister | None = None,
+    expected_run_id: str | None = None,
+) -> str | None:
+    """Validate DEVIATIONS.txt. Returns recomputed final_machine_ceiling for R5 finals."""
     name = "DEVIATIONS.txt"
+    reg = register or _SCHEMA_REGISTER
     state = fields.get("deviation_state", "")
     if state not in ("NONE", "PRESENT"):
         fail(errors, f"{name}: deviation_state must be NONE or PRESENT")
-        return
+        return None
 
     s2_prelim = mode == MODE_HOST_PRELIMINARY and is_s2_shaped_preliminary_deviations(fields)
     s2_final = mode == MODE_FINAL_SUBMISSION and is_s2_shaped_final_deviations(fields)
+    r5_final = (
+        s2_final
+        and "preliminary_deviations_sha256" in reg.required_field_names(name, MODE_FINAL_SUBMISSION)
+    )
 
     # Reject mode crossover: preliminary S2 schema must not carry final indexed
     # Witness deviation fabrication; final S2 must not carry automated_summary.
@@ -2210,7 +2221,7 @@ def check_deviations(
         )
 
     if s2_prelim:
-        required = _SCHEMA_REGISTER.required_field_names(name, MODE_HOST_PRELIMINARY)
+        required = reg.required_field_names(name, MODE_HOST_PRELIMINARY)
         require_exact_field_set(name, fields, required, errors)
         count_raw = fields.get("deviation_count", "")
         if not count_raw.isdigit():
@@ -2223,10 +2234,29 @@ def check_deviations(
                 fail(errors, f"{name}: deviation_state=PRESENT requires deviation_count>=1")
         if not fields.get("automated_summary"):
             fail(errors, f"{name}: automated_summary must be non-empty")
-        return
+        return None
+
+    if r5_final:
+        core = reg.required_field_names(name, MODE_FINAL_SUBMISSION)
+        indexed_re = re.compile(
+            r"^deviation_\d+_(description|severity|canonical_identity_impact|verdict_ceiling)$"
+        )
+        require_exact_field_set_with_indexed(
+            name,
+            fields,
+            core,
+            indexed_re,
+            errors,
+            allow_indexed=(state == "PRESENT"),
+        )
+        for msg in dxt.verify_final_package_consistency(
+            fields, expected_run_id=expected_run_id
+        ):
+            fail(errors, msg)
+        return fields.get("final_machine_ceiling")
 
     if s2_final:
-        # Required core fields; indexed keys allowed when PRESENT; unknowns rejected.
+        # Historical / pre-R5 final shape: core count fields; indexed keys when PRESENT.
         core = ("evidence_schema_version", "deviation_state", "deviation_count")
         indexed_re = re.compile(
             r"^deviation_\w+_(description|severity|canonical_identity_impact|verdict_ceiling)$"
@@ -2249,17 +2279,17 @@ def check_deviations(
             if state == "PRESENT" and count < 1:
                 fail(errors, f"{name}: deviation_state=PRESENT requires deviation_count>=1")
         if state == "NONE":
-            return
+            return None
         # Fall through to indexed checks for PRESENT.
     elif state == "NONE":
-        return
+        return None
 
     indices: set[str] = set()
     for match in re.finditer(r"deviation_(\w+)_severity", text):
         indices.add(match.group(1))
     if not indices:
         fail(errors, f"{name}: deviation_state=PRESENT but no enumerated deviation_<n>_* entries were found")
-        return
+        return None
     for idx in sorted(indices):
         severity = fields.get(f"deviation_{idx}_severity", "")
         ceiling = fields.get(f"deviation_{idx}_verdict_ceiling", "")
@@ -2285,6 +2315,7 @@ def check_deviations(
             errors,
             f"{name}: deviation_count={count_raw} does not match enumerated deviation count {len(indices)}",
         )
+    return None
 
 
 def check_redactions(fields: dict[str, str], text: str, errors: list[str]) -> None:
@@ -2974,8 +3005,9 @@ def validate_manifest(
 
     # Closed inventory allow-list for top-level declared paths.
     # Nested relative paths (containing '/') require registered typed-class
-    # authority under active rc6.3 (RC6-R4). Historical registers retain
-    # recursive total-closure acceptance without typed-class authority.
+    # authority under active rc6.4 (RC6-R4 nested classes retained). Historical
+    # registers retain recursive total-closure acceptance without typed-class
+    # authority when they do not declare nested_evidence_classes.
     for rel in listed:
         if "/" in rel:
             if reg.enforces_typed_nested_classes():
@@ -3074,7 +3106,7 @@ def validate_dir(
     - default (no explicit mode): compatibility alias to final-submission.
 
     Schema authority (RC6-R3 / SH-A):
-    - default (``schema_register_version=None``): always active rc6.3
+    - default (``schema_register_version=None``): always active rc6.4
     - explicit historical version: historical loader only
     - evidence shape/fields cannot select schema authority
 
@@ -3281,12 +3313,19 @@ def validate_dir(
         check_post_build_integrity(file_fields["POST_BUILD_INTEGRITY.txt"], errors)
     if "WITNESS_STATEMENT.md" in file_fields:
         check_witness_statement(file_fields["WITNESS_STATEMENT.md"], errors)
+    deviation_ceiling: str | None = None
     if "DEVIATIONS.txt" in file_fields:
-        check_deviations(
+        package_run_id = None
+        pkg_fields = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
+        if pkg_fields.get("run_id"):
+            package_run_id = pkg_fields.get("run_id")
+        deviation_ceiling = check_deviations(
             file_fields["DEVIATIONS.txt"],
             file_texts["DEVIATIONS.txt"],
             errors,
             mode=selected_mode,
+            register=field_register,
+            expected_run_id=package_run_id,
         )
     if "REDACTIONS.md" in file_fields:
         check_redactions(file_fields["REDACTIONS.md"], file_texts["REDACTIONS.md"], errors)
@@ -3338,7 +3377,11 @@ def validate_dir(
     prohibited_reasons = detect_prohibited_violation(file_fields)
     identity_reasons = detect_identity_mismatch(file_fields)
     ceiling = compute_verdict_ceiling(
-        outcome, bool(prohibited_reasons), bool(identity_reasons), static_inspection_incomplete
+        outcome,
+        bool(prohibited_reasons),
+        bool(identity_reasons),
+        static_inspection_incomplete,
+        deviation_final_ceiling=deviation_ceiling,
     )
 
     if "WITNESS_VERDICT.md" in file_fields:

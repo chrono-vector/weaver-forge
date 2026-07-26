@@ -771,7 +771,7 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
         import schema_register_loader as srl
 
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.4")
         errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         # Historical NOT_REACHED fixtures remain accepted via historical compatibility.

@@ -2690,6 +2690,8 @@ compute_verdict_ceiling() {
     RUST_IMAGE
     EXPECTED_CARGO_LOCK_SHA256
     BUILD_CMD
+    EXPECTED_RUSTC_VERSION
+    EXPECTED_DOTSLASH_VERSION
   )
 
   if [[ "${NONCANONICAL_RUN}" -ne 1 ]]; then
@@ -3650,6 +3652,26 @@ init_mandatory_evidence() {
 }
 init_mandatory_evidence
 
+# Host preliminary DEVIATIONS.txt writer (RC6-R5 sourced helper). Emits the
+# distinct Host preliminary schema only: evidence_schema_version, deviation_state,
+# deviation_count, automated_summary. Does not fabricate final indexed Witness
+# deviation records. Tests may invoke this function in an isolated local shell.
+write_preliminary_deviations_file() {
+  local out_path="$1"
+  {
+    echo "evidence_schema_version=1"
+    if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
+      echo "deviation_state=PRESENT"
+      echo "deviation_count=${#CHANGED_IDENTITY_FIELDS[@]}"
+      echo "automated_summary=noncanonical_identity_fields_changed:${NONCANONICAL_DISCLOSURE_TEXT}"
+    else
+      echo "deviation_state=NONE"
+      echo "deviation_count=0"
+      echo "automated_summary=no_automated_identity_deviations"
+    fi
+  } > "${out_path}"
+}
+
 # ---------------------------------------------------------------------------
 # STEP 8: HOST_RUN_METADATA.txt (allowed aux) + DEVIATIONS.txt (required)
 # ---------------------------------------------------------------------------
@@ -3673,18 +3695,7 @@ if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
   NONCANONICAL_DISCLOSURE_TEXT="$(printf '%s; ' "${CHANGED_IDENTITY_FIELDS[@]}")"
 fi
 
-{
-  echo "evidence_schema_version=1"
-  if [[ "${NONCANONICAL_RUN}" -eq 1 ]]; then
-    echo "deviation_state=PRESENT"
-    echo "deviation_count=${#CHANGED_IDENTITY_FIELDS[@]}"
-    echo "automated_summary=noncanonical_identity_fields_changed:${NONCANONICAL_DISCLOSURE_TEXT}"
-  else
-    echo "deviation_state=NONE"
-    echo "deviation_count=0"
-    echo "automated_summary=no_automated_identity_deviations"
-  fi
-} > "${EVIDENCE_DIR}/${DEVIATIONS_FILE_NAME}"
+write_preliminary_deviations_file "${EVIDENCE_DIR}/${DEVIATIONS_FILE_NAME}"
 
 append_host_run_metadata_entry "work_root_deletion_targets" \
   "$(work_root_managed_targets | tr '\n' ';' | sed 's/;$//')"

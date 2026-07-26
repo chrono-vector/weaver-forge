@@ -71,16 +71,16 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
     def test_01_active_default_is_rc6_2(self) -> None:
         default = srl.load_canonical_register()
         active = srl.load_active_register()
-        self.assertEqual(default.schema_register_version, "rc6.3")
-        self.assertEqual(active.schema_register_version, "rc6.3")
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
-        self.assertEqual(active.supersession().get("supersedes"), "rc6.2")
+        self.assertEqual(default.schema_register_version, "rc6.4")
+        self.assertEqual(active.schema_register_version, "rc6.4")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.4")
+        self.assertEqual(active.supersession().get("supersedes"), "rc6.3")
         hist = active.historical_compatibility()
-        self.assertEqual(hist.get("active_authority"), "rc6.3")
-        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.2")
+        self.assertEqual(hist.get("active_authority"), "rc6.4")
+        self.assertEqual(hist.get("immediate_predecessor_version"), "rc6.3")
         self.assertEqual(
             set(hist.get("historical_register_versions") or []),
-            {"rc6.2", "rc6.1", "rc5-phase4-s2.1", "rc5-phase4-s1.1"},
+            {"rc6.3", "rc6.2", "rc6.1", "rc5-phase4-s2.1", "rc5-phase4-s1.1"},
         )
 
     def test_02_historical_rc61_s2_s1_explicit_only(self) -> None:
@@ -93,7 +93,7 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
         self.assertTrue(s2.is_historical_s2)
         self.assertTrue(s1.is_historical_s1)
         with self.assertRaises(srl.SchemaRegisterError):
-            srl.load_historical_register("rc6.3")
+            srl.load_historical_register("rc6.4")
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc7.0")
 
@@ -104,13 +104,25 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
         frozen = RC61_REGISTER.read_bytes()
         self.assertIn(b'"schema_register_version": "rc6.1"', frozen)
         active = RC6_REGISTER.read_text(encoding="utf-8")
-        self.assertIn('"schema_register_version": "rc6.3"', active)
+        self.assertIn('"schema_register_version": "rc6.4"', active)
         self.assertIn("WEAVER_FORGE_FINAL_BINDING.txt", active)
 
     def test_04_active_fixtures_pass_historical_bytes_preserved(self) -> None:
-        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r3-synthetic-final"), [])
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r3-synthetic-preliminary", host_preliminary=True),
+            v.validate_dir(FIXTURES / "rc6-r3-synthetic-final", schema_register_version="rc6.3"),
+            [],
+        )
+        self.assertEqual(
+            v.validate_dir(
+                FIXTURES / "rc6-r3-synthetic-preliminary",
+                host_preliminary=True,
+                schema_register_version="rc6.3",
+            ),
+            [],
+        )
+        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r5-synthetic-final"), [])
+        self.assertEqual(
+            v.validate_dir(FIXTURES / "rc6-r5-synthetic-preliminary", host_preliminary=True),
             [],
         )
         hist_pkg = (FIXTURES / "rc6-r1-synthetic-final" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
@@ -145,7 +157,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         _cleanup()
 
     def test_05_final_binding_manifest_hash_and_non_circular(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         man = tree / "EVIDENCE_MANIFEST.sha256"
         fb = tree / "WEAVER_FORGE_FINAL_BINDING.txt"
         expected = hashlib.sha256(man.read_bytes()).hexdigest()
@@ -160,7 +172,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         self.assertEqual(v.validate_dir(tree), [])
 
     def test_06_manifest_hash_mismatch_fail_closed(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         fb = tree / "WEAVER_FORGE_FINAL_BINDING.txt"
         text = fb.read_text(encoding="utf-8")
         text = re.sub(
@@ -174,13 +186,13 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         self.assertTrue(any("final_manifest_sha256" in e for e in errors), errors)
 
     def test_07_missing_final_binding_fail_closed_for_r3(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         (tree / "WEAVER_FORGE_FINAL_BINDING.txt").unlink()
         errors = v.validate_dir(tree)
         self.assertTrue(any("WEAVER_FORGE_FINAL_BINDING.txt" in e for e in errors), errors)
 
     def test_08_run_id_mismatch_fail_closed(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         be = tree / "BUILD_EXIT_CODE.txt"
         text = be.read_text(encoding="utf-8")
         text = re.sub(r"^run_id=.*$", "run_id=other-run-id-token", text, flags=re.M)
@@ -190,7 +202,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         self.assertTrue(any("run_id" in e for e in errors), errors)
 
     def test_09_source_commit_mismatch_fail_closed(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         src = tree / "SOURCE_IDENTITY.txt"
         text = src.read_text(encoding="utf-8")
         text = re.sub(
@@ -233,7 +245,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         self.assertIn("authoritative_outcome=", host)
 
     def test_12_evidence_cannot_select_historical_authority(self) -> None:
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         env = tree / "ENVIRONMENT.txt"
         env.write_text(
             env.read_text(encoding="utf-8") + "schema_register_version=rc6.1\n",
@@ -241,11 +253,11 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
             newline="\n",
         )
         errors = v.validate_dir(tree)
-        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.3")
+        self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.4")
         self.assertTrue(any("schema_register_version" in e for e in errors), errors)
 
     def test_13_default_validation_never_selects_rc61_by_shape(self) -> None:
-        # Omitting R3 markers must fail under active rc6.3 — not silently use rc6.1.
+        # Omitting R3 markers must fail under active rc6.4 — not silently use rc6.1.
         tree = _copy_fixture("rc6-r1-synthetic-final")
         self.assertFalse(v.package_is_r3_shaped({}, evidence_dir=tree))
         errors = v.validate_dir(tree)
@@ -253,7 +265,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         # Explicit historical API still accepts the same bytes.
         self.assertEqual(v.validate_dir(tree, schema_register_version="rc6.1"), [])
         # Active version cannot be requested through the historical API.
-        reject_active = v.validate_dir(tree, schema_register_version="rc6.3")
+        reject_active = v.validate_dir(tree, schema_register_version="rc6.4")
         self.assertTrue(any("active authority" in e for e in reject_active), reject_active)
         unsupported = v.validate_dir(tree, schema_register_version="rc7.0")
         self.assertTrue(any("unsupported schema_register_version" in e for e in unsupported), unsupported)
@@ -276,7 +288,7 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         after_final = step21[final_pos:]
         self.assertNotIn("append_host_run_metadata_entry", after_final)
         # Isolated FM-C seal: mutate covered file after binding → validator fail-closed.
-        tree = _copy_fixture("rc6-r3-synthetic-final")
+        tree = _copy_fixture("rc6-r5-synthetic-final")
         man = tree / "EVIDENCE_MANIFEST.sha256"
         expected = hashlib.sha256(man.read_bytes()).hexdigest()
         fb = (tree / "WEAVER_FORGE_FINAL_BINDING.txt").read_text(encoding="utf-8")

@@ -1,0 +1,8 @@
+evidence_schema_version=1
+run_id=run-rc6-r3-schema-synthetic-001
+deviation_state=NONE
+deviation_count=0
+preliminary_deviations_sha256=e5fa05d7cd64c68cd782c37d571bf3e90da80a95d6a88a59e6fc73a0f2b98733
+aggregate_severity=NONE
+aggregate_canonical_identity_impact=no
+final_machine_ceiling=PASS

@@ -1,21 +1,23 @@
-# DEVIATIONS.txt — final-submission Witness-input template (evidence_schema_version=1, Phase 4-S2)
+# DEVIATIONS.txt — final-submission Witness-input template (evidence_schema_version=1, RC6-R5)
 #
 # Owner: Witness (final-submission). Host automated preliminary DEVIATIONS use a
-# separate host-owned schema (deviation_state, deviation_count, automated_summary)
-# and must not fabricate Witness indexed statements.
+# distinct host-owned schema (evidence_schema_version, deviation_state,
+# deviation_count, automated_summary) and must not fabricate Witness indexed
+# statements.
 #
-# deviation_state is NONE or PRESENT. deviation_count is required:
-#   NONE => deviation_count=0
-#   PRESENT => deviation_count>=1 and contiguous indexed records:
-#     deviation_<n>_description=<what deviated>
-#     deviation_<n>_severity=NONE|NONMATERIAL_DISCLOSED|MATERIAL_NONCANONICAL|PROHIBITED
-#     deviation_<n>_canonical_identity_impact=yes|no
-#     deviation_<n>_verdict_ceiling=PASS|PARTIAL|FAIL|INDETERMINATE
-# MATERIAL_NONCANONICAL and PROHIBITED forbid a PASS ceiling; PROHIBITED
-# requires verdict_ceiling=FAIL.
+# Final packages must bind to the Host preliminary bytes via
+# preliminary_deviations_sha256 (SHA-256 of the preliminary DEVIATIONS.txt).
+# run_id must equal the package run_id. Aggregate severity, aggregate
+# canonicality impact, and final_machine_ceiling must match validator
+# recomputation. When PRESENT, indices are numeric and contiguous 1..n.
 #
-# Templates remain subordinate to schemas/canonical_schema_register_rc5_phase4_s2.json.
-# Full manual severity/redaction/ceiling lifecycle remains deferred (RC4B-007/034-036).
+# Templates remain subordinate to schemas/canonical_schema_register_rc6.json
+# (active rc6.4).
 evidence_schema_version=1
+run_id=<run_id>
 deviation_state=NONE
 deviation_count=0
+preliminary_deviations_sha256=<sha256_of_host_preliminary_deviations_bytes>
+aggregate_severity=NONE
+aggregate_canonical_identity_impact=no
+final_machine_ceiling=PASS

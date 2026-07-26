@@ -1,0 +1,13 @@
+evidence_schema_version=1
+run_id=run-rc6-r3-schema-synthetic-001
+package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
+final_binding_ref=WEAVER_FORGE_FINAL_BINDING.txt
+witness_identity_or_handle=Jane Doe (@janedoe)
+not_package_owner=yes
+not_owner_side_reproducer=yes
+witness_controlled_host=yes
+ai_assistance_used=no
+human_review_completed=yes
+product_executed=NO
+ldd_used=NO
+upstream_product_commands_not_run=yes
