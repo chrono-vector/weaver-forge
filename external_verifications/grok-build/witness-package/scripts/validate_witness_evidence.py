@@ -87,16 +87,18 @@ EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 EXPECTED_CARGO_LOCK_SHA256 = "1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 EXACT_BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
-# Package-version-aware expected-tag authority (Pi-approved rc5 finalization).
+# Package-version-aware expected-tag authority (Pi-approved; RC7 tuple binding).
 # Source of authority: package_version from WEAVER_FORGE_PACKAGE_IDENTITY.txt.
 # Tag mismatch never selects historical/active compatibility.
+PACKAGE_TAG_ACTIVE_RC7 = "grok-build-witness-v1.0.0-rc7"
 PACKAGE_TAG_ACTIVE_RC5 = "grok-build-witness-v1.0.0-rc5"
 PACKAGE_TAG_HISTORICAL_RC4 = "grok-build-witness-v1.0.0-rc4"
-PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_RC5  # active package default / docs alias
+PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_RC7  # active package default / docs alias
 PACKAGE_VERSION_EXPECTED_TAG: dict[str, str] = {
     "1.0.0-rc4": PACKAGE_TAG_HISTORICAL_RC4,
     "1.0.0-rc5": PACKAGE_TAG_ACTIVE_RC5,
     "1.0.0-rc5-phase4-s3-fixture": PACKAGE_TAG_ACTIVE_RC5,
+    "1.0.0-rc7": PACKAGE_TAG_ACTIVE_RC7,
 }
 EXPECTED_DOTSLASH_VERSION = "0.5.7"
 
@@ -2208,6 +2210,29 @@ def detect_identity_mismatch(file_fields: dict[str, dict[str, str]]) -> list[str
             f"(expected {expected_tag})"
         )
 
+    verdict = file_fields.get("WITNESS_VERDICT.md", {})
+    package_tag = verdict.get("package_tag", "")
+    if expected_tag is not None and package_tag and package_tag != expected_tag:
+        reasons.append(
+            "WITNESS_VERDICT.md: package_tag != expected tag for "
+            f"package_version={package_version!r} (expected {expected_tag})"
+        )
+
+    binding = file_fields.get(FINAL_BINDING_NAME, {})
+    canonical_tag = binding.get("canonical_tag", "")
+    if expected_tag is not None and canonical_tag and canonical_tag != expected_tag:
+        reasons.append(
+            f"{FINAL_BINDING_NAME}: canonical_tag != expected tag for "
+            f"package_version={package_version!r} (expected {expected_tag})"
+        )
+
+    observed_tags = [t for t in (tag, package_tag, canonical_tag) if t]
+    if len(set(observed_tags)) > 1:
+        reasons.append(
+            "cross-file package identity tag mismatch among "
+            "weaver_forge_tag_requested / package_tag / canonical_tag"
+        )
+
     si = file_fields.get("SOURCE_IDENTITY.txt", {})
     observed_commit = si.get("grok_build_commit_observed", "")
     if observed_commit and observed_commit != EXPECTED_GROK_COMMIT:
@@ -2304,6 +2329,32 @@ def check_witness_verdict(
     tag = fields.get("package_tag", "")
     if tag and not re.match(r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$", tag):
         fail(errors, f"{name}: package_tag does not match expected tag grammar: {tag!r}")
+    # Package-version/tag tuple equality (RC4B-022/026/028/035): package_tag must
+    # equal the version-aware expected tag and the observed identity/final-binding tags.
+    wfpi = file_fields.get(PACKAGE_IDENTITY_NAME) or {}
+    final_binding = file_fields.get(FINAL_BINDING_NAME) or {}
+    package_version = wfpi.get("package_version", "")
+    expected_tag = expected_package_tag_for_version(package_version)
+    requested_tag = wfpi.get("weaver_forge_tag_requested", "")
+    canonical_tag = final_binding.get("canonical_tag", "")
+    if tag and expected_tag is not None and tag != expected_tag:
+        fail(
+            errors,
+            f"{name}: package_tag must equal expected tag for "
+            f"package_version={package_version!r} "
+            f"(expected {expected_tag}, found {tag!r})",
+        )
+    if tag and requested_tag and tag != requested_tag:
+        fail(
+            errors,
+            f"{name}: package_tag must equal {PACKAGE_IDENTITY_NAME} "
+            "weaver_forge_tag_requested",
+        )
+    if tag and canonical_tag and tag != canonical_tag:
+        fail(
+            errors,
+            f"{name}: package_tag must equal {FINAL_BINDING_NAME} canonical_tag",
+        )
     weaver_commit = fields.get("weaver_forge_commit", "")
     if weaver_commit and not is_hex_commit(weaver_commit):
         fail(errors, f"{name}: weaver_forge_commit must be a 40-char lowercase hex commit")
@@ -2718,6 +2769,15 @@ def check_weaver_forge_final_binding(
                 errors,
                 f"{name}: canonical_tag must equal {PACKAGE_IDENTITY_NAME} "
                 "weaver_forge_tag_requested",
+            )
+        expected_tag = expected_package_tag_for_version(wfpi.get("package_version", ""))
+        canonical = fields.get("canonical_tag", "")
+        if expected_tag is not None and canonical and canonical != expected_tag:
+            fail(
+                errors,
+                f"{name}: canonical_tag must equal expected tag for "
+                f"package_version={wfpi.get('package_version', '')!r} "
+                f"(expected {expected_tag}, found {canonical!r})",
             )
         if fields.get("tag_object_id") != wfpi.get("weaver_forge_tag_object_id"):
             fail(

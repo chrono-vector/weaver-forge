@@ -824,7 +824,11 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
 
 
 class PackageVersionAwareExpectedTagTests(unittest.TestCase):
-    """Pi-approved package-version-aware expected-tag resolution."""
+    """Pi-approved package-version-aware expected-tag resolution.
+
+    Slice 2 / RC4B-022/026/028/035: RC7 mapping and cross-file tag equality
+    among package_tag / weaver_forge_tag_requested / canonical_tag / expected.
+    """
 
     def test_resolver_mapping_and_unknown_fail_closed(self):
         self.assertEqual(
@@ -839,12 +843,20 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             v.expected_package_tag_for_version("1.0.0-rc5-phase4-s3-fixture"),
             v.PACKAGE_TAG_ACTIVE_RC5,
         )
+        self.assertEqual(
+            v.expected_package_tag_for_version("1.0.0-rc7"),
+            v.PACKAGE_TAG_ACTIVE_RC7,
+        )
+        self.assertEqual(v.PACKAGE_TAG_EXPECTED, v.PACKAGE_TAG_ACTIVE_RC7)
         self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc3"))
+        self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc6"))
         self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc99"))
         self.assertIsNone(v.expected_package_tag_for_version(""))
 
-    def _mutate_identity(self, files: dict[str, str], **replacements: str) -> dict[str, str]:
-        text = files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]
+    def _mutate_kv_file(
+        self, files: dict[str, str], filename: str, **replacements: str
+    ) -> dict[str, str]:
+        text = files[filename]
         for key, value in replacements.items():
             needle = f"{key}="
             lines = []
@@ -855,8 +867,52 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
                     lines.append(line)
             text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         files = dict(files)
-        files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"] = text
+        files[filename] = text
         return files
+
+    def _mutate_identity(self, files: dict[str, str], **replacements: str) -> dict[str, str]:
+        return self._mutate_kv_file(files, "WEAVER_FORGE_PACKAGE_IDENTITY.txt", **replacements)
+
+    def _align_tags_in_tree(self, tree: Path, old_tag: str, new_tag: str) -> None:
+        for name in (
+            "SOURCE_ACQUISITION.txt",
+            "WITNESS_VERDICT.md",
+            "WEAVER_FORGE_FINAL_BINDING.txt",
+            "WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+        ):
+            path = tree / name
+            if not path.is_file():
+                continue
+            path.write_text(
+                path.read_text(encoding="utf-8").replace(old_tag, new_tag),
+                encoding="utf-8",
+                newline="\n",
+            )
+
+    def _rewrite_manifest_and_seal(self, tree: Path) -> None:
+        import hashlib
+
+        import evidence_inventory as ei
+
+        binding_path = tree / "WEAVER_FORGE_FINAL_BINDING.txt"
+        binding_text = binding_path.read_text(encoding="utf-8") if binding_path.is_file() else ""
+        if binding_path.is_file():
+            binding_path.unlink()
+        ei.write_evidence_manifest(tree)
+        if not binding_text:
+            return
+        digest = hashlib.sha256((tree / "EVIDENCE_MANIFEST.sha256").read_bytes()).hexdigest()
+        binding_path.write_text(
+            "\n".join(
+                f"final_manifest_sha256={digest}"
+                if line.startswith("final_manifest_sha256=")
+                else line
+                for line in binding_text.splitlines()
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
 
     def test_rc4_package_rc4_tag_passes_and_rc5_tag_fails(self):
         base = fx.build_scenario("success-artifact-present")
@@ -936,6 +992,216 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             shutil.rmtree(tmp_ok, ignore_errors=True)
             shutil.rmtree(tmp_bad, ignore_errors=True)
 
+    def test_rc7_coherent_tuple_accepted(self):
+        base = fx.build_scenario("success-artifact-present")
+        good = self._mutate_identity(
+            base,
+            package_version="1.0.0-rc7",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC7,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7ok_", dir=HERE))
+        try:
+            fx.write_tree(tmp, good)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC7)
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            self.assertEqual(v.validate_dir(tmp, schema_register_version="rc6.1"), [])
+            self.assertEqual(
+                v.expected_package_tag_for_version("1.0.0-rc7"),
+                v.PACKAGE_TAG_ACTIVE_RC7,
+            )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_unsupported_when_mapping_absent_is_fail_closed_for_unknown(self):
+        # Sanity: unknown versions still fail closed; RC7 itself is mapped.
+        self.assertIsNotNone(v.expected_package_tag_for_version("1.0.0-rc7"))
+        base = fx.build_scenario("success-artifact-present")
+        unknown = self._mutate_identity(base, package_version="1.0.0-rc7-unknown")
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7unk_", dir=HERE))
+        try:
+            fx.write_tree(tmp, unknown)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertTrue(
+                any("unsupported package_version=" in e for e in errors),
+                errors,
+            )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_verdict_package_tag_mismatch_rejected(self):
+        base = fx.build_scenario("success-artifact-present")
+        good = self._mutate_identity(
+            base,
+            package_version="1.0.0-rc7",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC7,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7verdict_", dir=HERE))
+        try:
+            fx.write_tree(tmp, good)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC7)
+            (tmp / "WITNESS_VERDICT.md").write_text(
+                (tmp / "WITNESS_VERDICT.md")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_ACTIVE_RC7, v.PACKAGE_TAG_ACTIVE_RC5),
+                encoding="utf-8",
+                newline="\n",
+            )
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertTrue(
+                any("package_tag must equal expected tag" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_RC7 in e for e in errors), errors)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_identity_requested_tag_mismatch_rejected(self):
+        base = fx.build_scenario("success-artifact-present")
+        bad = self._mutate_identity(
+            base,
+            package_version="1.0.0-rc7",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC5,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7id_", dir=HERE))
+        try:
+            fx.write_tree(tmp, bad)
+            (tmp / "WITNESS_VERDICT.md").write_text(
+                (tmp / "WITNESS_VERDICT.md")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC7),
+                encoding="utf-8",
+                newline="\n",
+            )
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertTrue(
+                any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_RC7 in e for e in errors), errors)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_final_binding_canonical_tag_mismatch_rejected(self):
+        import shutil
+
+        src = FIXTURES / "rc6-r6-synthetic-final"
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7bind_", dir=HERE))
+        try:
+            shutil.rmtree(tmp)
+            shutil.copytree(src, tmp)
+            # Promote coherent RC5 synthetic to RC7, then break only canonical_tag.
+            for path in tmp.rglob("*"):
+                if not path.is_file():
+                    continue
+                text = path.read_text(encoding="utf-8")
+                updated = (
+                    text.replace("1.0.0-rc5-phase4-s3-fixture", "1.0.0-rc7")
+                    .replace(v.PACKAGE_TAG_ACTIVE_RC5, v.PACKAGE_TAG_ACTIVE_RC7)
+                )
+                if updated != text:
+                    path.write_text(updated, encoding="utf-8", newline="\n")
+            binding = (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").read_text(encoding="utf-8")
+            binding = binding.replace(
+                f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC7}",
+                f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC5}",
+            )
+            (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").write_text(
+                binding, encoding="utf-8", newline="\n"
+            )
+            self._rewrite_manifest_and_seal(tmp)
+            errors = v.validate_dir(tmp)
+            self.assertTrue(
+                any(
+                    "canonical_tag must equal expected tag" in e
+                    or "canonical_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+                    in e
+                    or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag"
+                    in e
+                    for e in errors
+                ),
+                errors,
+            )
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_cross_file_identity_mismatch_rejected(self):
+        import shutil
+
+        src = FIXTURES / "rc6-r6-synthetic-final"
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7xfile_", dir=HERE))
+        try:
+            shutil.rmtree(tmp)
+            shutil.copytree(src, tmp)
+            for path in tmp.rglob("*"):
+                if not path.is_file():
+                    continue
+                text = path.read_text(encoding="utf-8")
+                updated = (
+                    text.replace("1.0.0-rc5-phase4-s3-fixture", "1.0.0-rc7")
+                    .replace(v.PACKAGE_TAG_ACTIVE_RC5, v.PACKAGE_TAG_ACTIVE_RC7)
+                )
+                if updated != text:
+                    path.write_text(updated, encoding="utf-8", newline="\n")
+            # Leave identity+binding at RC7; flip only verdict package_tag.
+            verdict = (tmp / "WITNESS_VERDICT.md").read_text(encoding="utf-8")
+            verdict = verdict.replace(
+                f"package_tag={v.PACKAGE_TAG_ACTIVE_RC7}",
+                f"package_tag={v.PACKAGE_TAG_HISTORICAL_RC4}",
+            )
+            (tmp / "WITNESS_VERDICT.md").write_text(verdict, encoding="utf-8", newline="\n")
+            self._rewrite_manifest_and_seal(tmp)
+            errors = v.validate_dir(tmp)
+            self.assertTrue(
+                any(
+                    "package_tag must equal expected tag" in e
+                    or "package_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt" in e
+                    or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt" in e
+                    for e in errors
+                ),
+                errors,
+            )
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rc7_coherent_tuple_with_final_binding_accepted(self):
+        import shutil
+
+        src = FIXTURES / "rc6-r6-synthetic-final"
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7bindok_", dir=HERE))
+        try:
+            shutil.rmtree(tmp)
+            shutil.copytree(src, tmp)
+            for path in tmp.rglob("*"):
+                if not path.is_file():
+                    continue
+                text = path.read_text(encoding="utf-8")
+                updated = (
+                    text.replace("1.0.0-rc5-phase4-s3-fixture", "1.0.0-rc7")
+                    .replace(v.PACKAGE_TAG_ACTIVE_RC5, v.PACKAGE_TAG_ACTIVE_RC7)
+                )
+                if updated != text:
+                    path.write_text(updated, encoding="utf-8", newline="\n")
+            self._rewrite_manifest_and_seal(tmp)
+            self.assertEqual(v.validate_dir(tmp), [])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_unknown_package_version_fails_closed(self):
         base = fx.build_scenario("success-artifact-present")
         unknown = self._mutate_identity(base, package_version="1.0.0-rc99")
@@ -970,6 +1236,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC4}", hist)
+        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r6-synthetic-final"), [])
 
 
 if __name__ == "__main__":
