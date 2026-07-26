@@ -53,7 +53,7 @@ Exit code `0` means all receipts passed; `1` means at least one receipt is missi
 
 | Package | Status |
 |---------|--------|
-| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — package version `1.0.0-rc4`; fixed immutable annotated tag `grok-build-witness-v1.0.0-rc4` → commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; rc4 static blind audit **COMPLETE** with final disposition **NOT READY** (40 integrated blockers); Phase 0 audit intake COMPLETE; Phase 1 documentation remediation on `main`; technical implementation remediation NOT YET BEGUN; `main` prepared toward possible future rc5 candidate (**rc5 tag does not exist**); Independent Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014 **NOT_STARTED**; overall **PARTIAL** |
+| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — RC5 FIXED IMMUTABLE — NOT READY — Independent Witness handoff not authorized — C-014 NOT_STARTED — RC6-R1–R7 remediation implemented on `main` (pre-tag / prospective RC6 fixed candidate only) — RC6 tag/archive/bundle do not yet exist — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE; last immutable identity: tag `grok-build-witness-v1.0.0-rc5`; annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256 `5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256 `5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`; overall **PARTIAL** |
 
 ## Independent reproduction
 

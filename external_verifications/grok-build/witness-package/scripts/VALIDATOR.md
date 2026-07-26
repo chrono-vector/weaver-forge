@@ -221,8 +221,10 @@ explicit historical compatibility path. S2-shaped evidence is never silently
 downgraded.
 
 No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
-RC6 does not yet exist as a release; RC6-R6 is manual-form / intake / correction /
-redaction remediation on `main` only.
+RC6 does not yet exist as a tagged/archived/bundled release. RC6-R1–R7 remediation is
+implemented on `main` as a pre-tag / prospective RC6 fixed candidate only (R7 is
+documentation/status alignment). Findings are not CLEAR/CLOSED by implementation or
+documentation alone. Independent Witness handoff is not authorized.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 

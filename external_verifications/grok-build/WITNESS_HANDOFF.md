@@ -3,13 +3,13 @@
 | Field | Value |
 |-------|-------|
 | Target slug | `grok-build` |
-| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — `1.0.0-rc4` / fixed tag `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; rc4 static disposition NOT READY (40 blockers); Phase 1 documentation remediation on `main`; technical implementation remediation NOT YET BEGUN; rc5 tag does not exist; Independent Witness NOT_STARTED** |
+| Handoff status | **Owner-side results complete through C2D-2; Witness package NOT READY — RC5 FIXED IMMUTABLE — NOT READY — Independent Witness handoff not authorized — C-014 NOT_STARTED — RC6-R1–R7 remediation implemented on `main` (pre-tag / prospective RC6 fixed candidate only) — RC6 tag/archive/bundle do not yet exist — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE** |
 | Prepared by | Weaver Forge documentation package author |
 | Preparer role | Owner-side package author (not the witness) |
-| Prepared date | `2026-07-23` |
-| Verification-plan version / date | RC5 Phase 1 2026-07-23 |
-| Current package version | `1.0.0-rc4` (canonical package tag `grok-build-witness-v1.0.0-rc4` → commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; availability verified by annotated-tag resolution; canonical execution requires successful resolution; if resolution fails, canonical execution stops; package commit authority = annotated_tag_resolution) |
-| Immutable releases | `rc1` → NOT READY (C-024); `rc2` → NOT READY (C-025); `rc3` → NOT READY (C-026); `rc4` → NOT READY (C-027; 40 blockers; evidence/rc4-static-blind-audit/); Independent Witness reproduction NOT_PERFORMED; C-014 NOT_STARTED |
+| Prepared date | `2026-07-26` |
+| Verification-plan version / date | RC6-R7 documentation/status alignment 2026-07-26 |
+| Current package version | Last immutable `1.0.0-rc5` / tag `grok-build-witness-v1.0.0-rc5`; annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256 `5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256 `5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`; current `main` = pre-tag RC6-R1–R7 remediation only (not an RC6 release); package commit authority = annotated_tag_resolution |
+| Immutable releases | `rc1`→NOT READY (C-024); `rc2`→NOT READY (C-025); `rc3`→NOT READY (C-026); `rc4`→NOT READY (C-027; 40 blockers); `rc5`→NOT READY (Source Weaver; Independent Witness handoff not authorized); Independent Witness reproduction NOT_PERFORMED; C-014 NOT_STARTED; RC6 tag absent |
 | Independent witness | *unassigned* |
 | Witness completion status | `NOT_STARTED` |
 | **Canonical Witness package** | **`external_verifications/grok-build/witness-package/README.md`** |
@@ -166,11 +166,13 @@ docker pull docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42
 
 **RC5 Phase 0 done (owner-side audit recording):** rc4 static blind audit intake recorded as C-027 (`claim_scope=AUDIT_RECORDING`); final static disposition **NOT READY**; 40 integrated blockers; evidence under `evidence/rc4-static-blind-audit/`. Independent Witness reproduction **NOT PERFORMED**.
 
-**RC5 Phase 1 (current — documentation/status truthfulness on `main`):** rc4 is fixed and immutable at `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; static disposition remains **NOT READY**; current-facing prospective wording is corrected; technical implementation remediation of scripts/schemas/validators/tests/execution controls (RC4B-004–040) has **not** begun; **rc5 tag does not exist**.
+**RC5 Phase 1 (historical):** rc4 prospective/pending wording corrected on `main`; did **not** close technical blockers and did **not** create RC5.
 
-### HISTORICAL PRE-TAG STATE
+**RC6-R7 (current — documentation/status alignment on `main`):** RC5 is FIXED_IMMUTABLE at tag `grok-build-witness-v1.0.0-rc5`; annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256 `5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256 `5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`; Source Weaver disposition **NOT READY**; Independent Witness handoff **not authorized**; C-014 **NOT_STARTED**. RC6-R1–R7 remediation is implemented on `main` as a pre-tag / prospective RC6 fixed candidate only. RC6 tag/archive/bundle **do not yet exist**. Implementation/docs alignment does **not** mark findings CLEAR/CLOSED.
 
-Prior wording described rc3 package content as prepared pending its repeat blind audit. That audit has since completed (NOT READY, C-026); rc3 is now immutable history. Separately, pre-publication wording described rc4 as the package content under preparation; that prospective wording is superseded by the Phase 0/Phase 1 current-state statements above.
+### HISTORICAL PRE-TAG / PRE-RC5 STATE
+
+Prior wording described rc3/rc4/rc5 prospectively or said “rc5 tag does not exist” / “technical remediation not yet begun.” Those states are superseded by the immutable RC5 identity and pre-tag RC6 remediation status above.
 
 ---
 

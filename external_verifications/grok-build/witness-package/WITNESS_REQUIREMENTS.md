@@ -1,24 +1,25 @@
-# Witness requirements — Grok Build narrow rebuild (1.0.0-rc5)
+# Witness requirements — Grok Build narrow rebuild (RC5 immutable / pre-tag RC6 on main)
 
 ## Current package status
 
-**RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — RC5 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — C-014 NOT_STARTED**
+**RC5 FIXED IMMUTABLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — RC6-R1–R7 REMEDIATION IMPLEMENTED ON MAIN (PRE-TAG / PROSPECTIVE RC6 FIXED CANDIDATE ONLY) — RC6 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
 
-Package version `1.0.0-rc5`; `canonical_package_tag=grok-build-witness-v1.0.0-rc5`;
-`package_commit_authority=annotated_tag_resolution` (resolved commit is derived at tag
-publication / run time; this tree does not embed a future commit hash). Tag availability is
-verified by annotated-tag resolution; canonical execution requires successful resolution; if
-resolution fails, canonical execution stops. After publication the tag is immutable.
+Last immutable package version `1.0.0-rc5`; `canonical_package_tag=grok-build-witness-v1.0.0-rc5`;
+annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit
+`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`;
+`package_commit_authority=annotated_tag_resolution`. Tag availability is verified by
+annotated-tag resolution; canonical execution against RC5 requires successful resolution; if
+resolution fails, canonical execution stops. RC5 is immutable. Source Weaver ruled RC5
+**NOT READY**. Independent Witness handoff is **not authorized**.
 `grok-build-witness-v1.0.0-rc1` (`89127c78c3a11492892de7e3b5f0dee18d71775a`),
 `grok-build-witness-v1.0.0-rc2` (`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`),
-`grok-build-witness-v1.0.0-rc3` (`77221a224bbd6194cfafb81f6ecb58c800e5bc13`; audit preserved under
-`evidence/rc3-static-blind-audit/`), and `grok-build-witness-v1.0.0-rc4`
-(`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; audit preserved under
-`evidence/rc4-static-blind-audit/`; 40 blockers) are preserved as **immutable releases**, each with
-its own recorded **NOT READY** audit verdict. rc5 is an **immutable static-audit candidate only**.
-Independent Witness reproduction **NOT PERFORMED**.
-Independent Witness PASS **NONE**. C-014 (Independent Witness) remains **`NOT_STARTED`**. Overall
-**PARTIAL**. Package remains **NOT READY**. **rc5 tag does not yet exist**.
+`grok-build-witness-v1.0.0-rc3` (`77221a224bbd6194cfafb81f6ecb58c800e5bc13`), and
+`grok-build-witness-v1.0.0-rc4` (`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; 40 blockers) are
+preserved as **immutable releases**, each with a recorded **NOT READY** audit verdict. Current
+`main` hosts RC6-R1–R7 remediation toward a prospective RC6 fixed candidate only; RC6
+tag/archive/bundle **do not yet exist**. Independent Witness reproduction **NOT PERFORMED**.
+Independent Witness PASS **NONE**. C-014 remains **`NOT_STARTED`**. Overall **PARTIAL**. Package
+remains **NOT READY**.
 
 ## Evidence schema
 
@@ -186,8 +187,8 @@ Optional additional verification input only: `WEAVER_FORGE_EXTERNAL_EXPECTED_COM
 
 ## Host preflight identity closure (Phase 2A on `main`)
 
-Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.** The
-rc4 tag is unchanged. This does **not** claim that rc4 was corrected. **No rc5 tag exists.**
+Implementation on `main` toward a prospective RC6 fixed candidate (pre-tag). **RC5 remains FIXED_IMMUTABLE and NOT READY; Independent Witness handoff not authorized.** The
+rc4 tag is unchanged. This does **not** claim that rc4 was corrected. **The RC5 annotated tag `grok-build-witness-v1.0.0-rc5` exists and remains FIXED_IMMUTABLE (NOT READY; Independent Witness handoff not authorized).**
 
 Before **any** Docker CLI invocation (including `docker version` / `docker context show`
 metadata), the host orchestrator must close an explicit identity gate after all of:
@@ -208,8 +209,8 @@ retries with a new run ID or aborts before writing evidence.
 
 ## Source-mount isolation (Phase 2B on `main`)
 
-Implementation on `main` toward a possible future rc5 candidate. **RC4 remains NOT READY.**
-**No rc5 tag exists.** This does **not** claim final closure before repeat static audit.
+Implementation on `main` toward a prospective RC6 fixed candidate (pre-tag). **RC5 remains FIXED_IMMUTABLE and NOT READY; Independent Witness handoff not authorized.**
+**The RC5 annotated tag `grok-build-witness-v1.0.0-rc5` exists and remains FIXED_IMMUTABLE (NOT READY; Independent Witness handoff not authorized).** This does **not** claim final closure before repeat static audit.
 
 - The Grok Build checkout is mounted **exactly once**, read-only, at `/src`.
 - A broad `WORK_ROOT` → `/work` writable mount is **prohibited**.
@@ -276,5 +277,6 @@ on `xai-grok-pager` / `grok`.
 | 1.0.0-rc2 | Prior canonical-platform, independence, fixed-identity, bootstrap, and network sections |
 | 1.0.0-rc3 | Added evidence-schema-version section; outcome model and outcome-sensitivity table; explicit failure-submissions-supported policy; `WITNESS_ID`/`WORK_ROOT` safety rules matching the host orchestrator; image-pull-is-fatal policy; canonical-constants table reconciled with `scripts/run_witness_narrow_build.sh` |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; time-stable annotated-tag resolution wording; no Independent Witness reproduction |
-| main (Phase 2A; not an rc5 release) | Host preflight: no Docker CLI before identity closure; raw annotated-tag type `tag` mandatory; atomic fresh `EVIDENCE_DIR`. **Does not** correct or re-tag rc4; **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 2B; not an rc5 release) | Source-mount isolation: no broad `WORK_ROOT`→`/work`; `/src` read-only once; fail-closed mount-plan validation before Docker; comma/CR/LF mount-field rejection; required sources must pre-exist; canonicalization failure fatal with no textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 2A; not an rc5 release) | Host preflight: no Docker CLI before identity closure; raw annotated-tag type `tag` mandatory; atomic fresh `EVIDENCE_DIR`. **Does not** correct or re-tag rc4; **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 2B; not an rc5 release) | Source-mount isolation: no broad `WORK_ROOT`→`/work`; `/src` read-only once; fail-closed mount-plan validation before Docker; comma/CR/LF mount-field rejection; required sources must pre-exist; canonicalization failure fatal with no textual fallback. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (RC6-R7 docs; not an RC6 release) | Align identity/status wording with immutable RC5 and pre-tag RC6 remediation; **does not** close blockers; C-014 NOT_STARTED |

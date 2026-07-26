@@ -1,27 +1,26 @@
-# Witness runbook — Grok Build narrow clean rebuild (1.0.0-rc5)
+# Witness runbook — Grok Build narrow clean rebuild (RC5 immutable / pre-tag RC6 on main)
 
-**Package status:** **RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — RC5 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — C-014 NOT_STARTED**
+**Package status:** **RC5 FIXED IMMUTABLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — RC6-R1–R7 REMEDIATION IMPLEMENTED ON MAIN (PRE-TAG / PROSPECTIVE RC6 FIXED CANDIDATE ONLY) — RC6 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
 
-Canonical package tag (active candidate): `grok-build-witness-v1.0.0-rc5`
-(`canonical_package_tag=grok-build-witness-v1.0.0-rc5`). Availability verified by annotated-tag
-resolution; canonical execution requires successful resolution; if resolution fails, canonical
-execution stops. After publication the tag is immutable. `package_commit_authority=annotated_tag_resolution`
-(resolved commit is derived at tag publication / run time; this tree does not embed a future
-commit hash). Historical `grok-build-witness-v1.0.0-rc4` remains fixed at
-`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`.
-`grok-build-witness-v1.0.0-rc4` static blind audit is **COMPLETE** with final disposition
-**NOT READY** (40 integrated blockers; C-027; `evidence/rc4-static-blind-audit/`).
+Last immutable canonical package tag: `grok-build-witness-v1.0.0-rc5`
+(`canonical_package_tag=grok-build-witness-v1.0.0-rc5`). Annotated tag object
+`9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit
+`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree `97ad93d80480b23a49f1636ff55dae449202aa3c`.
+Availability verified by annotated-tag resolution; canonical execution against RC5 requires
+successful resolution; if resolution fails, canonical execution stops. The RC5 tag is immutable.
+`package_commit_authority=annotated_tag_resolution` (peeled commit is distinct from annotated tag
+object ID, archive identity, and transfer-bundle identity). Source Weaver ruled RC5 **NOT READY**.
+Independent Witness handoff for RC5 is **not authorized**. Historical
+`grok-build-witness-v1.0.0-rc4` remains fixed at peeled commit
+`039b46737c5968a81fb756d7a6d1d0dd57b6ad96` (**NOT READY**; 40 integrated blockers; C-027).
 `grok-build-witness-v1.0.0-rc3` remains fixed at `77221a224bbd6194cfafb81f6ecb58c800e5bc13`
-(integrated four-batch static audit verdict **NOT READY**; audit preserved under
-`evidence/rc3-static-blind-audit/`).
-`grok-build-witness-v1.0.0-rc2` remains fixed at `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`
-(integrated four-batch static blind audit verdict **NOT READY**).
+(**NOT READY**). `grok-build-witness-v1.0.0-rc2` remains fixed at
+`255b357c9ee33c4a9e34b5d9b6e396c53cfe494e` (**NOT READY**).
 `grok-build-witness-v1.0.0-rc1` remains fixed at `89127c78c3a11492892de7e3b5f0dee18d71775a`
-(repeat audit verdict **NOT READY**). rc1–rc4 are **immutable releases** and must not be moved,
-deleted, or force-updated. rc5 is an **immutable static-audit candidate only** and is **not READY**.
-**rc5 tag does not yet exist**. Independent Witness
-reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **NOT_STARTED**. Overall
-**PARTIAL**.
+(**NOT READY**). rc1–rc5 are **immutable releases** and must not be moved, deleted, or
+force-updated. Current `main` hosts RC6-R1–R7 remediation toward a prospective RC6 fixed
+candidate only; RC6 tag/archive/bundle **do not yet exist**. Independent Witness reproduction
+**NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **NOT_STARTED**. Overall **PARTIAL**.
 
 **Upstream warning:** Normal Grok Build product commands (`xai-grok-pager`, `grok`, `--version`,
 `--help`, TUI, login, agents, OAuth, models, update) are **outside Witness scope** and **must
@@ -283,7 +282,7 @@ platform) is also re-verified via `docker inspect` immediately before `docker ru
 aborts before the container starts.
 
 Phase 2B implementation is on `main` toward a possible future rc5 candidate. **RC4 remains NOT
-READY.** **No rc5 tag exists.** Final closure requires repeat static audit.
+READY.** **RC5 later became immutable and remains NOT READY; Independent Witness handoff not authorized.** Final adjudication requires a future immutable fixed candidate and repeat static audit — not closed by this phase note.
 
 ---
 
@@ -347,7 +346,7 @@ The marker is not Witness evidence; container/Witness/validator must never write
 rerun requires a new `EVIDENCE_DIR`; incomplete evidence must not be manually reconstructed into
 a final package; the marker is retained. Validator inputs remain unchanged (implicit
 final-submission prohibition).
-**RC4 remains NOT READY. No rc5 tag exists.** Independent Witness reproduction has not
+**RC5 is FIXED_IMMUTABLE and NOT READY; Independent Witness handoff not authorized; RC6 tag does not yet exist.** Independent Witness reproduction has not
 occurred; Independent Witness PASS is not claimed; C-014 remains `NOT_STARTED`. Do not claim
 end-to-end Independent Witness compliance from Phase 3G alone.
 
@@ -496,34 +495,37 @@ Phase 4-S3 non-circular sequence:
    follows [CORRECTION_LEDGER.md](CORRECTION_LEDGER.md), never an in-place edit of accepted
    evidence.
 
-Final-submission structural PASS is not Independent Witness PASS, not READY, and not rc5
-readiness. Synthetic final fixtures are not real Witness submissions.
+Final-submission structural PASS is not Independent Witness PASS, not READY, and not RC5/RC6
+readiness or finding CLEAR/CLOSED. Synthetic final fixtures are not real Witness submissions.
 
 ---
 
-## Package remains NOT READY (rc5 candidate; rc4 static disposition preserved)
+## Package remains NOT READY (RC5 immutable; pre-tag RC6 remediation on main)
 
-This runbook describes the **procedure** a Witness would follow once a candidate package is
-suitable for Independent Witness handoff. Active package identity is **`1.0.0-rc5` /
-`grok-build-witness-v1.0.0-rc5`** as an immutable static-audit candidate only (**not READY**).
-The fixed rc4 package remains **NOT READY** (static disposition; 40 integrated blockers).
-**rc5 tag does not yet exist**. Independent Witness reproduction has **NOT** been performed.
-C-014 remains **`NOT_STARTED`**.
+This runbook describes the **procedure** a Witness would follow for a tagged package when
+Independent Witness handoff is authorized. That authorization does **not** currently exist for
+RC5 or for current `main`. Last immutable package identity is **`1.0.0-rc5` /
+`grok-build-witness-v1.0.0-rc5`** (annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`;
+peeled commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree
+`97ad93d80480b23a49f1636ff55dae449202aa3c`) — Source Weaver disposition **NOT READY**; Independent
+Witness handoff **not authorized**. Historical rc4 remains **NOT READY** (C-027; 40 blockers).
+Current `main` is RC6-R1–R7 remediation / prospective RC6 fixed candidate only; RC6
+tag/archive/bundle **do not yet exist**. Independent Witness reproduction has **NOT** been
+performed. C-014 remains **`NOT_STARTED`**.
 
-Canonical execution requires successful annotated-tag resolution of
-`grok-build-witness-v1.0.0-rc5` (once published). Historical rc4 evidence remains bound to
-`grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. If resolution
+Canonical execution against RC5 requires successful annotated-tag resolution of
+`grok-build-witness-v1.0.0-rc5`. Historical rc4 evidence remains bound to
+`grok-build-witness-v1.0.0-rc4` → peeled `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`. If resolution
 fails, canonical execution stops (host script `exit 3` by design). Published tags are immutable.
-Later `main`-branch status/audit/remediation records are outside prior tagged snapshots.
+Later `main`-branch status/audit/remediation records are outside prior tagged snapshots and do
+not alter them. Do not use floating `main` as Independent Witness package identity.
 
-### HISTORICAL PRE-TAG STATE
+### HISTORICAL PRE-TAG / PRE-RC5 STATE
 
-Earlier revisions of this section used “until/before/after rc3 tag exists” and “do not attempt a
-live run against `main` before the rc3 tag exists” as current normative identity language. That
-language is superseded: rc3 was tagged and audited **NOT READY** (C-026). Separately,
-pre-publication wording described rc4 as “package content under preparation” / “pending commit,
-tag, and re-audit.” That prospective wording is superseded: rc4 is fixed and immutable at the
-identity above, statically audited **NOT READY** (C-027).
+Earlier revisions of this section used “until/before/after rc3 tag exists,” “rc5 tag does not yet
+exist,” and “do not attempt a live run against `main` before the tag exists” as current normative
+identity language. That language is superseded: rc1–rc5 are immutable **NOT READY** history; RC5
+Independent Witness handoff is not authorized; current `main` is pre-tag RC6 remediation only.
 
 ## Change log
 
@@ -532,12 +534,13 @@ identity above, statically audited **NOT READY** (C-027).
 | 1.0.0-rc2 | Prior canonical-platform, host-block, directory-layout, Docker-contract, bootstrap, build-command, failure-behavior, and manifest-lifecycle sections |
 | 1.0.0-rc3 | Added canonical-constants table; `--noncanonical-deviation` section; `WITNESS_ID` regex; `WORK_ROOT` safety enumeration; evidence-initialization-before-fallible-operations section; outcome model; validator-output-outside-`EVIDENCE_DIR` policy made explicit; exact numbered manifest-lifecycle steps; image-pull-fatal and image-identity-recheck behavior documented; expanded failure-behavior table with exit codes |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 recorded as immutable NOT READY history; annotated-tag resolution wording. **Historical note:** contemporaneous change-log text claimed removal of normative pre-tag “tag exists/pending” assertions; the rc4 static blind audit later found remaining prospective/pending status banners and related closure overclaims (RC4B-001/002/003). Phase 1 documentation on `main` corrects those current-facing statements without altering this tagged snapshot. |
-| main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3C; not an rc5 release) | Document container terminal finalization on `main` per Phase 3B contract; host ingestion still noncompliant until Phase 3D; validator/`POST_BUILD` unchanged. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3D; not an rc5 release) | Document host outcome ingestion / no-overwrite on `main`; host preserves valid container outcomes; separate host infrastructure/source-integrity fields; invalid/missing results fail closed without fabrication; ingestion record is preliminary and does not imply PASS; `POST_BUILD`/validator gating remain pending. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3E; not an rc5 release) | Document host-owned complete truthful schema-aligned `POST_BUILD_INTEGRITY.txt` on `main`; `status=OK` iff `post_build_integrity_ok=yes`; finalized failures use `status=FAILED`; `HOST_OUTCOME_INGESTION` synchronized; container remains non-writer; validator is schema consumer only; validator-gated host success remains Phase 3F; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3F-A; not an rc5 release) | Document validator explicit-outcome requirement (inference removed); `HOST_OUTCOME_INGESTION.txt` closed-aux acceptance + structural validation; host-preliminary structural mode and automatable RC4B-017 subset without `evidence_inventory_complete=yes`; validator still writes no evidence; host invocation/exit gating deferred to Phase 3F-B; `preliminary_success_eligible` remains `NO`. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3F-B; not an rc5 release) | Document host invocation of `--host-preliminary` after preliminary manifest; host-owned `VALIDATOR_RESULT.txt` + stdout/stderr captures outside `EVIDENCE_DIR`; host exit 0 requires validator process exit 0 **plus** exact `STRUCTURAL VALIDATION: PASS` and the adjudicated automated gates; validator process exit 0 alone insufficient; `preliminary_success_eligible` remains `NO`; host exit 0 ≠ final success eligibility / Independent Witness PASS. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 3G; not an rc5 release) | Document generator-backed Phase 3G automated preliminary integration on `main`: sourced writers + real local `--host-preliminary` validator primary; Docker/Cargo/product mocked/prohibited in tests; host exit 0 = preliminary automated structural success only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and Independent Witness remain later. **RC4 remains NOT READY**; **rc5 tag does not exist** |
-| main (Phase 4-S3; not an rc5 release) | Document host-preliminary vs final-submission manifest totality; non-circular completeness sequencing; no final aux exemption for S2-shaped packages; recursive inventory helper for preliminary/final manifests; synthetic final fixtures are not real Witness submissions; structural PASS excludes Independent Witness PASS / READY / rc5 readiness. **RC4 remains NOT READY**; **rc5 tag does not exist** |
+| main (Phase 2A; not an rc5 release) | Document host identity-gate-before-Docker-CLI, raw annotated-tag type enforcement, and atomic `EVIDENCE_DIR` allocation. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 2B; not an rc5 release) | Document narrow bind mounts, mount-plan validation before Docker, comma/CR/LF mount-field prohibition (spaces allowed via argv arrays), required pre-existing mount sources, and fatal canonicalization without textual fallback. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3C; not an rc5 release) | Document container terminal finalization on `main` per Phase 3B contract; host ingestion still noncompliant until Phase 3D; validator/`POST_BUILD` unchanged. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3D; not an rc5 release) | Document host outcome ingestion / no-overwrite on `main`; host preserves valid container outcomes; separate host infrastructure/source-integrity fields; invalid/missing results fail closed without fabrication; ingestion record is preliminary and does not imply PASS; `POST_BUILD`/validator gating remain pending. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3E; not an rc5 release) | Document host-owned complete truthful schema-aligned `POST_BUILD_INTEGRITY.txt` on `main`; `status=OK` iff `post_build_integrity_ok=yes`; finalized failures use `status=FAILED`; `HOST_OUTCOME_INGESTION` synchronized; container remains non-writer; validator is schema consumer only; validator-gated host success remains Phase 3F; `preliminary_success_eligible` remains `NO`. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3F-A; not an rc5 release) | Document validator explicit-outcome requirement (inference removed); `HOST_OUTCOME_INGESTION.txt` closed-aux acceptance + structural validation; host-preliminary structural mode and automatable RC4B-017 subset without `evidence_inventory_complete=yes`; validator still writes no evidence; host invocation/exit gating deferred to Phase 3F-B; `preliminary_success_eligible` remains `NO`. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3F-B; not an rc5 release) | Document host invocation of `--host-preliminary` after preliminary manifest; host-owned `VALIDATOR_RESULT.txt` + stdout/stderr captures outside `EVIDENCE_DIR`; host exit 0 requires validator process exit 0 **plus** exact `STRUCTURAL VALIDATION: PASS` and the adjudicated automated gates; validator process exit 0 alone insufficient; `preliminary_success_eligible` remains `NO`; host exit 0 ≠ final success eligibility / Independent Witness PASS. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 3G; not an rc5 release) | Document generator-backed Phase 3G automated preliminary integration on `main`: sourced writers + real local `--host-preliminary` validator primary; Docker/Cargo/product mocked/prohibited in tests; host exit 0 = preliminary automated structural success only; `preliminary_success_eligible` remains `NO`; final manual Witness submission and Independent Witness remain later. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (Phase 4-S3; not an rc5 release) | Document host-preliminary vs final-submission manifest totality; non-circular completeness sequencing; no final aux exemption for S2-shaped packages; recursive inventory helper for preliminary/final manifests; synthetic final fixtures are not real Witness submissions; structural PASS excludes Independent Witness PASS / READY / rc5 readiness. **not an RC5/RC6 release**; does **not** close blockers; contemporaneous note: RC5 tag did not yet exist at that phase |
+| main (RC6-R7 docs; not an RC6 release) | Align load-bearing identity/status wording: RC5 FIXED_IMMUTABLE with exact tag-object/peel/tree/archive/bundle identities; Source Weaver RC5 **NOT READY**; Independent Witness handoff unauthorized; current main = pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only; **does not** mark findings CLEAR/CLOSED; RC6 tag/archive/bundle absent; C-014 NOT_STARTED |

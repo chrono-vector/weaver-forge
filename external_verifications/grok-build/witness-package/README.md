@@ -2,16 +2,22 @@
 
 | Field | Value |
 |-------|-------|
-| Package version | **1.0.0-rc4** |
-| Canonical package tag | **`grok-build-witness-v1.0.0-rc4`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
-| Fixed tagged commit | **`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`** |
-| Package commit authority | **annotated_tag_resolution** (resolved commit is the fixed rc4 release identity) |
-| **Current package status** | **RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED** |
-| Tag availability | Fixed annotated tag; resolve `refs/tags/grok-build-witness-v1.0.0-rc4^{commit}` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; canonical execution requires successful resolution; if resolution fails, canonical execution stops |
+| Last immutable package version | **1.0.0-rc5** |
+| Last immutable canonical package tag | **`grok-build-witness-v1.0.0-rc5`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
+| Annotated tag object ID | **`9c01e314249f59945e93597af6ece2e3fb33e6cd`** |
+| Peeled commit | **`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`** |
+| Tree | **`97ad93d80480b23a49f1636ff55dae449202aa3c`** |
+| Archive SHA-256 | **`5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`** |
+| Transfer-bundle SHA-256 | **`5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`** |
+| Package commit authority | **annotated_tag_resolution** (peeled commit is the fixed RC5 release identity; distinct from annotated tag object ID, archive identity, and transfer-bundle identity) |
+| **Current package status** | **RC5 FIXED IMMUTABLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — RC6-R1–R7 REMEDIATION IMPLEMENTED ON MAIN (PRE-TAG / PROSPECTIVE RC6 FIXED CANDIDATE ONLY) — RC6 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS** |
+| Tag availability (RC5) | Fixed annotated tag; resolve `refs/tags/grok-build-witness-v1.0.0-rc5^{commit}` → `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; canonical execution against RC5 requires successful resolution; if resolution fails, canonical execution stops |
 | Immutable historical release: rc1 | `grok-build-witness-v1.0.0-rc1` → `89127c78c3a11492892de7e3b5f0dee18d71775a`; repeat blind audit verdict **NOT READY** |
 | Immutable historical release: rc2 | `grok-build-witness-v1.0.0-rc2` → `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; integrated four-batch static blind audit verdict **NOT READY** |
 | Immutable historical release: rc3 | `grok-build-witness-v1.0.0-rc3` → `77221a224bbd6194cfafb81f6ecb58c800e5bc13`; integrated four-batch static audit verdict **NOT READY** (audit preserved under `evidence/rc3-static-blind-audit/`) |
-| Immutable release: rc4 (current fixed) | `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; integrated four-batch static blind audit verdict **NOT READY** (40 blockers; audit preserved under `evidence/rc4-static-blind-audit/`); Independent Witness reproduction **NOT PERFORMED** |
+| Immutable historical release: rc4 | `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; integrated four-batch static blind audit verdict **NOT READY** (40 blockers; audit preserved under `evidence/rc4-static-blind-audit/`); Independent Witness reproduction **NOT PERFORMED** |
+| Immutable release: rc5 (last tagged) | `grok-build-witness-v1.0.0-rc5` → peeled `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; Source Weaver disposition **NOT READY**; Independent Witness handoff **not authorized**; Independent Witness reproduction **NOT PERFORMED** |
+| Current `main` | Pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only; **not** tagged; **not** archived; **not** bundled; **not** READY; Independent Witness handoff **not authorized** |
 | Historical C2E-1 status (superseded for readiness) | READY WITH LIMITATIONS — see blind audit intake |
 | Independent Witness (C-014) | **`NOT_STARTED`** |
 | Scope | Narrow clean rebuild of `xai-grok-pager-bin` only |
@@ -23,7 +29,7 @@
 
 An independent person (not the package owner) who rebuilds `xai-grok-pager` from public pins on **their own** Linux or WSL2 host using **linux/amd64** Docker.
 
-**PowerShell-native Witness execution is not canonical for 1.0.0-rc4.** Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
+**Independent Witness handoff is not authorized** for RC5 or for current pre-tag `main`. PowerShell-native Witness execution is not canonical for the immutable RC5 package. Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
 
 ## Canonical entry points
 
@@ -31,11 +37,11 @@ An independent person (not the package owner) who rebuilds `xai-grok-pager` from
 |------|------|
 | Weaver Forge URL | `https://github.com/chrono-vector/weaver-forge.git` |
 | Package path | `external_verifications/grok-build/witness-package/` |
-| Canonical package tag | `grok-build-witness-v1.0.0-rc4` |
+| Last immutable canonical package tag | `grok-build-witness-v1.0.0-rc5` |
 | Grok Build URL | `https://github.com/xai-org/grok-build.git` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
-Do **not** start from an unpinned `main` tip alone. Resolve the **annotated package tag** `grok-build-witness-v1.0.0-rc4` (or a maintainer-directed noncanonical override with explicit deviation disclosure). Canonical execution requires that resolution to succeed; if resolution fails, canonical execution stops.
+Do **not** start from an unpinned `main` tip alone. For the last immutable tagged package, resolve the **annotated package tag** `grok-build-witness-v1.0.0-rc5` (or a maintainer-directed noncanonical override with explicit deviation disclosure). Canonical execution requires that resolution to succeed; if resolution fails, canonical execution stops. Current `main` is not a substitute package identity and is not authorized for Independent Witness handoff.
 
 ## Fixed identities
 
@@ -63,27 +69,29 @@ Do **not** start from an unpinned `main` tip alone. Resolve the **annotated pack
 
 ## Explicit non-claims
 
-- **NOT READY** — rc4 static disposition remains **NOT READY** (40 integrated blockers). This is not package-readiness PASS.
-- Phase 0 audit intake is complete. Phase 1 documentation and release/status remediation is being performed on `main`. Technical implementation remediation of scripts, schemas, validators, tests, and execution controls has not begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
-- C-014 Independent Witness **not started**; Independent Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**.
+- **NOT READY** — RC5 Source Weaver disposition remains **NOT READY**. This is not package-readiness PASS.
+- RC5 Independent Witness handoff is **not authorized**. Independent Witness reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **`NOT_STARTED`**.
+- RC6-R1–R7 remediation is implemented on `main` (R1–R6 reviewed through Pi staged-diff conformance and committed/pushed; R7 is documentation/status alignment). Implementation completion is **not** finding CLEAR/CLOSED, blocker clearance, RC6 READY, release approval, or Independent Witness authorization.
+- Current `main` is a pre-tag / prospective RC6 fixed-candidate remediation state only. RC6 tag, archive, and transfer bundle **do not yet exist**.
 - No bit-identical reproducibility requirement vs owner hashes.
 - Upstream product commands (`grok`, login, agents, etc.) are **out of scope** and must not be run during Witness rebuild.
 - This package does not embed its own Weaver Forge commit hash; commit identity is resolved from the annotated tag at execution/audit time.
 
 ## Immutable releases
 
-| Tag | Commit | Release state | Audit performed | Verdict | IW reproduction | C-014 |
-|-----|--------|---------------|------------------|---------|-----------------|-------|
+| Tag | Peeled commit | Release state | Audit performed | Verdict | IW reproduction | C-014 |
+|-----|---------------|---------------|------------------|---------|-----------------|-------|
 | `grok-build-witness-v1.0.0-rc1` | `89127c78c3a11492892de7e3b5f0dee18d71775a` | FIXED_IMMUTABLE | Repeat public-entry-point blind audit | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 | `grok-build-witness-v1.0.0-rc2` | `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e` | FIXED_IMMUTABLE | Integrated four-batch static blind audit | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 | `grok-build-witness-v1.0.0-rc3` | `77221a224bbd6194cfafb81f6ecb58c800e5bc13` | FIXED_IMMUTABLE | Integrated four-batch static audit (preserved under `evidence/rc3-static-blind-audit/`) | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 | `grok-build-witness-v1.0.0-rc4` | `039b46737c5968a81fb756d7a6d1d0dd57b6ad96` | FIXED_IMMUTABLE | Integrated four-batch static blind audit (preserved under `evidence/rc4-static-blind-audit/`; 40 blockers) | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
+| `grok-build-witness-v1.0.0-rc5` | `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07` | FIXED_IMMUTABLE | Source Weaver static audit of tagged RC5 | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 
-All four tags are immutable and must not be moved, deleted, or force-updated. Later `main`-branch status/audit/remediation records are outside the rc4 tagged snapshot; see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md). **rc5 tag does not exist.**
+All five tags are immutable and must not be moved, deleted, or force-updated. Later `main`-branch status/audit/remediation records are outside the RC5 tagged snapshot; see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md). **RC6 tag does not yet exist.**
 
-### HISTORICAL PRE-TAG STATE
+### HISTORICAL PRE-TAG / PRE-RC5 STATE
 
-Earlier revisions of this document described rc3 as package content prepared with a canonical tag name assigned, pending its repeat blind audit, and used language such as "rc3 tag pending" or "before/until rc3 tag exists." That state is superseded: the rc3 tag was published, audited (verdict **NOT READY**, see table above), and is now immutable history. Separately, pre-publication wording described rc4 as “package content under preparation” / “pending commit, tag, and re-audit.” That prospective wording is superseded: rc4 is the fixed immutable release in the table above (static disposition **NOT READY**). Phase 0 audit intake is complete. Phase 1 documentation and release/status remediation is being performed on `main`. Technical implementation remediation of scripts, schemas, validators, tests, and execution controls has not begun. `main` is being prepared toward a possible future rc5 candidate; **no rc5 tag exists**.
+Earlier revisions of this document described rc3/rc4/rc5 prospectively (“tag pending,” “tag does not yet exist,” “Phase 1 documentation only,” “technical remediation not yet begun”). Those states are superseded: rc1–rc5 are immutable **NOT READY** history; RC5 Independent Witness handoff is not authorized; current `main` is pre-tag RC6-R1–R7 remediation only.
 
 ## Owner artifact hashes (historical only)
 

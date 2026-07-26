@@ -124,15 +124,18 @@ than being omitted.
   (integrated four-batch static blind audit **NOT READY**; 40 blockers; audit preserved under
   `evidence/rc4-static-blind-audit/`). Fixed immutable release. Independent Witness reproduction
   **NOT PERFORMED**. C-014 **NOT_STARTED**.
-- Active candidate tag **`grok-build-witness-v1.0.0-rc5`** (package version `1.0.0-rc5`) is an
-  immutable static-audit candidate only (**not READY**). **rc5 tag does not yet exist** until
-  created after Pi-conformance commit and push.
-- Witness must record package tag **`grok-build-witness-v1.0.0-rc5`** for active `1.0.0-rc5`
-  evidence (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**)
-  and the **full Weaver commit** resolved from the annotated tag.
-  Tag availability is verified by Git resolution; canonical execution requires successful
-  resolution; if resolution fails, canonical execution stops. Published tags are immutable.
-  `package_commit_authority=annotated_tag_resolution`.
+- Last immutable tag **`grok-build-witness-v1.0.0-rc5`** (package version `1.0.0-rc5`) is
+  **FIXED_IMMUTABLE** (annotated tag object `9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled
+  commit `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree
+  `97ad93d80480b23a49f1636ff55dae449202aa3c`). Source Weaver disposition **NOT READY**.
+  Independent Witness handoff **not authorized**. Current `main` is pre-tag RC6-R1–R7
+  remediation / prospective RC6 fixed candidate only; RC6 tag/archive/bundle do not yet exist.
+- Witness must record package tag **`grok-build-witness-v1.0.0-rc5`** for `1.0.0-rc5` evidence
+  (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**) and the
+  **full Weaver peeled commit** resolved from the annotated tag (distinct from annotated tag
+  object ID). Tag availability is verified by Git resolution; canonical execution requires
+  successful resolution; if resolution fails, canonical execution stops. Published tags are
+  immutable. `package_commit_authority=annotated_tag_resolution`.
 
 ## Final manifest lifecycle
 
@@ -164,15 +167,17 @@ redirected into `EVIDENCE_DIR` at any stage.
 
 | Field | Value |
 |-------|-------|
-| Package version | `1.0.0-rc5` |
+| Package version | `1.0.0-rc5` (last immutable tagged) |
 | Canonical package tag | `grok-build-witness-v1.0.0-rc5` |
-| Fixed tagged commit | *(resolved at annotated-tag publication; not embedded here)* |
+| Annotated tag object ID | `9c01e314249f59945e93597af6ece2e3fb33e6cd` |
+| Peeled commit | `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07` |
+| Tree | `97ad93d80480b23a49f1636ff55dae449202aa3c` |
 | Package commit authority | `annotated_tag_resolution` |
-| Package readiness | **NOT READY** (rc5 immutable static-audit candidate only; rc4 static disposition remains NOT READY; 40 integrated blockers) |
+| Package readiness | **NOT READY** (RC5 Source Weaver disposition; Independent Witness handoff not authorized; rc4 historical disposition also NOT READY) |
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | `NOT_STARTED` |
-| Successor state | rc5 candidacy authorized; **rc5 tag does not yet exist** |
+| Current `main` | Pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only; RC6 tag/archive/bundle absent |
 | Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
@@ -197,3 +202,4 @@ reviewed after receipt.
 | 1.0.0-rc2 | Prior required-files table, preliminary/final manifest note, release tag policy |
 | 1.0.0-rc3 | Reconciled required-files list exactly against `validate_witness_evidence.py` `REQUIRED_FILES`; added optional host-only auxiliary file section; added outcome requirements and failure-submissions-supported sections; added explicit numbered final-manifest lifecycle; added validator-output policy; added package-identity table; added cross-links to the new readiness/maintainer-intake/correction-ledger policy docs |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 immutable NOT READY history; closed auxiliary inventory noted; `evidence_inventory_complete` lifecycle; no `BOOTSTRAP_PROTOC_VERSION.txt` |
+| main (RC6-R7 docs; not an RC6 release) | Record immutable RC5 identities and pre-tag RC6 remediation status; **does not** close blockers; C-014 NOT_STARTED |

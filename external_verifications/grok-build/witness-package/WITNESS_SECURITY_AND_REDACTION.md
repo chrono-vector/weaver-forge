@@ -89,9 +89,11 @@ marker in the cited file/field. Unreconciled markers or orphaned log entries are
 This validator-enforced list is a floor, not a ceiling — the four-condition test above and the
 absolute "no material softening" rule apply even to fields the validator does not keyword-screen.
 
-Current package identity: version `1.0.0-rc5`; canonical tag `grok-build-witness-v1.0.0-rc5`
-(immutable static-audit candidate only); historical rc4 remains `grok-build-witness-v1.0.0-rc4`;
-package remains **NOT READY**; C-014 **NOT_STARTED**; overall **PARTIAL**.
+Current package identity: last immutable version `1.0.0-rc5`; canonical tag
+`grok-build-witness-v1.0.0-rc5` (FIXED_IMMUTABLE; Source Weaver disposition **NOT READY**;
+Independent Witness handoff **not authorized**); historical rc4 remains
+`grok-build-witness-v1.0.0-rc4`; current `main` is pre-tag RC6 remediation only; package remains
+**NOT READY**; C-014 **NOT_STARTED**; overall **PARTIAL**.
 
 ## Do not publish
 

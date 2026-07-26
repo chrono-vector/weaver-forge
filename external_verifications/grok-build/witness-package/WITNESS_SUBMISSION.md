@@ -94,12 +94,16 @@ annotation after ledgered supersession) `SUPERSEDED`. This intake value is recor
 `maintainer_intake_verdict` field must read `pending` at submission time; it is updated by the
 maintainer in a follow-up commit, never by editing the Witness's original submission.
 
-Current package identity: version `1.0.0-rc5`; canonical tag `grok-build-witness-v1.0.0-rc5`
-(immutable static-audit candidate only; **rc5 tag does not yet exist**); historical rc4 remains
-fixed at `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; package
-remains **NOT READY** (rc4 static disposition preserved; 40 integrated blockers); Independent
-Witness reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014
-**NOT_STARTED**; overall **PARTIAL**.
+Current package identity: last immutable version `1.0.0-rc5`; canonical tag
+`grok-build-witness-v1.0.0-rc5` (annotated tag object
+`9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit
+`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; FIXED_IMMUTABLE; Source Weaver disposition
+**NOT READY**; Independent Witness handoff **not authorized**); historical rc4 remains fixed at
+`grok-build-witness-v1.0.0-rc4` → peeled `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; current
+`main` is pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only (RC6
+tag/archive/bundle do not yet exist); package remains **NOT READY**; Independent Witness
+reproduction **NOT PERFORMED**; Independent Witness PASS **NONE**; C-014 **NOT_STARTED**;
+overall **PARTIAL**.
 
 ## Corrections policy
 

@@ -1,4 +1,4 @@
-# Package readiness policy (1.0.0-rc4)
+# Package readiness policy (RC5 immutable / pre-tag RC6 remediation on main)
 
 This document defines the **normative readiness classification** for the Witness package as a
 whole — distinct from any single Witness run's proposed verdict (`WITNESS_VERDICT.md`, governed
@@ -58,44 +58,53 @@ READY`, but it also never overrides a `NOT READY`-triggering condition above.
 
 ## Current package status
 
-**RC4 FIXED IMMUTABLE — STATIC BLIND AUDIT COMPLETE — FINAL DISPOSITION NOT READY (40 BLOCKERS) — PHASE 1 DOCUMENTATION REMEDIATION ON MAIN — TECHNICAL IMPLEMENTATION REMEDIATION NOT YET BEGUN — RC5 TAG DOES NOT EXIST — C-014 NOT_STARTED**
+**RC5 FIXED IMMUTABLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — RC6-R1–R7 REMEDIATION IMPLEMENTED ON MAIN (PRE-TAG / PROSPECTIVE RC6 FIXED CANDIDATE ONLY) — RC6 TAG/ARCHIVE/BUNDLE DO NOT YET EXIST — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
 
-**NOT READY** — package version `1.0.0-rc4`; `canonical_package_tag=grok-build-witness-v1.0.0-rc4`;
-fixed tagged commit `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`;
-`package_commit_authority=annotated_tag_resolution` (resolved commit is the fixed rc4 release
-identity). Tag availability is verified by annotated-tag resolution; canonical execution requires
-successful resolution; if resolution fails, canonical execution stops. The tag is immutable.
-Package remains **NOT READY** (rc4 static disposition; 40 integrated blockers recorded under
-`evidence/rc4-static-blind-audit/`). Phase 0 audit intake is complete. Phase 1 documentation and
-release/status remediation is being performed on `main`. Technical implementation remediation of
-scripts, schemas, validators, tests, and execution controls has not begun. `main` is being
-prepared toward a possible future rc5 candidate; **no rc5 tag exists**. Independent Witness
+**NOT READY.** Last immutable tagged package: version `1.0.0-rc5`;
+`canonical_package_tag=grok-build-witness-v1.0.0-rc5`; annotated tag object
+`9c01e314249f59945e93597af6ece2e3fb33e6cd`; peeled commit
+`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; tree
+`97ad93d80480b23a49f1636ff55dae449202aa3c`; archive SHA-256
+`5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435`; transfer-bundle SHA-256
+`5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b`
+(`package_commit_authority=annotated_tag_resolution`). Source Weaver ruled RC5 **NOT READY**.
+Independent Witness handoff for RC5 is **not authorized**. See
+[WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md).
+
+Current `main` hosts RC6-R1–R7 remediation implemented toward a **prospective** RC6 fixed
+candidate only. An RC6 tag, archive, and transfer bundle **do not yet exist**. Current `main`
+is **not** an immutable RC6 fixed candidate, **not** READY, **not** approved for Independent
+Witness handoff, and **not** Source Weaver-approved as an RC6 release. Independent Witness
 reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 remains `NOT_STARTED`.
-Overall **PARTIAL**. At minimum, the following `NOT READY`-triggering conditions currently apply
-and must be tracked to closure before any `READY`/`READY WITH LIMITATIONS` claim is made:
+Overall **PARTIAL**. Implementation or documentation alignment does **not** mark findings
+CLEAR/CLOSED; final adjudication requires a future immutable fixed candidate and Source Weaver
+audit.
 
-- Fixed-tag static blind audit against `grok-build-witness-v1.0.0-rc4` recorded disposition
-  **NOT READY** (C-027; 40 integrated blockers). Final closure of those blockers requires a
-  future fixed candidate and repeat static audit (see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)).
-- `run_witness_narrow_build.sh` and `container_narrow_build.sh` field-for-field reconciliation
-  against the `evidence_schema_version=1` templates and validator remains a tracked gap for the
-  orchestrator's own `verdict_ceiling` computation (see the `Known gaps` section of
-  [scripts/VALIDATOR.md](scripts/VALIDATOR.md) and
-  [WITNESS_CLASSIFICATION.md](WITNESS_CLASSIFICATION.md)).
+At minimum, the following `NOT READY`-triggering conditions currently apply and must be tracked
+before any `READY`/`READY WITH LIMITATIONS` claim is made:
+
+- Immutable RC5 Source Weaver disposition remains **NOT READY**; Independent Witness handoff
+  unauthorized (see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)).
+- Historical rc4 static blind audit disposition remains **NOT READY** (C-027; 40 integrated
+  blockers under `evidence/rc4-static-blind-audit/`). Final adjudication of blockers requires a
+  future immutable fixed candidate and repeat static audit — not documentation-only alignment.
+- Current pre-tag RC6 remediation on `main` is not an immutable fixed candidate and must not be
+  presented as READY or as Independent Witness-authorized.
 - C-014 (Independent Witness) remains `NOT_STARTED`.
 
-Package readiness for rc1–rc4 is preserved, unaltered, as immutable historical fact:
+Package readiness for rc1–rc5 is preserved, unaltered, as immutable historical fact:
 
-| Version | Tag | Commit | Release state | Static audit | Readiness recorded |
-|---------|-----|--------|---------------|--------------|--------------------|
+| Version | Tag | Peeled commit | Release state | Static audit | Readiness recorded |
+|---------|-----|---------------|---------------|--------------|--------------------|
 | `1.0.0-rc1` | `grok-build-witness-v1.0.0-rc1` | `89127c78c3a11492892de7e3b5f0dee18d71775a` | FIXED_IMMUTABLE | COMPLETE | **NOT READY** |
 | `1.0.0-rc2` | `grok-build-witness-v1.0.0-rc2` | `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e` | FIXED_IMMUTABLE | COMPLETE | **NOT READY** |
 | `1.0.0-rc3` | `grok-build-witness-v1.0.0-rc3` | `77221a224bbd6194cfafb81f6ecb58c800e5bc13` | FIXED_IMMUTABLE | COMPLETE | **NOT READY** |
 | `1.0.0-rc4` | `grok-build-witness-v1.0.0-rc4` | `039b46737c5968a81fb756d7a6d1d0dd57b6ad96` | FIXED_IMMUTABLE | COMPLETE | **NOT READY** |
+| `1.0.0-rc5` | `grok-build-witness-v1.0.0-rc5` | `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07` | FIXED_IMMUTABLE | COMPLETE (Source Weaver) | **NOT READY** |
 
-No historical tag is retroactively upgraded by this policy document; all four remain fixed,
-immutable, and `NOT READY` as audited. Independent Witness reproduction remains **NOT PERFORMED**;
-C-014 remains **`NOT_STARTED`**. **rc5 tag does not exist.**
+No historical tag is retroactively upgraded by this policy document; all five remain fixed,
+immutable, and `NOT READY` as audited/ruled. Independent Witness reproduction remains
+**NOT PERFORMED**; C-014 remains **`NOT_STARTED`**. **RC6 tag does not yet exist.**
 
 ## Relationship to other verdict/intake values
 
@@ -116,3 +125,4 @@ independent axes and must never be collapsed into one status field.
 |---------|--------|
 | 1.0.0-rc3 | Created. Normative `NOT READY` / `READY WITH LIMITATIONS` / `READY` table with mandatory-`NOT READY` trigger conditions; current package status recorded as `NOT READY`; rc1/rc2 historical readiness preserved unaltered. |
 | 1.0.0-rc4 | Status/identity advanced to `1.0.0-rc4` / `grok-build-witness-v1.0.0-rc4`; rc3 immutable NOT READY history added; time-stable annotated-tag resolution wording; C-014 NOT_STARTED; overall PARTIAL |
+| main (RC6-R7 docs; not an RC6 release) | Record RC5 as FIXED_IMMUTABLE with exact tag-object/peel/tree/archive/bundle identities; Source Weaver RC5 disposition **NOT READY**; Independent Witness handoff unauthorized; describe current `main` as pre-tag RC6-R1–R7 remediation / prospective RC6 fixed candidate only; **does not** mark findings CLEAR/CLOSED; RC6 tag/archive/bundle absent; C-014 NOT_STARTED |

@@ -1,18 +1,20 @@
 # Witness package file manifest (package-relative paths)
-# Version 1.0.0-rc5 — excludes binaries, caches, generated build artifacts
-# Current: 1.0.0-rc5 / canonical tag grok-build-witness-v1.0.0-rc5 — immutable static-audit
-#   candidate only; not READY; Independent Witness reproduction NOT PERFORMED; Independent
-#   Witness PASS NONE; C-014 NOT_STARTED; overall PARTIAL. rc5 tag/archive/bundle do not yet
-#   exist until after Pi-conformance commit/push/tag.
-# Historical: rc4 fixed immutable at grok-build-witness-v1.0.0-rc4 →
-#   039b46737c5968a81fb756d7a6d1d0dd57b6ad96; static blind audit COMPLETE; final disposition
-#   NOT READY (40 integrated blockers). rc1–rc4 remain immutable NOT READY history.
-# Canonical package tag (active candidate): grok-build-witness-v1.0.0-rc5
-#   (availability verified by annotated-tag resolution; canonical execution requires successful
-#   resolution; if resolution fails, canonical execution stops; tag immutable after publication;
-#   package_commit_authority=annotated_tag_resolution)
-# Banner: RC5 IMMUTABLE STATIC-AUDIT CANDIDATE — NOT READY — RC4 FIXED IMMUTABLE NOT READY
-#   (40 BLOCKERS) — C-014 NOT_STARTED — NO INDEPENDENT WITNESS PASS
+# Last immutable tagged: 1.0.0-rc5 / grok-build-witness-v1.0.0-rc5
+#   annotated tag object 9c01e314249f59945e93597af6ece2e3fb33e6cd
+#   peeled commit 5ae08cb8be9c1c97f25b9093bb5490a0ef195a07
+#   tree 97ad93d80480b23a49f1636ff55dae449202aa3c
+#   archive SHA-256 5bf6e8f66795ba310ad5b149b721ca1930b5729ab3c568a20559d8dda40e0435
+#   transfer-bundle SHA-256 5581b10788f0a3ee7a36982ac1b2468c658afc353fe88da3423298b60344bb2b
+# RC5: FIXED_IMMUTABLE; Source Weaver disposition NOT READY; Independent Witness handoff
+#   not authorized; Independent Witness reproduction NOT PERFORMED; Independent Witness PASS
+#   NONE; C-014 NOT_STARTED; overall PARTIAL.
+# Current main: RC6-R1–R7 remediation implemented (pre-tag / prospective RC6 fixed candidate
+#   only). RC6 tag/archive/bundle do not yet exist. Not READY. Handoff not authorized.
+# Historical: rc1–rc4 remain immutable NOT READY history.
+# package_commit_authority=annotated_tag_resolution
+# Banner: RC5 FIXED IMMUTABLE — NOT READY — IW HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED —
+#   RC6-R1–R7 ON MAIN (PRE-TAG) — RC6 TAG/ARCHIVE/BUNDLE ABSENT — NOT READY
+#
 
 README.md
 WITNESS_PACKAGE_VERSION.md
@@ -56,10 +58,14 @@ templates/WITNESS_STATEMENT.md
 templates/WITNESS_VERDICT.md
 templates/REDACTIONS.md
 
-# Release tag policy: active candidate tag grok-build-witness-v1.0.0-rc5; historical rc4 tag grok-build-witness-v1.0.0-rc4
-#   (availability verified by annotated-tag resolution; package commit authority =
-#   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated
-#   after publication; later main status/audit records are outside the tagged snapshot)
+# Release tag policy: last immutable tagged package grok-build-witness-v1.0.0-rc5
+#   (annotated tag object 9c01e314249f59945e93597af6ece2e3fb33e6cd; peeled commit
+#   5ae08cb8be9c1c97f25b9093bb5490a0ef195a07; tree 97ad93d80480b23a49f1636ff55dae449202aa3c;
+#   FIXED_IMMUTABLE; Source Weaver disposition NOT READY; Independent Witness handoff not
+#   authorized; availability verified by annotated-tag resolution; package commit authority =
+#   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated;
+#   later main status/audit/remediation records are outside the tagged snapshot; current main is
+#   pre-tag RC6-R1–R7 remediation only; RC6 tag/archive/bundle do not yet exist)
 # rc4 tag grok-build-witness-v1.0.0-rc4 fixed at 039b46737c5968a81fb756d7a6d1d0dd57b6ad96 —
 #   NOT READY integrated four-batch static blind audit (immutable historical release;
 #   audit preserved under evidence/rc4-static-blind-audit/; 40 blockers)
