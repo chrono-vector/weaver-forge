@@ -39,6 +39,17 @@ This GitHub repository is the **official evidence layer** for Weaver Forge.
 
 **Build. Test. Commit. Receipt. Repeat.**
 
+## Use and feedback
+Weaver Forge is open for research, evaluation, and reproducibility testing.
+Users are welcome to try the documented workflows and report reproducible defects through GitHub Issues.
+Reports should include:
+- operating system
+- tag or commit
+- commands used
+- expected result
+- actual result
+- relevant logs
+
 ## Validate Receipts
 
 Check that every file in `receipts/` includes the required sections and a `Commit:` line:
@@ -53,7 +64,20 @@ Exit code `0` means all receipts passed; `1` means at least one receipt is missi
 
 | Package | Status |
 |---------|--------|
-| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — RC6 immutable historical **NOT READY** — RC7 immutable historical **NOT READY** after completed Source Weaver audit — RC7 not eligible for Independent Witness handoff — Independent Witness handoff not authorized — C-014 **NOT_STARTED** — no finding or blocker CLEAR/CLOSED — RC8 prospective/pre-tag next candidate only (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) — RC8 annotated tag does not yet exist — RC8 archive, sidecar, and transfer bundle do not yet exist — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE — no release, production readiness, Independent Witness PASS, or C-014 completion claimed; overall **PARTIAL** |
+| [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — RC6 immutable historical **NOT READY** — RC7 immutable historical **NOT READY** after completed Source Weaver audit — RC7 not eligible for Independent Witness handoff — Independent Witness handoff not authorized — C-014 **NOT_STARTED** — no finding or blocker CLEAR/CLOSED — RC8 immutable static-audit candidate (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) — RC8 artifact generation and verification passed — accepted non-authoritative advisory technical evaluation — formal Source Weaver audit not performed — no formal READY/NOT READY decision — NOT READY — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE — no release, production readiness, Independent Witness PASS, or C-014 completion claimed; overall **PARTIAL** |
+
+## RC8 current lifecycle status
+RC8 exists as an immutable static-audit candidate.
+RC8 artifact generation and verification passed.
+RC8 is supported by an accepted non-authoritative advisory technical evaluation.
+Formal Source Weaver audit was not performed.
+No formal Source Weaver READY decision exists.
+No formal Source Weaver NOT READY decision exists.
+Independent Witness was not authorized or performed.
+C-014 remains NOT_STARTED.
+No finding or blocker is CLEAR or CLOSED.
+No release-readiness or production-readiness claim is made.
+The README preserved inside the immutable RC8 tag and artifacts may still contain pre-tag wording because it is a preserved historical snapshot. The immutable RC8 tag and artifact contents have not been changed.
 
 ## Independent reproduction
 
