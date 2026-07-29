@@ -2,15 +2,19 @@
 
 | Field | Value |
 |-------|-------|
-| Last immutable package version | **1.0.0-rc6** |
-| Last immutable canonical package tag | **`grok-build-witness-v1.0.0-rc6`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
-| Annotated tag object ID | **`c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`** |
-| Peeled commit | **`7b76842bfa1adcedf0c00221cb574d9c3175b7e7`** |
-| Tree | **`77369ab099414167df658b25eac3adcb4f264eb3`** |
-| Archive SHA-256 | **`1f411f65735d6e2f8aeb0cb968d0e6b2108af00ef0a0264dc15daed114da0fee`** |
-| Transfer-bundle SHA-256 | **`ed23824246563db17d9adb7e5b5c95b633077b79b2681c04c46d8de544de6d26`** |
-| Package commit authority | **annotated_tag_resolution** (peeled commit is the fixed RC6 release identity; distinct from annotated tag object ID, archive identity, and transfer-bundle identity) |
-| **Current package status** | **RC6 IMMUTABLE HISTORICAL — NOT READY — RC7 IMMUTABLE HISTORICAL — NOT READY AFTER COMPLETED SOURCE WEAVER AUDIT — RC7 NOT ELIGIBLE FOR INDEPENDENT WITNESS HANDOFF — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING/BLOCKER CLEAR/CLOSED — RC8 PROSPECTIVE/PRE-TAG NEXT CANDIDATE (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) FIXED IN ACTIVE HOST/TEMPLATES AND VALIDATOR MAPPING — RC8 TAG/ARCHIVE/SIDECAR/TRANSFER BUNDLE DO NOT YET EXIST — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS — NO RELEASE, PRODUCTION READINESS, INDEPENDENT WITNESS PASS, OR C-014 COMPLETION** |
+| Current immutable static-audit candidate | **1.0.0-rc8** / **`grok-build-witness-v1.0.0-rc8`** |
+| RC8 annotated tag object ID | **`8113d952d3b127d32e138dbf804141f5d1dfb26f`** |
+| RC8 peeled commit | **`1de4b4d9523711418390f8331c95988523ef4481`** |
+| RC8 tree | **`87b40d8a32ca536a4cdba0eee474f6171c62f6bb`** |
+| Last immutable historical NOT READY package version | **1.0.0-rc6** |
+| Last immutable historical NOT READY canonical package tag | **`grok-build-witness-v1.0.0-rc6`** ([WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md)) |
+| RC6 annotated tag object ID | **`c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`** |
+| RC6 peeled commit | **`7b76842bfa1adcedf0c00221cb574d9c3175b7e7`** |
+| RC6 tree | **`77369ab099414167df658b25eac3adcb4f264eb3`** |
+| RC6 archive SHA-256 | **`1f411f65735d6e2f8aeb0cb968d0e6b2108af00ef0a0264dc15daed114da0fee`** |
+| RC6 transfer-bundle SHA-256 | **`ed23824246563db17d9adb7e5b5c95b633077b79b2681c04c46d8de544de6d26`** |
+| Package commit authority | **annotated_tag_resolution** for tagged package identities; peeled commits are distinct from annotated tag object IDs, archive identities, sidecar identities, and transfer-bundle identities |
+| **Current package status** | **RC6 IMMUTABLE HISTORICAL — NOT READY — RC7 IMMUTABLE HISTORICAL — NOT READY AFTER COMPLETED SOURCE WEAVER AUDIT — RC7 NOT ELIGIBLE FOR INDEPENDENT WITNESS HANDOFF — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING/BLOCKER CLEAR/CLOSED — RC8 IMMUTABLE STATIC-AUDIT CANDIDATE (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) — RC8 ARTIFACT GENERATION AND VERIFICATION PASSED — ACCEPTED NON-AUTHORITATIVE ADVISORY TECHNICAL EVALUATION — FORMAL SOURCE WEAVER AUDIT NOT PERFORMED FOR RC8 — NO FORMAL SOURCE WEAVER READY/NOT READY DECISION FOR RC8 — NOT READY FOR INDEPENDENT WITNESS HANDOFF — INDEPENDENT WITNESS REPRODUCTION NOT PERFORMED — INDEPENDENT WITNESS PASS NONE — NO RELEASE, PRODUCTION READINESS, INDEPENDENT WITNESS PASS, OR C-014 COMPLETION** |
 | Tag availability (RC6) | Fixed annotated tag; resolve `refs/tags/grok-build-witness-v1.0.0-rc6^{commit}` → `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; RC6 remains **NOT READY**; Independent Witness handoff **not authorized** |
 | Immutable historical release: rc1 | `grok-build-witness-v1.0.0-rc1` → `89127c78c3a11492892de7e3b5f0dee18d71775a`; repeat blind audit verdict **NOT READY** |
 | Immutable historical release: rc2 | `grok-build-witness-v1.0.0-rc2` → `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`; integrated four-batch static blind audit verdict **NOT READY** |
@@ -18,7 +22,7 @@
 | Immutable historical release: rc4 | `grok-build-witness-v1.0.0-rc4` → `039b46737c5968a81fb756d7a6d1d0dd57b6ad96`; integrated four-batch static blind audit verdict **NOT READY** (40 blockers; audit preserved under `evidence/rc4-static-blind-audit/`); Independent Witness reproduction **NOT PERFORMED** |
 | Immutable historical release: rc5 | `grok-build-witness-v1.0.0-rc5` → peeled `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`; Source Weaver disposition **NOT READY**; Independent Witness handoff **not authorized**; Independent Witness reproduction **NOT PERFORMED** |
 | Immutable release: rc6 (last tagged) | `grok-build-witness-v1.0.0-rc6` → peeled `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; disposition **NOT READY**; Independent Witness handoff **not authorized**; Independent Witness reproduction **NOT PERFORMED** |
-| Current `main` | Pre-tag / prospective RC8 next-candidate only (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`); **not** tagged; **not** archived; **not** bundled; **not** READY; Independent Witness handoff **not authorized**; RC8 tag/archive/sidecar/transfer bundle do not yet exist |
+| Current `main` | Post-RC8 documentation/status surface; not a new RC, not RC9, not READY, not release-approved, and not authorized for Independent Witness handoff |
 | Historical C2E-1 status (superseded for readiness) | READY WITH LIMITATIONS — see blind audit intake |
 | Independent Witness (C-014) | **`NOT_STARTED`** |
 | Scope | Narrow clean rebuild of `xai-grok-pager-bin` only |
@@ -28,9 +32,9 @@
 
 ## Who this is for
 
-An independent person (not the package owner) who rebuilds `xai-grok-pager` from public pins on **their own** Linux or WSL2 host using **linux/amd64** Docker.
+This document is retained as package documentation for the Grok Build narrow clean rebuild evidence chain. It is not an active Independent Witness handoff authorization.
 
-**Independent Witness handoff is not authorized** for RC6, RC5, RC7 (immutable historical **NOT READY** after completed Source Weaver audit; not eligible for Independent Witness handoff), or for current pre-tag `main` (prospective RC8). PowerShell-native Witness execution is not canonical for the immutable RC6 package. Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
+**Independent Witness handoff is not authorized** for RC6, RC5, RC7 (immutable historical **NOT READY** after completed Source Weaver audit; not eligible for Independent Witness handoff), RC8 (immutable static-audit candidate; no formal Source Weaver READY/NOT READY decision), or current `main`. PowerShell-native Witness execution is not canonical for the immutable RC6 package. Windows-native Rust build remains **BLOCKED**. macOS Docker is **unvalidated / noncanonical**.
 
 ## Canonical entry points
 
@@ -73,8 +77,8 @@ Do **not** start from an unpinned `main` tip alone. For the last immutable tagge
 - **NOT READY** — RC6 disposition remains **NOT READY**. This is not package-readiness PASS.
 - RC6 Independent Witness handoff is **not authorized**. Independent Witness reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 **`NOT_STARTED`**. No finding CLEAR/CLOSED.
 - RC7 is immutable historical **NOT READY** after completed Source Weaver audit and is **not eligible** for Independent Witness handoff. That is **not** finding CLEAR/CLOSED, blocker clearance, READY, release approval, or Independent Witness authorization.
-- RC8 next-candidate identity is fixed in active Host/templates and validator mapping on `main`. That is **not** finding CLEAR/CLOSED, blocker clearance, RC6/RC7/RC8 READY, release approval, or Independent Witness authorization.
-- Current `main` is a pre-tag / prospective RC8 next-candidate remediation state only. RC8 tag, archive, sidecar, and transfer bundle **do not yet exist**. Independent Witness handoff is **not authorized**. No release, production readiness, Independent Witness PASS, or C-014 completion is claimed.
+- RC8 is an immutable static-audit candidate. RC8 artifact generation and verification passed, but that is **not** a formal Source Weaver audit, **not** finding CLEAR/CLOSED, **not** blocker clearance, **not** RC8 READY, **not** release approval, and **not** Independent Witness authorization.
+- Current `main` is a post-RC8 documentation/status surface only. It is **not** RC9, not READY, not release-approved, and not authorized for Independent Witness handoff. Independent Witness handoff is **not authorized**. No release, production readiness, Independent Witness PASS, or C-014 completion is claimed.
 - No bit-identical reproducibility requirement vs owner hashes.
 - Upstream product commands (`grok`, login, agents, etc.) are **out of scope** and must not be run during Witness rebuild.
 - This package does not embed its own Weaver Forge commit hash; commit identity is resolved from the annotated tag at execution/audit time.
@@ -89,12 +93,14 @@ Do **not** start from an unpinned `main` tip alone. For the last immutable tagge
 | `grok-build-witness-v1.0.0-rc4` | `039b46737c5968a81fb756d7a6d1d0dd57b6ad96` | FIXED_IMMUTABLE | Integrated four-batch static blind audit (preserved under `evidence/rc4-static-blind-audit/`; 40 blockers) | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 | `grok-build-witness-v1.0.0-rc5` | `5ae08cb8be9c1c97f25b9093bb5490a0ef195a07` | FIXED_IMMUTABLE | Source Weaver static audit of tagged RC5 | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
 | `grok-build-witness-v1.0.0-rc6` | `7b76842bfa1adcedf0c00221cb574d9c3175b7e7` | FIXED_IMMUTABLE | Immutable candidate published | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
+| `grok-build-witness-v1.0.0-rc7` | `4316b976b086cb7116cabe0c8deaa47159001c09` | FIXED_IMMUTABLE | Source Weaver static audit of tagged RC7 | **NOT READY** | NOT_PERFORMED | NOT_STARTED |
+| `grok-build-witness-v1.0.0-rc8` | `1de4b4d9523711418390f8331c95988523ef4481` | FIXED_IMMUTABLE static-audit candidate | Artifact generation/verification passed; accepted non-authoritative advisory technical evaluation; formal Source Weaver audit not performed | **No formal Source Weaver READY/NOT READY decision for RC8** | NOT_PERFORMED | NOT_STARTED |
 
-All six tags are immutable and must not be moved, deleted, or force-updated. Later `main`-branch status/audit/remediation records are outside the RC6 tagged snapshot; see [WITNESS_PACKAGE_VERSION.md](WITNESS_PACKAGE_VERSION.md). RC7 is immutable historical **NOT READY** after completed Source Weaver audit and is not eligible for Independent Witness handoff. **RC8 tag/archive/sidecar/transfer bundle do not yet exist.**
+All listed tags are immutable and must not be moved, deleted, or force-updated. Later `main`-branch status records are outside the immutable tagged snapshots; see [STATUS.md](../../../STATUS.md) and [REPRODUCE.md](../../../REPRODUCE.md). RC7 is immutable historical **NOT READY** after completed Source Weaver audit and is not eligible for Independent Witness handoff. RC8 is an immutable static-audit candidate; RC8 artifact generation and verification passed, but formal Source Weaver audit was not performed for RC8 and no formal Source Weaver READY/NOT READY decision exists for RC8.
 
 ### HISTORICAL PRE-TAG / PRE-RC6 STATE
 
-Earlier revisions of this document described rc3/rc4/rc5/rc6 prospectively (“tag pending,” “tag does not yet exist,” “Phase 1 documentation only,” “technical remediation not yet begun,” “prospective RC6”). Those states are superseded: rc1–rc6 are immutable **NOT READY** history; RC6 Independent Witness handoff is not authorized; RC7 is immutable historical **NOT READY** after completed Source Weaver audit and is not eligible for Independent Witness handoff; current `main` is pre-tag / prospective RC8 next-candidate only.
+Earlier revisions of this document described rc3/rc4/rc5/rc6 prospectively (“tag pending,” “tag does not yet exist,” “Phase 1 documentation only,” “technical remediation not yet begun,” “prospective RC6”) and later described RC8 as pre-tag/prospective. Those states are superseded: rc1–rc6 are immutable **NOT READY** history; RC6 Independent Witness handoff is not authorized; RC7 is immutable historical **NOT READY** after completed Source Weaver audit and is not eligible for Independent Witness handoff; RC8 is an immutable static-audit candidate with passed artifact generation/verification, no formal Source Weaver audit, no formal Source Weaver READY/NOT READY decision, and no Independent Witness authorization.
 
 ## Owner artifact hashes (historical only)
 
