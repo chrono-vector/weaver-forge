@@ -42,11 +42,11 @@ README.md states, for the Grok Build narrow clean rebuild Witness package:
 - RC6: immutable historical **NOT READY**
 - RC7: immutable historical **NOT READY** after completed Source Weaver audit; RC7 not eligible for Independent Witness handoff; Independent Witness handoff not authorized
 - C-014: **NOT_STARTED**; no finding or blocker CLEAR/CLOSED
-- RC8: immutable static-audit candidate (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`); RC8 artifact generation and verification passed; accepted non-authoritative advisory technical evaluation; formal Source Weaver audit not performed; no formal READY/NOT READY decision; Independent Witness reproduction NOT PERFORMED; Independent Witness PASS NONE; no release, production readiness, Independent Witness PASS, or C-014 completion claimed; overall **PARTIAL**
+- RC8: immutable static-audit candidate (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`); RC8 artifact generation and verification passed; accepted non-authoritative advisory technical evaluation; RC8 Formal Source Evaluation is complete under accepted GOV-004; final controlling disposition **NOT READY**; F-01–F-04 and B-01–B-05 remain open; Independent Witness reproduction NOT PERFORMED; Independent Witness PASS NONE; no release, production readiness, Independent Witness PASS, or C-014 completion claimed; overall **PARTIAL**
 
 ### RC8 lifecycle wording preserved in README.md
 
-README.md includes an **RC8 current lifecycle status** section stating that RC8 exists as an immutable static-audit candidate; RC8 artifact generation and verification passed; RC8 is supported by an accepted non-authoritative advisory technical evaluation; formal Source Weaver audit was not performed; no formal Source Weaver READY or NOT READY decision exists; Independent Witness was not authorized or performed; C-014 remains NOT_STARTED; no finding or blocker is CLEAR or CLOSED; no release-readiness or production-readiness claim is made; and preserved README text inside the immutable RC8 tag and artifacts may contain pre-tag wording because it is a historical snapshot whose bytes have not been changed.
+README.md includes an **RC8 current lifecycle status** section stating that RC8 exists as an immutable static-audit candidate; RC8 artifact generation and verification passed; RC8 Formal Source Evaluation is complete under accepted GOV-004; final controlling disposition NOT READY; no formal Source Weaver READY decision exists; F-01–F-04 and B-01–B-05 remain open; Independent Witness was not authorized and was not performed; C-014 is NOT_STARTED; no finding or blocker is CLEAR or CLOSED; no release-readiness or production-readiness claim is made; and preserved README text inside the immutable RC8 tag and artifacts may contain pre-tag wording because it is a historical snapshot whose bytes have not been changed.
 
 ### Repository components (from README.md and prior STATUS.md; existence only)
 
@@ -68,11 +68,15 @@ Fixed lifecycle facts supplied as lifecycle authority for this status update. Th
 - RC8 is an **immutable static-audit candidate**.
 - RC8 **artifact generation and verification passed**.
 - That result is **not** a formal Source Weaver audit.
+- **RC8 Formal Source Evaluation is complete under accepted GOV-004.**
+- **Final controlling disposition: NOT READY.**
 - **No** formal Source Weaver READY decision exists for RC8.
-- **No** formal Source Weaver NOT READY decision exists for RC8.
-- **Independent Witness was not authorized.**
-- **Independent Witness reproduction was not performed.**
-- **C-014 remains NOT_STARTED.**
+- **F-01–F-04 and B-01–B-05 remain open.**
+- **Future Candidate required: F-01, F-02, F-03, F-04, B-01, B-02, B-03.**
+- **RC8 evidence-only work possible: B-04, B-05.**
+- **Independent Witness required for formal findings: none.**
+- **Independent Witness was not authorized and was not performed.**
+- **C-014 is NOT_STARTED.**
 - **No** finding or blocker is CLEAR or CLOSED.
 - **No** release-readiness claim is made.
 - **No** production-readiness claim is made.
@@ -98,8 +102,8 @@ Summaries based on sections 1–3. They are navigation aids only and do not repl
 | Topic | Summary |
 |-------|---------|
 | Current `main` vs RC8 | `main` is at `35de09a3a8a30d2e321856b721ad92b3cd31edf8`. RC8 is pinned at peeled commit `1de4b4d9523711418390f8331c95988523ef4481` with tree `87b40d8a32ca536a4cdba0eee474f6171c62f6bb`. Whether `main` is ahead of or identical to RC8 was not re-derived beyond the confirmed identities above. |
-| Witness package posture | Grok Build Witness package lifecycle is bounded: RC6 and RC7 are immutable historical NOT READY; RC8 is an immutable static-audit candidate with passed artifact generation/verification but no formal Source Weaver verdict and no Independent Witness activity. |
-| Readiness | No release readiness, production readiness, Source Weaver READY/NOT READY for RC8, Independent Witness PASS, finding closure, or blocker closure is asserted anywhere in this document. |
+| Witness package posture | Grok Build Witness package lifecycle is bounded: RC6 and RC7 are immutable historical NOT READY; RC8 is an immutable static-audit candidate with passed artifact generation/verification; RC8 Formal Source Evaluation is complete under accepted GOV-004 with final controlling disposition NOT READY; Independent Witness was not authorized and was not performed. |
+| Readiness | No release readiness, production readiness, Source Weaver READY, Independent Witness PASS, finding closure, or blocker closure is asserted anywhere in this document. Final controlling disposition NOT READY is recorded under accepted GOV-004 only. |
 | Reproduction posture | Artifact verification for RC8 is stated as passed (owner-supplied and README-stated). Formal Independent Witness reproduction was not authorized and was not performed. Other reproduction categories (local validation, maintainer reproduction, non-formal external trial reproduction) are not merged with artifact verification or Independent Witness in this document. |
 | Next work | RC9 is not authorized or required by this status update. No new acceptance gate, finding, blocker, or release condition is introduced here. |
 
@@ -177,7 +181,7 @@ This status document:
 
 - Preserves immutable **RC6** and **RC7** historical NOT READY records (repository-stated and owner-supplied).
 - Preserves **RC8** immutability and does not authorize **RC9**.
-- Makes **no** release-readiness, production-readiness, Source Weaver READY/NOT READY for RC8, Independent Witness PASS, finding-closure, or blocker-closure claims.
+- Makes **no** release-readiness, production-readiness, Source Weaver READY, Independent Witness PASS, finding-closure, or blocker-closure claims. Final controlling disposition NOT READY is recorded under accepted GOV-004 only.
 - Does **not** authorize changes to artifact bytes, tags, commits, archives, bundles, sidecars, checksums, fixtures, manifests, or release identities.
 
 **Evidence before authority.**

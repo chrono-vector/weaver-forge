@@ -6,7 +6,7 @@
 >
 > It does not modify technical contracts, package identity, validator behavior, manifests, evidence, witness requirements, historical verdicts, protected files, immutable tags, or version-bound records.
 >
-> It does not declare RC8 READY or NOT READY, does not authorize Independent Witness execution, does not claim C-014 completion, does not mark any finding or blocker CLEAR or CLOSED, and does not authorize RC9 or any future candidate.
+> It does not independently declare RC8 READY; references to RC8 NOT READY are references to the controlling GOV-004 final disposition only; it does not authorize Independent Witness execution, does not claim C-014 completion, does not mark any finding or blocker CLEAR or CLOSED, and does not authorize RC9 or any future candidate.
 >
 > Where this document references lifecycle, package, validator, manifest, evidence, identity, witness, or contract material, the referenced repository files remain authoritative within their own stated scope.
 
@@ -24,7 +24,7 @@ Map issues to sources, classifications, freeze results, work packages or future 
 
 - Proving technical closure
 - Authorizing Independent Witness execution
-- Declaring READY or NOT READY
+- Independently declaring READY (references to NOT READY cite controlling GOV-004 disposition only)
 - Closing findings or blockers
 - Authorizing RC9
 
@@ -89,7 +89,7 @@ Gate results are management-control results only. They are not formal technical 
 | `TRACE-RC8-001` | `ISSUE-RC8-001` | Establish RC8 management baseline artifacts | Repository observation / management baseline acceptance | Accepted eight-artifact set; prior absence of root management files | `RC8 Management` | `Compatible` | `WP-RC8-001` | N/A | `GOV-001` | `CONTRACT-IDX-036`–`043` | `GATE-05` | `Not Evaluated` | `f1110c65035e13efad8e2956ab62300d1ad1706a` | `EVID-001` (committed eight-file baseline at `f1110c6`); Pi management post-commit result `No Objection` (no objection to narrow push); `REVIEW-PI-001` Not currently identified | `No Objection` | Pushed; HEAD matched `origin/main` after post-push confirmation | Not applicable | RC8 management-baseline creation/review/commit/push cycle operationally completed as management work only via `WP-RC8-001` — not technical closure; not READY/NOT READY; not formal Source approval; not Independent Witness authorization or execution; not C-014 completion; not RC9 authorization; not Future Candidate implementation authorization; not finding or blocker closure | Creates management docs only |
 | `TRACE-RC8-002` | `ISSUE-RC8-002` | Protected/version-bound pre-RC8 wording | `LIFECYCLE_CLARIFICATION.md` | Protected/mixed file lists | `Future Candidate` | `Deferred` | N/A | `FC-003` | Not currently identified | `CONTRACT-IDX-006`, `CONTRACT-IDX-014`–`016`, `CONTRACT-IDX-020`–`022` | `GATE-01` | `Not Evaluated` | N/A | `EVID-002` = clarification + protected paths | N/A | N/A | Indirect only; not authorized | Deferred to Future Candidate Backlog | Do not edit protected files |
 | `TRACE-RC8-003` | `ISSUE-RC8-003` | Independent Witness / C-014 NOT_STARTED | `STATUS.md`; `CLAIM_REGISTER.md` | `STATUS.md` §3; C-014 | `Independent Witness` | `Prohibited` under current authorization | N/A | `FC-002` | Not currently identified | `CONTRACT-IDX-002`, `CONTRACT-IDX-007`, `CONTRACT-IDX-010`, `CONTRACT-IDX-011` | `GATE-11` | `Not Evaluated` | N/A | `EVID-003` = STATUS + claim register C-014 | N/A | N/A | Applicable if separately authorized; currently not authorized | Independent Witness Handoff routing only | Not IW authorization or completion |
-| `TRACE-RC8-004` | `ISSUE-RC8-004` | No formal Source Weaver READY/NOT READY for RC8 | `STATUS.md`; `README.md` | `STATUS.md` §3; README RC8 lifecycle | `Governance` | `Deferred` | N/A | `FC-001` | Not currently identified | `CONTRACT-IDX-001`, `CONTRACT-IDX-002`, `CONTRACT-IDX-011` | `GATE-12` | `Not Evaluated` | N/A | `EVID-004` = STATUS/README lifecycle statements | N/A | N/A | Not applicable until formal Source process | Deferred for formal Source evaluation | Management docs must not invent READY/NOT READY |
+| `TRACE-RC8-004` | `ISSUE-RC8-004` | RC8 Formal Source Evaluation closed under GOV-004 | `GOV-004_RC8_FORMAL_SOURCE_EVALUATION_CLOSURE_RECORD.md`; `STATUS.md`; `README.md` | `GOV-004`; `STATUS.md` §3; README RC8 lifecycle | `Governance` | `Deferred` | N/A | `FC-001` | `GOV-004` | `CONTRACT-IDX-001`, `CONTRACT-IDX-002`, `CONTRACT-IDX-011`, `CONTRACT-IDX-044` | `GATE-12` | `Closed under GOV-004; NOT READY` | N/A | `EVID-004` = GOV-004 closure and STATUS/README lifecycle statements | N/A | N/A | Not applicable; Independent Witness required for formal findings: none | Formal Source Evaluation closed as governance process; NOT READY controlling; no finding or blocker closure | GOV-004 records completed RC8 Formal Source Evaluation with final controlling disposition NOT READY; F-01–F-04 and B-01–B-05 remain open |
 | `TRACE-RC8-005` | `ISSUE-RC8-005` | C-015 Windows readiness BLOCKED | `CLAIM_REGISTER.md` | C-015 | `Future Candidate` | `Deferred` | N/A | `FC-004` | Not currently identified | `CONTRACT-IDX-010`, `CONTRACT-IDX-025` | `GATE-02` | `Not Evaluated` | N/A | `EVID-005` = claim register C-015 | N/A | N/A | Possible future environment impact; not authorized | Deferred to Future Candidate Backlog | Do not clear BLOCKED |
 | `TRACE-RC8-006` | `ISSUE-RC8-006` | C-019 static startup PARTIAL | `CLAIM_REGISTER.md` | C-019 | `Future Candidate` | `Deferred` | N/A | `FC-005` | Not currently identified | `CONTRACT-IDX-010` | `GATE-02` | `Not Evaluated` | N/A | `EVID-006` = claim register C-019 | N/A | N/A | Possible future witness impact; not authorized | Deferred to Future Candidate Backlog | Do not mark PARTIAL closed |
 | `TRACE-RC8-007` | `ISSUE-RC8-007` | Historical audit blockers remain open | `CLAIM_REGISTER.md`; package readiness policy | C-023–C-027; C-027 integrated_blockers=40 | `Future Candidate` | `Deferred` | N/A | `FC-006` | Not currently identified | `CONTRACT-IDX-010`, `CONTRACT-IDX-011` | `GATE-02` | `Not Evaluated` | N/A | `EVID-007` = claim register historical audit rows | N/A | N/A | Future package candidate may relate; not authorized | Deferred to Future Candidate Backlog | No blocker CLEAR/CLOSED |
@@ -105,7 +105,7 @@ Gate results are management-control results only. They are not formal technical 
 | `EVID-001` | Committed eight-file RC8 management baseline at `f1110c6` | Root-level eight management files in commit `f1110c65035e13efad8e2956ab62300d1ad1706a` |
 | `EVID-002` | Protected/mixed wording interpretation sources | `external_verifications/grok-build/witness-package/LIFECYCLE_CLARIFICATION.md` and protected paths |
 | `EVID-003` | IW / C-014 status sources | `STATUS.md`; `external_verifications/grok-build/CLAIM_REGISTER.md` |
-| `EVID-004` | Formal Source decision absence sources | `STATUS.md`; `README.md` |
+| `EVID-004` | Formal Source Evaluation closure and NOT READY disposition sources | `GOV-004_RC8_FORMAL_SOURCE_EVALUATION_CLOSURE_RECORD.md`; `STATUS.md`; `README.md` |
 | `EVID-005` | C-015 status | `external_verifications/grok-build/CLAIM_REGISTER.md` |
 | `EVID-006` | C-019 status | `external_verifications/grok-build/CLAIM_REGISTER.md` |
 | `EVID-007` | Historical audit blocker recording | `external_verifications/grok-build/CLAIM_REGISTER.md` |
@@ -119,6 +119,7 @@ Gate results are management-control results only. They are not formal technical 
 | Governance Decision ID | Statement | Notes |
 |---|---|---|
 | `GOV-001` | Eight-artifact RC8 management baseline accepted in principle as management direction | Not a READY/NOT READY decision; not IW authorization; not technical closure |
+| `GOV-004` | RC8 Formal Source Evaluation closure accepted; final controlling disposition NOT READY | Evaluation process closed only; F-01–F-04 and B-01–B-05 remain open; no IW, RC9, C-014, or remediation authorization |
 
 ## 9. Gap Handling
 
@@ -136,7 +137,7 @@ Allowed examples used in this matrix:
 - Management implementation in progress via a Work Package
 - Deferred to Future Candidate Backlog
 - Independent Witness Handoff routing only
-- Deferred for formal Source evaluation
+- Formal Source Evaluation closed as governance process; NOT READY controlling; no finding or blocker closure
 - Governance observation; no new readiness decision
 
 Final management disposition must not:
@@ -144,7 +145,7 @@ Final management disposition must not:
 - Mark findings or blockers CLEAR, CLOSED, or RESOLVED
 - Claim C-014 completion
 - Authorize Independent Witness execution
-- Declare READY or NOT READY
+- Independently declare READY (references to NOT READY cite controlling GOV-004 disposition only)
 - Authorize RC9
 - Assert technical closure without citing a formal technical closure authority
 
@@ -177,7 +178,7 @@ Repository maintainer.
 - Trace rows do not prove technical closure.
 - Witness applicability does not authorize witness execution.
 - Empty commit fields allowed before implementation.
-- No READY/NOT READY decision newly declared.
+- No READY decision newly declared; references to NOT READY cite controlling GOV-004 disposition only.
 - No finding or blocker CLEAR/CLOSED claim.
 
 ## 16. References
