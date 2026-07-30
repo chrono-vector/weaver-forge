@@ -28,7 +28,9 @@
 | **Non-claims** | Not Independent Witness authorization; not RC9 authorization; not protected-file edit authorization; not C-014 completion; not READY or NOT READY; not technical implementation authorization; not validator or executable activity authorization; not alteration of immutable RC6 or RC7 historical NOT READY records |
 | **Recorder** | `Repository maintainer` (role capacity) |
 | **Date** | 2026-07-30 |
-| **Status** | `Proposed` |
+| **Accepted by** | `Repository maintainer` (role capacity) |
+| **Acceptance date** | 2026-07-30 |
+| **Status** | `Accepted` |
 
 ## 1. Scope and exclusions
 
