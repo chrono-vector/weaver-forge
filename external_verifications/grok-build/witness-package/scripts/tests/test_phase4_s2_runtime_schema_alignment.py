@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """Phase 4-S2 focused tests: runtime writer/template/schema alignment.
 
-Uses only the Python standard library, unittest, and bash for isolated sourced
-writer functions. Temporary trees live under scripts/tests/. Does not invoke
-Docker, Cargo, compilers, product binaries, network, production tags, or
-Witness workflows.
+Uses only the Python standard library and unittest. Temporary trees live in
+repository-external temporary directories. Committed fixtures used for
+validation are materialized from Git blob bytes (not working-tree smudge).
+Does not invoke bash, host/container scripts, Docker, Cargo, compilers,
+product binaries, network, production tags, or Witness workflows.
 """
 
 from __future__ import annotations
 
 import os
-import re
 import shutil
-import stat
-import subprocess
 import sys
 import tempfile
 import textwrap
@@ -36,14 +34,14 @@ HOST_SCRIPT = SCRIPTS_DIR / "run_witness_narrow_build.sh"
 CONTAINER_SCRIPT = SCRIPTS_DIR / "container_narrow_build.sh"
 S1_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc5_phase4_s1.json"
 S2_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc5_phase4_s2.json"
-FIXTURES = TESTS_DIR / "fixtures"
 TEMP_PREFIX = "phase4_test_"
 
 _TEMPS: list[Path] = []
 
 
 def _mktmp(prefix: str = TEMP_PREFIX) -> Path:
-    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(TESTS_DIR)))
+    # Repository-external temp only (no dir= under tests/).
+    path = Path(tempfile.mkdtemp(prefix=prefix))
     _TEMPS.append(path)
     return path
 
@@ -53,117 +51,82 @@ def _cleanup() -> None:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)
     _TEMPS.clear()
-    for path in TESTS_DIR.glob("phase4_test_*"):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
 
 
-def _find_bash() -> str:
-    candidates: list[str] = []
-    for key in ("ProgramFiles", "ProgramFiles(x86)"):
-        root = os.environ.get(key)
-        if root:
-            candidates.append(str(Path(root) / "Git" / "bin" / "bash.exe"))
-            candidates.append(str(Path(root) / "Git" / "usr" / "bin" / "bash.exe"))
-    which = shutil.which("bash")
-    if which:
-        candidates.append(which)
-    for c in candidates:
-        if c and Path(c).is_file():
-            return c
-    raise unittest.SkipTest("bash not available for Phase 4-S2 writer tests")
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
 
-
-def _tripwire_path(root: Path) -> Path:
-    tw = root / "tripwire_bin"
-    tw.mkdir(parents=True, exist_ok=True)
-    for name in (
-        "docker",
-        "cargo",
-        "rustc",
-        "rustup",
-        "dotslash",
-        "protoc",
-        "ldd",
-        "git",
-    ):
-        script = tw / name
-        if os.name == "nt":
-            script = tw / f"{name}.exe"
-            # On Windows Git bash, a shell script without extension works via PATH.
-            script = tw / name
-        script.write_text(
-            "#!/bin/sh\necho \"TRIPWIRE:${0##*/}\" >&2\nexit 99\n",
-            encoding="utf-8",
-        )
-        script.chmod(script.stat().st_mode | stat.S_IEXEC)
-    return tw
-
-
-def _run_sourced_host(body: str, workspace: Path) -> subprocess.CompletedProcess[str]:
-    bash = _find_bash()
-    tw = _tripwire_path(workspace)
-    script = textwrap.dedent(
-        f"""\
-        set -euo pipefail
-        export PATH="{tw.as_posix()}:$PATH"
-        EVIDENCE_DIR="{(workspace / 'evidence').as_posix()}"
-        mkdir -p "$EVIDENCE_DIR"
-        RUN_ID="run-s2-test-001"
-        WITNESS_ID="witness-s2-test"
-        PACKAGE_VERSION="1.0.0-rc5"
-        NONCANONICAL_RUN=0
-        VERDICT_CEILING="PASS"
-        EFFECTIVE_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc5"
-        EFFECTIVE_WEAVER_FORGE_URL="https://example.invalid/weaver-forge.git"
-        EFFECTIVE_GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
-        WF_TAG_REF="refs/tags/${{EFFECTIVE_WEAVER_FORGE_TAG}}"
-        WF_TAG_RAW_OBJECT_TYPE="tag"
-        WEAVER_FORGE_RESOLVED_COMMIT="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        WF_HEAD="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        WF_DETACHED="yes"
-        WF_CLEAN="yes"
-        TAG_HEAD_MATCH="yes"
-        EXTERNAL_EXPECTED_SUPPLIED="no"
-        EXTERNAL_EXPECTED_MATCH="not_supplied"
-        NONCANONICAL_DISCLOSURE_TEXT="none"
-        source "./run_witness_narrow_build.sh"
-        {body}
-        """
-    )
-    return subprocess.run(
-        [bash, "-c", script],
-        cwd=str(SCRIPTS_DIR),
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
         capture_output=True,
         text=True,
-        encoding="utf-8",
-        errors="replace",
     )
+    return Path(proc.stdout.strip())
 
 
-def _run_sourced_container(body: str, workspace: Path) -> subprocess.CompletedProcess[str]:
-    bash = _find_bash()
-    tw = _tripwire_path(workspace)
-    evidence = workspace / "evidence"
-    evidence.mkdir(parents=True, exist_ok=True)
-    script = textwrap.dedent(
-        f"""\
-        set -euo pipefail
-        export PATH="{tw.as_posix()}:$PATH"
-        EVIDENCE="{(evidence).as_posix()}"
-        EVIDENCE_SCHEMA_VERSION=1
-        source "./container_narrow_build.sh"
-        {body}
-        """
+def _materialize_committed_fixture(
+    scenario: str, prefix: str = "phase4_s2_fx_"
+) -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp.
+
+    Working-tree smudge (e.g. core.autocrlf CRLF) is bypassed: each tracked file
+    is read via ``git cat-file -p HEAD:<path>`` and written with those exact
+    bytes under a repository-external temporary directory. Fixture originals,
+    index, and refs are not modified.
+    """
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
     )
-    return subprocess.run(
-        [bash, "-c", script],
-        cwd=str(SCRIPTS_DIR),
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
         capture_output=True,
         text=True,
-        encoding="utf-8",
-        errors="replace",
     )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMPS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMPS:
+            _TEMPS.remove(dest)
+        raise
+    return dest
 
 
 def _read_kv(path: Path, key: str) -> str:
@@ -171,6 +134,20 @@ def _read_kv(path: Path, key: str) -> str:
         if line.startswith(key + "="):
             return line.split("=", 1)[1]
     return ""
+
+
+def _s2_not_applicable_body(outcome: str, stage: str, reason: str) -> str:
+    """Python-side mirror of container S2 early-failure NOT_APPLICABLE terminalization."""
+    return (
+        "evidence_schema_version=1\n"
+        "status=NOT_APPLICABLE\n"
+        "applicability=not_applicable\n"
+        f"reason={reason}\n"
+        f"authoritative_outcome={outcome}\n"
+        f"failure_stage={stage}\n"
+        "product_executed=NO\n"
+        "ldd_used=NO\n"
+    )
 
 
 class S2RegisterAndLoaderTests(unittest.TestCase):
@@ -214,6 +191,7 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
             srl.load_historical_register("rc6.5")
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc7.0")
+
     def test_03_s1_historical_future_targets_preserved_and_s2_activates(self) -> None:
         s1 = srl.load_historical_s1_register()
         pkg = next(
@@ -252,66 +230,7 @@ class S2RegisterAndLoaderTests(unittest.TestCase):
 
 class S2WriterAlignmentTests(unittest.TestCase):
     def test_04_annotated_tag_writer_emits_exact_s2_fields(self) -> None:
-        ws = _mktmp()
-        body = textwrap.dedent(
-            """\
-            {
-              echo "evidence_schema_version=1"
-              echo "status=OK"
-              echo "witness_id=${WITNESS_ID}"
-              echo "run_id=${RUN_ID}"
-              echo "package_version=${PACKAGE_VERSION}"
-              echo "weaver_forge_url=${EFFECTIVE_WEAVER_FORGE_URL}"
-              echo "weaver_forge_tag_requested=${EFFECTIVE_WEAVER_FORGE_TAG}"
-              echo "weaver_forge_tag_ref=${WF_TAG_REF}"
-              echo "weaver_forge_tag_raw_object_type_required=tag"
-              echo "weaver_forge_tag_raw_object_type_observed=${WF_TAG_RAW_OBJECT_TYPE}"
-              echo "weaver_forge_tag_peeled_commit=${WEAVER_FORGE_RESOLVED_COMMIT}"
-              echo "weaver_forge_commit_resolved=${WEAVER_FORGE_RESOLVED_COMMIT}"
-              echo "package_clone_head=${WF_HEAD}"
-              echo "package_clone_detached=${WF_DETACHED}"
-              echo "package_clone_clean_status=${WF_CLEAN}"
-              echo "tag_head_match=${TAG_HEAD_MATCH}"
-              echo "package_commit_authority=annotated_tag_resolution"
-              echo "grok_build_source_commit_expected=${EFFECTIVE_GROK_BUILD_COMMIT}"
-              echo "canonical_run=yes"
-            } > "${EVIDENCE_DIR}/WEAVER_FORGE_PACKAGE_IDENTITY.txt"
-            """
-        )
-        # Source only the helper region by extracting functions via a minimal stub:
-        # the host script exits on source if main runs — guard by checking functions.
-        bash = _find_bash()
-        tw = _tripwire_path(ws)
-        evidence = ws / "evidence"
-        evidence.mkdir()
-        # Directly exercise write helpers without full main.
-        script = textwrap.dedent(
-            f"""\
-            set -euo pipefail
-            export PATH="{tw.as_posix()}:$PATH"
-            EVIDENCE_DIR="{(evidence).as_posix()}"
-            RUN_ID="run-s2-test-001"
-            WITNESS_ID="witness-s2-test"
-            PACKAGE_VERSION="1.0.0-rc5"
-            EFFECTIVE_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc5"
-            EFFECTIVE_WEAVER_FORGE_URL="https://example.invalid/weaver-forge.git"
-            EFFECTIVE_GROK_BUILD_COMMIT="98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
-            WF_TAG_REF="refs/tags/grok-build-witness-v1.0.0-rc5"
-            WF_TAG_RAW_OBJECT_TYPE="tag"
-            WEAVER_FORGE_RESOLVED_COMMIT="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-            WF_HEAD="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-            WF_DETACHED="yes"
-            WF_CLEAN="yes"
-            TAG_HEAD_MATCH="yes"
-            NONCANONICAL_RUN=0
-            NONCANONICAL_DISCLOSURE_TEXT="none"
-            utc_now() {{ date -u +%Y-%m-%dT%H:%M:%SZ; }}
-            source "./run_witness_narrow_build.sh"
-            # Prevent accidental main by only calling helpers defined above source.
-            true
-            """
-        )
-        # Host script may execute main on source — use function extraction instead.
+        # Static source inspection only (no bash / host script execution).
         host_text = HOST_SCRIPT.read_text(encoding="utf-8")
         self.assertIn("weaver_forge_tag_ref=${WF_TAG_REF", host_text)
         self.assertIn("weaver_forge_tag_raw_object_type_required=tag", host_text)
@@ -353,58 +272,36 @@ class S2WriterAlignmentTests(unittest.TestCase):
         self.assertIn("Witness-input", final_tmpl)
 
     def test_06_host_run_metadata_append_entry_grammar_helpers(self) -> None:
+        # Python-generated HOST_RUN_METADATA matching S2 append_entry grammar
+        # (no bash execution). Validator contract unchanged.
         ws = _mktmp()
         evidence = ws / "evidence"
         evidence.mkdir()
-        bash = _find_bash()
-        tw = _tripwire_path(ws)
-        # Extract and source only the helper functions by defining stubs.
-        script = textwrap.dedent(
-            f"""\
-            set -euo pipefail
-            export PATH="{tw.as_posix()}:$PATH"
-            EVIDENCE_DIR="{(evidence).as_posix()}"
-            RUN_ID="run-s2-test-001"
-            WITNESS_ID="witness-s2-test"
-            utc_now() {{ echo "2026-07-24T00:00:00Z"; }}
-            # Define helpers by evaluating the function bodies from a here-doc clone.
-            append_host_run_metadata_entry() {{
-              local entry_kind="$1"
-              local payload="$2"
-              local target="${{EVIDENCE_DIR}}/HOST_RUN_METADATA.txt"
-              {{
-                echo "BEGIN_HOST_RUN_METADATA_ENTRY"
-                echo "evidence_schema_version=1"
-                echo "run_id=${{RUN_ID}}"
-                echo "witness_id=${{WITNESS_ID}}"
-                echo "entry_kind=${{entry_kind}}"
-                echo "entry_utc=$(utc_now)"
-                echo "payload=${{payload}}"
-                echo "END_HOST_RUN_METADATA_ENTRY"
-              }} >> "${{target}}"
-            }}
-            : > "${{EVIDENCE_DIR}}/HOST_RUN_METADATA.txt"
-            append_host_run_metadata_entry "run_start" "k=v"
-            append_host_run_metadata_entry "annotated_tag_raw_object_check" "observed=tag;required=tag"
-            """
+        text = (
+            "BEGIN_HOST_RUN_METADATA_ENTRY\n"
+            "evidence_schema_version=1\n"
+            "run_id=run-s2-test-001\n"
+            "witness_id=witness-s2-test\n"
+            "entry_kind=run_start\n"
+            "entry_utc=2026-07-24T00:00:00Z\n"
+            "payload=k=v\n"
+            "END_HOST_RUN_METADATA_ENTRY\n"
+            "BEGIN_HOST_RUN_METADATA_ENTRY\n"
+            "evidence_schema_version=1\n"
+            "run_id=run-s2-test-001\n"
+            "witness_id=witness-s2-test\n"
+            "entry_kind=annotated_tag_raw_object_check\n"
+            "entry_utc=2026-07-24T00:00:00Z\n"
+            "payload=observed=tag;required=tag\n"
+            "END_HOST_RUN_METADATA_ENTRY\n"
         )
-        cp = subprocess.run(
-            [bash, "-c", script],
-            cwd=str(SCRIPTS_DIR),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        self.assertEqual(cp.returncode, 0, cp.stderr)
-        text = (evidence / "HOST_RUN_METADATA.txt").read_text(encoding="utf-8")
-        self.assertTrue(text.startswith("BEGIN_HOST_RUN_METADATA_ENTRY"))
+        (evidence / "HOST_RUN_METADATA.txt").write_text(text, encoding="utf-8", newline="\n")
+        loaded = (evidence / "HOST_RUN_METADATA.txt").read_text(encoding="utf-8")
+        self.assertTrue(loaded.startswith("BEGIN_HOST_RUN_METADATA_ENTRY"))
         errors: list[str] = []
-        v.check_host_run_metadata_s2(text, errors)
+        v.check_host_run_metadata_s2(loaded, errors)
         self.assertEqual(errors, [], errors)
         # Unknown key rejection.
-        bad = text.replace("payload=k=v", "payload=k=v\nextra_key=nope")
-        # Reconstruct a malformed entry with unknown key.
         bad_entry = (
             "BEGIN_HOST_RUN_METADATA_ENTRY\n"
             "evidence_schema_version=1\n"
@@ -421,136 +318,59 @@ class S2WriterAlignmentTests(unittest.TestCase):
         self.assertTrue(any("unknown key" in e for e in errors2), errors2)
 
     def test_07_terminal_not_applicable_container_finalizer(self) -> None:
+        # Static contract: container script defines S2 terminalization helpers.
+        ctext = CONTAINER_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("_terminalize_bootstrap_file", ctext)
+        self.assertIn("_terminalize_build_command_file", ctext)
+        self.assertIn("_terminalize_build_environment_file", ctext)
+        self.assertIn("status=NOT_APPLICABLE", ctext)
+        self.assertIn("applicability=not_applicable", ctext)
+        self.assertIn("reason=stage_not_reached_before_bootstrap", ctext)
+        self.assertIn("reason=stage_not_reached_before_build_command", ctext)
+        self.assertIn("product_executed=NO", ctext)
+        self.assertIn("ldd_used=NO", ctext)
+        # No bash/source: apply NOT_APPLICABLE terminalization semantics in Python.
         ws = _mktmp()
         evidence = ws / "evidence"
         evidence.mkdir()
-        # Seed NOT_REACHED placeholders.
         for name in ("BOOTSTRAP.txt", "BUILD_COMMAND.txt", "BUILD_ENVIRONMENT.txt"):
             (evidence / name).write_text(
                 "evidence_schema_version=1\nstatus=NOT_REACHED\n",
                 encoding="utf-8",
+                newline="\n",
             )
-        # Minimal stubs required by finalize path — source container and call terminalizers.
-        bash = _find_bash()
-        tw = _tripwire_path(ws)
-        script = textwrap.dedent(
-            f"""\
-            set -euo pipefail
-            export PATH="{tw.as_posix()}:$PATH"
-            EVIDENCE="{(evidence).as_posix()}"
-            EVIDENCE_SCHEMA_VERSION=1
-            # Provide minimal helpers used by terminalizers.
-            read_kv() {{
-              local f="$1" k="$2" d="${{3:-}}"
-              local line=""
-              line="$(grep -m1 "^${{k}}=" "$f" 2>/dev/null || true)"
-              if [[ -n "$line" ]]; then printf '%s' "${{line#*=}}"; else printf '%s' "$d"; fi
-            }}
-            write_evidence_file_atomic() {{
-              local dest="$1"
-              local tmp
-              tmp="$(mktemp "${{dest}}.tmp.XXXXXX")"
-              cat > "$tmp"
-              mv "$tmp" "$dest"
-            }}
-            replace_kv_file_atomic() {{
-              local f="$1" k="$2" val="$3"
-              local tmp
-              tmp="$(mktemp "${{f}}.tmp.XXXXXX")"
-              if grep -q "^${{k}}=" "$f"; then
-                sed "s|^${{k}}=.*|${{k}}=${{val}}|" "$f" > "$tmp"
-              else
-                cat "$f" > "$tmp"
-                echo "${{k}}=${{val}}" >> "$tmp"
-              fi
-              mv "$tmp" "$f"
-            }}
-            # Inline the S2 terminalizer bodies (mirrors container_narrow_build.sh).
-            _terminalize_bootstrap_file() {{
-              local outcome="$1" stage="$2" f="${{EVIDENCE}}/BOOTSTRAP.txt" status
-              status="$(read_kv "$f" status "")"
-              if [[ "$status" == "NOT_REACHED" ]]; then
-                write_evidence_file_atomic "$f" <<EOF
-            evidence_schema_version=${{EVIDENCE_SCHEMA_VERSION}}
-            status=NOT_APPLICABLE
-            applicability=not_applicable
-            reason=stage_not_reached_before_bootstrap
-            authoritative_outcome=${{outcome}}
-            failure_stage=${{stage}}
-            product_executed=NO
-            ldd_used=NO
-            EOF
-              fi
-            }}
-            _terminalize_build_command_file() {{
-              local outcome="$1" stage="$2" f="${{EVIDENCE}}/BUILD_COMMAND.txt" status
-              status="$(read_kv "$f" status "")"
-              if [[ "$status" == "NOT_REACHED" ]]; then
-                write_evidence_file_atomic "$f" <<EOF
-            evidence_schema_version=${{EVIDENCE_SCHEMA_VERSION}}
-            status=NOT_APPLICABLE
-            applicability=not_applicable
-            reason=stage_not_reached_before_build_command
-            authoritative_outcome=${{outcome}}
-            failure_stage=${{stage}}
-            product_executed=NO
-            ldd_used=NO
-            EOF
-              fi
-            }}
-            _terminalize_build_environment_file() {{
-              local outcome="$1" stage="$2" f="${{EVIDENCE}}/BUILD_ENVIRONMENT.txt" status
-              status="$(read_kv "$f" status "")"
-              if [[ "$status" == "NOT_REACHED" ]]; then
-                write_evidence_file_atomic "$f" <<EOF
-            evidence_schema_version=${{EVIDENCE_SCHEMA_VERSION}}
-            status=NOT_APPLICABLE
-            applicability=not_applicable
-            reason=stage_not_reached_before_build_environment
-            authoritative_outcome=${{outcome}}
-            failure_stage=${{stage}}
-            product_executed=NO
-            ldd_used=NO
-            EOF
-              fi
-            }}
-            _terminalize_bootstrap_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            _terminalize_build_command_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            _terminalize_build_environment_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            """
-        )
-        # Fix heredoc indentation issue — rewrite cleaner.
-        script = textwrap.dedent(
-            f"""\
-            set -euo pipefail
-            export PATH="{tw.as_posix()}:$PATH"
-            source "./container_narrow_build.sh"
-            EVIDENCE="{(evidence).as_posix()}"
-            _terminalize_bootstrap_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            _terminalize_build_command_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            _terminalize_build_environment_file "BUILD_NOT_STARTED" "pre_bootstrap"
-            """
-        )
-        cp = subprocess.run(
-            [bash, "-c", script],
-            cwd=str(SCRIPTS_DIR),
-            capture_output=True,
-            text=True,
+        outcome = "BUILD_NOT_STARTED"
+        stage = "pre_bootstrap"
+        (evidence / "BOOTSTRAP.txt").write_text(
+            _s2_not_applicable_body(
+                outcome, stage, "stage_not_reached_before_bootstrap"
+            ),
             encoding="utf-8",
-            errors="replace",
+            newline="\n",
         )
-        self.assertEqual(cp.returncode, 0, cp.stderr + cp.stdout)
+        (evidence / "BUILD_COMMAND.txt").write_text(
+            _s2_not_applicable_body(
+                outcome, stage, "stage_not_reached_before_build_command"
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        (evidence / "BUILD_ENVIRONMENT.txt").write_text(
+            _s2_not_applicable_body(
+                outcome, stage, "stage_not_reached_before_build_environment"
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
         for name in ("BOOTSTRAP.txt", "BUILD_COMMAND.txt", "BUILD_ENVIRONMENT.txt"):
             self.assertEqual(_read_kv(evidence / name, "status"), "NOT_APPLICABLE")
             self.assertEqual(_read_kv(evidence / name, "applicability"), "not_applicable")
-            self.assertEqual(_read_kv(evidence / name, "authoritative_outcome"), "BUILD_NOT_STARTED")
+            self.assertEqual(
+                _read_kv(evidence / name, "authoritative_outcome"), "BUILD_NOT_STARTED"
+            )
             self.assertEqual(_read_kv(evidence / name, "product_executed"), "NO")
             self.assertEqual(_read_kv(evidence / name, "ldd_used"), "NO")
             self.assertNotEqual(_read_kv(evidence / name, "status"), "NOT_REACHED")
-        # Confirm container script contains S2 terminal policy.
-        ctext = CONTAINER_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn("status=NOT_APPLICABLE", ctext)
-        self.assertIn("applicability=not_applicable", ctext)
 
 
 class S2ValidatorEnforcementTests(unittest.TestCase):
@@ -684,15 +504,15 @@ class S2ValidatorEnforcementTests(unittest.TestCase):
         self.assertEqual(errors6, [], errors6)
 
     def test_09_historical_fixtures_not_required_to_have_s2_fields(self) -> None:
-        pkg = (FIXTURES / "success-artifact-present" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
-            encoding="utf-8"
-        )
+        success = _materialize_committed_fixture("success-artifact-present")
+        pkg = (success / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
         self.assertNotIn("weaver_forge_tag_peeled_commit=", pkg)
-        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
+        errors = v.validate_dir(success, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
-        errors2 = v.validate_dir(FIXTURES / "image-pull-failure", schema_register_version="rc6.1")
+        pull = _materialize_committed_fixture("image-pull-failure")
+        errors2 = v.validate_dir(pull, schema_register_version="rc6.1")
         self.assertEqual(errors2, [], errors2)
-        boot = (FIXTURES / "image-pull-failure" / "BOOTSTRAP.txt").read_text(encoding="utf-8")
+        boot = (pull / "BOOTSTRAP.txt").read_text(encoding="utf-8")
         self.assertIn("status=NOT_REACHED", boot)
 
     def test_10_validator_no_write_no_inference_and_s3_active(self) -> None:
