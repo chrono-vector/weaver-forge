@@ -1,10 +1,11 @@
-# Witness requirements — Grok Build narrow rebuild (RC8 lifecycle boundary)
+# Witness requirements — Grok Build narrow rebuild (Future Candidate 1 / WF-FC-01)
 
 ## Current package status
 
-**RC6 IMMUTABLE HISTORICAL — NOT READY — RC7 IMMUTABLE HISTORICAL — NOT READY AFTER COMPLETED SOURCE WEAVER AUDIT — RC7 NOT ELIGIBLE FOR INDEPENDENT WITNESS HANDOFF — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8 IMMUTABLE STATIC-AUDIT CANDIDATE (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) — RC8 ARTIFACT GENERATION AND VERIFICATION PASSED — ACCEPTED NON-AUTHORITATIVE ADVISORY TECHNICAL EVALUATION — FORMAL SOURCE WEAVER AUDIT NOT PERFORMED FOR RC8 — NO FORMAL SOURCE WEAVER READY/NOT READY DECISION FOR RC8 — NOT READY FOR INDEPENDENT WITNESS HANDOFF — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS — NO RELEASE READINESS OR PRODUCTION READINESS CLAIMED**
+**FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01`) — TAG NOT YET CREATED — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8/RC7/RC6 HISTORICAL ONLY — NO RELEASE READINESS, PRODUCTION READINESS, RC9, OR INDEPENDENT WITNESS PASS CLAIMED**
 
-RC8 is an immutable static-audit candidate: `1.0.0-rc8` /
+Active Future Candidate requirements use package version `WF-FC-01` and expected tag `weaver-forge-fc-01` (Repository Owner G-3 identity authority; successor to RC8 only; RC9 NOT IMPLIED). Annotated tag and peeled commit are not yet created and must not be fabricated. Historical RC8 remains an immutable static-audit candidate: `1.0.0-rc8` /
+Normative mapping: **WF-FC-01 -> weaver-forge-fc-01**. Candidate name: **Weaver Forge Future Candidate 1**.
 `grok-build-witness-v1.0.0-rc8`; annotated tag object
 `8113d952d3b127d32e138dbf804141f5d1dfb26f`; peeled commit
 `1de4b4d9523711418390f8331c95988523ef4481`; tree
@@ -107,7 +108,7 @@ The marker is not Witness evidence, is not schema-register bound, and must never
 modified by the container, Witness, or validator. Incomplete evidence must not be resumed or
 manually reconstructed into a final package; rerun requires a new `EVIDENCE_DIR`. The marker is
 retained as Host-owned historical negative operational evidence. Validator inputs are unchanged
-(implicit final-submission prohibition). **RC6 and RC7 are immutable historical NOT READY candidates; RC8 is an immutable static-audit candidate with no formal Source Weaver READY/NOT READY decision.** Independent Witness reproduction has not occurred; Independent Witness
+(implicit final-submission prohibition). **Active requirements target Future Candidate 1 (WF-FC-01). RC6 and RC7 are immutable historical NOT READY candidates; RC8 is an immutable historical static-audit candidate with no formal Source Weaver READY/NOT READY decision.** Independent Witness reproduction has not occurred; Independent Witness
 PASS is not claimed; C-014 remains `NOT_STARTED`; Independent Witness handoff is not authorized.
 
 ## Failure submissions are supported and expected
@@ -137,7 +138,7 @@ Container platform: **`linux/amd64`**.
 |-------------|------|
 | Person | Not the owner / package author |
 | Host | Witness-owned machine, VM, or cloud |
-| Weaver package revision | Resolve the effective **annotated tag** (current immutable static-audit candidate: `grok-build-witness-v1.0.0-rc8`) when separately authorized; raw object type must be `tag`; canonical execution stops if resolution or type check fails. Historical package evidence remains bound to its declared historical tag. This document does not authorize Independent Witness handoff. |
+| Weaver package revision | Resolve the effective **annotated tag** for active Future Candidate (`weaver-forge-fc-01` for `WF-FC-01`) when that tag exists and is separately authorized; raw object type must be `tag`; canonical execution stops if resolution or type check fails. Historical package evidence remains bound to its declared historical tag. This document does not authorize Independent Witness handoff, READY, RC9, or C-014. |
 | Grok source | Fresh clone at `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | Target | New empty `CARGO_TARGET_DIR` |
 | Owner caches | **Forbidden** as inputs |
@@ -152,8 +153,9 @@ the explicit `--noncanonical-deviation` flag; without it the host orchestrator r
 | Item | Required value |
 |------|----------------|
 | `WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `WEAVER_FORGE_TAG` | `grok-build-witness-v1.0.0-rc8` |
-| Weaver Forge package commit | **Derived at runtime** from `refs/tags/grok-build-witness-v1.0.0-rc8^{commit}` only after `git cat-file -t refs/tags/grok-build-witness-v1.0.0-rc8` equals `tag`; detached `HEAD` must equal that resolved commit; package clone must be clean. The tagged package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). Historical evidence remains bound to its declared historical tag. |
+| `WEAVER_FORGE_TAG` | `weaver-forge-fc-01` |
+| `PACKAGE_VERSION` | `WF-FC-01` |
+| Weaver Forge package commit | **Derived at runtime** from `refs/tags/weaver-forge-fc-01^{commit}` only after the annotated tag exists and `git cat-file -t refs/tags/weaver-forge-fc-01` equals `tag`; detached `HEAD` must equal that resolved commit; package clone must be clean. Until the tag exists, commit/tag-object fields remain not yet determinable (do not fabricate). The package does **not** embed its own future commit hash (`package_commit_authority=annotated_tag_resolution`). Historical evidence remains bound to its declared historical tag. |
 | `GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -183,7 +185,7 @@ Optional additional verification input only: `WEAVER_FORGE_EXTERNAL_EXPECTED_COM
 
 ## Host preflight identity closure (Phase 2A on `main`)
 
-Implementation on `main` (historical Phase 2A note). **RC6 and RC7 remain immutable historical NOT READY candidates; RC8 is an immutable static-audit candidate with no formal Source Weaver READY/NOT READY decision; Independent Witness handoff is not authorized.** The
+Implementation note (historical Phase 2A). **Active identity is WF-FC-01 / weaver-forge-fc-01. RC6/RC7/RC8 remain historical only; Independent Witness handoff is not authorized; RC9 NOT IMPLIED.** The
 rc4 tag is unchanged. This does **not** claim that rc4 was corrected.
 
 Before **any** Docker CLI invocation (including `docker version` / `docker context show`
@@ -205,7 +207,7 @@ retries with a new run ID or aborts before writing evidence.
 
 ## Source-mount isolation (Phase 2B on `main`)
 
-Implementation on `main` (historical Phase 2B note). **RC6 and RC7 remain immutable historical NOT READY candidates; RC8 is an immutable static-audit candidate with no formal Source Weaver READY/NOT READY decision; Independent Witness handoff is not authorized.** This does **not** claim final closure before repeat static audit.
+Implementation note (historical Phase 2B). **Active identity is WF-FC-01 / weaver-forge-fc-01. RC6/RC7/RC8 remain historical only; Independent Witness handoff is not authorized; RC9 NOT IMPLIED.** This does **not** claim final closure before repeat static audit.
 
 - The Grok Build checkout is mounted **exactly once**, read-only, at `/src`.
 - A broad `WORK_ROOT` → `/work` writable mount is **prohibited**.

@@ -1,4 +1,22 @@
-# Witness package manifest — required outputs (1.0.0-rc5)
+# Witness package manifest — required outputs (candidate-native WF-FC-01; historical RC inventory retained)
+
+
+## Package contract identity (candidate-native)
+
+| Field | Value |
+|-------|-------|
+| Active Future Candidate name | Weaver Forge Future Candidate 1 |
+| Active package version | `WF-FC-01` |
+| Active canonical tag | `weaver-forge-fc-01` |
+| Normative mapping | WF-FC-01 -> weaver-forge-fc-01 |
+| Identity authority | Repository Owner (G-3) |
+| Relationship to RC8 | successor candidate only |
+| Relationship to RC9 | NOT IMPLIED |
+| Implementation objects | annotated tag / peeled commit / package / archive / bundle **not yet created** |
+
+This file is the **package contract manifest** (required evidence outputs and evidence-contract relationships). It is **not** the source-package path inventory ([PACKAGE_FILE_MANIFEST.txt](PACKAGE_FILE_MANIFEST.txt)) and **not** a runtime-generated evidence manifest (`EVIDENCE_MANIFEST.sha256`).
+
+RC6, RC7, and RC8 are **historical** identities only and are not the current Future Candidate.
 
 Submit under:
 
@@ -130,8 +148,8 @@ than being omitted.
   `77369ab099414167df658b25eac3adcb4f264eb3`). Disposition **NOT READY**.
   Independent Witness handoff **not authorized**. Historical
   **`grok-build-witness-v1.0.0-rc5`** remains FIXED_IMMUTABLE **NOT READY**. Current `main` is
-  pre-tag / prospective RC7 next-candidate only; RC7 tag/archive/bundle do not yet exist.
-  RC7 Source Weaver audit has not occurred.
+  Future Candidate 1 (WF-FC-01 / weaver-forge-fc-01) on active surfaces; tag/archive/bundle do not yet exist.
+  RC9 NOT IMPLIED; Independent Witness not authorized.
 - Witness must record package tag **`grok-build-witness-v1.0.0-rc6`** for `1.0.0-rc6` evidence
   (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**) and the
   **full Weaver peeled commit** resolved from the annotated tag (distinct from annotated tag
@@ -179,7 +197,7 @@ redirected into `EVIDENCE_DIR` at any stage.
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | `NOT_STARTED` |
-| Current `main` | Pre-tag / prospective RC7 next-candidate only; RC7 tag/archive/bundle absent; RC7 Source Weaver audit has not occurred |
+| Active Future Candidate surfaces | WF-FC-01 / weaver-forge-fc-01 governance-selected; tag/archive/bundle absent; RC9 NOT IMPLIED |
 | Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
