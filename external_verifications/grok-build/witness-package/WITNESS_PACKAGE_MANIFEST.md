@@ -12,7 +12,7 @@
 | Identity authority | Repository Owner (G-3) |
 | Relationship to RC8 | successor candidate only |
 | Relationship to RC9 | NOT IMPLIED |
-| Implementation objects | annotated tag / peeled commit / package / archive / bundle **not yet created** |
+| Implementation objects | annotated tag / peeled commit **CREATED AND PUBLISHED** (peel `f178cde13391445f319b1b1138ee920a02b32874`); package / archive / bundle **not yet created** |
 
 This file is the **package contract manifest** (required evidence outputs and evidence-contract relationships). It is **not** the source-package path inventory ([PACKAGE_FILE_MANIFEST.txt](PACKAGE_FILE_MANIFEST.txt)) and **not** a runtime-generated evidence manifest (`EVIDENCE_MANIFEST.sha256`).
 
@@ -148,7 +148,8 @@ than being omitted.
   `77369ab099414167df658b25eac3adcb4f264eb3`). Disposition **NOT READY**.
   Independent Witness handoff **not authorized**. Historical
   **`grok-build-witness-v1.0.0-rc5`** remains FIXED_IMMUTABLE **NOT READY**. Current `main` is
-  Future Candidate 1 (WF-FC-01 / weaver-forge-fc-01) on active surfaces; tag/archive/bundle do not yet exist.
+  Future Candidate 1 (WF-FC-01 / weaver-forge-fc-01) on active surfaces; annotated tag CREATED AND PUBLISHED
+  (peel `f178cde13391445f319b1b1138ee920a02b32874`); package/archive/bundle do not yet exist.
   RC9 NOT IMPLIED; Independent Witness not authorized.
 - Witness must record package tag **`grok-build-witness-v1.0.0-rc6`** for `1.0.0-rc6` evidence
   (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**) and the
@@ -197,7 +198,7 @@ redirected into `EVIDENCE_DIR` at any stage.
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | `NOT_STARTED` |
-| Active Future Candidate surfaces | WF-FC-01 / weaver-forge-fc-01 governance-selected; tag/archive/bundle absent; RC9 NOT IMPLIED |
+| Active Future Candidate surfaces | WF-FC-01 / weaver-forge-fc-01 governance-selected; annotated tag CREATED AND PUBLISHED (peel `f178cde13391445f319b1b1138ee920a02b32874`); package/archive/bundle absent; RC9 NOT IMPLIED |
 | Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |

@@ -223,8 +223,9 @@ downgraded.
 No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
 Active candidate-native identity (Repository Owner G-3): **WF-FC-01** / **`weaver-forge-fc-01`**
 Active candidate name: **Weaver Forge Future Candidate 1**. Mapping **WF-FC-01 -> weaver-forge-fc-01**.
-(normative mapping **WF-FC-01 -> weaver-forge-fc-01**). Future Candidate tag/object/package are
-**not yet created**. RC6/RC7/RC8 remain immutable **historical** identities only. Findings are
+(normative mapping **WF-FC-01 -> weaver-forge-fc-01**). Future Candidate annotated tag is
+**CREATED AND PUBLISHED** (peel `f178cde13391445f319b1b1138ee920a02b32874`); package/archive/bundle
+are **not yet created**. RC6/RC7/RC8 remain immutable **historical** identities only. Findings are
 not CLEAR/CLOSED by implementation or documentation alone. Independent Witness handoff is not
 authorized. RC9 is **NOT IMPLIED**.
 

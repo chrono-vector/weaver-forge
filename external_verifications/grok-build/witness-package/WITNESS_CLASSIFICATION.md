@@ -1,7 +1,7 @@
 # Witness classification — precedence (Future Candidate 1 active; RC6-RC8 historical)
 Active candidate examples use **Weaver Forge Future Candidate 1** with mapping **WF-FC-01 -> weaver-forge-fc-01** (Repository Owner G-3). Historical RC6/RC7/RC8 examples remain labeled historical.
 
-Applies to active Future Candidate identity **WF-FC-01** / **`weaver-forge-fc-01`** (governance-selected; annotated tag **not yet created**; identity authority: Repository Owner G-3; successor to RC8 only; RC9 **NOT IMPLIED**). Historical last immutable package version **1.0.0-rc6** (canonical package tag
+Applies to active Future Candidate identity **WF-FC-01** / **`weaver-forge-fc-01`** (governance-selected; annotated tag **CREATED AND PUBLISHED**, peel `f178cde13391445f319b1b1138ee920a02b32874`; package/archive/bundle **not yet created**; identity authority: Repository Owner G-3; successor to RC8 only; RC9 **NOT IMPLIED**). Historical last immutable package version **1.0.0-rc6** (canonical package tag
 `grok-build-witness-v1.0.0-rc6`; annotated tag object
 `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled commit
 `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; package commit authority =
@@ -14,8 +14,8 @@ Historical RC8 remains fixed at tag `grok-build-witness-v1.0.0-rc8` (immutable s
 `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
 history at those tags; this file states **current** policy only. rc1–rc7 were each ruled/audited or fixed as historical; RC8 is historical static-audit only. Active examples use **WF-FC-01** / **weaver-forge-fc-01**. rc1–rc6 were each ruled/audited
-**NOT READY**. Active Host/templates host Future Candidate 1 identity only; the Future Candidate tag
-tag/archive/bundle do not yet exist. No Independent Witness authorization is implied. Independent
+**NOT READY**. Active Host/templates host Future Candidate 1 identity; annotated tag
+**`weaver-forge-fc-01`** is CREATED AND PUBLISHED; package/archive/bundle do not yet exist. No Independent Witness authorization is implied. Independent
 Witness reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 remains
 **NOT_STARTED**. Overall package status remains **PARTIAL** / **NOT READY**.
 

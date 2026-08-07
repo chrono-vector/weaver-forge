@@ -9,9 +9,9 @@
 | Identity and technical-contract authority | **Repository Owner** (accepted G-3 decision) |
 | Relationship to RC8 | **successor candidate only** |
 | Relationship to RC9 | **NOT IMPLIED** |
-| Implementation object state | **governance-selected; annotated tag / peeled commit / package / archive / bundle NOT YET CREATED** |
-| Annotated tag object ID (Future Candidate 1) | **NOT_YET_CREATED_NOT_YET_DETERMINABLE** |
-| Peeled commit (Future Candidate 1) | **NOT_YET_CREATED_NOT_YET_DETERMINABLE** |
+| Implementation object state | **annotated tag CREATED AND PUBLISHED; package / archive / bundle NOT YET CREATED** |
+| Annotated tag object ID (Future Candidate 1) | **`7ceb17b2ca0656baf8c3a8ff253f358f6919b483`** |
+| Peeled commit (Future Candidate 1) | **`f178cde13391445f319b1b1138ee920a02b32874`** |
 | Package commit authority | **annotated_tag_resolution** (resolved commit is derived from the annotated tag when it exists; the package tree must **not** embed a future commit, tag-object, archive, or bundle hash as circular self-identity) |
 | Last immutable historical static-audit candidate (RC8) | **1.0.0-rc8** / **`grok-build-witness-v1.0.0-rc8`** (historical; not the active Future Candidate identity) |
 | Last immutable historical NOT READY tagged package (RC6) | **1.0.0-rc6** / **`grok-build-witness-v1.0.0-rc6`** |
@@ -19,16 +19,16 @@
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | **NOT_STARTED** |
-| Overall | **PARTIAL** / **NOT READY** — Future Candidate identity is governance-selected only; not a created versioned repository state |
+| Overall | **PARTIAL** / **NOT READY** — Future Candidate identity is governance-selected; annotated tag created and published; package/archive/bundle not yet created |
 | Grok Build source commit (upstream pin) | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
 ## Current status banner
 
-**FUTURE CANDIDATE 1 GOVERNANCE-SELECTED — Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01` — NORMATIVE MAPPING WF-FC-01 -> weaver-forge-fc-01 — IDENTITY AUTHORITY: REPOSITORY OWNER — SUCCESSOR TO RC8 ONLY — RC9 NOT IMPLIED — ANNOTATED TAG NOT YET CREATED — PEELED COMMIT NOT YET DETERMINABLE — NO PACKAGE/ARCHIVE/BUNDLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
+**FUTURE CANDIDATE 1 GOVERNANCE-SELECTED — Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01` — NORMATIVE MAPPING WF-FC-01 -> weaver-forge-fc-01 — IDENTITY AUTHORITY: REPOSITORY OWNER — SUCCESSOR TO RC8 ONLY — RC9 NOT IMPLIED — ANNOTATED TAG CREATED AND PUBLISHED (object `7ceb17b2ca0656baf8c3a8ff253f358f6919b483`; peel `f178cde13391445f319b1b1138ee920a02b32874`) — NO PACKAGE/ARCHIVE/BUNDLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
 
 - Active candidate-native identity for Host constants and load-bearing templates is **WF-FC-01** / **`weaver-forge-fc-01`**.
-- This is a **governance-selected** Future Candidate identity. It is **not** a created Git tag, versioned repository state, package, archive, or bundle.
-- An annotated tag **`weaver-forge-fc-01`**, tag object ID, and peeled commit **do not yet exist** and must not be fabricated.
+- This is a **governance-selected** Future Candidate identity. Annotated tag **`weaver-forge-fc-01`** is **CREATED AND PUBLISHED**; package, archive, and transfer bundle are **not** yet created.
+- Annotated tag **`weaver-forge-fc-01`** exists (tag object `7ceb17b2ca0656baf8c3a8ff253f358f6919b483`; peeled commit `f178cde13391445f319b1b1138ee920a02b32874`). Package/archive/bundle identities must not be fabricated as existing.
 - Do **not** describe Future Candidate 1 as READY, release-approved, Independent Witness PASS, RC9, or Source Weaver-approved.
 - RC8 remains an **immutable historical** static-audit candidate only (not the active Future Candidate identity).
 - Findings remain subject to later adjudication; documentation alignment does **not** mark findings CLEAR, CLOSED, RESOLVED, or PASS.
@@ -143,7 +143,7 @@ Canonical execution against an immutable tagged package:
 
 The tagged package **does not embed its own commit hash**. Embedding a self-commit would create a circular identity: editing the tree to insert the commit hash changes the commit hash.
 
-Do **not** use floating `main` as package identity. Active Host/templates carry governance-selected Future Candidate 1 identity (**WF-FC-01** / **`weaver-forge-fc-01`**) only; that identity is **not** a created tag and is **not** authorized for Independent Witness handoff until an immutable annotated tag exists and is separately authorized.
+Do **not** use floating `main` as package identity. Active Host/templates carry governance-selected Future Candidate 1 identity (**WF-FC-01** / **`weaver-forge-fc-01`**); annotated tag **`weaver-forge-fc-01`** is created and published, but package/archive/bundle are not yet created and Independent Witness handoff is **not** authorized.
 
 ### Historical package-version compatibility
 
@@ -154,13 +154,13 @@ An optional externally supplied expected commit (`WEAVER_FORGE_EXTERNAL_EXPECTED
 ## Tag policy
 
 - Last immutable package tag: **`grok-build-witness-v1.0.0-rc6`** (exact identity table above).
-- Active Future Candidate package tag (governance-selected Host/templates; not yet created): **`weaver-forge-fc-01`**.
+- Active Future Candidate package tag (CREATED AND PUBLISHED; peel `f178cde13391445f319b1b1138ee920a02b32874`): **`weaver-forge-fc-01`**.
 - Historical fixed rc5 tag: **`grok-build-witness-v1.0.0-rc5`** → peeled commit **`5ae08cb8be9c1c97f25b9093bb5490a0ef195a07`** (**NOT READY**).
 - Historical fixed rc4 tag: **`grok-build-witness-v1.0.0-rc4`** → peeled commit **`039b46737c5968a81fb756d7a6d1d0dd57b6ad96`** (**NOT READY**).
 - Publication and availability must be verified by resolving the annotated tag.
 - **`grok-build-witness-v1.0.0-rc1`** through **`grok-build-witness-v1.0.0-rc6`** must not be moved, deleted, recreated, or force-updated.
 - Never rewrite a tagged snapshot to insert a commit hash, amend the tagged commit, recreate the tag, or force-update it.
-- Future Candidate tag **`weaver-forge-fc-01`** does **not** yet exist. Do not claim a Future Candidate 1 tag, archive, or transfer bundle until each actually exists. Historical RC7/RC8 tags remain immutable history only.
+- Future Candidate tag **`weaver-forge-fc-01`** is **CREATED AND PUBLISHED** (tag object `7ceb17b2ca0656baf8c3a8ff253f358f6919b483`; peeled commit `f178cde13391445f319b1b1138ee920a02b32874`). Do not claim a Future Candidate 1 package, archive, or transfer bundle until each actually exists. Historical RC7/RC8 tags remain immutable history only.
 - Package remains **NOT READY**. Independent Witness reproduction **NOT PERFORMED**. C-014 **NOT_STARTED**. Overall **PARTIAL**.
 
 ## Evidence requirements for canonical runs

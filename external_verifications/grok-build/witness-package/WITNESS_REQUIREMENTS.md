@@ -2,9 +2,9 @@
 
 ## Current package status
 
-**FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01`) — TAG NOT YET CREATED — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8/RC7/RC6 HISTORICAL ONLY — NO RELEASE READINESS, PRODUCTION READINESS, RC9, OR INDEPENDENT WITNESS PASS CLAIMED**
+**FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01`) — ANNOTATED TAG CREATED AND PUBLISHED (peel `f178cde13391445f319b1b1138ee920a02b32874`) — PACKAGE/ARCHIVE/BUNDLE NOT YET CREATED — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8/RC7/RC6 HISTORICAL ONLY — NO RELEASE READINESS, PRODUCTION READINESS, RC9, OR INDEPENDENT WITNESS PASS CLAIMED**
 
-Active Future Candidate requirements use package version `WF-FC-01` and expected tag `weaver-forge-fc-01` (Repository Owner G-3 identity authority; successor to RC8 only; RC9 NOT IMPLIED). Annotated tag and peeled commit are not yet created and must not be fabricated. Historical RC8 remains an immutable static-audit candidate: `1.0.0-rc8` /
+Active Future Candidate requirements use package version `WF-FC-01` and expected tag `weaver-forge-fc-01` (Repository Owner G-3 identity authority; successor to RC8 only; RC9 NOT IMPLIED). Annotated tag **`weaver-forge-fc-01`** is CREATED AND PUBLISHED (peel `f178cde13391445f319b1b1138ee920a02b32874`); package/archive/bundle are not yet created and must not be fabricated as existing. Historical RC8 remains an immutable static-audit candidate: `1.0.0-rc8` /
 Normative mapping: **WF-FC-01 -> weaver-forge-fc-01**. Candidate name: **Weaver Forge Future Candidate 1**.
 `grok-build-witness-v1.0.0-rc8`; annotated tag object
 `8113d952d3b127d32e138dbf804141f5d1dfb26f`; peeled commit

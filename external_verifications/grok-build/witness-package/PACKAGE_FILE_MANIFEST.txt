@@ -8,15 +8,16 @@
 # RC6: FIXED_IMMUTABLE; disposition NOT READY; Independent Witness handoff
 #   not authorized; Independent Witness reproduction NOT PERFORMED; Independent Witness PASS
 #   NONE; C-014 NOT_STARTED; overall PARTIAL; no finding CLEAR/CLOSED.
-# Active Future Candidate identity (governance-selected, not yet tagged): WF-FC-01 / weaver-forge-fc-01
+# Active Future Candidate identity (governance-selected; annotated tag CREATED AND PUBLISHED): WF-FC-01 / weaver-forge-fc-01
 # Candidate name: Weaver Forge Future Candidate 1 | WF-FC-01 -> weaver-forge-fc-01 | Repository Owner G-3
 #   fixed in active Host/templates and validator mapping (Repository Owner G-3).
-#   Annotated tag weaver-forge-fc-01 / package / archive / bundle do not yet exist. RC9 NOT IMPLIED.
+#   Annotated tag weaver-forge-fc-01 CREATED AND PUBLISHED (object 7ceb17b2ca0656baf8c3a8ff253f358f6919b483;
+#   peel f178cde13391445f319b1b1138ee920a02b32874). Package / archive / bundle do not yet exist. RC9 NOT IMPLIED.
 #   Not READY. Handoff not authorized. Successor to RC8 only (historical).
 # Historical: rc1–rc5 remain immutable NOT READY history.
 # package_commit_authority=annotated_tag_resolution
-# Banner: FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (WF-FC-01 / weaver-forge-fc-01) — NOT CREATED — NOT READY —
-#   RC8/RC7/RC6 HISTORICAL ONLY — IW HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED
+# Banner: FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (WF-FC-01 / weaver-forge-fc-01) — ANNOTATED TAG CREATED AND PUBLISHED —
+#   PACKAGE/ARCHIVE/BUNDLE NOT YET CREATED — NOT READY — RC8/RC7/RC6 HISTORICAL ONLY — IW HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED
 #
 
 README.md
@@ -68,7 +69,8 @@ templates/REDACTIONS.md
 #   authorized; availability verified by annotated-tag resolution; package commit authority =
 #   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated;
 #   later main status/audit/remediation records are outside the tagged snapshot; current main is
-#   Future Candidate 1 identity only on active surfaces; weaver-forge-fc-01 tag/archive/bundle do not yet exist)
+#   Future Candidate 1 identity only on active surfaces; weaver-forge-fc-01 annotated tag CREATED AND PUBLISHED;
+#   package/archive/bundle do not yet exist)
 # rc4 tag grok-build-witness-v1.0.0-rc4 fixed at 039b46737c5968a81fb756d7a6d1d0dd57b6ad96 —
 #   NOT READY integrated four-batch static blind audit (immutable historical release;
 #   audit preserved under evidence/rc4-static-blind-audit/; 40 blockers)

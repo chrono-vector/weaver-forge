@@ -1,8 +1,8 @@
 # Witness runbook — Grok Build narrow clean rebuild (RC8 lifecycle boundary)
 
-**Package status:** **FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01`) — TAG NOT YET CREATED — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8/RC7/RC6 HISTORICAL ONLY — NO RELEASE READINESS, PRODUCTION READINESS, RC9, OR INDEPENDENT WITNESS PASS CLAIMED**
+**Package status:** **FUTURE CANDIDATE 1 GOVERNANCE-SELECTED (Weaver Forge Future Candidate 1 / WF-FC-01 / `weaver-forge-fc-01`) — ANNOTATED TAG CREATED AND PUBLISHED (peel `f178cde13391445f319b1b1138ee920a02b32874`) — PACKAGE/ARCHIVE/BUNDLE NOT YET CREATED — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — RC8/RC7/RC6 HISTORICAL ONLY — NO RELEASE READINESS, PRODUCTION READINESS, RC9, OR INDEPENDENT WITNESS PASS CLAIMED**
 
-Active Future Candidate identity (Repository Owner G-3): `WF-FC-01` / `weaver-forge-fc-01` (normative mapping WF-FC-01 -> weaver-forge-fc-01). Annotated tag **not yet created**; tag object ID and peeled commit are future runtime-resolved evidence only.
+Active Future Candidate identity (Repository Owner G-3): `WF-FC-01` / `weaver-forge-fc-01` (normative mapping WF-FC-01 -> weaver-forge-fc-01). Annotated tag **CREATED AND PUBLISHED** (peel `f178cde13391445f319b1b1138ee920a02b32874`); package/archive/bundle **not yet created**.
 Historical last immutable static-audit candidate: `grok-build-witness-v1.0.0-rc8`
 (`canonical_package_tag=grok-build-witness-v1.0.0-rc8`). Historical annotated tag object
 `8113d952d3b127d32e138dbf804141f5d1dfb26f`; peeled commit
@@ -60,7 +60,7 @@ deviation sets `canonical_run=NO` for the whole run.
 | Constant | Value |
 |----------|-------|
 | `CANONICAL_WEAVER_FORGE_URL` | `https://github.com/chrono-vector/weaver-forge.git` |
-| `CANONICAL_WEAVER_FORGE_TAG` | `weaver-forge-fc-01` (Future Candidate 1; governance-selected; tag not yet created; not authorized for Independent Witness handoff) |
+| `CANONICAL_WEAVER_FORGE_TAG` | `weaver-forge-fc-01` (Future Candidate 1; governance-selected; annotated tag CREATED AND PUBLISHED; package/archive/bundle not yet created; not authorized for Independent Witness handoff) |
 | `CANONICAL_GROK_BUILD_URL` | `https://github.com/xai-org/grok-build.git` |
 | `CANONICAL_GROK_BUILD_COMMIT` | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 | `CANONICAL_RUST_IMAGE` | `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
@@ -515,7 +515,7 @@ readiness or finding CLEAR/CLOSED. Synthetic final fixtures are not real Witness
 This runbook describes the **procedure** a Witness would follow for a tagged package only if
 Independent Witness handoff were separately authorized. That authorization does **not** currently
 exist for RC6, RC7, RC8, or current `main`. RC8 is an immutable static-audit candidate:
-**`WF-FC-01` / `weaver-forge-fc-01`** (active Future Candidate; tag not yet created). Historical **`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`** (annotated tag object
+**`WF-FC-01` / `weaver-forge-fc-01`** (active Future Candidate; annotated tag CREATED AND PUBLISHED; package/archive/bundle not yet created). Historical **`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`** (annotated tag object
 `8113d952d3b127d32e138dbf804141f5d1dfb26f`; peeled commit
 `1de4b4d9523711418390f8331c95988523ef4481`; tree
 `87b40d8a32ca536a4cdba0eee474f6171c62f6bb`). RC8 artifact generation and verification passed,
