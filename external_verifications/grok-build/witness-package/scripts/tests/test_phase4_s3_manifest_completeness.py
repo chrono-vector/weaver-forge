@@ -49,6 +49,80 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(scenario: str, prefix: str = "phase4_s3_fx_") -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp.
+
+    Working-tree smudge (e.g. core.autocrlf CRLF) is bypassed: each tracked file
+    is read via ``git cat-file -p HEAD:<path>`` and written with those exact
+    bytes under a repository-external temporary directory. Fixture originals,
+    index, and refs are not modified.
+    """
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMP_ROOTS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMP_ROOTS:
+            _TEMP_ROOTS.remove(dest)
+        raise
+    return dest
+
+
 class PreliminaryManifestTests(unittest.TestCase):
     def test_01_complete_recursive_inclusion_self_exclusion_order_sha(self) -> None:
         tree = _mktmp()
@@ -114,7 +188,9 @@ class PreliminaryManifestTests(unittest.TestCase):
 
 class FinalManifestTests(unittest.TestCase):
     def test_03_final_total_closure_manual_inputs_no_aux_exemption(self) -> None:
-        tree = FIXTURES / "rc5-synthetic-final-success"
+        tree = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="phase4_s3_final_"
+        )
         errors = v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
         manifest = (tree / v.MANIFEST_NAME).read_text(encoding="utf-8")
@@ -129,10 +205,9 @@ class FinalManifestTests(unittest.TestCase):
             self.assertIn(f"./{name}", manifest)
 
         # Post-manifest edit rejection (hash mismatch / immutability).
-        tree2 = Path(tempfile.mkdtemp(prefix="phase4_s3_test_"))
-        _TEMP_ROOTS.append(tree2)
-        shutil.rmtree(tree2)
-        shutil.copytree(tree, tree2)
+        tree2 = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="phase4_s3_final_mut_"
+        )
         (tree2 / "REDACTIONS.md").write_text(
             (tree2 / "REDACTIONS.md").read_text(encoding="utf-8") + "\n",
             encoding="utf-8",
@@ -142,10 +217,9 @@ class FinalManifestTests(unittest.TestCase):
         self.assertTrue(any("hash mismatch" in e for e in errors2), errors2)
 
         # Extra undeclared file.
-        tree3 = Path(tempfile.mkdtemp(prefix="phase4_s3_test_"))
-        _TEMP_ROOTS.append(tree3)
-        shutil.rmtree(tree3)
-        shutil.copytree(tree, tree3)
+        tree3 = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="phase4_s3_final_extra_"
+        )
         (tree3 / "UNDECLARED_AUX.txt").write_text("nope\n", encoding="utf-8")
         errors3 = v.validate_dir(tree3, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1")
         self.assertTrue(
@@ -198,7 +272,7 @@ class CompletenessStateMachineTests(unittest.TestCase):
         files2 = fx.build_rc5_preliminary_success()
         # Add manuals first, inventory still no.
         files2["WITNESS_STATEMENT.md"] = fx._witness_statement()
-        files2["WITNESS_VERDICT.md"] = fx._witness_verdict("success-artifact-present")
+        files2["WITNESS_VERDICT.md"] = fx._rc5_witness_verdict("success-artifact-present")
         files2["REDACTIONS.md"] = fx._redactions()
         files2["DEVIATIONS.txt"] = fx._rc5_final_deviations()
         fx.write_tree(tree2, files2)
@@ -231,16 +305,23 @@ class CompletenessStateMachineTests(unittest.TestCase):
 
 class FixtureFamilyTests(unittest.TestCase):
     def test_07_rc5_fixtures_pass_and_are_immutable(self) -> None:
-        prelim = FIXTURES / "rc5-preliminary-success"
-        final = FIXTURES / "rc5-synthetic-final-success"
-        before_p = {p.name: p.read_bytes() for p in prelim.iterdir() if p.is_file()}
-        before_f = {p.name: p.read_bytes() for p in final.iterdir() if p.is_file()}
+        prelim_src = FIXTURES / "rc5-preliminary-success"
+        final_src = FIXTURES / "rc5-synthetic-final-success"
+        before_p = {p.name: p.read_bytes() for p in prelim_src.iterdir() if p.is_file()}
+        before_f = {p.name: p.read_bytes() for p in final_src.iterdir() if p.is_file()}
+        prelim = _materialize_committed_fixture(
+            "rc5-preliminary-success", prefix="phase4_s3_rc5p_"
+        )
+        final = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="phase4_s3_rc5f_"
+        )
         self.assertEqual(v.validate_dir(prelim, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"), [])
         self.assertEqual(v.validate_dir(final, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"), [])
+        # Originals must not be written by validation (WT snapshot unchanged).
         for name, data in before_p.items():
-            self.assertEqual((prelim / name).read_bytes(), data)
+            self.assertEqual((prelim_src / name).read_bytes(), data)
         for name, data in before_f.items():
-            self.assertEqual((final / name).read_bytes(), data)
+            self.assertEqual((final_src / name).read_bytes(), data)
         # Preliminary has no required manuals.
         for name in ("WITNESS_STATEMENT.md", "WITNESS_VERDICT.md", "REDACTIONS.md"):
             self.assertFalse((prelim / name).exists())
@@ -251,7 +332,9 @@ class FixtureFamilyTests(unittest.TestCase):
         self.assertIn("not_production_witness", meta)
 
     def test_08_historical_fixture_compatibility_remains(self) -> None:
-        hist = FIXTURES / "success-artifact-present"
+        hist = _materialize_committed_fixture(
+            "success-artifact-present", prefix="phase4_s3_hist_"
+        )
         pkg = (hist / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
         self.assertNotIn("weaver_forge_tag_peeled_commit=", pkg)
         self.assertEqual(v.validate_dir(hist, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"), [])
@@ -290,11 +373,17 @@ class AntiOverclaimTests(unittest.TestCase):
         import io
         from contextlib import redirect_stdout
 
+        prelim = _materialize_committed_fixture(
+            "rc5-preliminary-success", prefix="phase4_s3_main_p_"
+        )
+        final = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="phase4_s3_main_f_"
+        )
         buf = io.StringIO()
         with redirect_stdout(buf):
             rc = v.main(
                 [
-                    str(FIXTURES / "rc5-preliminary-success"),
+                    str(prelim),
                     "--host-preliminary",
                     "--schema-register-version",
                     "rc5-phase4-s2.1",
@@ -309,7 +398,7 @@ class AntiOverclaimTests(unittest.TestCase):
         with redirect_stdout(buf2):
             rc2 = v.main(
                 [
-                    str(FIXTURES / "rc5-synthetic-final-success"),
+                    str(final),
                     "--final-submission",
                     "--schema-register-version",
                     "rc5-phase4-s2.1",
@@ -323,9 +412,7 @@ class AntiOverclaimTests(unittest.TestCase):
         self.assertIn("not rc5 readiness", out2)
         self.assertNotIn("Independent Witness PASS claimed", out2)
         # Completeness fields remain NO/eligible NO on prelim fixture.
-        host = (FIXTURES / "rc5-preliminary-success" / "HOST_OUTCOME_INGESTION.txt").read_text(
-            encoding="utf-8"
-        )
+        host = (prelim / "HOST_OUTCOME_INGESTION.txt").read_text(encoding="utf-8")
         self.assertIn("preliminary_success_eligible=NO", host)
         # C-014 not a machine state.
         src = (SCRIPTS_DIR / "validate_witness_evidence.py").read_text(encoding="utf-8")

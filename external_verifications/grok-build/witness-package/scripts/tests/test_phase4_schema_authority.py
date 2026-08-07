@@ -28,7 +28,6 @@ import validate_witness_evidence as v  # noqa: E402
 REGISTER_PATH = (
     PACKAGE_DIR / "schemas" / "canonical_schema_register_rc5_phase4_s1.json"
 )
-FIXTURES = TESTS_DIR / "fixtures"
 MANUAL_FILES = frozenset(
     {"WITNESS_STATEMENT.md", "WITNESS_VERDICT.md", "REDACTIONS.md"}
 )
@@ -37,7 +36,8 @@ _TEMPS: list[Path] = []
 
 
 def _mktmp(prefix: str = "phase4_test_") -> Path:
-    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(TESTS_DIR)))
+    # Repository-external temp only (no dir= under tests/).
+    path = Path(tempfile.mkdtemp(prefix=prefix))
     _TEMPS.append(path)
     return path
 
@@ -47,10 +47,82 @@ def _cleanup() -> None:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)
     _TEMPS.clear()
-    # Also clear any leftover phase4_test_* under tests/
-    for path in TESTS_DIR.glob("phase4_test_*"):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+
+
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(
+    scenario: str, prefix: str = "phase4_fx_"
+) -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp.
+
+    Working-tree smudge (e.g. core.autocrlf CRLF) is bypassed: each tracked file
+    is read via ``git cat-file -p HEAD:<path>`` and written with those exact
+    bytes under a repository-external temporary directory. Fixture originals,
+    index, and refs are not modified.
+    """
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMPS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMPS:
+            _TEMPS.remove(dest)
+        raise
+    return dest
 
 
 def _write_register(data: dict, path: Path) -> Path:
@@ -63,8 +135,13 @@ def _base_register() -> dict:
 
 
 def _copy_success_without_manuals(dest: Path) -> Path:
-    """Minimum current-compatible host-preliminary package without manual files."""
-    src = FIXTURES / "success-artifact-present"
+    """Minimum current-compatible host-preliminary package without manual files.
+
+    Source bytes come from Git blob materialization (not working-tree fixtures).
+    """
+    src = _materialize_committed_fixture(
+        "success-artifact-present", prefix="phase4_src_"
+    )
     dest.mkdir(parents=True, exist_ok=True)
     for item in src.iterdir():
         if item.name in MANUAL_FILES:
@@ -195,10 +272,11 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
             v.MODE_HOST_PRELIMINARY,
         )
         # Mutually exclusive flags.
+        tree = _materialize_committed_fixture("success-artifact-present")
         with self.assertRaises(SystemExit):
             v.main(
                 [
-                    str(FIXTURES / "success-artifact-present"),
+                    str(tree),
                     "--host-preliminary",
                     "--final-submission",
                 ]
@@ -262,7 +340,7 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
         self.assertIn("preliminary_success_eligible=NO", host)
 
     def test_13_final_submission_hardened_and_mode_pass_wording(self) -> None:
-        tree = FIXTURES / "success-artifact-present"
+        tree = _materialize_committed_fixture("success-artifact-present")
         import io
         from contextlib import redirect_stdout
 
@@ -353,7 +431,8 @@ class ValidatorModeFrameworkTests(unittest.TestCase):
 
 class HistoricalNonModificationSmoke(unittest.TestCase):
     def test_15_default_mode_still_validates_existing_fixture(self) -> None:
-        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
+        tree = _materialize_committed_fixture("success-artifact-present")
+        errors = v.validate_dir(tree, schema_register_version="rc6.1")
         self.assertEqual(errors, [], errors)
 
 
