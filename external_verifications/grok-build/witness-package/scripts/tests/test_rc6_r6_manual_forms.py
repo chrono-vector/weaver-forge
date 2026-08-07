@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """RC6-R6 tests: statement M2+timing, intake/correction sidecars, redaction RD2.
 
-Uses only the Python standard library and local controlled temporary directories.
-Does not invoke Docker, Cargo, compilers, product binaries, network, or Witness
-workflows. Synthetic only — not Independent Witness evidence.
+Uses only the Python standard library and repository-external temporary
+directories. Committed fixtures are materialized from Git blob bytes (not
+working-tree smudge). Does not invoke Docker, Cargo, compilers, product
+binaries, network, or Witness workflows. Synthetic only — not Independent
+Witness evidence.
 """
 
 from __future__ import annotations
@@ -27,12 +29,12 @@ import statement_binding as sb  # noqa: E402
 import submission_sidecars as sidecars  # noqa: E402
 import validate_witness_evidence as v  # noqa: E402
 
-FIXTURES = TESTS_DIR / "fixtures"
 _TEMPS: list[Path] = []
 
 
 def _mktmp(prefix: str = "rc6r6_test_") -> Path:
-    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(TESTS_DIR)))
+    # Repository-external temp only (no dir= under tests/).
+    path = Path(tempfile.mkdtemp(prefix=prefix))
     _TEMPS.append(path)
     return path
 
@@ -42,17 +44,81 @@ def _cleanup() -> None:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)
     _TEMPS.clear()
-    for path in TESTS_DIR.glob("rc6r6_test_*"):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+
+
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(
+    scenario: str, prefix: str = "rc6r6_fx_"
+) -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp."""
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMPS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMPS:
+            _TEMPS.remove(dest)
+        raise
+    return dest
 
 
 def _copy_fixture(name: str) -> Path:
-    dst = _mktmp()
-    # mkdtemp creates the directory; replace with fixture tree.
-    shutil.rmtree(dst)
-    shutil.copytree(FIXTURES / name, dst)
-    return dst
+    """Writable tree from Git blob materialization (not working-tree fixtures)."""
+    return _materialize_committed_fixture(name, prefix=f"rc6r6_copy_{name}_")
 
 
 def _sha_file(path: Path) -> str:
@@ -72,9 +138,11 @@ class Rc6R6SchemaAuthorityTests(unittest.TestCase):
         self.assertTrue(hist.is_historical_rc64)
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc6.5")
-        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r6-synthetic-final"), [])
+        r6_final = _materialize_committed_fixture("rc6-r6-synthetic-final")
+        self.assertEqual(v.validate_dir(r6_final), [])
+        r5_final = _materialize_committed_fixture("rc6-r5-synthetic-final")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r5-synthetic-final", schema_register_version="rc6.4"),
+            v.validate_dir(r5_final, schema_register_version="rc6.4"),
             [],
         )
 
@@ -156,7 +224,8 @@ class Rc6R6IntakeCorrectionTests(unittest.TestCase):
         )
         self.assertEqual(errs, [])
         # Evidence package must not contain the sidecar.
-        self.assertFalse((FIXTURES / "rc6-r6-synthetic-final" / sidecars.MAINTAINER_INTAKE_LEDGER_NAME).exists())
+        pkg = _materialize_committed_fixture("rc6-r6-synthetic-final")
+        self.assertFalse((pkg / sidecars.MAINTAINER_INTAKE_LEDGER_NAME).exists())
 
     def test_07_correction_requires_superseding_for_critical(self) -> None:
         run_id = "run-rc6-r6-corr-001"

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """RC6-R4 tests: typed nested classes and empty-directory rejection.
 
-Uses only the Python standard library and local controlled temporary directories.
-Does not invoke Docker, Cargo, compilers, product binaries, network, or Witness
-workflows. Synthetic only — not Independent Witness evidence.
+Uses only the Python standard library and repository-external temporary
+directories. Committed fixtures are materialized from Git blob bytes (not
+working-tree smudge). Does not invoke Docker, Cargo, compilers, product
+binaries, network, or Witness workflows. Synthetic only — not Independent
+Witness evidence.
 """
 
 from __future__ import annotations
@@ -27,14 +29,14 @@ import validate_witness_evidence as v  # noqa: E402
 
 RC6_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc6.json"
 RC62_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc6.2.json"
-FIXTURES = TESTS_DIR / "fixtures"
 HOST_SCRIPT = SCRIPTS_DIR / "run_witness_narrow_build.sh"
 
 _TEMPS: list[Path] = []
 
 
 def _mktmp(prefix: str = "rc6r4_test_") -> Path:
-    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(TESTS_DIR)))
+    # Repository-external temp only (no dir= under tests/).
+    path = Path(tempfile.mkdtemp(prefix=prefix))
     _TEMPS.append(path)
     return path
 
@@ -44,17 +46,81 @@ def _cleanup() -> None:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)
     _TEMPS.clear()
-    for path in TESTS_DIR.glob("rc6r4_test_*"):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+
+
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(
+    scenario: str, prefix: str = "rc6r4_fx_"
+) -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp."""
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMPS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMPS:
+            _TEMPS.remove(dest)
+        raise
+    return dest
 
 
 def _copy_fixture(name: str) -> Path:
-    src = FIXTURES / name
-    dst = _mktmp()
-    shutil.rmtree(dst)
-    shutil.copytree(src, dst)
-    return dst
+    """Writable tree from Git blob materialization (not working-tree fixtures)."""
+    return _materialize_committed_fixture(name, prefix=f"rc6r4_copy_{name}_")
 
 
 def _support_record(
@@ -134,33 +200,39 @@ class Rc6R4SchemaAuthorityTests(unittest.TestCase):
         self.assertEqual(hist.source_path.resolve(), RC62_REGISTER.resolve())
         with self.assertRaises(srl.SchemaRegisterError):
             srl.load_historical_register("rc6.5")
-        reject = v.validate_dir(FIXTURES / "rc6-r6-synthetic-final", schema_register_version="rc6.5")
+        r6f = _materialize_committed_fixture("rc6-r6-synthetic-final")
+        reject = v.validate_dir(r6f, schema_register_version="rc6.5")
         self.assertTrue(any("active authority" in e for e in reject), reject)
 
     def test_03_active_and_historical_fixtures(self) -> None:
-        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r6-synthetic-final"), [])
+        r6f = _materialize_committed_fixture("rc6-r6-synthetic-final")
+        self.assertEqual(v.validate_dir(r6f), [])
+        r6p = _materialize_committed_fixture("rc6-r6-synthetic-preliminary")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r6-synthetic-preliminary", host_preliminary=True),
+            v.validate_dir(r6p, host_preliminary=True),
             [],
         )
+        r4f = _materialize_committed_fixture("rc6-r4-synthetic-final")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r4-synthetic-final", schema_register_version="rc6.3"),
+            v.validate_dir(r4f, schema_register_version="rc6.3"),
             [],
         )
+        r4p = _materialize_committed_fixture("rc6-r4-synthetic-preliminary")
         self.assertEqual(
             v.validate_dir(
-                FIXTURES / "rc6-r4-synthetic-preliminary",
+                r4p,
                 host_preliminary=True,
                 schema_register_version="rc6.3",
             ),
             [],
         )
         # Historical rc6.2 semantics via explicit loader; r3 bytes unchanged.
+        r3f = _materialize_committed_fixture("rc6-r3-synthetic-final")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r3-synthetic-final", schema_register_version="rc6.2"),
+            v.validate_dir(r3f, schema_register_version="rc6.2"),
             [],
         )
-        hist_pkg = (FIXTURES / "rc6-r3-synthetic-final" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_bytes()
+        hist_pkg = (r3f / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_bytes()
         self.assertTrue(hist_pkg)
 
 

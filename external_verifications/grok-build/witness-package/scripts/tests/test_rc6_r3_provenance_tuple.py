@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """RC6-R3 focused tests: provenance tuple, final binding, schema evolution.
 
-Uses only the Python standard library and local controlled temporary directories.
-Does not invoke Docker, Cargo, compilers, product binaries, network, or Witness
-workflows. Synthetic only — not Independent Witness evidence.
+Uses only the Python standard library and repository-external temporary
+directories. Committed fixtures are materialized from Git blob bytes (not
+working-tree smudge). Does not invoke Docker, Cargo, compilers, product
+binaries, network, or Witness workflows. Synthetic only — not Independent
+Witness evidence.
 """
 
 from __future__ import annotations
@@ -28,7 +30,6 @@ import validate_witness_evidence as v  # noqa: E402
 
 RC6_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc6.json"
 RC61_REGISTER = PACKAGE_DIR / "schemas" / "canonical_schema_register_rc6.1.json"
-FIXTURES = TESTS_DIR / "fixtures"
 HOST_SCRIPT = SCRIPTS_DIR / "run_witness_narrow_build.sh"
 CONTAINER_SCRIPT = SCRIPTS_DIR / "container_narrow_build.sh"
 
@@ -36,7 +37,8 @@ _TEMPS: list[Path] = []
 
 
 def _mktmp(prefix: str = "rc6r3_test_") -> Path:
-    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(TESTS_DIR)))
+    # Repository-external temp only (no dir= under tests/).
+    path = Path(tempfile.mkdtemp(prefix=prefix))
     _TEMPS.append(path)
     return path
 
@@ -46,18 +48,81 @@ def _cleanup() -> None:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)
     _TEMPS.clear()
-    for path in TESTS_DIR.glob("rc6r3_test_*"):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+
+
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", str(TESTS_DIR), "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(
+    scenario: str, prefix: str = "rc6r3_fx_"
+) -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp."""
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMPS.append(dest)
+    try:
+        for rel in rels:
+            if ".." in Path(rel).parts:
+                raise ValueError(f"refusing path traversal in git path: {rel}")
+            if not rel.startswith(prefix_posix + "/") and rel != prefix_posix:
+                raise ValueError(f"git path outside fixture root: {rel}")
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        if dest in _TEMPS:
+            _TEMPS.remove(dest)
+        raise
+    return dest
 
 
 def _copy_fixture(name: str) -> Path:
-    src = FIXTURES / name
-    dst = _mktmp()
-    # Replace empty temp dir with a full copy of the fixture tree.
-    shutil.rmtree(dst)
-    shutil.copytree(src, dst)
-    return dst
+    """Writable tree from Git blob materialization (not working-tree fixtures)."""
+    return _materialize_committed_fixture(name, prefix=f"rc6r3_copy_{name}_")
 
 
 class Rc6R3SchemaAuthorityTests(unittest.TestCase):
@@ -108,44 +173,53 @@ class Rc6R3SchemaAuthorityTests(unittest.TestCase):
         self.assertIn("WEAVER_FORGE_FINAL_BINDING.txt", active)
 
     def test_04_active_fixtures_pass_historical_bytes_preserved(self) -> None:
+        r3f = _materialize_committed_fixture("rc6-r3-synthetic-final")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r3-synthetic-final", schema_register_version="rc6.3"),
+            v.validate_dir(r3f, schema_register_version="rc6.3"),
             [],
         )
+        r3p = _materialize_committed_fixture("rc6-r3-synthetic-preliminary")
         self.assertEqual(
             v.validate_dir(
-                FIXTURES / "rc6-r3-synthetic-preliminary",
+                r3p,
                 host_preliminary=True,
                 schema_register_version="rc6.3",
             ),
             [],
         )
-        self.assertEqual(v.validate_dir(FIXTURES / "rc6-r6-synthetic-final"), [])
+        r6f = _materialize_committed_fixture("rc6-r6-synthetic-final")
+        self.assertEqual(v.validate_dir(r6f), [])
+        r6p = _materialize_committed_fixture("rc6-r6-synthetic-preliminary")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r6-synthetic-preliminary", host_preliminary=True),
+            v.validate_dir(r6p, host_preliminary=True),
             [],
         )
-        hist_pkg = (FIXTURES / "rc6-r1-synthetic-final" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
+        r1f = _materialize_committed_fixture("rc6-r1-synthetic-final")
+        hist_pkg = (r1f / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
             encoding="utf-8"
         )
         self.assertNotIn("weaver_forge_tag_object_id", hist_pkg)
         # Non-R3 evidence must not auto-downgrade under default/active validation.
-        active_r1 = v.validate_dir(FIXTURES / "rc6-r1-synthetic-final")
+        active_r1 = v.validate_dir(r1f)
         self.assertTrue(any("WEAVER_FORGE_FINAL_BINDING.txt" in e for e in active_r1), active_r1)
-        active_hist = v.validate_dir(FIXTURES / "success-artifact-present")
+        success = _materialize_committed_fixture("success-artifact-present")
+        active_hist = v.validate_dir(success)
         self.assertTrue(any("WEAVER_FORGE_FINAL_BINDING.txt" in e for e in active_hist), active_hist)
         # Explicit historical loader paths remain compatible; fixture bytes unchanged.
+        r1f_hist = _materialize_committed_fixture("rc6-r1-synthetic-final")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "rc6-r1-synthetic-final", schema_register_version="rc6.1"),
+            v.validate_dir(r1f_hist, schema_register_version="rc6.1"),
             [],
         )
+        success_hist = _materialize_committed_fixture("success-artifact-present")
         self.assertEqual(
-            v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1"),
+            v.validate_dir(success_hist, schema_register_version="rc6.1"),
             [],
         )
+        rc5f = _materialize_committed_fixture("rc5-synthetic-final-success")
         self.assertEqual(
             v.validate_dir(
-                FIXTURES / "rc5-synthetic-final-success",
+                rc5f,
                 schema_register_version="rc5-phase4-s2.1",
             ),
             [],
@@ -216,12 +290,9 @@ class Rc6R3ProvenanceBindingTests(unittest.TestCase):
         self.assertTrue(any("grok_build_commit" in e for e in errors), errors)
 
     def test_10_mechanical_manual_form_refs(self) -> None:
-        stmt = (FIXTURES / "rc6-r3-synthetic-final" / "WITNESS_STATEMENT.md").read_text(
-            encoding="utf-8"
-        )
-        verd = (FIXTURES / "rc6-r3-synthetic-final" / "WITNESS_VERDICT.md").read_text(
-            encoding="utf-8"
-        )
+        tree = _materialize_committed_fixture("rc6-r3-synthetic-final")
+        stmt = (tree / "WITNESS_STATEMENT.md").read_text(encoding="utf-8")
+        verd = (tree / "WITNESS_VERDICT.md").read_text(encoding="utf-8")
         for text in (stmt, verd):
             self.assertIn("run_id=run-rc6-r3-schema-synthetic-001", text)
             self.assertIn("package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt", text)
