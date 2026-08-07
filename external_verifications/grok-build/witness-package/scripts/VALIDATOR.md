@@ -221,11 +221,12 @@ explicit historical compatibility path. S2-shaped evidence is never silently
 downgraded.
 
 No Independent Witness reproduction/PASS is claimed. C-014 remains `NOT_STARTED`.
-RC6 is FIXED_IMMUTABLE and **NOT READY**. RC7 does not yet exist as a tagged/archived/bundled
-release. Next-candidate RC7 identity is fixed in active Host/templates and validator mapping on
-`main` (pre-tag / prospective only). Findings are not CLEAR/CLOSED by implementation or
-documentation alone. Independent Witness handoff is not authorized. RC7 Source Weaver audit has
-not occurred.
+Active candidate-native identity (Repository Owner G-3): **WF-FC-01** / **`weaver-forge-fc-01`**
+Active candidate name: **Weaver Forge Future Candidate 1**. Mapping **WF-FC-01 -> weaver-forge-fc-01**.
+(normative mapping **WF-FC-01 -> weaver-forge-fc-01**). Future Candidate tag/object/package are
+**not yet created**. RC6/RC7/RC8 remain immutable **historical** identities only. Findings are
+not CLEAR/CLOSED by implementation or documentation alone. Independent Witness handoff is not
+authorized. RC9 is **NOT IMPLIED**.
 
 ### Placeholder tolerance for container-owned files on early-failure paths
 
@@ -399,9 +400,13 @@ keys are always present but only conditionally non-empty). Renames from rc3:
 | `EXPECTED_IMAGE_DIGEST` | `6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` |
 | `EXPECTED_CARGO_LOCK_SHA256` | `1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421` |
 | `EXACT_BUILD_CMD` | `cargo build -p xai-grok-pager-bin --locked` |
-| `PACKAGE_TAG_ACTIVE_RC5` | `grok-build-witness-v1.0.0-rc5` |
+| `PACKAGE_TAG_ACTIVE_FC01` | `weaver-forge-fc-01` |
+| `PACKAGE_TAG_HISTORICAL_RC8` | `grok-build-witness-v1.0.0-rc8` |
+| `PACKAGE_TAG_HISTORICAL_RC7` | `grok-build-witness-v1.0.0-rc7` |
+| `PACKAGE_TAG_HISTORICAL_RC6` | `grok-build-witness-v1.0.0-rc6` |
+| `PACKAGE_TAG_HISTORICAL_RC5` | `grok-build-witness-v1.0.0-rc5` |
 | `PACKAGE_TAG_HISTORICAL_RC4` | `grok-build-witness-v1.0.0-rc4` |
-| `PACKAGE_TAG_EXPECTED` | alias of active rc5 tag (`grok-build-witness-v1.0.0-rc5`) |
+| `PACKAGE_TAG_EXPECTED` | alias of active Future Candidate tag (`weaver-forge-fc-01`) |
 | `EXPECTED_DOTSLASH_VERSION` | `0.5.7` |
 
 ### Package-version-aware expected-tag resolution
@@ -413,17 +418,25 @@ Expected package tag is resolved solely from `package_version` in
 
 | Declared `package_version` | Expected tag |
 |----------------------------|--------------|
-| `1.0.0-rc5` | `grok-build-witness-v1.0.0-rc5` |
+| `WF-FC-01` | `weaver-forge-fc-01` |
+| `1.0.0-rc8` | `grok-build-witness-v1.0.0-rc8` (historical) |
+| `1.0.0-rc7` | `grok-build-witness-v1.0.0-rc7` (historical) |
+| `1.0.0-rc6` | `grok-build-witness-v1.0.0-rc6` (historical) |
+| `1.0.0-rc5` | `grok-build-witness-v1.0.0-rc5` (historical) |
 | `1.0.0-rc5-phase4-s3-fixture` | `grok-build-witness-v1.0.0-rc5` |
 | `1.0.0-rc4` | `grok-build-witness-v1.0.0-rc4` |
-| any other / unknown value | **fail closed** (unsupported) |
+| any other / unknown / absent / malformed value | **fail closed** (unsupported) |
 
 Rules:
 
-- Active rc5 package versions require the rc5 tag.
+- Active Future Candidate package version `WF-FC-01` requires tag `weaver-forge-fc-01`.
+- Historical package versions require their exact historical tags (rc4-rc8).
 - Historical `package_version=1.0.0-rc4` requires the rc4 tag.
 - Synthetic rc5 fixture package version requires the rc5 tag.
-- Unknown package versions fail closed.
+- Absent, empty, malformed, contradictory, or unsupported package versions fail closed.
+- Requested tag, canonical tag, and verdict `package_tag` must equal the expected tag for the declared version.
+- Identity record and final binding must cross-file agree on package version / canonical tag.
+- Future tag object ID and peeled commit are runtime-resolved; do not fabricate IDs.
 - A mismatching tag must **never** select historical/active compatibility.
 - `canonical_run=yes` means the requested tag exactly equals the expected tag
   resolved from the declared `package_version`.

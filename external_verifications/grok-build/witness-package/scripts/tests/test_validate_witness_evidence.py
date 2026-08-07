@@ -115,6 +115,75 @@ def writer_block_keys(text: str, filename: str) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+def _git_toplevel() -> Path:
+    """Return the repository root (read-only; no index/worktree mutation)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["git", "-C", HERE, "rev-parse", "--show-toplevel"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(proc.stdout.strip())
+
+
+def _materialize_committed_fixture(scenario: str, prefix: str = "fx_blob_") -> Path:
+    """Materialize a committed fixture tree from Git blob bytes into external temp.
+
+    Working-tree smudge (e.g. core.autocrlf CRLF) is intentionally bypassed:
+    each tracked file is read via ``git cat-file -p HEAD:<path>`` and written
+    with those exact bytes under a repository-external temporary directory.
+    Does not modify the repository, index, or fixture originals.
+    """
+    import subprocess
+
+    repo = _git_toplevel()
+    fixtures_prefix = (
+        Path("external_verifications/grok-build/witness-package/scripts/tests/fixtures")
+        / scenario
+    )
+    prefix_posix = fixtures_prefix.as_posix()
+    listed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix_posix,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rels = [ln.strip().replace("\\", "/") for ln in listed.stdout.splitlines() if ln.strip()]
+    if not rels:
+        raise FileNotFoundError(f"no tracked git blobs under HEAD:{prefix_posix}")
+
+    dest = Path(tempfile.mkdtemp(prefix=prefix))
+    try:
+        for rel in rels:
+            blob = subprocess.run(
+                ["git", "-C", str(repo), "cat-file", "-p", f"HEAD:{rel}"],
+                check=True,
+                capture_output=True,
+            ).stdout
+            under = Path(rel[len(prefix_posix) :].lstrip("/"))
+            out = dest / under
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(blob)
+    except Exception:
+        import shutil
+
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+    return dest
+
+
 def _mktree(scenario: str, overrides: "dict[str, str] | None" = None) -> Path:
     files = fx.build_scenario(scenario)
     if overrides:
@@ -257,12 +326,18 @@ class ParseKvTests(unittest.TestCase):
 
 class GoldenFixtureTests(unittest.TestCase):
     def test_all_committed_fixtures_pass(self):
+        import shutil
+
         for scenario in fx.ALL_SCENARIOS:
             with self.subTest(scenario=scenario):
                 d = FIXTURES / scenario
                 self.assertTrue(d.is_dir(), f"missing committed fixture: {d}")
-                errors = v.validate_dir(d, schema_register_version="rc6.1")
-                self.assertEqual(errors, [], f"{scenario}: {errors}")
+                tmp = _materialize_committed_fixture(scenario, prefix=f"fx_{scenario}_")
+                try:
+                    errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+                    self.assertEqual(errors, [], f"{scenario}: {errors}")
+                finally:
+                    shutil.rmtree(tmp, ignore_errors=True)
 
     def test_all_scenarios_build_and_pass(self):
         for scenario in fx.ALL_SCENARIOS:
@@ -272,14 +347,22 @@ class GoldenFixtureTests(unittest.TestCase):
                 self.assertEqual(errors, [], f"{scenario}: {errors}")
 
     def test_main_entrypoint_returns_zero_on_success_fixture(self):
-        rc = v.main(
-            [
-                str(FIXTURES / "success-artifact-present"),
-                "--schema-register-version",
-                "rc6.1",
-            ]
+        import shutil
+
+        tmp = _materialize_committed_fixture(
+            "success-artifact-present", prefix="fx_main_success_"
         )
-        self.assertEqual(rc, 0)
+        try:
+            rc = v.main(
+                [
+                    str(tmp),
+                    "--schema-register-version",
+                    "rc6.1",
+                ]
+            )
+            self.assertEqual(rc, 0)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -649,8 +732,8 @@ class HostSafetyStaticTests(unittest.TestCase):
         self.assertIn("set -Eeuo pipefail", self.host)
 
     def test_canonical_constants_present_and_readonly(self):
-        self.assertIn('readonly PACKAGE_VERSION="1.0.0-rc8"', self.host)
-        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="grok-build-witness-v1.0.0-rc8"', self.host)
+        self.assertIn('readonly PACKAGE_VERSION="WF-FC-01"', self.host)
+        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="weaver-forge-fc-01"', self.host)
         self.assertIn(f'readonly CANONICAL_GROK_BUILD_COMMIT="{fx.GROK}"', self.host)
         self.assertIn(f'readonly CANONICAL_CARGO_LOCK_SHA256="{fx.LOCK}"', self.host)
         self.assertIn(f'readonly CANONICAL_BUILD_CMD="{fx.BUILD_CMD}"', self.host)
@@ -769,20 +852,33 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
 
     def test_active_register_loads_and_historical_fixtures_still_pass(self):
         import schema_register_loader as srl
+        import shutil
 
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.5")
-        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
-        self.assertEqual(errors, [], errors)
+        tmp = _materialize_committed_fixture(
+            "success-artifact-present", prefix="fx_s2_success_"
+        )
+        try:
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertEqual(errors, [], errors)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
         # Historical NOT_REACHED fixtures remain accepted via historical compatibility.
-        errors2 = v.validate_dir(FIXTURES / "image-pull-failure", schema_register_version="rc6.1")
-        self.assertEqual(errors2, [], errors2)
+        tmp2 = _materialize_committed_fixture(
+            "image-pull-failure", prefix="fx_s2_imgpull_"
+        )
+        try:
+            errors2 = v.validate_dir(tmp2, schema_register_version="rc6.1")
+            self.assertEqual(errors2, [], errors2)
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
 
     def test_s2_shaped_package_identity_enforced_and_no_write(self):
         import schema_register_loader as srl
         import shutil
 
-        tmp = Path(tempfile.mkdtemp(prefix="phase4_s2_val_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="phase4_s2_val_"))
         try:
             files = fx.build_scenario("success-artifact-present")
             pkg = files["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]
@@ -817,18 +913,26 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_host_preliminary_mode_still_explicit(self):
-        errors = v.validate_dir(
-            FIXTURES / "success-artifact-present",
-            mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
-        self.assertEqual(errors, [], errors)
+        import shutil
+
+        tmp = _materialize_committed_fixture(
+            "success-artifact-present", prefix="fx_host_prelim_"
+        )
+        try:
+            errors = v.validate_dir(
+                tmp, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"
+            )
+            self.assertEqual(errors, [], errors)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     """Pi-approved package-version-aware expected-tag resolution.
 
-    Slice / RC4B-002/003/012/026: RC8 active mapping with RC7 historical
-    support and cross-file tag equality among package_tag /
-    weaver_forge_tag_requested / canonical_tag / expected.
+    Active: WF-FC-01 -> weaver-forge-fc-01 (Repository Owner G-3).
+    Historical RC4-RC8 mapping retained; cross-file tag equality among
+    package_tag / weaver_forge_tag_requested / canonical_tag / expected.
     """
 
     def test_resolver_mapping_and_unknown_fail_closed(self):
@@ -845,16 +949,31 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             v.PACKAGE_TAG_ACTIVE_RC5,
         )
         self.assertEqual(
+            v.expected_package_tag_for_version("1.0.0-rc6"),
+            "grok-build-witness-v1.0.0-rc6",
+        )
+        self.assertEqual(
             v.expected_package_tag_for_version("1.0.0-rc7"),
             v.PACKAGE_TAG_HISTORICAL_RC7,
         )
         self.assertEqual(
             v.expected_package_tag_for_version("1.0.0-rc8"),
-            v.PACKAGE_TAG_ACTIVE_RC8,
+            v.PACKAGE_TAG_HISTORICAL_RC8,
         )
-        self.assertEqual(v.PACKAGE_TAG_EXPECTED, v.PACKAGE_TAG_ACTIVE_RC8)
+        # Active Future Candidate mapping (normative WF-FC-01 -> weaver-forge-fc-01).
+        self.assertEqual(
+            v.expected_package_tag_for_version("WF-FC-01"),
+            v.PACKAGE_TAG_ACTIVE_FC01,
+        )
+        self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC01, "weaver-forge-fc-01")
+        self.assertEqual(v.PACKAGE_TAG_EXPECTED, v.PACKAGE_TAG_ACTIVE_FC01)
+        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_ACTIVE_FC01))
+        self.assertTrue(v.package_tag_matches_grammar("weaver-forge-fc-01"))
+        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_HISTORICAL_RC8))
+        self.assertFalse(v.package_tag_matches_grammar(""))
+        self.assertFalse(v.package_tag_matches_grammar("not-a-valid-tag"))
+        self.assertFalse(v.package_tag_matches_grammar("weaver-forge-fc-99"))
         self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc3"))
-        self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc6"))
         self.assertIsNone(v.expected_package_tag_for_version("1.0.0-rc99"))
         self.assertIsNone(v.expected_package_tag_for_version(""))
 
@@ -921,8 +1040,8 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
 
     def test_rc4_package_rc4_tag_passes_and_rc5_tag_fails(self):
         base = fx.build_scenario("success-artifact-present")
-        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_ok_", dir=HERE))
-        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_bad_", dir=HERE))
+        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_ok_"))
+        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_bad_"))
         try:
             fx.write_tree(tmp_ok, base)
             self.assertEqual(v.validate_dir(tmp_ok, schema_register_version="rc6.1"), [])
@@ -960,8 +1079,8 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             package_version="1.0.0-rc5",
             weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC4,
         )
-        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_rc5ok_", dir=HERE))
-        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_rc5bad_", dir=HERE))
+        tmp_ok = Path(tempfile.mkdtemp(prefix="pv_rc5ok_"))
+        tmp_bad = Path(tempfile.mkdtemp(prefix="pv_rc5bad_"))
         try:
             fx.write_tree(tmp_ok, good)
             # Also align SOURCE_ACQUISITION / WITNESS_VERDICT tags for internal consistency.
@@ -1004,7 +1123,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             package_version="1.0.0-rc7",
             weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC7,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7ok_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7ok_"))
         try:
             fx.write_tree(tmp, good)
             self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_HISTORICAL_RC7)
@@ -1026,7 +1145,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
         self.assertIsNotNone(v.expected_package_tag_for_version("1.0.0-rc7"))
         base = fx.build_scenario("success-artifact-present")
         unknown = self._mutate_identity(base, package_version="1.0.0-rc7-unknown")
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7unk_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7unk_"))
         try:
             fx.write_tree(tmp, unknown)
             errors = v.validate_dir(tmp, schema_register_version="rc6.1")
@@ -1046,7 +1165,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             package_version="1.0.0-rc7",
             weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC7,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7verdict_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7verdict_"))
         try:
             fx.write_tree(tmp, good)
             self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_HISTORICAL_RC7)
@@ -1078,7 +1197,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             package_version="1.0.0-rc7",
             weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC5,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7id_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc7id_"))
         try:
             fx.write_tree(tmp, bad)
             (tmp / "WITNESS_VERDICT.md").write_text(
@@ -1105,15 +1224,14 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     def test_rc8_final_binding_canonical_tag_mismatch_rejected(self):
         import shutil
 
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8bind_", dir=HERE))
+        tmp = _materialize_committed_fixture(
+            "rc6-r6-synthetic-final", prefix="pv_rc8bind_"
+        )
         try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            # Active fixture is RC8; break only canonical_tag.
+            # Historical RC8 fixture; break only canonical_tag.
             binding = (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").read_text(encoding="utf-8")
             binding = binding.replace(
-                f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC8}",
+                f"canonical_tag={v.PACKAGE_TAG_HISTORICAL_RC8}",
                 f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC5}",
             )
             (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").write_text(
@@ -1138,15 +1256,14 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     def test_rc8_cross_file_identity_mismatch_rejected(self):
         import shutil
 
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8xfile_", dir=HERE))
+        tmp = _materialize_committed_fixture(
+            "rc6-r6-synthetic-final", prefix="pv_rc8xfile_"
+        )
         try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            # Leave identity+binding at RC8; flip only verdict package_tag.
+            # Leave identity+binding at historical RC8; flip only verdict package_tag.
             verdict = (tmp / "WITNESS_VERDICT.md").read_text(encoding="utf-8")
             verdict = verdict.replace(
-                f"package_tag={v.PACKAGE_TAG_ACTIVE_RC8}",
+                f"package_tag={v.PACKAGE_TAG_HISTORICAL_RC8}",
                 f"package_tag={v.PACKAGE_TAG_HISTORICAL_RC4}",
             )
             (tmp / "WITNESS_VERDICT.md").write_text(verdict, encoding="utf-8", newline="\n")
@@ -1167,16 +1284,15 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     def test_rc8_coherent_tuple_with_final_binding_accepted(self):
         import shutil
 
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8bindok_", dir=HERE))
+        tmp = _materialize_committed_fixture(
+            "rc6-r6-synthetic-final", prefix="pv_rc8bindok_"
+        )
         try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
             self._rewrite_manifest_and_seal(tmp)
             self.assertEqual(v.validate_dir(tmp), [])
             self.assertEqual(
                 v.expected_package_tag_for_version("1.0.0-rc8"),
-                v.PACKAGE_TAG_ACTIVE_RC8,
+                v.PACKAGE_TAG_HISTORICAL_RC8,
             )
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1186,20 +1302,108 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
         good = self._mutate_identity(
             base,
             package_version="1.0.0-rc8",
-            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_RC8,
+            weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC8,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8ok_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8ok_"))
         try:
             fx.write_tree(tmp, good)
-            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_RC8)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_HISTORICAL_RC8)
             import evidence_inventory as ei
 
             ei.write_evidence_manifest(tmp)
             self.assertEqual(v.validate_dir(tmp, schema_register_version="rc6.1"), [])
             self.assertEqual(
                 v.expected_package_tag_for_version("1.0.0-rc8"),
-                v.PACKAGE_TAG_ACTIVE_RC8,
+                v.PACKAGE_TAG_HISTORICAL_RC8,
             )
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_fc01_coherent_tuple_accepted(self):
+        base = fx.build_scenario("success-artifact-present")
+        good = self._mutate_identity(
+            base,
+            package_version="WF-FC-01",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC01,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01ok_"))
+        try:
+            fx.write_tree(tmp, good)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01)
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            self.assertEqual(v.validate_dir(tmp, schema_register_version="rc6.1"), [])
+            self.assertEqual(
+                v.expected_package_tag_for_version("WF-FC-01"),
+                v.PACKAGE_TAG_ACTIVE_FC01,
+            )
+            self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC01, "weaver-forge-fc-01")
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_fc01_identity_requested_tag_mismatch_rejected(self):
+        base = fx.build_scenario("success-artifact-present")
+        bad = self._mutate_identity(
+            base,
+            package_version="WF-FC-01",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC8,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01id_"))
+        try:
+            fx.write_tree(tmp, bad)
+            (tmp / "WITNESS_VERDICT.md").write_text(
+                (tmp / "WITNESS_VERDICT.md")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01),
+                encoding="utf-8",
+                newline="\n",
+            )
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertTrue(
+                any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC01 in e for e in errors), errors)
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_fc01_verdict_package_tag_mismatch_rejected(self):
+        base = fx.build_scenario("success-artifact-present")
+        good = self._mutate_identity(
+            base,
+            package_version="WF-FC-01",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC01,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01verdict_"))
+        try:
+            fx.write_tree(tmp, good)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01)
+            (tmp / "WITNESS_VERDICT.md").write_text(
+                (tmp / "WITNESS_VERDICT.md")
+                .read_text(encoding="utf-8")
+                .replace(v.PACKAGE_TAG_ACTIVE_FC01, v.PACKAGE_TAG_HISTORICAL_RC4),
+                encoding="utf-8",
+                newline="\n",
+            )
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            errors = v.validate_dir(tmp, schema_register_version="rc6.1")
+            self.assertTrue(
+                any("package_tag must equal expected tag" in e for e in errors),
+                errors,
+            )
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC01 in e for e in errors), errors)
         finally:
             import shutil
 
@@ -1208,7 +1412,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     def test_unknown_package_version_fails_closed(self):
         base = fx.build_scenario("success-artifact-present")
         unknown = self._mutate_identity(base, package_version="1.0.0-rc99")
-        tmp = Path(tempfile.mkdtemp(prefix="pv_unk_", dir=HERE))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_unk_"))
         try:
             fx.write_tree(tmp, unknown)
             errors = v.validate_dir(tmp, schema_register_version="rc6.1")
@@ -1222,15 +1426,45 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_active_rc5_and_historical_rc4_fixtures_pass(self):
-        self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"),
-            [],
+        import shutil
+
+        tmp_rc5p = _materialize_committed_fixture(
+            "rc5-preliminary-success", prefix="fx_rc5p_"
         )
-        self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-synthetic-final-success", mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"),
-            [],
+        try:
+            self.assertEqual(
+                v.validate_dir(
+                    tmp_rc5p,
+                    mode=v.MODE_HOST_PRELIMINARY,
+                    schema_register_version="rc6.1",
+                ),
+                [],
+            )
+        finally:
+            shutil.rmtree(tmp_rc5p, ignore_errors=True)
+        tmp_rc5f = _materialize_committed_fixture(
+            "rc5-synthetic-final-success", prefix="fx_rc5f_"
         )
-        self.assertEqual(v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1"), [])
+        try:
+            self.assertEqual(
+                v.validate_dir(
+                    tmp_rc5f,
+                    mode=v.MODE_FINAL_SUBMISSION,
+                    schema_register_version="rc6.1",
+                ),
+                [],
+            )
+        finally:
+            shutil.rmtree(tmp_rc5f, ignore_errors=True)
+        tmp_ok = _materialize_committed_fixture(
+            "success-artifact-present", prefix="fx_rc4ok_"
+        )
+        try:
+            self.assertEqual(
+                v.validate_dir(tmp_ok, schema_register_version="rc6.1"), []
+            )
+        finally:
+            shutil.rmtree(tmp_ok, ignore_errors=True)
         pkg = (FIXTURES / "rc5-preliminary-success" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
             encoding="utf-8"
         )
@@ -1239,21 +1473,19 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC4}", hist)
-        # Active synthetic-final trees are sealed to archive-equivalent CRLF bytes
-        # (working-tree LF cannot pass validate_dir against those seals). Identity
-        # and LF-resealed binding are covered here and by RC8 coherent-tuple tests.
+        # Historical RC8 synthetic-final trees are sealed to archive-equivalent CRLF
+        # bytes (working-tree LF cannot pass validate_dir against those seals).
+        # Identity and LF-resealed binding are covered here and by RC8 coherent-tuple tests.
         identity = (FIXTURES / "rc6-r6-synthetic-final" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
             encoding="utf-8"
         )
         self.assertIn("package_version=1.0.0-rc8", identity)
-        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC8}", identity)
-        import shutil
+        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC8}", identity)
 
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8ae_", dir=HERE))
+        tmp = _materialize_committed_fixture(
+            "rc6-r6-synthetic-final", prefix="pv_rc8ae_"
+        )
         try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
             self._rewrite_manifest_and_seal(tmp)
             self.assertEqual(v.validate_dir(tmp), [])
         finally:

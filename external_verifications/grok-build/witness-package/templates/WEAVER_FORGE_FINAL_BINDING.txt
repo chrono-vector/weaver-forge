@@ -18,15 +18,16 @@
 # source_identity_ref, artifact_identity_ref, evidence_manifest_ref
 evidence_schema_version=1
 run_id=<run-id-token>
-package_version=1.0.0-rc8
-canonical_tag=grok-build-witness-v1.0.0-rc8
-tag_object_id=<40-char lowercase hex annotated tag object id>
-peeled_commit=<40-char lowercase hex peeled commit>
+package_version=WF-FC-01
+# Candidate: Weaver Forge Future Candidate 1 | version WF-FC-01 | tag weaver-forge-fc-01 | mapping WF-FC-01 -> weaver-forge-fc-01 | authority: Repository Owner G-3
+canonical_tag=weaver-forge-fc-01
+tag_object_id=<40-char lowercase hex annotated tag object id OR NOT_YET_CREATED_NOT_YET_DETERMINABLE when tag absent>
+peeled_commit=<40-char lowercase hex peeled commit OR NOT_YET_CREATED_NOT_YET_DETERMINABLE when tag absent>
 grok_build_source_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 authoritative_outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT
 artifact_sha256=<64-char lowercase hex sha256 OR NOT_APPLICABLE>
 artifact_byte_size=<numeric byte count OR NOT_APPLICABLE>
-final_manifest_sha256=<64-char lowercase hex sha256 of EVIDENCE_MANIFEST.sha256 bytes>
+final_manifest_sha256=<64-char lowercase hex sha256 of EVIDENCE_MANIFEST.sha256 bytes; runtime-generated only - do not fabricate at template time>
 package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
 build_exit_code_ref=BUILD_EXIT_CODE.txt
 host_outcome_ingestion_ref=HOST_OUTCOME_INGESTION.txt

@@ -87,20 +87,25 @@ EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 EXPECTED_CARGO_LOCK_SHA256 = "1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 EXACT_BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
-# Package-version-aware expected-tag authority (Pi-approved; RC8 tuple binding).
+# Package-version-aware expected-tag authority (Repository Owner G-3; Future Candidate 1).
 # Source of authority: package_version from WEAVER_FORGE_PACKAGE_IDENTITY.txt.
 # Tag mismatch never selects historical/active compatibility.
-PACKAGE_TAG_ACTIVE_RC8 = "grok-build-witness-v1.0.0-rc8"
+PACKAGE_TAG_ACTIVE_FC01 = "weaver-forge-fc-01"
+# Active candidate: Weaver Forge Future Candidate 1; mapping WF-FC-01 -> weaver-forge-fc-01 (Repository Owner G-3).
+PACKAGE_TAG_HISTORICAL_RC8 = "grok-build-witness-v1.0.0-rc8"
+PACKAGE_TAG_ACTIVE_RC8 = PACKAGE_TAG_HISTORICAL_RC8  # historical alias
 PACKAGE_TAG_HISTORICAL_RC7 = "grok-build-witness-v1.0.0-rc7"
 PACKAGE_TAG_ACTIVE_RC5 = "grok-build-witness-v1.0.0-rc5"
 PACKAGE_TAG_HISTORICAL_RC4 = "grok-build-witness-v1.0.0-rc4"
-PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_RC8  # active package default / docs alias
+PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_FC01  # active package default / docs alias
 PACKAGE_VERSION_EXPECTED_TAG: dict[str, str] = {
     "1.0.0-rc4": PACKAGE_TAG_HISTORICAL_RC4,
+    "WF-FC-01": PACKAGE_TAG_ACTIVE_FC01,
     "1.0.0-rc5": PACKAGE_TAG_ACTIVE_RC5,
     "1.0.0-rc5-phase4-s3-fixture": PACKAGE_TAG_ACTIVE_RC5,
+    "1.0.0-rc6": "grok-build-witness-v1.0.0-rc6",
     "1.0.0-rc7": PACKAGE_TAG_HISTORICAL_RC7,
-    "1.0.0-rc8": PACKAGE_TAG_ACTIVE_RC8,
+    "1.0.0-rc8": PACKAGE_TAG_HISTORICAL_RC8,
 }
 EXPECTED_DOTSLASH_VERSION = "0.5.7"
 
@@ -108,7 +113,7 @@ EXPECTED_DOTSLASH_VERSION = "0.5.7"
 def expected_package_tag_for_version(package_version: str) -> str | None:
     """Resolve the sole expected package tag for a declared package_version.
 
-    Returns None for unknown/unsupported versions (callers must fail closed).
+    Returns None for absent/unknown/unsupported versions (callers must fail closed).
     Does not consult the requested tag — mismatch never selects compatibility.
     """
     if not package_version:
@@ -350,6 +355,19 @@ REDACTION_MARKER_RE = re.compile(r"\[REDACTED[^\]]*\]")
 # Manifest filename grammar: relative path, POSIX separators, safe characters only.
 FILENAME_RE = re.compile(r"^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*$")
 MANIFEST_LINE_RE = re.compile(r"^([0-9A-Za-z]{64})  (.+)$")
+# Package-tag grammar: active Future Candidate tag (exact) or historical grok-build-witness-v* form.
+HISTORICAL_PACKAGE_TAG_GRAMMAR_RE = re.compile(
+    r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$"
+)
+
+
+def package_tag_matches_grammar(tag: str) -> bool:
+    """Return True if tag is active FC tag or historical grok-build-witness-v grammar."""
+    if not tag:
+        return False
+    if tag == PACKAGE_TAG_ACTIVE_FC01:
+        return True
+    return HISTORICAL_PACKAGE_TAG_GRAMMAR_RE.match(tag) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -1285,7 +1303,7 @@ def check_weaver_forge_package_identity(
             f"{name}: canonical_run=yes requires weaver_forge_tag_requested={expected_tag} "
             f"for package_version={package_version!r}",
         )
-    if tag and not re.match(r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$", tag):
+    if tag and not package_tag_matches_grammar(tag):
         fail(errors, f"{name}: weaver_forge_tag_requested does not match expected tag grammar: {tag!r}")
     canonical_run = fields.get("canonical_run", "")
     if canonical_run not in ("yes", "no"):
@@ -2329,7 +2347,7 @@ def check_witness_verdict(
             f"(found {final_binding_ref!r})",
         )
     tag = fields.get("package_tag", "")
-    if tag and not re.match(r"^grok-build-witness-v\d+\.\d+\.\d+(-rc\d+)?$", tag):
+    if tag and not package_tag_matches_grammar(tag):
         fail(errors, f"{name}: package_tag does not match expected tag grammar: {tag!r}")
     # Package-version/tag tuple equality (RC4B-022/026/028/035): package_tag must
     # equal the version-aware expected tag and the observed identity/final-binding tags.
