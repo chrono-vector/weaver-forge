@@ -5,7 +5,7 @@ Authored by the independent Witness. The `key=value` lines and the single
 
 - `outcome` must equal the authoritative BUILD_EXIT_CODE.txt outcome.
 - `verdict_ceiling` is one of PASS | PARTIAL | FAIL | INDETERMINATE.
-- The validator recomputes a machine ceiling and REJECTS any proposed verdict above it (validator-computed outcome ceiling). This template is a proposed-verdict interface only (active package identity Weaver Forge Future Candidate 3 / WF-FC-03 / weaver-forge-fc-03; historical WF-FC-01 / WF-FC-02 retained as non-active). Independent Witness execution, READY, RC9, and C-014 determination are out of scope for static implementation.
+- The validator recomputes a machine ceiling and REJECTS any proposed verdict above it (validator-computed outcome ceiling). This template is a proposed-verdict interface only (active package identity Weaver Forge Future Candidate 4 / WF-FC-04 / weaver-forge-fc-04; historical WF-FC-01 / WF-FC-02 / WF-FC-03 retained as non-active). Independent Witness execution, READY, RC9, and C-014 determination are out of scope for static implementation.
 - `maintainer_intake_verdict` must be exactly `pending` at final submission.
   Later maintainer dispositions append outside the hashed package at
   `external_verifications/grok-build/witness-submissions/<run_id>/MAINTAINER_INTAKE_LEDGER.txt`
@@ -17,9 +17,9 @@ evidence_schema_version=1
 run_id=<run-id-token>
 package_identity_ref=WEAVER_FORGE_PACKAGE_IDENTITY.txt
 final_binding_ref=WEAVER_FORGE_FINAL_BINDING.txt
-package_tag=weaver-forge-fc-03
-# package_version mapping (active): WF-FC-03 -> weaver-forge-fc-03 (Repository Owner)
-# historical: WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02
+package_tag=weaver-forge-fc-04
+# package_version mapping (active): WF-FC-04 -> weaver-forge-fc-04 (Repository Owner)
+# historical: WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02; WF-FC-03 -> weaver-forge-fc-03
 weaver_forge_commit=<40-char lowercase hex commit>
 grok_build_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce
 outcome=CARGO_SUCCEEDED_ARTIFACT_PRESENT

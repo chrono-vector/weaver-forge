@@ -1,19 +1,19 @@
-# Witness package manifest — required outputs (candidate-native WF-FC-03; historical FC-01/FC-02/RC inventory retained)
+# Witness package manifest — required outputs (candidate-native WF-FC-04; historical FC-01/FC-02/FC-03/RC inventory retained)
 
 
 ## Package contract identity (candidate-native)
 
 | Field | Value |
 |-------|-------|
-| Active Future Candidate name | Weaver Forge Future Candidate 1 |
-| Active package version | `WF-FC-03` |
-| Active canonical tag | `weaver-forge-fc-03` |
-| Normative mapping (active) | WF-FC-03 -> weaver-forge-fc-03 |
-| Historical Future Candidate mappings | WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02 |
-| Identity authority | Repository Owner (G-3) |
-| Relationship to RC8 | successor candidate only |
+| Active Future Candidate name | Weaver Forge Future Candidate 4 |
+| Active package version | `WF-FC-04` |
+| Active canonical tag | `weaver-forge-fc-04` |
+| Normative mapping (active) | WF-FC-04 -> weaver-forge-fc-04 |
+| Historical Future Candidate mappings | WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02; WF-FC-03 -> weaver-forge-fc-03 |
+| Identity authority | Repository Owner |
+| Relationship to RC8 | Future Candidate line successor only (historical RC8 not active) |
 | Relationship to RC9 | NOT IMPLIED |
-| Implementation objects | annotated tag / peeled commit **CREATED AND PUBLISHED** (peel `f178cde13391445f319b1b1138ee920a02b32874`); package / archive / bundle **not yet created** |
+| Implementation objects | annotated tag **NOT_YET_CREATED**; tag object ID / peeled commit / tagged tree **NOT_YET_CREATED_NOT_YET_DETERMINABLE** (do not invent); package / archive / bundle **not yet created** |
 
 This file is the **package contract manifest** (required evidence outputs and evidence-contract relationships). It is **not** the source-package path inventory ([PACKAGE_FILE_MANIFEST.txt](PACKAGE_FILE_MANIFEST.txt)) and **not** a runtime-generated evidence manifest (`EVIDENCE_MANIFEST.sha256`).
 
@@ -149,7 +149,7 @@ than being omitted.
   `77369ab099414167df658b25eac3adcb4f264eb3`). Disposition **NOT READY**.
   Independent Witness handoff **not authorized**. Historical
   **`grok-build-witness-v1.0.0-rc5`** remains FIXED_IMMUTABLE **NOT READY**. Current `main` is
-  Future Candidate 3 (WF-FC-03 / weaver-forge-fc-03) on active surfaces; historical WF-FC-01 / WF-FC-02 retained
+  Future Candidate 4 (WF-FC-04 / weaver-forge-fc-04) on active surfaces; historical WF-FC-01 / WF-FC-02 / WF-FC-03 retained
   as non-active. RC9 NOT IMPLIED; Independent Witness not authorized.
 - Witness must record package tag **`grok-build-witness-v1.0.0-rc6`** for `1.0.0-rc6` evidence
   (historical `package_version=1.0.0-rc4` requires **`grok-build-witness-v1.0.0-rc4`**) and the
@@ -198,7 +198,7 @@ redirected into `EVIDENCE_DIR` at any stage.
 | Independent Witness reproduction | **NOT PERFORMED** |
 | Independent Witness PASS | **NONE** |
 | Independent Witness (C-014) | `NOT_STARTED` |
-| Active Future Candidate surfaces | WF-FC-03 / weaver-forge-fc-03 governance-selected (active); historical WF-FC-01 / WF-FC-02 retained as non-active; RC9 NOT IMPLIED |
+| Active Future Candidate surfaces | WF-FC-04 / weaver-forge-fc-04 governance-selected (active); historical WF-FC-01 / WF-FC-02 / WF-FC-03 retained as non-active; RC9 NOT IMPLIED |
 | Overall | `PARTIAL` |
 | `evidence_schema_version` | `1` |
 | Grok Build commit | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |

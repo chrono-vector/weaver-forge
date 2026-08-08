@@ -8,16 +8,16 @@
 # RC6: FIXED_IMMUTABLE; disposition NOT READY; Independent Witness handoff
 #   not authorized; Independent Witness reproduction NOT PERFORMED; Independent Witness PASS
 #   NONE; C-014 NOT_STARTED; overall PARTIAL; no finding CLEAR/CLOSED.
-# Active Future Candidate identity (governance-selected): WF-FC-03 / weaver-forge-fc-03
-# Candidate name: Weaver Forge Future Candidate 3 | WF-FC-03 -> weaver-forge-fc-03 | Repository Owner
+# Active Future Candidate identity (governance-selected): WF-FC-04 / weaver-forge-fc-04
+# Candidate name: Weaver Forge Future Candidate 4 | WF-FC-04 -> weaver-forge-fc-04 | Repository Owner
 #   fixed in active Host/templates and validator mapping.
 #   Historical Future Candidate identities (not active): WF-FC-01 / weaver-forge-fc-01;
 #   WF-FC-02 / weaver-forge-fc-02 (immutable historical NOT READY candidates).
 #   RC9 NOT IMPLIED. Not READY. Handoff not authorized.
 # Historical: rc1–rc5 remain immutable NOT READY history.
 # package_commit_authority=annotated_tag_resolution
-# Banner: FUTURE CANDIDATE 3 GOVERNANCE-SELECTED (WF-FC-03 / weaver-forge-fc-03) —
-#   NOT READY — RC8/RC7/RC6/FC-01/FC-02 HISTORICAL ONLY — IW HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED
+# Banner: FUTURE CANDIDATE 4 GOVERNANCE-SELECTED (WF-FC-04 / weaver-forge-fc-04) —
+#   NOT READY — RC8/RC7/RC6/FC-01/FC-02/FC-03 HISTORICAL ONLY — IW HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED
 #
 
 README.md
@@ -69,7 +69,7 @@ templates/REDACTIONS.md
 #   authorized; availability verified by annotated-tag resolution; package commit authority =
 #   annotated_tag_resolution; tagged snapshot must not be moved/deleted/recreated/force-updated;
 #   later main status/audit/remediation records are outside the tagged snapshot; current active surfaces
-#   use Future Candidate 3 identity (WF-FC-03 / weaver-forge-fc-03); WF-FC-01 / WF-FC-02 remain historical only)
+#   use Future Candidate 4 identity (WF-FC-04 / weaver-forge-fc-04); WF-FC-01 / WF-FC-02 / WF-FC-03 remain historical only)
 # rc4 tag grok-build-witness-v1.0.0-rc4 fixed at 039b46737c5968a81fb756d7a6d1d0dd57b6ad96 —
 #   NOT READY integrated four-batch static blind audit (immutable historical release;
 #   audit preserved under evidence/rc4-static-blind-audit/; 40 blockers)

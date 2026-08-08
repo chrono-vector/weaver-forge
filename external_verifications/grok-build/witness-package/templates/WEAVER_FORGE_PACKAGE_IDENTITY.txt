@@ -1,7 +1,7 @@
 # WEAVER_FORGE_PACKAGE_IDENTITY.txt — required fields (evidence_schema_version=1, Phase 4-S2)
 #
 # Identity of the Weaver Forge package clone that produced this evidence set.
-# canonical_run=yes requires weaver_forge_tag_requested=weaver-forge-fc-03.
+# canonical_run=yes requires weaver_forge_tag_requested=weaver-forge-fc-04.
 # package_clone_head must equal weaver_forge_commit_resolved (tag -> HEAD integrity)
 # and tag_head_match must be yes. package_commit_authority is always
 # annotated_tag_resolution (the tagged package must not embed its own commit).
@@ -13,17 +13,17 @@
 #   weaver_forge_tag_peeled_commit = peeled commit (equals weaver_forge_commit_resolved)
 # Templates remain subordinate to the active schema register (rc6.5).
 # This template does not claim packaging readiness, Future Candidate tag creation, or RC9.
-# Active candidate-native identity: WF-FC-03 / weaver-forge-fc-03 (Repository Owner).
-# Historical: WF-FC-01 / weaver-forge-fc-01; WF-FC-02 / weaver-forge-fc-02.
+# Active candidate-native identity: WF-FC-04 / weaver-forge-fc-04 (Repository Owner).
+# Historical: WF-FC-01 / weaver-forge-fc-01; WF-FC-02 / weaver-forge-fc-02; WF-FC-03 / weaver-forge-fc-03.
 # Tag object ID and peeled commit are runtime-resolved when the annotated tag exists; do not fabricate.
 evidence_schema_version=1
 witness_id=<witness-handle-token>
 run_id=<run-id-token>
-package_version=WF-FC-03
-# Candidate: Weaver Forge Future Candidate 3 | version WF-FC-03 | tag weaver-forge-fc-03 | mapping WF-FC-03 -> weaver-forge-fc-03 | authority: Repository Owner
+package_version=WF-FC-04
+# Candidate: Weaver Forge Future Candidate 4 | version WF-FC-04 | tag weaver-forge-fc-04 | mapping WF-FC-04 -> weaver-forge-fc-04 | authority: Repository Owner
 weaver_forge_url=https://github.com/chrono-vector/weaver-forge.git
-weaver_forge_tag_requested=weaver-forge-fc-03
-weaver_forge_tag_ref=refs/tags/weaver-forge-fc-03
+weaver_forge_tag_requested=weaver-forge-fc-04
+weaver_forge_tag_ref=refs/tags/weaver-forge-fc-04
 weaver_forge_tag_raw_object_type_required=tag
 weaver_forge_tag_raw_object_type_observed=tag
 weaver_forge_tag_object_id=<40-char lowercase hex annotated tag object id; not the peeled commit>

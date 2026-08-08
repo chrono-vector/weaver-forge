@@ -2,9 +2,9 @@
 # Independent Witness host orchestrator — Grok Build narrow clean rebuild.
 # Author-only helper: do not execute from owner remediation sessions without Witness independence.
 #
-# Package version WF-FC-03 (Weaver Forge Future Candidate 3; host-orchestrator).
-# Identity authority: Repository Owner. Mapping: WF-FC-03 -> weaver-forge-fc-03 (active).
-# Historical: WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02.
+# Package version WF-FC-04 (Weaver Forge Future Candidate 4; host-orchestrator).
+# Identity authority: Repository Owner. Mapping: WF-FC-04 -> weaver-forge-fc-04 (active).
+# Historical: WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02; WF-FC-03 -> weaver-forge-fc-03.
 # Annotated tag object ID and peeled commit are future runtime-resolved evidence only; do not fabricate.
 #
 # Canonical identity constants are immutable and separate from the "effective" values actually
@@ -38,9 +38,9 @@ WEAVER_FORGE_PACKAGE_REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 # ---------------------------------------------------------------------------
 # Canonical constants (immutable; never assigned from the environment)
 # ---------------------------------------------------------------------------
-readonly PACKAGE_VERSION="WF-FC-03"
+readonly PACKAGE_VERSION="WF-FC-04"
 readonly CANONICAL_WEAVER_FORGE_URL="https://github.com/chrono-vector/weaver-forge.git"
-readonly CANONICAL_WEAVER_FORGE_TAG="weaver-forge-fc-03"
+readonly CANONICAL_WEAVER_FORGE_TAG="weaver-forge-fc-04"
 # Package commit identity is derived at runtime from the annotated tag
 # (refs/tags/${CANONICAL_WEAVER_FORGE_TAG}^{commit}). The tagged package MUST
 # NOT embed its own future commit hash — that creates a self-referential
