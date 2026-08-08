@@ -1,8 +1,8 @@
 {
   "contract_version": "1.0.0-phase3b",
-  "contract_status": "CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING",
+  "contract_status": "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT",
   "contract_phase": "3B",
-  "contract_scope": "Authoritative outcome vocabulary, producer ownership, result tuple, no-inference, and no-overwrite rules. Normative for future rc5 remediation. Does not claim current runtime compliance.",
+  "contract_scope": "Authoritative outcome vocabulary, producer ownership, result tuple, no-inference, and no-overwrite rules. Live compliance status tracks repository implementation alignment after Phase 3D/3F; does not issue Formal Source disposition, READY, or Independent Witness PASS.",
   "base_commit": "24a329c5fca4f9ee2ec974509ea589ecb402f876",
   "terminal_outcomes": [
     {
@@ -378,9 +378,9 @@
     },
     "known_current_violation": {
       "id": "HOST_OVERWRITES_CONTAINER_BUILD_EXIT_CODE",
-      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "status": "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT",
       "remediation_phase": "3D",
-      "description": "Current host script may overwrite container BUILD_EXIT_CODE.txt / outcome after post-Docker source integrity or invalid-outcome handling. Contract prohibits this; implementation remains noncompliant until Phase 3D."
+      "description": "Phase 3B recorded host overwrite of container BUILD_EXIT_CODE.txt after post-Docker source integrity or invalid-outcome handling. Phase 3D host outcome ingestion preserves valid container BUILD_EXIT_CODE.txt and records host-owned failure separately (HOST_OUTCOME_INGESTION.txt); overwrite remains contract-prohibited. Status tracks implementation alignment pending integration/reaudit and does not assert Formal Source disposition or READY."
     }
   },
   "inference_rules": {
@@ -401,9 +401,9 @@
     "fail_closed": true,
     "known_current_violation": {
       "id": "VALIDATOR_DETERMINE_OUTCOME_INFERENCE",
-      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
-      "remediation_phase": "later_validator_slice",
-      "description": "validate_witness_evidence.determine_outcome currently infers outcome from cargo_started/build_status when explicit outcome is absent/invalid. Contract prohibits inference; implementation remains noncompliant until a later slice removes it."
+      "status": "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT",
+      "remediation_phase": "3F-A",
+      "description": "Phase 3B recorded validate_witness_evidence.determine_outcome inferring outcome from cargo_started/build_status when explicit outcome was absent/invalid. Phase 3F-A requires an explicit authoritative outcome only and fails closed without inference. Status tracks implementation alignment pending integration/reaudit and does not assert Formal Source disposition or READY."
     }
   },
   "success_eligibility": {
@@ -429,7 +429,7 @@
       "NOT_APPLICABLE"
     ],
     "CARGO_SUCCEEDED_ARTIFACT_PRESENT_alone_insufficient": true,
-    "implementation_status": "contract_only_host_gating_not_yet_implemented"
+    "implementation_status": "host_validator_gating_implemented_on_main_pending_reaudit"
   },
   "failure_rules": {
     "failure_only_outcomes": [
@@ -445,15 +445,15 @@
   "known_implementation_violations": [
     {
       "id": "VALIDATOR_DETERMINE_OUTCOME_INFERENCE",
-      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "status": "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT",
       "component": "validate_witness_evidence.py",
       "symbol": "determine_outcome",
-      "remediation_phase": "later_validator_slice",
+      "remediation_phase": "3F-A",
       "acceptable": false
     },
     {
       "id": "HOST_OVERWRITES_CONTAINER_BUILD_EXIT_CODE",
-      "status": "UNRESOLVED_IMPLEMENTATION_VIOLATION",
+      "status": "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT",
       "component": "run_witness_narrow_build.sh",
       "symbol": "enforce_post_docker_source_integrity_boundary",
       "remediation_phase": "3D",
@@ -467,5 +467,5 @@
     "Phase 3F validator-gated exit",
     "Phase 3G generator-backed tests"
   ],
-  "blocker_status_note": "RC4B-014, RC4B-022, and RC4B-023 advance only to CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING. Contract definition alone does not remediate runtime behavior. Closure requires implementation plus future fixed candidate and repeat static audit. RC4B-019, RC4B-005, and RC4B-009 remain OPEN. No blocker is CLOSED."
+  "blocker_status_note": "RC4B-014, RC4B-022, and RC4B-023 are recorded as IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT after Phase 3D/3F implementation notes (not Formal Source disposition, not READY, not Independent Witness PASS). Historical RC4B-019, RC4B-005, and RC4B-009 tracking outside this outcome-contract status reconciliation is unchanged by this update."
 }

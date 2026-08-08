@@ -78,6 +78,10 @@ REQUIRED_TUPLE_FIELDS = (
 VIOLATION_VALIDATOR_INFERENCE = "VALIDATOR_DETERMINE_OUTCOME_INFERENCE"
 VIOLATION_HOST_OVERWRITE = "HOST_OVERWRITES_CONTAINER_BUILD_EXIT_CODE"
 UNRESOLVED = "UNRESOLVED_IMPLEMENTATION_VIOLATION"
+# Live contract status after Phase 3D/3F implementation alignment (WF-FC-02).
+# Matches existing rc5 remediation / integrated-list vocabulary; not Formal Source CLOSED.
+IMPLEMENTED_PENDING_REAUDIT = "IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT"
+CONTRACT_STATUS_LIVE = IMPLEMENTED_PENDING_REAUDIT
 
 
 def _load_contract() -> dict:
@@ -316,11 +320,10 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
         self.assertIn("OUTCOME_VALUES", self.validator)
 
     # 23 — Phase 3B discovered validator inference; Phase 3F-A removes it from
-    # current source. Historical contract/note baseline remains UNRESOLVED /
-    # not ACCEPTABLE (AUTHORITATIVE_OUTCOME_CONTRACT.json and Phase 3B note
-    # are unchanged historical records). Supersede only the stale expectation
-    # that inference must still exist in current validator source.
-    def test_23_validator_inference_detected_and_recorded_as_unresolved_violation(self) -> None:
+    # current source. Live authoritative contract records implementation-aligned
+    # status (IMPLEMENTED_ON_MAIN_PENDING_INTEGRATION_AND_REAUDIT). Historical
+    # Phase 3B note remains UNRESOLVED / not ACCEPTABLE as Phase 3B evidence.
+    def test_23_validator_inference_remediated_in_live_contract_note_historical(self) -> None:
         self.assertIn("def determine_outcome", self.validator)
         # Phase 3F-A: current source must contain no inference fallback.
         self.assertNotRegex(
@@ -335,10 +338,12 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
         # Explicit-outcome-only rule must be present.
         self.assertIn("outcome inference", self.validator.lower())
         self.assertIn("explicit", self.validator.lower())
-        # Historical Phase 3B contract/note still record the discovered violation.
+        # Live contract: violation id retained; status implementation-aligned pending reaudit.
         violation = _violation_by_id(self.contract, VIOLATION_VALIDATOR_INFERENCE)
-        self.assertEqual(violation["status"], UNRESOLVED)
+        self.assertEqual(violation["status"], IMPLEMENTED_PENDING_REAUDIT)
         self.assertIs(violation["acceptable"], False)
+        self.assertEqual(violation.get("remediation_phase"), "3F-A")
+        # Historical Phase 3B note still records the discovered UNRESOLVED violation.
         self.assertIn(VIOLATION_VALIDATOR_INFERENCE, self.note)
         self.assertIn(UNRESOLVED, self.note)
         self.assertIn("determine_outcome", self.note)
@@ -355,8 +360,8 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
         )
 
     # 24 — host overwrite must be absent from post-Docker source-integrity path;
-    # contract/note may still list the historical id as unresolved (not CLOSED).
-    def test_24_host_overwrite_detected_and_recorded_as_unresolved_violation(self) -> None:
+    # live contract records implementation-aligned status; Phase 3B note stays historical.
+    def test_24_host_overwrite_remediated_in_live_contract_note_historical(self) -> None:
         self.assertIn("enforce_post_docker_source_integrity_boundary", self.host)
         # Phase 3D no-fabrication correction: fixing the overwrite is required.
         # The source-integrity boundary must not create/replace BUILD_EXIT_CODE.txt.
@@ -374,11 +379,12 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
             r'>\s*"\$\{(?:EVIDENCE_DIR)/BUILD_EXIT_CODE\.txt|build_exit_file\}"',
         )
         self.assertIn("finalize_post_docker_host_failure", boundary_body)
-        # Historical contract visibility: id remains listed, not ACCEPTABLE/CLOSED.
-        # Implementation fix is not treated as a failure.
+        # Live contract: id remains listed with implementation-aligned status, not ACCEPTABLE.
         violation = _violation_by_id(self.contract, VIOLATION_HOST_OVERWRITE)
-        self.assertEqual(violation["status"], UNRESOLVED)
+        self.assertEqual(violation["status"], IMPLEMENTED_PENDING_REAUDIT)
         self.assertIs(violation["acceptable"], False)
+        self.assertEqual(violation.get("remediation_phase"), "3D")
+        # Historical Phase 3B note still records UNRESOLVED for this id.
         self.assertIn(VIOLATION_HOST_OVERWRITE, self.note)
         self.assertIn(UNRESOLVED, self.note)
         self.assertIn("enforce_post_docker_source_integrity_boundary", self.note)
@@ -397,7 +403,7 @@ class Phase3BOutcomeContractTests(unittest.TestCase):
         self.assertEqual(self.contract["contract_version"], "1.0.0-phase3b")
         self.assertEqual(
             self.contract["contract_status"],
-            "CONTRACT_DEFINED_ON_MAIN_IMPLEMENTATION_PENDING",
+            CONTRACT_STATUS_LIVE,
         )
         self.assertIn("contract_version", self.contract)
         self.assertIn("contract_status", self.contract)
