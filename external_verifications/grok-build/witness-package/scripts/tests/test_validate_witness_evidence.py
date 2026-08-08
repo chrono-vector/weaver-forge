@@ -732,8 +732,8 @@ class HostSafetyStaticTests(unittest.TestCase):
         self.assertIn("set -Eeuo pipefail", self.host)
 
     def test_canonical_constants_present_and_readonly(self):
-        self.assertIn('readonly PACKAGE_VERSION="WF-FC-01"', self.host)
-        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="weaver-forge-fc-01"', self.host)
+        self.assertIn('readonly PACKAGE_VERSION="WF-FC-03"', self.host)
+        self.assertIn('readonly CANONICAL_WEAVER_FORGE_TAG="weaver-forge-fc-03"', self.host)
         self.assertIn(f'readonly CANONICAL_GROK_BUILD_COMMIT="{fx.GROK}"', self.host)
         self.assertIn(f'readonly CANONICAL_CARGO_LOCK_SHA256="{fx.LOCK}"', self.host)
         self.assertIn(f'readonly CANONICAL_BUILD_CMD="{fx.BUILD_CMD}"', self.host)
@@ -930,9 +930,9 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
 class PackageVersionAwareExpectedTagTests(unittest.TestCase):
     """Pi-approved package-version-aware expected-tag resolution.
 
-    Active: WF-FC-01 -> weaver-forge-fc-01 (Repository Owner G-3).
-    Historical RC4-RC8 mapping retained; cross-file tag equality among
-    package_tag / weaver_forge_tag_requested / canonical_tag / expected.
+    Active: WF-FC-03 -> weaver-forge-fc-03 (Repository Owner).
+    Historical: WF-FC-01, WF-FC-02, RC4-RC8 mapping retained; cross-file tag
+    equality among package_tag / weaver_forge_tag_requested / canonical_tag / expected.
     """
 
     def test_resolver_mapping_and_unknown_fail_closed(self):
@@ -960,15 +960,27 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             v.expected_package_tag_for_version("1.0.0-rc8"),
             v.PACKAGE_TAG_HISTORICAL_RC8,
         )
-        # Active Future Candidate mapping (normative WF-FC-01 -> weaver-forge-fc-01).
+        # Historical Future Candidate mappings (not active package defaults).
         self.assertEqual(
             v.expected_package_tag_for_version("WF-FC-01"),
-            v.PACKAGE_TAG_ACTIVE_FC01,
+            v.PACKAGE_TAG_HISTORICAL_FC01,
         )
-        self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC01, "weaver-forge-fc-01")
-        self.assertEqual(v.PACKAGE_TAG_EXPECTED, v.PACKAGE_TAG_ACTIVE_FC01)
-        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_ACTIVE_FC01))
-        self.assertTrue(v.package_tag_matches_grammar("weaver-forge-fc-01"))
+        self.assertEqual(
+            v.expected_package_tag_for_version("WF-FC-02"),
+            v.PACKAGE_TAG_HISTORICAL_FC02,
+        )
+        # Active Future Candidate mapping (normative WF-FC-03 -> weaver-forge-fc-03).
+        self.assertEqual(
+            v.expected_package_tag_for_version("WF-FC-03"),
+            v.PACKAGE_TAG_ACTIVE_FC03,
+        )
+        self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC03, "weaver-forge-fc-03")
+        self.assertEqual(v.PACKAGE_TAG_HISTORICAL_FC01, "weaver-forge-fc-01")
+        self.assertEqual(v.PACKAGE_TAG_HISTORICAL_FC02, "weaver-forge-fc-02")
+        self.assertEqual(v.PACKAGE_TAG_EXPECTED, v.PACKAGE_TAG_ACTIVE_FC03)
+        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_ACTIVE_FC03))
+        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_HISTORICAL_FC01))
+        self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_HISTORICAL_FC02))
         self.assertTrue(v.package_tag_matches_grammar(v.PACKAGE_TAG_HISTORICAL_RC8))
         self.assertFalse(v.package_tag_matches_grammar(""))
         self.assertFalse(v.package_tag_matches_grammar("not-a-valid-tag"))
@@ -1321,45 +1333,70 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
 
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_fc01_coherent_tuple_accepted(self):
+    def test_fc03_coherent_tuple_accepted(self):
+        base = fx.build_scenario("success-artifact-present")
+        good = self._mutate_identity(
+            base,
+            package_version="WF-FC-03",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC03,
+        )
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc03ok_"))
+        try:
+            fx.write_tree(tmp, good)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC03)
+            import evidence_inventory as ei
+
+            ei.write_evidence_manifest(tmp)
+            self.assertEqual(v.validate_dir(tmp, schema_register_version="rc6.1"), [])
+            self.assertEqual(
+                v.expected_package_tag_for_version("WF-FC-03"),
+                v.PACKAGE_TAG_ACTIVE_FC03,
+            )
+            self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC03, "weaver-forge-fc-03")
+        finally:
+            import shutil
+
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_historical_fc01_coherent_tuple_accepted(self):
+        """Historical WF-FC-01 package_version remains resolvable (not active default)."""
         base = fx.build_scenario("success-artifact-present")
         good = self._mutate_identity(
             base,
             package_version="WF-FC-01",
-            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC01,
+            weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_FC01,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01ok_"))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01hist_"))
         try:
             fx.write_tree(tmp, good)
-            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_HISTORICAL_FC01)
             import evidence_inventory as ei
 
             ei.write_evidence_manifest(tmp)
             self.assertEqual(v.validate_dir(tmp, schema_register_version="rc6.1"), [])
             self.assertEqual(
                 v.expected_package_tag_for_version("WF-FC-01"),
-                v.PACKAGE_TAG_ACTIVE_FC01,
+                v.PACKAGE_TAG_HISTORICAL_FC01,
             )
-            self.assertEqual(v.PACKAGE_TAG_ACTIVE_FC01, "weaver-forge-fc-01")
         finally:
             import shutil
 
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_fc01_identity_requested_tag_mismatch_rejected(self):
+    def test_fc03_identity_requested_tag_mismatch_rejected(self):
         base = fx.build_scenario("success-artifact-present")
         bad = self._mutate_identity(
             base,
-            package_version="WF-FC-01",
+            package_version="WF-FC-03",
             weaver_forge_tag_requested=v.PACKAGE_TAG_HISTORICAL_RC8,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01id_"))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc03id_"))
         try:
             fx.write_tree(tmp, bad)
             (tmp / "WITNESS_VERDICT.md").write_text(
                 (tmp / "WITNESS_VERDICT.md")
                 .read_text(encoding="utf-8")
-                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01),
+                .replace(v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC03),
                 encoding="utf-8",
                 newline="\n",
             )
@@ -1371,27 +1408,27 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
                 any("canonical_run=yes requires weaver_forge_tag_requested=" in e for e in errors),
                 errors,
             )
-            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC01 in e for e in errors), errors)
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC03 in e for e in errors), errors)
         finally:
             import shutil
 
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_fc01_verdict_package_tag_mismatch_rejected(self):
+    def test_fc03_verdict_package_tag_mismatch_rejected(self):
         base = fx.build_scenario("success-artifact-present")
         good = self._mutate_identity(
             base,
-            package_version="WF-FC-01",
-            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC01,
+            package_version="WF-FC-03",
+            weaver_forge_tag_requested=v.PACKAGE_TAG_ACTIVE_FC03,
         )
-        tmp = Path(tempfile.mkdtemp(prefix="pv_fc01verdict_"))
+        tmp = Path(tempfile.mkdtemp(prefix="pv_fc03verdict_"))
         try:
             fx.write_tree(tmp, good)
-            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC01)
+            self._align_tags_in_tree(tmp, v.PACKAGE_TAG_HISTORICAL_RC4, v.PACKAGE_TAG_ACTIVE_FC03)
             (tmp / "WITNESS_VERDICT.md").write_text(
                 (tmp / "WITNESS_VERDICT.md")
                 .read_text(encoding="utf-8")
-                .replace(v.PACKAGE_TAG_ACTIVE_FC01, v.PACKAGE_TAG_HISTORICAL_RC4),
+                .replace(v.PACKAGE_TAG_ACTIVE_FC03, v.PACKAGE_TAG_HISTORICAL_RC4),
                 encoding="utf-8",
                 newline="\n",
             )
@@ -1403,7 +1440,7 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
                 any("package_tag must equal expected tag" in e for e in errors),
                 errors,
             )
-            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC01 in e for e in errors), errors)
+            self.assertTrue(any(v.PACKAGE_TAG_ACTIVE_FC03 in e for e in errors), errors)
         finally:
             import shutil
 

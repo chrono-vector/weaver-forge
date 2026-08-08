@@ -18,9 +18,10 @@
 # source_identity_ref, artifact_identity_ref, evidence_manifest_ref
 evidence_schema_version=1
 run_id=<run-id-token>
-package_version=WF-FC-01
-# Candidate: Weaver Forge Future Candidate 1 | version WF-FC-01 | tag weaver-forge-fc-01 | mapping WF-FC-01 -> weaver-forge-fc-01 | authority: Repository Owner G-3
-canonical_tag=weaver-forge-fc-01
+package_version=WF-FC-03
+# Candidate: Weaver Forge Future Candidate 3 | version WF-FC-03 | tag weaver-forge-fc-03 | mapping WF-FC-03 -> weaver-forge-fc-03 | authority: Repository Owner
+# Historical: WF-FC-01 -> weaver-forge-fc-01; WF-FC-02 -> weaver-forge-fc-02
+canonical_tag=weaver-forge-fc-03
 tag_object_id=<40-char lowercase hex annotated tag object id OR NOT_YET_CREATED_NOT_YET_DETERMINABLE when tag absent>
 peeled_commit=<40-char lowercase hex peeled commit OR NOT_YET_CREATED_NOT_YET_DETERMINABLE when tag absent>
 grok_build_source_commit=98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce

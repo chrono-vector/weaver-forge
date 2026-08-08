@@ -1,7 +1,7 @@
-# Witness classification — precedence (Future Candidate 1 active; RC6-RC8 historical)
-Active candidate examples use **Weaver Forge Future Candidate 1** with mapping **WF-FC-01 -> weaver-forge-fc-01** (Repository Owner G-3). Historical RC6/RC7/RC8 examples remain labeled historical.
+# Witness classification — precedence (Future Candidate 3 active; FC-01/FC-02 and RC6-RC8 historical)
+Active candidate examples use **Weaver Forge Future Candidate 3** with mapping **WF-FC-03 -> weaver-forge-fc-03** (Repository Owner). Historical Future Candidates **WF-FC-01** / **WF-FC-02** and historical RC6/RC7/RC8 examples remain labeled historical.
 
-Applies to active Future Candidate identity **WF-FC-01** / **`weaver-forge-fc-01`** (governance-selected; annotated tag **CREATED AND PUBLISHED**, peel `f178cde13391445f319b1b1138ee920a02b32874`; package/archive/bundle **not yet created**; identity authority: Repository Owner G-3; successor to RC8 only; RC9 **NOT IMPLIED**). Historical last immutable package version **1.0.0-rc6** (canonical package tag
+Applies to active Future Candidate identity **WF-FC-03** / **`weaver-forge-fc-03`** (governance-selected; identity authority: Repository Owner; RC9 **NOT IMPLIED**). Historical Future Candidate tags **`weaver-forge-fc-01`** and **`weaver-forge-fc-02`** remain immutable historical NOT READY only. Historical last immutable package version **1.0.0-rc6** (canonical package tag
 `grok-build-witness-v1.0.0-rc6`; annotated tag object
 `c9ce879bb25db54e3d8520f297a8f5d4035ac9a8`; peeled commit
 `7b76842bfa1adcedf0c00221cb574d9c3175b7e7`; package commit authority =
@@ -13,9 +13,8 @@ Historical RC8 remains fixed at tag `grok-build-witness-v1.0.0-rc8` (immutable s
 `77221a224bbd6194cfafb81f6ecb58c800e5bc13`), rc2 text (tag `grok-build-witness-v1.0.0-rc2`, commit
 `255b357c9ee33c4a9e34b5d9b6e396c53cfe494e`), and rc1 text (tag `grok-build-witness-v1.0.0-rc1`,
 commit `89127c78c3a11492892de7e3b5f0dee18d71775a`) remain visible only through immutable git
-history at those tags; this file states **current** policy only. rc1–rc7 were each ruled/audited or fixed as historical; RC8 is historical static-audit only. Active examples use **WF-FC-01** / **weaver-forge-fc-01**. rc1–rc6 were each ruled/audited
-**NOT READY**. Active Host/templates host Future Candidate 1 identity; annotated tag
-**`weaver-forge-fc-01`** is CREATED AND PUBLISHED; package/archive/bundle do not yet exist. No Independent Witness authorization is implied. Independent
+history at those tags; this file states **current** policy only. rc1–rc7 were each ruled/audited or fixed as historical; RC8 is historical static-audit only. Active examples use **WF-FC-03** / **weaver-forge-fc-03**. rc1–rc6 were each ruled/audited
+**NOT READY**. Active Host/templates host Future Candidate 3 identity. No Independent Witness authorization is implied. Independent
 Witness reproduction **NOT PERFORMED**. Independent Witness PASS **NONE**. C-014 remains
 **NOT_STARTED**. Overall package status remains **PARTIAL** / **NOT READY**.
 
@@ -55,7 +54,7 @@ applicable row.
 | 1 | Proven **product execution** (any invocation of `xai-grok-pager` / `grok`, including `--version`, `--help`, `-h`, TUI, login, agents, OAuth, models, update) | **FAIL** |
 | 2 | Proven **`ldd` use** against the built artifact or any other executable | **FAIL** |
 | 3 | Deliberate falsification or material evidence manipulation (edited logs/hashes, backdated timestamps, fabricated command output) | **FAIL** |
-| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not the expected tag for the declared `package_version` (active `WF-FC-01` requires `weaver-forge-fc-01`; historical `1.0.0-rc8` requires `grok-build-witness-v1.0.0-rc8`; historical `1.0.0-rc5` requires `grok-build-witness-v1.0.0-rc5`; historical `1.0.0-rc4` requires `grok-build-witness-v1.0.0-rc4`), or the tag could not be resolved on `origin` at all | **FAIL** |
+| 4 | **Canonical package-tag mismatch** — the Weaver Forge tag actually resolved and used is not the expected tag for the declared `package_version` (active `WF-FC-03` requires `weaver-forge-fc-03`; historical `WF-FC-01` requires `weaver-forge-fc-01`; historical `WF-FC-02` requires `weaver-forge-fc-02`; historical `1.0.0-rc8` requires `grok-build-witness-v1.0.0-rc8`; historical `1.0.0-rc5` requires `grok-build-witness-v1.0.0-rc5`; historical `1.0.0-rc4` requires `grok-build-witness-v1.0.0-rc4`), or the tag could not be resolved on `origin` at all | **FAIL** |
 | 5 | **Canonical Weaver Forge commit mismatch** — the commit resolved from the requested tag does not equal the pinned/expected Weaver Forge commit once one is recorded for the declared package identity | **FAIL** |
 | 6 | **Canonical Grok Build commit mismatch** — observed Grok Build `HEAD` after clone/checkout ≠ `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` | **FAIL** |
 | 7 | **Canonical Rust image mismatch** — pulled image digest, OS, or architecture does not match the pinned `docker.io/library/rust@sha256:6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e` / `linux/amd64` | **FAIL** |

@@ -87,20 +87,24 @@ EXPECTED_GROK_COMMIT = "98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce"
 EXPECTED_IMAGE_DIGEST = "6ca5ad23231207874325a751b9df584d51cd42c066c74c6963c264e3233c3e8e"
 EXPECTED_CARGO_LOCK_SHA256 = "1512bb4fef0c1166c6a15a3398da9593903be1759b759ce78d9958913e61b421"
 EXACT_BUILD_CMD = "cargo build -p xai-grok-pager-bin --locked"
-# Package-version-aware expected-tag authority (Repository Owner G-3; Future Candidate 1).
+# Package-version-aware expected-tag authority (Repository Owner; Future Candidate 3 active).
 # Source of authority: package_version from WEAVER_FORGE_PACKAGE_IDENTITY.txt.
 # Tag mismatch never selects historical/active compatibility.
-PACKAGE_TAG_ACTIVE_FC01 = "weaver-forge-fc-01"
-# Active candidate: Weaver Forge Future Candidate 1; mapping WF-FC-01 -> weaver-forge-fc-01 (Repository Owner G-3).
+PACKAGE_TAG_ACTIVE_FC03 = "weaver-forge-fc-03"
+# Active candidate: Weaver Forge Future Candidate 3; mapping WF-FC-03 -> weaver-forge-fc-03.
+PACKAGE_TAG_HISTORICAL_FC01 = "weaver-forge-fc-01"
+PACKAGE_TAG_HISTORICAL_FC02 = "weaver-forge-fc-02"
 PACKAGE_TAG_HISTORICAL_RC8 = "grok-build-witness-v1.0.0-rc8"
 PACKAGE_TAG_ACTIVE_RC8 = PACKAGE_TAG_HISTORICAL_RC8  # historical alias
 PACKAGE_TAG_HISTORICAL_RC7 = "grok-build-witness-v1.0.0-rc7"
 PACKAGE_TAG_ACTIVE_RC5 = "grok-build-witness-v1.0.0-rc5"
 PACKAGE_TAG_HISTORICAL_RC4 = "grok-build-witness-v1.0.0-rc4"
-PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_FC01  # active package default / docs alias
+PACKAGE_TAG_EXPECTED = PACKAGE_TAG_ACTIVE_FC03  # active package default / docs alias
 PACKAGE_VERSION_EXPECTED_TAG: dict[str, str] = {
     "1.0.0-rc4": PACKAGE_TAG_HISTORICAL_RC4,
-    "WF-FC-01": PACKAGE_TAG_ACTIVE_FC01,
+    "WF-FC-01": PACKAGE_TAG_HISTORICAL_FC01,  # historical Future Candidate 1
+    "WF-FC-02": PACKAGE_TAG_HISTORICAL_FC02,  # historical Future Candidate 2
+    "WF-FC-03": PACKAGE_TAG_ACTIVE_FC03,  # active Future Candidate 3
     "1.0.0-rc5": PACKAGE_TAG_ACTIVE_RC5,
     "1.0.0-rc5-phase4-s3-fixture": PACKAGE_TAG_ACTIVE_RC5,
     "1.0.0-rc6": "grok-build-witness-v1.0.0-rc6",
@@ -362,10 +366,14 @@ HISTORICAL_PACKAGE_TAG_GRAMMAR_RE = re.compile(
 
 
 def package_tag_matches_grammar(tag: str) -> bool:
-    """Return True if tag is active FC tag or historical grok-build-witness-v grammar."""
+    """Return True if tag is active/historical FC tag or historical grok-build-witness-v grammar."""
     if not tag:
         return False
-    if tag == PACKAGE_TAG_ACTIVE_FC01:
+    if tag in (
+        PACKAGE_TAG_ACTIVE_FC03,
+        PACKAGE_TAG_HISTORICAL_FC01,
+        PACKAGE_TAG_HISTORICAL_FC02,
+    ):
         return True
     return HISTORICAL_PACKAGE_TAG_GRAMMAR_RE.match(tag) is not None
 
