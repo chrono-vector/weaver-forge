@@ -1,0 +1,58 @@
+{
+  "schema_id": "weaver-vector-ingress-result-v0",
+  "schema_version": "0",
+  "family": "weaver_vector_package_ingress_v0",
+  "nonclaims": [
+    "VECTOR Ingress ≠ Independent Witness",
+    "VECTOR Ingress ≠ Evidence admission",
+    "VECTOR Ingress ≠ Truth verification",
+    "VECTOR Ingress ≠ Replay authorization",
+    "VECTOR Ingress ≠ Stage 6",
+    "INGRESS_READY ≠ Evidence Admitted",
+    "INGRESS_READY ≠ Truth Verified",
+    "INGRESS_READY ≠ Replay Authorized",
+    "INGRESS_READY ≠ Weaver Execution Authorized",
+    "INGRESS_READY ≠ Stage 6 Authorized",
+    "INGRESS_READY ≠ Independent Witness PASS"
+  ],
+  "final_disposition_values": ["INGRESS_READY", "INGRESS_HOLD", "INGRESS_REJECT"],
+  "v0_evaluator_emits": ["INGRESS_READY", "INGRESS_REJECT"],
+  "hold_policy": "INGRESS_HOLD is reserved in this schema and must not be emitted by the v0 evaluator.",
+  "check_names": [
+    "container",
+    "manifest",
+    "digests",
+    "completeness",
+    "bindings",
+    "boundaries"
+  ],
+  "check_status_values": ["ok", "failed", "not_evaluated"],
+  "authority": {
+    "truth_verified": false,
+    "evidence_admitted": false,
+    "replay_authorized": false,
+    "downstream_execution_authorized": false,
+    "stage6_authorized": false
+  },
+  "authority_policy": "Result authority flags are always false. Input claims of true are INGRESS_REJECT, not copied onto the result.",
+  "id_form": "wvir-v0-<32 lowercase hex chars>",
+  "id_hash_fields": [
+    "schema_id",
+    "schema_version",
+    "source_system",
+    "source_package_id",
+    "package_digest",
+    "manifest_digest",
+    "checks",
+    "final_disposition",
+    "reason_codes",
+    "limitation_codes",
+    "authority"
+  ],
+  "id_excluded_fields": [
+    "ingress_result_id",
+    "reasons",
+    "limitations",
+    "operational"
+  ]
+}
