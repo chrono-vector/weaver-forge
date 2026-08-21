@@ -27,10 +27,12 @@ from package_reader_v0 import (  # noqa: E402
 )
 from result_v0 import validate_vector_ingress_result_v0  # noqa: E402
 
-REAL_ZIP = Path(
-    r"C:\dev\AI_Lab-local-staging\weaver_handoff_packages"
-    r"\VECTOR_WEAVER_HANDOFF_vwh-v0-383a940e88a49dbbb9fd4250420b038e.zip"
-)
+def _authorized_real_zip_path() -> Path | None:
+    """Owner-opt-in path only. Public/synthetic runs must not require a private ZIP."""
+    raw = os.environ.get("VECTOR_INGRESS_REAL_ZIP", "").strip()
+    if not raw:
+        return None
+    return Path(raw)
 
 
 def _eval_bytes(data: bytes, name: str = "vwh-v0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.zip") -> dict:
@@ -532,17 +534,26 @@ class DeterminismTests(unittest.TestCase):
 
 class RealPackageIntegrationTests(unittest.TestCase):
     def test_current_vector_package_readonly(self) -> None:
-        if not REAL_ZIP.is_file():
-            self.fail(f"authorized real package ZIP missing: {REAL_ZIP}")
-        before = REAL_ZIP.stat()
-        parent_listing = set(REAL_ZIP.parent.iterdir())
-        result = evaluate_vector_package_ingress_v0(REAL_ZIP)
-        after = REAL_ZIP.stat()
+        real_zip = _authorized_real_zip_path()
+        if real_zip is None:
+            self.skipTest(
+                "VECTOR_INGRESS_REAL_ZIP is unset; public/synthetic suite does not "
+                "require a private Owner ZIP"
+            )
+        if not real_zip.is_file():
+            self.skipTest(
+                "VECTOR_INGRESS_REAL_ZIP is set but the file is missing; "
+                "skipping rather than failing a third-party run"
+            )
+        before = real_zip.stat()
+        parent_listing = set(real_zip.parent.iterdir())
+        result = evaluate_vector_package_ingress_v0(real_zip)
+        after = real_zip.stat()
         self.assertEqual(before.st_mtime_ns, after.st_mtime_ns)
         self.assertEqual(before.st_size, after.st_size)
-        self.assertEqual(set(REAL_ZIP.parent.iterdir()), parent_listing)
+        self.assertEqual(set(real_zip.parent.iterdir()), parent_listing)
         self.assertEqual(result["final_disposition"], "INGRESS_READY")
-        self.assertEqual(result["source_package_id"], "vwh-v0-383a940e88a49dbbb9fd4250420b038e")
+        self.assertTrue(str(result["source_package_id"]).startswith("vwh-v0-"))
         self.assertIn("L1_approved_request_bytes_absent", result["limitation_codes"])
         self.assertIn("L2_payload_digest_not_recomputed", result["limitation_codes"])
         self.assertIn("L3_pinned_bytes_not_checked", result["limitation_codes"])

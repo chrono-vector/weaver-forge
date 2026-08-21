@@ -64,7 +64,27 @@ Exit code `0` means all receipts passed; `1` means at least one receipt is missi
 
 | Package | Status |
 |---------|--------|
+| [VECTOR Package Ingress v0](external_verifications/vector-handoff/README.md) | Separate VECTOR surface from RC8. Read-only package intake/checking boundary under v0 only. **Not** RC8 READY. **Not** Independent Witness. **Not** Evidence admission. **Not** truth verification. **Not** Weaver downstream execution. **Not** Owner approval. **Not** Stage 6. |
 | [Grok Build narrow clean rebuild Witness package](external_verifications/grok-build/witness-package/README.md) | **NOT READY** — RC6 immutable historical **NOT READY** — RC7 immutable historical **NOT READY** after completed Source Weaver audit — RC7 not eligible for Independent Witness handoff — Independent Witness handoff not authorized — C-014 **NOT_STARTED** — no finding or blocker CLEAR/CLOSED — RC8 immutable static-audit candidate (`1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8`) — RC8 artifact generation and verification passed — accepted non-authoritative advisory technical evaluation — RC8 Formal Source Evaluation is complete under accepted GOV-004 — final controlling disposition **NOT READY** — F-01–F-04 and B-01–B-05 remain open — Independent Witness reproduction NOT PERFORMED — Independent Witness PASS NONE — no release, production readiness, Independent Witness PASS, or C-014 completion claimed; overall **PARTIAL** |
+
+## VECTOR Package Ingress v0
+
+This repository also hosts a **read-only VECTOR package intake/checking boundary**: [VECTOR Package Ingress v0](external_verifications/vector-handoff/README.md).
+
+It checks package/container/digest/binding/boundary conditions under v0 only. `INGRESS_READY` means those v0 checks passed. It is **not** a truth verifier, Evidence admission, Independent Witness, Weaver downstream execution, Owner approval, or Stage 6.
+
+```text
+Observation ≠ Interpretation ≠ Verification ≠ Execution
+Schema-valid ≠ True
+Replayable ≠ Externally True
+REPLAY_ELIGIBLE_BY_CONTRACT ≠ Replay Authorized
+Ingress Ready ≠ Evidence Admitted
+Ingress Ready ≠ Weaver Execution Authorized
+Ingress Ready ≠ Stage 6
+Ingress Ready ≠ Independent Witness PASS
+```
+
+Public input is a ZIP path only. Do not treat this lab, RC8, or Ingress as VECTOR-the-product.
 
 ## RC8 current lifecycle status
 RC8 exists as an immutable static-audit candidate.
