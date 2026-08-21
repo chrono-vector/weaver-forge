@@ -95,6 +95,8 @@ Ingress Ready ≠ Independent Witness PASS
 
 Public input is a ZIP path only. Do not treat this lab, RC8, or Ingress as VECTOR-the-product.
 
+Organizations may use this public Ingress as a transparent, read-only package-checking boundary. `INGRESS_READY` is **not** certification, legal compliance, Evidence admission, or execution authorization. Public Core Apache-2.0 does **not** mean all related repositories or historical/evidence/third-party artifacts are open source.
+
 ## Related public VECTOR surfaces
 
 - [vector-core](https://github.com/chrono-vector/vector-core) — sanitized Public VECTOR v0 **reference**. Not operational authorization.
