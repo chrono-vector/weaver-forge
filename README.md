@@ -95,6 +95,14 @@ Ingress Ready ≠ Independent Witness PASS
 
 Public input is a ZIP path only. Do not treat this lab, RC8, or Ingress as VECTOR-the-product.
 
+## Related public VECTOR surfaces
+
+- [vector-core](https://github.com/chrono-vector/vector-core) — sanitized Public VECTOR v0 **reference**. Not operational authorization.
+- [vector-runtime-governance](https://github.com/chrono-vector/vector-runtime-governance) — public constitutional / orientation surface. Does not execute.
+- [vector-signal-chronicle](https://github.com/chrono-vector/vector-signal-chronicle) — observation chronicle. Framework Apache-2.0; `signals/**` public but excluded from Apache-2.0 by default.
+
+VECTOR's public positioning is an independently developed distinctive integration of established ideas. Weaver Forge does **not** claim that VECTOR invented provenance, replay, human-in-the-loop governance, or Decision Trace as a category.
+
 ## RC8 current lifecycle status
 RC8 exists as an immutable static-audit candidate.
 RC8 artifact generation and verification passed.
