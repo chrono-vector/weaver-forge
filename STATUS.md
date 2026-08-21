@@ -4,6 +4,8 @@ Current status and lifecycle-boundary surface for Weaver Forge.
 
 This document separates directly confirmed Git facts, repository-stated facts, owner-supplied lifecycle authority, derived summaries, stale or partial evidence, and unverified items. It does not replace source evidence in README.md, `external_verifications/`, receipts, or artifacts.
 
+**VECTOR Package Ingress v0 is a separate surface from this RC8 lifecycle document.** Ingress lives under `external_verifications/vector-handoff/` and is indexed from [README.md](README.md). It is **not** RC8 READY, **not** Independent Witness, **not** Evidence admission, **not** Weaver downstream execution, **not** Owner approval, and **not** Stage 6. See [VECTOR Package Ingress v0](#vector-package-ingress-v0-separate-from-rc8-lifecycle) below.
+
 ---
 
 ## 1. Directly confirmed Git facts
@@ -185,3 +187,22 @@ This status document:
 - Does **not** authorize changes to artifact bytes, tags, commits, archives, bundles, sidecars, checksums, fixtures, manifests, or release identities.
 
 **Evidence before authority.**
+
+---
+
+## VECTOR Package Ingress v0 (separate from RC8 lifecycle)
+
+This STATUS.md remains the RC8 / Grok Build Witness lifecycle surface. VECTOR Package Ingress v0 is **not** part of that lifecycle and does **not** inherit RC8 READY, Independent Witness, C-014, or Source Weaver verdicts.
+
+| Item | Bound |
+|------|-------|
+| Location | [`external_verifications/vector-handoff/README.md`](external_verifications/vector-handoff/README.md) |
+| Public input | ZIP path only |
+| What `INGRESS_READY` means | v0 package / container / digest / binding / boundary checks passed |
+| What this surface is not | RC8 READY; Independent Witness; Evidence admission; Truth verification; Weaver execution; Owner approval; Stage 6; Public VECTOR v0 |
+
+Git facts in section 1 above are RC8-lifecycle identities from a prior status update. They are **not** a VECTOR Ingress status certificate and are **not** updated by this Ingress pointer.
+
+Do not merge Ingress results with RC8 artifact verification, Independent Witness reproduction, or Source Weaver audit categories.
+
+Public synthetic unittest guidance: [REPRODUCE.md](REPRODUCE.md) section *VECTOR Package Ingress v0 — synthetic unittest only*.

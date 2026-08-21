@@ -9,6 +9,8 @@
 > It does not declare RC8 READY or NOT READY, does not authorize Independent Witness execution, does not claim C-014 completion, does not mark any finding or blocker CLEAR or CLOSED, and does not authorize RC9 or any future candidate.
 >
 > Where this document references lifecycle, package, validator, manifest, evidence, identity, witness, or contract material, the referenced repository files remain authoritative within their own stated scope.
+>
+> VECTOR Package Ingress v0 rows (`CONTRACT-IDX-045` onward) index a **separate** surface from RC8. They do not fold Ingress into RC8 READY, Independent Witness, C-014, or Source Weaver verdicts.
 
 ## 1. Purpose
 
@@ -17,6 +19,7 @@ Index contract-bearing, contract-adjacent, lifecycle, policy, manifest, validato
 ## 2. Scope
 
 - Indexing repository paths relevant to RC8 management planning
+- Indexing VECTOR Package Ingress v0 paths as a **separate** surface from RC8
 - Classifying authority type, lifecycle status, protected/editable status, and change-control requirement
 - Providing stable `CONTRACT-IDX-NNN` identifiers for cross-document references
 
@@ -26,6 +29,7 @@ Index contract-bearing, contract-adjacent, lifecycle, policy, manifest, validato
 - Redefining validator, manifest, evidence, identity, or witness rules
 - Changing package identity
 - Declaring READY or NOT READY
+- Folding VECTOR Package Ingress v0 into RC8 READY, Independent Witness, Evidence admission, or Stage 6
 - Authorizing Independent Witness execution
 - Closing findings or blockers
 
@@ -69,9 +73,9 @@ Use exactly:
 
 | Index ID | Repository path | Category | Authority type | Lifecycle status | Current or historical | Protected or editable | Change-control requirement | Related validator/manifest/evidence surface | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| `CONTRACT-IDX-001` | `README.md` | lifecycle / project-meta | Lifecycle status | States RC8 immutable static-audit candidate; RC6/RC7 historical NOT READY; C-014 NOT_STARTED; overall PARTIAL; RC8 Formal Source Evaluation is complete under accepted GOV-004 with final controlling disposition NOT READY | Current | Editable current surface; immutable RC8 tag may preserve older README bytes | Do not use management docs to redefine lifecycle | Package table; RC8 lifecycle section | Prefer with `STATUS.md` for current lifecycle |
-| `CONTRACT-IDX-002` | `STATUS.md` | lifecycle | Lifecycle status | RC8 lifecycle authority including GOV-004 closure; final controlling disposition NOT READY; RC9 not authorized | Current | Editable lifecycle authority surface | Lifecycle wording changes require explicit maintainer control | References README and external_verifications | Separates Git facts, repo-stated facts, owner authority, stale evidence |
-| `CONTRACT-IDX-003` | `REPRODUCE.md` | lifecycle / governance | Lifecycle status | Restates RC8 boundary; IW not authorized/performed; C-014 NOT_STARTED | Current | Editable guide bound to STATUS/README | Must remain consistent with STATUS/README | Local receipt validation docs | Does not authorize SW audit, IW, RC9, or artifact mutation |
+| `CONTRACT-IDX-001` | `README.md` | lifecycle / project-meta | Lifecycle status | States RC8 immutable static-audit candidate; RC6/RC7 historical NOT READY; C-014 NOT_STARTED; overall PARTIAL; RC8 Formal Source Evaluation is complete under accepted GOV-004 with final controlling disposition NOT READY | Current | Editable current surface; immutable RC8 tag may preserve older README bytes | Do not use management docs to redefine lifecycle | Package table; RC8 lifecycle section; VECTOR Ingress pointer | Prefer with `STATUS.md` for current RC8 lifecycle. VECTOR Ingress is a separate surface (`CONTRACT-IDX-045+`) |
+| `CONTRACT-IDX-002` | `STATUS.md` | lifecycle | Lifecycle status | RC8 lifecycle authority including GOV-004 closure; final controlling disposition NOT READY; RC9 not authorized | Current | Editable lifecycle authority surface | Lifecycle wording changes require explicit maintainer control | References README and external_verifications | Separates Git facts, repo-stated facts, owner authority, stale evidence. VECTOR Ingress pointer is a separate surface, not an RC8 verdict |
+| `CONTRACT-IDX-003` | `REPRODUCE.md` | lifecycle / governance | Lifecycle status | Restates RC8 boundary; IW not authorized/performed; C-014 NOT_STARTED | Current | Editable guide bound to STATUS/README | Must remain consistent with STATUS/README | Local receipt validation docs; VECTOR Ingress synthetic unittest | Does not authorize SW audit, IW, RC9, or artifact mutation. Ingress synthetic category is not RC8 |
 | `CONTRACT-IDX-004` | `external_verifications/grok-build/README.md` | lifecycle / identity | Lifecycle status | RC8 current; RC6/RC7 historical NOT READY; C-014 NOT_STARTED; overall PARTIAL | Current | Editable current status surface | Align with STATUS/README | Immutable release table rc1–rc8 | Grok Build verification entry |
 | `CONTRACT-IDX-005` | `external_verifications/grok-build/witness-package/README.md` | lifecycle / witness | Lifecycle status | Current candidate RC8; IW handoff not authorized | Current | Editable package entry | Align with STATUS/README | Package constants and releases table | Product execution forbidden by package scope |
 | `CONTRACT-IDX-006` | `external_verifications/grok-build/witness-package/LIFECYCLE_CLARIFICATION.md` | lifecycle | Lifecycle status | Companion interpretation; RC8 static-audit candidate; no RC9; protected/mixed lists | Current | Editable clarification companion | Must not supersede protected files | Lists protected and mixed files | Not a verdict or readiness decision |
@@ -129,6 +133,22 @@ Use exactly:
 | `CONTRACT-IDX-043` | `CURRENT_CONTRACT_INDEX.md` | governance | Management artifact | This index | Current management | Management artifact | Index-only; no new authority | All indexed paths | Self-reference for completeness |
 | `CONTRACT-IDX-044` | `GOV-004_RC8_FORMAL_SOURCE_EVALUATION_CLOSURE_RECORD.md` | governance / evaluation closure | Management artifact | Accepted RC8 Formal Source Evaluation closure; final controlling disposition NOT READY | Current management | Management artifact / accepted decision record | Records evaluation closure only; no technical remediation or authorization | GOV-002, GOV-003, RC8 final closeout package | Controlling evaluation-closure record |
 
+## 11A. VECTOR Package Ingress v0 Index (separate from RC8)
+
+These rows index a **separate** VECTOR surface. They do **not** fold Ingress into RC8 READY, Independent Witness, C-014, Evidence admission, Weaver execution, or Stage 6. Indexed files remain authoritative within their own stated scope.
+
+| Index ID | Repository path | Category | Authority type | Lifecycle status | Current or historical | Protected or editable | Change-control requirement | Related validator/manifest/evidence surface | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| `CONTRACT-IDX-045` | `external_verifications/vector-handoff/README.md` | VECTOR ingress / project-meta | Project documentation | Read-only VECTOR package intake/checking boundary; `INGRESS_READY` is v0 check result only | Current | Editable current surface | Must remain a separate surface from RC8 | `vector-ingress-v0/` | Not Independent Witness; not Evidence admission; not Stage 6 |
+| `CONTRACT-IDX-046` | `external_verifications/vector-handoff/vector-ingress-v0/__init__.py` | VECTOR ingress | Validator implementation | Package surface for Ingress v0 | Current | Editable implementation | Do not fold into RC8 READY | `ingress_v0.py` | Implementation only |
+| `CONTRACT-IDX-047` | `external_verifications/vector-handoff/vector-ingress-v0/ingress_v0.py` | VECTOR ingress | Validator implementation | ZIP-only public evaluator | Current | Editable implementation | Public input remains ZIP path only | `checks_v0.py`; `package_reader_v0.py` | Does not write into the package or this repository |
+| `CONTRACT-IDX-048` | `external_verifications/vector-handoff/vector-ingress-v0/package_reader_v0.py` | VECTOR ingress | Validator implementation | Closed 8-file package reader and ZIP safety limits | Current | Editable implementation | Do not add Owner package bytes | `ingress_v0.py` | ZIP-only |
+| `CONTRACT-IDX-049` | `external_verifications/vector-handoff/vector-ingress-v0/checks_v0.py` | VECTOR ingress | Validator implementation | Binding / authority-false / boundary checks | Current | Editable implementation | Authority fields remain false | `result_v0.py` | `INGRESS_READY` ≠ execution authorized |
+| `CONTRACT-IDX-050` | `external_verifications/vector-handoff/vector-ingress-v0/result_v0.py` | VECTOR ingress | Validator implementation | Ingress result object / schema validation helper | Current | Editable implementation | HOLD reserved; not a public emission in v0 | result schema | Not Independent Witness PASS |
+| `CONTRACT-IDX-051` | `external_verifications/vector-handoff/vector-ingress-v0/schemas/weaver_vector_ingress_result_v0.json` | VECTOR ingress / contract | Outcome contract | Result schema for Ingress v0 | Current | Editable schema | Schema-valid ≠ True | `result_v0.py` | Not Evidence admission |
+| `CONTRACT-IDX-052` | `external_verifications/vector-handoff/vector-ingress-v0/tests/test_vector_ingress_v0.py` | VECTOR ingress / tests | Validator implementation | Public synthetic unittest; real ZIP skipped unless `VECTOR_INGRESS_REAL_ZIP` is set | Current | Editable tests | Default public run must not require Owner ZIP bytes | `fixtures_lib.py` | Synthetic PASS ≠ IW PASS / RC8 READY / Stage 6 |
+| `CONTRACT-IDX-053` | `external_verifications/vector-handoff/vector-ingress-v0/tests/fixtures_lib.py` | VECTOR ingress / tests | Validator implementation | In-repo synthetic ZIP builder | Current | Editable fixtures | Keep synthetic; do not add real VECTOR package bytes | `test_vector_ingress_v0.py` | Public-safe fixtures only |
+
 ## 12. Protected and Version-Bound Surfaces
 
 The following indexed entries are protected, version-bound, mixed-preserved, or historical for RC8 management-baseline purposes and must not be edited by this baseline:
@@ -157,6 +177,7 @@ The following indexed entries are protected, version-bound, mixed-preserved, or 
 - Protected/mixed classification change stated by lifecycle clarification or maintainer authority
 - Lifecycle authority surface change in STATUS/README/package readiness policy
 - New management artifact added to the baseline set
+- VECTOR Package Ingress v0 path added, removed, or split as a separate surface from RC8
 
 ## 14. Ownership
 
@@ -179,13 +200,19 @@ Repository maintainer.
 - No redefinition of validator, manifest, evidence, identity, or witness rules.
 - Protected surfaces identified.
 - No READY/NOT READY decision newly declared.
+- VECTOR Package Ingress v0 is indexed as a separate surface and is not folded into RC8 READY.
 - References use actual repository paths.
 
 ## 18. References
 
 ### Existing repository files
 
-All paths listed in Sections 8–11.
+All paths listed in Sections 8–11 and 11A.
+
+### VECTOR Package Ingress v0 (separate from RC8)
+
+- `external_verifications/vector-handoff/README.md`
+- `external_verifications/vector-handoff/vector-ingress-v0/**`
 
 ### RC8 management baseline set
 

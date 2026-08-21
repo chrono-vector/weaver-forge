@@ -42,6 +42,7 @@ Use these categories precisely. A result in one category must not be described a
 | Product execution | Running product binaries or target software. | Not authorized by this guide. |
 | Non-formal external trial reproduction | A non-authoritative outside reviewer repeats documented steps and reports observations. | Not formal Independent Witness reproduction and not a Source Weaver verdict. |
 | Formal Independent Witness reproduction | A separately authorized independent witness follows an approved handoff and reports direct observations under the witness rules. | Not authorized. Not performed. C-014 remains `NOT_STARTED`. |
+| VECTOR Package Ingress v0 — synthetic unittest | stdlib `unittest` of the ZIP-only Ingress evaluator using in-repo synthetic fixtures. No Owner package bytes. | Documented below as a **separate** category from RC8. Not executed by this documentation update. Not Independent Witness. Not RC8 READY. Not Evidence admission. Not Stage 6. |
 
 ---
 
@@ -171,3 +172,32 @@ This guide does not prove:
 - correctness beyond the specifically observed evidence;
 - bit-identical artifact reproduction;
 - current CI success unless separately observed and recorded with source, commit, run URL, and date.
+
+---
+
+## VECTOR Package Ingress v0 — synthetic unittest only
+
+This category is **separate** from RC8 artifact verification, receipt validation, Source Weaver audit, and Independent Witness.
+
+VECTOR Package Ingress v0 checks package / container / digest / binding / boundary conditions under v0 only. Public input is a **ZIP path**. This repository does **not** include Owner VECTOR package bytes. The public suite is synthetic unittest only.
+
+From the repository root, with Python 3:
+
+```bash
+python external_verifications/vector-handoff/vector-ingress-v0/tests/test_vector_ingress_v0.py
+```
+
+Do **not** set `VECTOR_INGRESS_REAL_ZIP` for the public synthetic path. That environment variable is an Owner-opt-in gate for a local ZIP that is **not** in this repository. Public reproduction must not require it.
+
+A passing synthetic unittest means the in-repo fixtures satisfied the v0 evaluator at the time run. It is **not**:
+
+- Independent Witness PASS
+- Evidence admitted
+- Truth verified
+- Weaver execution authorized
+- Owner approval
+- RC8 READY
+- Stage 6
+- Public VECTOR v0
+
+See [external_verifications/vector-handoff/README.md](external_verifications/vector-handoff/README.md) and the VECTOR Package Ingress v0 section in [README.md](README.md).
