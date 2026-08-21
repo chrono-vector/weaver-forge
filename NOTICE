@@ -1,0 +1,34 @@
+Weaver Forge
+Copyright 2026 chrono-vector
+
+This product is licensed under the Apache License, Version 2.0, subject to
+LICENSE_SCOPE.md. See LICENSE.
+
+This NOTICE is informational. It does not modify the License.
+
+This repository is WEAVER_FORGE_PUBLIC_CORE. The Apache-2.0 grant covers
+Owner-controlled reusable Public Core material only. It is not a grant of
+rights in third-party software merely described, hashed, or quoted here.
+It is not a grant of rights in private operational, evidence, or enterprise
+layers.
+
+---------------------------------------------------------------------------
+Third-party identity recorded in verification evidence (not vendored)
+---------------------------------------------------------------------------
+
+Grok Build / xai-org/grok-build
+Upstream license observed at pin: Apache-2.0
+Observed copyright line in upstream LICENSE: Copyright 2023-2026 SpaceXAI
+This repository does not copy that source tree.
+Hashes, tree listings, and short quotes in
+external_verifications/grok-build/evidence/** are verification records
+and are excluded from this repository's Apache-2.0 grant.
+
+Incidental toolchain banners captured in evidence (for example Free Software
+Foundation copyright lines in compiler/tool --version output) remain those
+authors' copyrights.
+
+GitHub Actions referenced by .github/workflows/validate-receipts.yml
+(actions/checkout, actions/setup-python) are not vendored.
+
+Jane Doe / @janedoe names in witness-package test fixtures are synthetic.

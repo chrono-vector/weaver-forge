@@ -42,6 +42,12 @@ This GitHub repository is the **official evidence layer** for Weaver Forge.
 ## Public / private artifact routing
 This repository is intended to function as `WEAVER_FORGE_PUBLIC_CORE`. Before adding operational artifacts, ZIPs, Ingress results, Witness submissions, or Owner evidence, read [PUBLIC_PRIVATE_ARTIFACT_ROUTING.md](PUBLIC_PRIVATE_ARTIFACT_ROUTING.md). Future real operational material must not be added here by default.
 
+## License
+
+Owner-controlled reusable Public Core material — architecture, protocols, schemas, validators, scripts, templates, synthetic fixtures/tests, Independent Witness protocol/tooling/templates, VECTOR Ingress v0 reference code/schema/tests, and public reproducibility/reference documentation — is licensed under Apache-2.0. See [LICENSE](LICENSE), [LICENSE_SCOPE.md](LICENSE_SCOPE.md), and [NOTICE](NOTICE).
+
+This Apache grant does **not** license third-party quoted/copied material, historical evidence records, historical receipts as records, human witness submissions, identity/signature material, Owner operational authorization instances, or Grok Build / xAI / SpaceXAI source. Public visibility is not a license grant. Inclusion in Git history does not relicense excluded content.
+
 ## Use and feedback
 Weaver Forge is open for research, evaluation, and reproducibility testing.
 Users are welcome to try the documented workflows and report reproducible defects through GitHub Issues.
