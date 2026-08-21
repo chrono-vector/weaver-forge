@@ -1,1 +1,49 @@
+# Weaver Forge public-core containment.
+# These patterns are accidental-publication containment, not access control.
+# They apply prospectively. Already-tracked historical files remain tracked.
+# See PUBLIC_PRIVATE_ARTIFACT_ROUTING.md.
+
+# Python / cache / local generated
 __pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_ed25519
+credentials.json
+secrets.json
+
+# Real package / archive outputs
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# VECTOR Ingress real / owner-local outputs
+# Do not ignore schemas or synthetic test fixtures.
+/owner-local/
+/private-artifacts/
+/local-results/
+/vector-ingress-local/
+external_verifications/vector-handoff/local/
+**/vector-ingress-results/
+**/ingress-results/
+wvir-v0-*.json
+
+# Independent Witness real submissions
+# Keep the public policy/README placeholder tracked.
+external_verifications/grok-build/witness-submissions/*
+!external_verifications/grok-build/witness-submissions/README.md
+external_verifications/grok-build/witness-package/witness-submissions/*
+!external_verifications/grok-build/witness-package/witness-submissions/README.md
+
+# Logs / owner run artifacts
+*.log

@@ -39,6 +39,9 @@ This GitHub repository is the **official evidence layer** for Weaver Forge.
 
 **Build. Test. Commit. Receipt. Repeat.**
 
+## Public / private artifact routing
+This repository is intended to function as `WEAVER_FORGE_PUBLIC_CORE`. Before adding operational artifacts, ZIPs, Ingress results, Witness submissions, or Owner evidence, read [PUBLIC_PRIVATE_ARTIFACT_ROUTING.md](PUBLIC_PRIVATE_ARTIFACT_ROUTING.md). Future real operational material must not be added here by default.
+
 ## Use and feedback
 Weaver Forge is open for research, evaluation, and reproducibility testing.
 Users are welcome to try the documented workflows and report reproducible defects through GitHub Issues.
