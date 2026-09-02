@@ -1,5 +1,11 @@
 # Weaver Forge — Daily Commit Lab
 
+> **Repository Role — independent project (public)**
+>
+> Builder community, receipt layer, and read-only VECTOR Package Ingress v0.
+> **Not** VECTOR runtime authority; Weaver output ≠ VECTOR Evidence or Owner Acceptance.
+> Architecture reference → [vector-core](https://github.com/chrono-vector/vector-core).
+
 **A proof-of-work builder community for ML, Deep Learning, DSA, MLOps, AI systems, replay/evidence systems, and AI governance.**
 
 ### Motto
