@@ -15,8 +15,8 @@ Facts verified by local read-only Git inspection for this status update. These i
 | Item | Value |
 |------|-------|
 | Branch | `main` |
-| Current main commit | `35de09a3a8a30d2e321856b721ad92b3cd31edf8` |
-| `origin/main` | `35de09a3a8a30d2e321856b721ad92b3cd31edf8` |
+| Current main commit | `24cf34754b320f6ee470fbb6523dc085d5cb4a43` |
+| `origin/main` | `24cf34754b320f6ee470fbb6523dc085d5cb4a43` |
 | RC8 tag | `grok-build-witness-v1.0.0-rc8` |
 | RC8 annotated tag object | `8113d952d3b127d32e138dbf804141f5d1dfb26f` |
 | RC8 peeled commit | `1de4b4d9523711418390f8331c95988523ef4481` |
@@ -103,7 +103,7 @@ Summaries based on sections 1–3. They are navigation aids only and do not repl
 
 | Topic | Summary |
 |-------|---------|
-| Current `main` vs RC8 | `main` is at `35de09a3a8a30d2e321856b721ad92b3cd31edf8`. RC8 is pinned at peeled commit `1de4b4d9523711418390f8331c95988523ef4481` with tree `87b40d8a32ca536a4cdba0eee474f6171c62f6bb`. Whether `main` is ahead of or identical to RC8 was not re-derived beyond the confirmed identities above. |
+| Current `main` vs RC8 | `main` is at `24cf34754b320f6ee470fbb6523dc085d5cb4a43`. RC8 is pinned at peeled commit `1de4b4d9523711418390f8331c95988523ef4481` with tree `87b40d8a32ca536a4cdba0eee474f6171c62f6bb`. Whether `main` is ahead of or identical to RC8 was not re-derived beyond the confirmed identities above. |
 | Witness package posture | Grok Build Witness package lifecycle is bounded: RC6 and RC7 are immutable historical NOT READY; RC8 is an immutable static-audit candidate with passed artifact generation/verification; RC8 Formal Source Evaluation is complete under accepted GOV-004 with final controlling disposition NOT READY; Independent Witness was not authorized and was not performed. |
 | Readiness | No release readiness, production readiness, Source Weaver READY, Independent Witness PASS, finding closure, or blocker closure is asserted anywhere in this document. Final controlling disposition NOT READY is recorded under accepted GOV-004 only. |
 | Reproduction posture | Artifact verification for RC8 is stated as passed (owner-supplied and README-stated). Formal Independent Witness reproduction was not authorized and was not performed. Other reproduction categories (local validation, maintainer reproduction, non-formal external trial reproduction) are not merged with artifact verification or Independent Witness in this document. |
