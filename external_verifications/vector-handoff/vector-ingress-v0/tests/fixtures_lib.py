@@ -257,7 +257,13 @@ def build_file_map(mutate: Callable[[dict[str, Any]], None] | None = None) -> di
     env_sha = sha256_bytes(env_bytes)
     rc_sha = sha256_bytes(rc_bytes)
     elig_sha = sha256_bytes(elig_bytes)
-    instr = _instruction()
+    instr_override = objects.get("instruction")
+    if isinstance(instr_override, (bytes, bytearray)):
+        instr = bytes(instr_override)
+    elif isinstance(instr_override, str):
+        instr = instr_override.encode("utf-8")
+    else:
+        instr = _instruction()
     manifest_obj = _manifest(
         dt_sha=dt_sha,
         vr_sha=vr_sha,
