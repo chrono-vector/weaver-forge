@@ -11,6 +11,7 @@ import unittest
 import zipfile
 from pathlib import Path
 from typing import Callable
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 MOD = HERE.parent
@@ -19,6 +20,7 @@ if str(MOD) not in sys.path:
 
 import fixtures_lib as fx  # noqa: E402
 import ingress_v0  # noqa: E402
+import result_v0  # noqa: E402
 from ingress_v0 import evaluate_vector_package_ingress_v0  # noqa: E402
 from package_reader_v0 import (  # noqa: E402
     MAX_UNCOMPRESSED_PER_ENTRY,
@@ -629,6 +631,56 @@ class RealPackageIntegrationTests(unittest.TestCase):
             self.assertIs(value, False)
         self.assertEqual(validate_vector_ingress_result_v0(result), [])
         self.assertNotEqual(result["final_disposition"], "INGRESS_HOLD")
+
+
+class GovernanceMutationTests(unittest.TestCase):
+    """WF-ASSURANCE-GM-01: test-only const-false authority mutant detection.
+
+    A killed mutant means only that the broken authority protection was detected.
+    It does not admit Evidence, authorize Replay/Stage 6, or certify truth.
+    """
+
+    def test_stage6_authorized_const_false_mutant_is_detected(self) -> None:
+        package = fx.valid_zip_bytes()
+
+        # 1. BASELINE — unpatched normal path
+        baseline = _eval_bytes(package)
+        self.assertEqual(baseline["final_disposition"], "INGRESS_READY")
+        for key, value in baseline["authority"].items():
+            self.assertIs(value, False, key)
+        self.assertEqual(validate_vector_ingress_result_v0(baseline), [])
+
+        def mutant_always_false_authority() -> dict[str, bool]:
+            # Normal authority dictionary except stage6_authorized=True.
+            return {
+                "truth_verified": False,
+                "evidence_admitted": False,
+                "replay_authorized": False,
+                "downstream_execution_authorized": False,
+                "stage6_authorized": True,
+            }
+
+        # 2–3. MUTANT EXPRESSION + DETECTION (authority invariant only; no result-id asserts)
+        with patch.object(result_v0, "always_false_authority", mutant_always_false_authority):
+            mutant = _eval_bytes(package)
+            # Expression: mutant actually surfaced in the result authority
+            self.assertIs(mutant["authority"]["stage6_authorized"], True)
+            for key, value in mutant["authority"].items():
+                if key == "stage6_authorized":
+                    continue
+                self.assertIs(value, False, key)
+            # Ordinary all-authority-false contract fails under the mutant
+            self.assertFalse(all(v is False for v in mutant["authority"].values()))
+            # Primary detector: validator reports the specific const-false violation
+            errors = validate_vector_ingress_result_v0(mutant)
+            self.assertIn("authority.stage6_authorized must be false", errors)
+
+        # 4. RESTORATION — patch gone; original behavior restored
+        restored = _eval_bytes(package)
+        self.assertIs(restored["authority"]["stage6_authorized"], False)
+        for key, value in restored["authority"].items():
+            self.assertIs(value, False, key)
+        self.assertEqual(validate_vector_ingress_result_v0(restored), [])
 
 
 if __name__ == "__main__":
