@@ -10,7 +10,9 @@
 >
 > Where this document references lifecycle, package, validator, manifest, evidence, identity, witness, or contract material, the referenced repository files remain authoritative within their own stated scope.
 >
-> VECTOR Package Ingress v0 rows (`CONTRACT-IDX-045` onward) index a **separate** surface from RC8. They do not fold Ingress into RC8 READY, Independent Witness, C-014, or Source Weaver verdicts.
+> VECTOR Package Ingress v0 rows (`CONTRACT-IDX-045` through `CONTRACT-IDX-053`) index a **separate** surface from RC8. They do not fold Ingress into RC8 READY, Independent Witness, C-014, or Source Weaver verdicts.
+>
+> GitHub Content & Practical Value Assessment v0 (`CONTRACT-IDX-054`) indexes a **separate** read-only advisory specification-only surface. It is not Evidence, Certification, Security Audit, Independent Witness, Owner Acceptance, authorization, VECTOR Package Ingress, or WF-FC-04 / RC8 reinterpretation.
 
 ## 1. Purpose
 
@@ -20,6 +22,7 @@ Index contract-bearing, contract-adjacent, lifecycle, policy, manifest, validato
 
 - Indexing repository paths relevant to RC8 management planning
 - Indexing VECTOR Package Ingress v0 paths as a **separate** surface from RC8
+- Indexing GitHub Content & Practical Value Assessment v0 as a **separate** read-only advisory specification-only surface
 - Classifying authority type, lifecycle status, protected/editable status, and change-control requirement
 - Providing stable `CONTRACT-IDX-NNN` identifiers for cross-document references
 
@@ -149,6 +152,14 @@ These rows index a **separate** VECTOR surface. They do **not** fold Ingress int
 | `CONTRACT-IDX-052` | `external_verifications/vector-handoff/vector-ingress-v0/tests/test_vector_ingress_v0.py` | VECTOR ingress / tests | Validator implementation | Public synthetic unittest; real ZIP skipped unless `VECTOR_INGRESS_REAL_ZIP` is set | Current | Editable tests | Default public run must not require Owner ZIP bytes | `fixtures_lib.py` | Synthetic PASS ≠ IW PASS / RC8 READY / Stage 6 |
 | `CONTRACT-IDX-053` | `external_verifications/vector-handoff/vector-ingress-v0/tests/fixtures_lib.py` | VECTOR ingress / tests | Validator implementation | In-repo synthetic ZIP builder | Current | Editable fixtures | Keep synthetic; do not add real VECTOR package bytes | `test_vector_ingress_v0.py` | Public-safe fixtures only |
 
+## 11B. GitHub Content & Practical Value Assessment v0 Index (separate from RC8 and VECTOR Ingress)
+
+These rows index a **separate** read-only advisory **specification-only** surface. They do **not** create Evidence, Certification, Security Audit, Independent Witness, Owner Acceptance, or authorization. They do **not** alter VECTOR Package Ingress v0, WF-FC-04, RC8, or Job Agent connectivity. Indexed files remain authoritative within their own stated scope.
+
+| Index ID | Repository path | Category | Authority type | Lifecycle status | Current or historical | Protected or editable | Change-control requirement | Related validator/manifest/evidence surface | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| `CONTRACT-IDX-054` | `external_verifications/github-content-value/README.md` | advisory / project-meta | Project documentation | Read-only advisory specification-only; v0 has no evaluator, JSON Schema, automated tests, or continuous VECTOR / Job Agent / Chronicle connection | Current | Editable current surface | Must remain a separate surface from RC8 and VECTOR Ingress; Value Assessment ≠ Evidence / Certification / Security Audit / Independent Witness / Owner Acceptance; Recommendation ≠ Authorization | Not currently identified | Spec-only registration; not VECTOR Package Ingress; not WF-FC-04 / RC8 reinterpretation |
+
 ## 12. Protected and Version-Bound Surfaces
 
 The following indexed entries are protected, version-bound, mixed-preserved, or historical for RC8 management-baseline purposes and must not be edited by this baseline:
@@ -178,6 +189,7 @@ The following indexed entries are protected, version-bound, mixed-preserved, or 
 - Lifecycle authority surface change in STATUS/README/package readiness policy
 - New management artifact added to the baseline set
 - VECTOR Package Ingress v0 path added, removed, or split as a separate surface from RC8
+- GitHub Content & Practical Value Assessment v0 path added, removed, or split as a separate advisory specification-only surface
 
 ## 14. Ownership
 
@@ -201,18 +213,23 @@ Repository maintainer.
 - Protected surfaces identified.
 - No READY/NOT READY decision newly declared.
 - VECTOR Package Ingress v0 is indexed as a separate surface and is not folded into RC8 READY.
+- GitHub Content & Practical Value Assessment v0 is indexed as a separate read-only advisory specification-only surface and is not folded into Evidence, Certification, Independent Witness, Owner Acceptance, VECTOR Ingress, or RC8 READY.
 - References use actual repository paths.
 
 ## 18. References
 
 ### Existing repository files
 
-All paths listed in Sections 8–11 and 11A.
+All paths listed in Sections 8–11, 11A, and 11B.
 
 ### VECTOR Package Ingress v0 (separate from RC8)
 
 - `external_verifications/vector-handoff/README.md`
 - `external_verifications/vector-handoff/vector-ingress-v0/**`
+
+### GitHub Content & Practical Value Assessment v0 (separate from RC8 and VECTOR Ingress)
+
+- `external_verifications/github-content-value/README.md`
 
 ### RC8 management baseline set
 
