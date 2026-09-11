@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Path Synthesizer v0 Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "result_id",
+    "target_commit",
+    "source_verifier_result_id",
+    "runtime_inventory_result_id",
+    "mutating_callsite_result_id",
+    "queue_state_transition_result_id",
+    "nodes",
+    "edges",
+    "paths",
+    "path_gaps",
+    "summary",
+    "runtime_execution_verified",
+    "limitations",
+    "created_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-path-synthesizer-v0"},
+    "result_id": {"type": "string", "pattern": "^wrps-v0-[0-9a-f]{32}$"},
+    "target_commit": {"type": "string"},
+    "nodes": {"type": "array"},
+    "edges": {"type": "array"},
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "path_status": {
+            "type": "string",
+            "description": "Legacy aggregate aligned to STATIC_PATH_STATUS COMPLETE|PARTIAL|BROKEN|UNKNOWN. Does not overwrite multi-axis fields."
+          },
+          "STATIC_PATH_STATUS": {"type": "string"},
+          "RUNTIME_EXECUTION_STATUS": {"type": "string"},
+          "SIGNER_IDENTITY_STATUS": {"type": "string"},
+          "AUTHORITY_STATUS": {"type": "string"},
+          "INDEPENDENT_WITNESS_STATUS": {"type": "string"},
+          "SOT_STATUS": {"type": "string"},
+          "address_axes": {"type": "object"}
+        }
+      }
+    },
+    "path_gaps": {"type": "array"},
+    "summary": {"type": "object", "additionalProperties": true},
+    "runtime_execution_verified": {"const": false},
+    "limitations": {"type": "array"},
+    "reason_codes": {"type": "array"},
+    "created_at": {"type": "string"}
+  }
+}

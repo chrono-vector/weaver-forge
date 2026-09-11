@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Path Synthesizer v0 Input",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_verifier_result",
+    "runtime_inventory_result",
+    "mutating_callsite_result",
+    "queue_state_transition_result",
+    "repo_path",
+    "target_commit",
+    "notes"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-path-synthesizer-v0"},
+    "source_verifier_result": {"type": "object"},
+    "runtime_inventory_result": {"type": "object"},
+    "mutating_callsite_result": {"type": "object"},
+    "queue_state_transition_result": {"type": "object"},
+    "static_evidence_graph": {
+      "type": "object",
+      "description": "Optional weaver-static-evidence-graph-v0. Absent input preserves legacy synthesizer behavior."
+    },
+    "path_specific_sot_evidence": {
+      "type": "object",
+      "description": "Optional weaver-path-specific-sot-evidence-v0. Path-usable/dual-valid SoT may clear address axis without global canonical family.",
+      "properties": {
+        "schema_version": {"const": "weaver-path-specific-sot-evidence-v0"},
+        "global_canonical_status": {"type": "string"},
+        "multi_generation_status": {"type": "string"},
+        "records": {"type": "array"}
+      }
+    },
+    "repo_path": {"type": "string"},
+    "target_commit": {"type": "string"},
+    "expected_paths": {"type": "array"},
+    "max_paths": {"type": "integer"},
+    "notes": {"type": "string"}
+  }
+}

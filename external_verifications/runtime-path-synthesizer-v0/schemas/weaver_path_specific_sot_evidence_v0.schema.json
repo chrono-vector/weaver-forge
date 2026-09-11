@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Path-Specific SoT Evidence v0",
+  "type": "object",
+  "required": ["schema_version", "records"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-path-specific-sot-evidence-v0"},
+    "global_canonical_status": {
+      "type": "string",
+      "description": "BOUND | UNRESOLVED. UNRESOLVED does not deny STATIC_PATH_COMPLETE when path-usable SoT is established."
+    },
+    "multi_generation_status": {"type": "string"},
+    "source": {"type": "string"},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path_id", "path_specific_sot_classification"],
+        "properties": {
+          "path_id": {"type": "string"},
+          "target_contract_role": {"type": "string"},
+          "supported_addresses": {"type": "object"},
+          "generation_family": {"type": "string"},
+          "source_artifact_commit": {"type": "object"},
+          "live_bytecode_binding_classification": {"type": "object"},
+          "dual_valid": {"type": "boolean"},
+          "conflict_status": {"type": "string"},
+          "path_specific_sot_classification": {"type": "string"},
+          "evidence_references": {"type": "array", "items": {"type": "string"}},
+          "layer_note": {"type": "string"},
+          "global_canonical_required": {"type": "boolean", "const": false}
+        }
+      }
+    },
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}
