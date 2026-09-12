@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Reproduction Scope v0",
+  "type": "object",
+  "required": ["required_classes"],
+  "additionalProperties": true,
+  "properties": {
+    "kind": {"type": "string"},
+    "required_classes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "STATIC_REPRODUCTION",
+          "RUNTIME_INPUT_REPRODUCTION",
+          "RUNTIME_DISPATCH_REPRODUCTION",
+          "RUNTIME_EXECUTION_REPRODUCTION",
+          "AUTHORITY_READ_REPRODUCTION"
+        ]
+      }
+    },
+    "whole_repository": {"type": "boolean"},
+    "extra_path_ids": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Witness Run Metadata v0",
+  "type": "object",
+  "required": ["run_id", "pack_version"],
+  "additionalProperties": true,
+  "properties": {
+    "run_id": {"type": "string"},
+    "pack_version": {"type": "string"},
+    "witness_handle": {"type": "string"},
+    "witness_reference": {"type": "string"},
+    "designated_witness": {"type": "boolean"},
+    "declared_independent": {"type": "boolean"},
+    "witness_identity_class": {"type": "string"},
+    "timestamps": {"type": "object"},
+    "in_progress": {"type": "boolean"}
+  }
+}

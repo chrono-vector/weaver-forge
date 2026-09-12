@@ -1,0 +1,19 @@
+{
+  "required_members": [
+    "witness-run-metadata.json",
+    "frozen-input-verification.json",
+    "environment.json",
+    "static-reproduction-results.json",
+    "runtime-input-results.json",
+    "runtime-dispatch-results.json",
+    "runtime-execution-results.json",
+    "authority-read-results.json",
+    "failure-log.json",
+    "retry-log.json",
+    "evidence-digests.json",
+    "witness-attestation.json",
+    "witness-receipt.json",
+    "manifest.json"
+  ],
+  "note": "No expected derived result hashes here"
+}

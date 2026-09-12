@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Frozen Boundary Verification v0",
+  "type": "object",
+  "required": ["CAW_COMMIT", "PATH_IDS", "PACK_FORMAT_VERSION"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"type": "string"},
+    "CAW_COMMIT": {"type": "string"},
+    "WEAVER_COMMIT": {"type": "string"},
+    "WEAVER_TREE": {"type": "string"},
+    "SCHEMA_VERSIONS": {"type": "array", "items": {"type": "string"}},
+    "IW_VERIFIER_VERSION": {"type": "string"},
+    "PACK_FORMAT_VERSION": {"type": "string"},
+    "PATH_IDS": {"type": "array", "items": {"type": "string"}},
+    "RUNTIME_PATH_IDS": {"type": "array", "items": {"type": "string"}},
+    "TARGET_ADDRESSES": {"type": "object"},
+    "METHOD_SIGNATURES": {"type": "object"},
+    "CHAIN_IDS": {"type": "object"},
+    "REFERENCE_BLOCKS": {"type": "object"},
+    "AUTHORITY_READ_SUBSET": {"type": "object"},
+    "FIXTURE_DIGESTS": {"type": "object"},
+    "MANIFEST_DIGEST": {"type": "string"}
+  }
+}

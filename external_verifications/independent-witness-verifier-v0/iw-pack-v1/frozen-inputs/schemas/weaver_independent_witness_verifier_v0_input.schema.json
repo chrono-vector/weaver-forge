@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Independent Witness Verifier v0 Input",
+  "type": "object",
+  "required": ["schema_version", "independent_witness_pack"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-independent-witness-verifier-v0"},
+    "independent_witness_pack": {"type": "object"},
+    "expected_frozen_boundary": {"type": "object"},
+    "allow_iw_accepted": {"type": "boolean"},
+    "force_iw_status": {"type": "string"}
+  }
+}

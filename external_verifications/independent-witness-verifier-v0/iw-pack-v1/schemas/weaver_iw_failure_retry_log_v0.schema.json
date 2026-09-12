@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Failure Retry Log v0",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "failure_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["attempt_id", "category"],
+        "properties": {
+          "attempt_id": {"type": "string"},
+          "category": {
+            "type": "string",
+            "enum": [
+              "REPRODUCTION_PASS",
+              "REPRODUCTION_MISMATCH",
+              "ENVIRONMENT_BLOCKED",
+              "DEPENDENCY_BLOCKED",
+              "RPC_BLOCKED",
+              "SOURCE_MISMATCH",
+              "RUNTIME_MISMATCH",
+              "UNEXPECTED_RESULT",
+              "WITNESS_ABORTED"
+            ]
+          },
+          "step": {"type": "string"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "retry_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["attempt_id"],
+        "properties": {
+          "attempt_id": {"type": "string"},
+          "prior_failure_id": {"type": "string"},
+          "prior_failure_category": {"type": "string"},
+          "result": {"type": "string"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Authority Reproduction Result v0",
+  "type": "object",
+  "required": ["AUTHORITY_ID", "result"],
+  "additionalProperties": true,
+  "properties": {
+    "AUTHORITY_ID": {"type": "string"},
+    "result": {"type": "string"},
+    "selector": {"type": "string"},
+    "address": {"type": "string"},
+    "class": {"const": "AUTHORITY_READ_REPRODUCTION"},
+    "derived_from_operator_artifact": {"type": "boolean"}
+  }
+}

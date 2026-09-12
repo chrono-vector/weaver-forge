@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Independence Criteria v0",
+  "type": "object",
+  "required": ["axes"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-iw-independence-criteria-v0"},
+    "axes": {
+      "type": "object",
+      "properties": {
+        "OPERATOR_INDEPENDENCE": {"type": "object"},
+        "ENVIRONMENT_INDEPENDENCE": {"type": "object"},
+        "EXECUTION_INDEPENDENCE": {"type": "object"},
+        "OBSERVATION_INDEPENDENCE": {"type": "object"},
+        "EVIDENCE_GENERATION_INDEPENDENCE": {"type": "object"},
+        "RESULT_SUBMISSION_INDEPENDENCE": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

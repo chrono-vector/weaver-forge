@@ -1,0 +1,16 @@
+{
+  "PATH_ID": "wrps-v0-p0014",
+  "method": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+  "target": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+  "abi_hint": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+  "fixture_policy": "Use published synthetic fixture values from pack; encode locally",
+  "params_template": {
+    "profileId": "SYNTHETIC_UINT32",
+    "listingType": "SYNTHETIC_UINT8",
+    "paymentToken": "SYNTHETIC_ADDRESS",
+    "price": "SYNTHETIC_UINT256",
+    "amount": "SYNTHETIC_UINT256",
+    "deadline": "SYNTHETIC_UINT64"
+  },
+  "expected_calldata_sha256": "REVEAL_AFTER_RUN_SEE_reference-disclosure"
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Runtime Reproduction Result v0",
+  "type": "object",
+  "required": ["PATH_ID", "result"],
+  "additionalProperties": true,
+  "properties": {
+    "PATH_ID": {"type": "string"},
+    "result": {"type": "string"},
+    "class": {
+      "type": "string",
+      "enum": [
+        "RUNTIME_INPUT_REPRODUCTION",
+        "RUNTIME_DISPATCH_REPRODUCTION",
+        "RUNTIME_EXECUTION_REPRODUCTION"
+      ]
+    },
+    "calldata_sha256": {"type": "string"},
+    "mode": {"type": "string"},
+    "derived_from_operator_artifact": {"type": "boolean"}
+  }
+}

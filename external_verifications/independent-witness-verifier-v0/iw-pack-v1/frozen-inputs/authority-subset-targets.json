@@ -1,0 +1,20 @@
+{
+  "scope": "READ_ONLY_SUBSET",
+  "selected": {
+    "AUTHORITY_ID": "AUTH-005",
+    "CONTRACT": "CawProfile",
+    "ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+    "READ_METHOD": "owner()",
+    "SELECTOR": "0x8da5cb5b",
+    "CHAIN_ID": 11155111,
+    "REFERENCE_BLOCK": 11686511
+  },
+  "rationale": "AUTH-005 CawProfile.owner() is a simple Ownable getter on a stable Sepolia deployed address already successfully read in CARO; representative of authority packaging without L2 multi-chain reproduction or privileged execution.",
+  "scope_limited_note": "One read \u2260 full authority map verification",
+  "forbidden": [
+    "transferOwnership",
+    "privileged execution",
+    "identity inference",
+    "live authority action"
+  ]
+}

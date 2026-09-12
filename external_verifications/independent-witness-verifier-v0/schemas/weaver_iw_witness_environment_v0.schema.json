@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Witness Environment v0",
+  "type": "object",
+  "required": ["os_family", "arch", "python_version", "tool_versions"],
+  "additionalProperties": true,
+  "properties": {
+    "os_family": {"type": "string"},
+    "arch": {"type": "string"},
+    "python_version": {"type": "string"},
+    "tool_versions": {"type": "object"},
+    "dependency_lock_digest": {"type": "string"},
+    "personal_identifiers_present": {"type": "boolean"}
+  }
+}

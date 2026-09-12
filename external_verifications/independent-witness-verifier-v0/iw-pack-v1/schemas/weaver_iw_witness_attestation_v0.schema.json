@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Witness Attestation v0",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "statements": {"type": "object"},
+    "attestor": {"type": "string"},
+    "timestamp": {"type": "string"}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "PATH_ID": "wrps-v0-p0030",
+  "CONTRACT": "MintableCaw",
+  "METHOD": "mint(address,uint256)",
+  "TARGET_ADDRESS": "0x56817dc696448135203c0556f702c6a953260411",
+  "CHAIN_ID": 11155111,
+  "SELECTOR": "0x40c10f19",
+  "STATIC_STATUS_REFERENCE": "COMPLETE",
+  "note": "Witness regenerates static binding checks from CAW source at frozen commit"
+}

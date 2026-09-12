@@ -1,0 +1,8 @@
+{
+  "WEAVER_COMMIT_AT_MATERIALIZATION": "890f3a1af8faaee602d09eb9195442b76862a072",
+  "WEAVER_TREE_AT_MATERIALIZATION": "6cd2977079866fb9a35dc90fb3e59cd25e9031dc",
+  "note": "Final freeze record updated after IW implementation commit",
+  "IW_VERIFIER_VERSION": "v0",
+  "PACK_FORMAT_VERSION": "iw-pack-v1",
+  "PACK_SCHEMA": "weaver-independent-witness-pack-v0"
+}

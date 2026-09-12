@@ -1,0 +1,266 @@
+{
+  "schema_version": "weaver-independent-witness-verifier-v0",
+  "iw_verifier_version": "v0",
+  "pack_format_version": "iw-pack-v1",
+  "verification_status": "ACCEPTED",
+  "IW_STATUS": "IW_REPRODUCTION_MATCHED",
+  "REAL_IW_STATUS": "NOT_SATISFIED",
+  "MATCHED_NEQ_ACCEPTED": true,
+  "reproduction": {
+    "required_classes": [
+      "STATIC_REPRODUCTION",
+      "RUNTIME_INPUT_REPRODUCTION",
+      "RUNTIME_DISPATCH_REPRODUCTION",
+      "RUNTIME_EXECUTION_REPRODUCTION",
+      "AUTHORITY_READ_REPRODUCTION"
+    ],
+    "class_status": {
+      "STATIC_REPRODUCTION": {
+        "present": true,
+        "matched": true,
+        "path_ids": [
+          "wrps-v0-p0014",
+          "wrps-v0-p0030"
+        ]
+      },
+      "RUNTIME_INPUT_REPRODUCTION": {
+        "present": true,
+        "matched": true,
+        "path_ids": [
+          "wrps-v0-p0014",
+          "wrps-v0-p0030"
+        ]
+      },
+      "RUNTIME_DISPATCH_REPRODUCTION": {
+        "present": true,
+        "matched": true,
+        "path_ids": [
+          "wrps-v0-p0014",
+          "wrps-v0-p0030"
+        ]
+      },
+      "RUNTIME_EXECUTION_REPRODUCTION": {
+        "present": true,
+        "matched": true,
+        "path_ids": [
+          "wrps-v0-p0014",
+          "wrps-v0-p0030"
+        ]
+      },
+      "AUTHORITY_READ_REPRODUCTION": {
+        "present": true,
+        "matched": true,
+        "count": 1
+      }
+    },
+    "scope_complete": true,
+    "reproduction_matched": true,
+    "acceptance_scope": {
+      "kind": "BOUNDED_D",
+      "static_paths": [
+        "wrps-v0-p0014",
+        "wrps-v0-p0030"
+      ],
+      "runtime_paths": [
+        "wrps-v0-p0014",
+        "wrps-v0-p0030"
+      ],
+      "authority": "READ_ONLY_SUBSET",
+      "whole_repository": false
+    }
+  },
+  "independence": {
+    "axes": {
+      "OPERATOR_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      },
+      "ENVIRONMENT_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      },
+      "EXECUTION_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      },
+      "OBSERVATION_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      },
+      "EVIDENCE_GENERATION_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      },
+      "RESULT_SUBMISSION_INDEPENDENCE": {
+        "status": "VERIFIED",
+        "evidence_present": true,
+        "satisfied": true
+      }
+    },
+    "all_mandatory_satisfied": true,
+    "missing_mandatory": [],
+    "INDEPENDENCE_ACCEPTED": false,
+    "dry_run_note": "MAINTAINER_DRY_RUN independence NOT_APPLICABLE_FOR_ACCEPTANCE"
+  },
+  "role_separation": {
+    "WITNESS_REFERENCE": true,
+    "DESIGNATED_WITNESS": false,
+    "DECLARED_INDEPENDENT": false,
+    "REPRODUCTION_COMPLETED": true,
+    "REPRODUCTION_MATCHED": true,
+    "INDEPENDENCE_ACCEPTED": false,
+    "ACCEPTED_INDEPENDENT_REPRODUCTION": false
+  },
+  "frozen_boundary_checks": {
+    "CAW_COMMIT": {
+      "observed": "e2074718bcea293726ddfcf8764e1499e7b9217c",
+      "expected": "e2074718bcea293726ddfcf8764e1499e7b9217c",
+      "match": true,
+      "mandatory": true
+    },
+    "WEAVER_COMMIT": {
+      "observed": "890f3a1af8faaee602d09eb9195442b76862a072",
+      "expected": "890f3a1af8faaee602d09eb9195442b76862a072",
+      "match": true,
+      "mandatory": true
+    },
+    "PACK_FORMAT_VERSION": {
+      "observed": "iw-pack-v1",
+      "expected": "iw-pack-v1",
+      "match": true,
+      "mandatory": true
+    },
+    "IW_VERIFIER_VERSION": {
+      "observed": "v0",
+      "expected": "v0",
+      "match": true,
+      "mandatory": true
+    },
+    "PATH_IDS": {
+      "observed": [
+        "wrps-v0-p0014",
+        "wrps-v0-p0030"
+      ],
+      "expected": [
+        "wrps-v0-p0014",
+        "wrps-v0-p0030"
+      ],
+      "match": true,
+      "mandatory": true
+    },
+    "TARGET_ADDRESSES": {
+      "observed": {
+        "wrps-v0-p0014": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+        "wrps-v0-p0030": "0x56817dc696448135203c0556f702c6a953260411"
+      },
+      "expected": {
+        "wrps-v0-p0014": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+        "wrps-v0-p0030": "0x56817dc696448135203c0556f702c6a953260411"
+      },
+      "match": true,
+      "mandatory": true
+    },
+    "CHAIN_ID_PRIMARY": {
+      "observed": 11155111,
+      "expected": 11155111,
+      "match": true,
+      "mandatory": true
+    },
+    "AUTHORITY_ADDRESS": {
+      "observed": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "expected": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "match": true,
+      "mandatory": true
+    },
+    "AUTHORITY_SELECTOR": {
+      "observed": "0x8da5cb5b",
+      "expected": "0x8da5cb5b",
+      "match": true,
+      "mandatory": true
+    },
+    "SCHEMA_VERSIONS": {
+      "observed": [
+        "weaver-path-specific-sot-evidence-v0",
+        "weaver-runtime-evidence-pack-v0",
+        "weaver-runtime-input-artifact-v0",
+        "weaver-runtime-dispatch-artifact-v0",
+        "weaver-authority-evidence-pack-v0",
+        "weaver-independent-witness-pack-v0"
+      ],
+      "expected": [
+        "weaver-path-specific-sot-evidence-v0",
+        "weaver-runtime-evidence-pack-v0",
+        "weaver-runtime-input-artifact-v0",
+        "weaver-runtime-dispatch-artifact-v0",
+        "weaver-authority-evidence-pack-v0",
+        "weaver-independent-witness-pack-v0"
+      ],
+      "match": true,
+      "mandatory": true,
+      "missing": []
+    }
+  },
+  "frozen_boundary_ok": true,
+  "network_safety": {
+    "REAL_WALLET": "NO",
+    "REAL_PRIVATE_KEY": "NO",
+    "REAL_CREDENTIAL": "NO",
+    "LIVE_BROADCAST": "NO",
+    "LIVE_MUTATION": "NO",
+    "modes_used": [
+      "NO_NETWORK"
+    ]
+  },
+  "failure_retry": {
+    "failure_count": 1,
+    "retry_count": 1,
+    "failures_preserved": true,
+    "retries_preserved": true
+  },
+  "nonclaim_gates": {
+    "CAW_CERTIFIED": true,
+    "TRUSTLESS_VERIFIED": true,
+    "DECENTRALIZED_VERIFIED": true,
+    "LIVE_TRANSACTION_VERIFIED": true,
+    "AUTHORITY_EXECUTION_VERIFIED": true,
+    "SYSTEM_PERMISSIONLESS": true,
+    "SECURITY_AUDIT_COMPLETE": true,
+    "PRODUCTION_SAFE": true
+  },
+  "nonclaim_violations": {},
+  "acceptance_scope": {
+    "kind": "BOUNDED_D",
+    "static_paths": [
+      "wrps-v0-p0014",
+      "wrps-v0-p0030"
+    ],
+    "runtime_paths": [
+      "wrps-v0-p0014",
+      "wrps-v0-p0030"
+    ],
+    "authority": "READ_ONLY_SUBSET",
+    "whole_repository": false
+  },
+  "scope_limited": true,
+  "structurally_acceptable": false,
+  "ACCEPTED_INDEPENDENT_REPRODUCTION": false,
+  "maintainer_dry_run": true,
+  "dry_run_independence": "NOT_ACCEPTABLE_FOR_IW",
+  "errors": [],
+  "reason_codes": [],
+  "axes": {
+    "REPRODUCTION_MATCHED": true,
+    "INDEPENDENCE_ACCEPTED": false,
+    "IW_ACCEPTED": false,
+    "DESIGNATED_WITNESS_ONLY": false
+  },
+  "caw_verdict_changed": false,
+  "generated_at": "2026-09-12T05:44:29Z",
+  "result_id": "wiwv-v0-c495f1a5afabdba928f30df4c1a21769",
+  "result_digest": "c495f1a5afabdba928f30df4c1a21769d038720f00c2c5416c9d3d51a102ee89"
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Static Reproduction Result v0",
+  "type": "object",
+  "required": ["PATH_ID", "result"],
+  "additionalProperties": true,
+  "properties": {
+    "PATH_ID": {"type": "string"},
+    "result": {"type": "string"},
+    "class": {"const": "STATIC_REPRODUCTION"},
+    "derived_from_operator_artifact": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "run_id": "WITNESS_RUN_ID_PLACEHOLDER",
+  "pack_version": "iw-pack-v1",
+  "witness_handle": "PLACEHOLDER",
+  "witness_identity_class": "EXTERNAL_WITNESS_PLACEHOLDER",
+  "designated_witness": false,
+  "declared_independent": false,
+  "status": "NOT_REACHED"
+}

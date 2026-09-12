@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver IW Witness Receipt v0",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "submitted": {"type": "boolean"},
+    "receipt_id": {"type": "string"},
+    "timestamp": {"type": "string"}
+  }
+}

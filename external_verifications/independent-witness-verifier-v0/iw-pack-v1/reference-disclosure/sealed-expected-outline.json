@@ -1,0 +1,28 @@
+{
+  "policy": "SEMI_BLIND",
+  "reveal_after": "witness_output_frozen",
+  "compare_classes": [
+    "STATIC_REPRODUCTION",
+    "RUNTIME_INPUT_REPRODUCTION",
+    "RUNTIME_DISPATCH_REPRODUCTION",
+    "RUNTIME_EXECUTION_REPRODUCTION",
+    "AUTHORITY_READ_REPRODUCTION"
+  ],
+  "operator_reference_runs": {
+    "p0014": {
+      "V-R0": "VR0P14-20260912-101043-DAE3021C",
+      "V-R1": "VR1P14-20260912-105756-3BDE465A",
+      "V-R2": "VR2P14-20260912-111514-D9C9AA04",
+      "V-R3": "VR3P14-20260912-112620-F16EA9AD"
+    },
+    "p0030": {
+      "V-R0": "VR0P30-20260912-121749-A0C772C8",
+      "V-R1": "VR1P30-20260912-122352-6904D21C"
+    },
+    "authority": {
+      "CARO": "CARO-20260912-041428-A6BBA9BA",
+      "AUTH_ID": "AUTH-005"
+    }
+  },
+  "note": "Exact expected derived hashes intentionally omitted from pre-run visible surface; witness regenerates evidence."
+}

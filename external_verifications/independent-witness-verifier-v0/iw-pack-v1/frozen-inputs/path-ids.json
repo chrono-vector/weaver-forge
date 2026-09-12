@@ -1,0 +1,19 @@
+{
+  "static_paths": [
+    "wrps-v0-p0014",
+    "wrps-v0-p0030"
+  ],
+  "runtime_paths": [
+    "wrps-v0-p0014",
+    "wrps-v0-p0030"
+  ],
+  "methods": {
+    "wrps-v0-p0014": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+    "wrps-v0-p0030": "mint(address,uint256)"
+  },
+  "targets": {
+    "wrps-v0-p0014": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+    "wrps-v0-p0030": "0x56817dc696448135203c0556f702c6a953260411"
+  },
+  "chain_id": 11155111
+}

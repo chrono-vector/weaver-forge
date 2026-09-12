@@ -1,0 +1,9 @@
+{
+  "PATH_ID": "wrps-v0-p0014",
+  "CONTRACT": "CawProfileMarketplace",
+  "METHOD": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+  "TARGET_ADDRESS": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+  "CHAIN_ID": 11155111,
+  "STATIC_STATUS_REFERENCE": "COMPLETE",
+  "note": "Witness regenerates static binding checks from CAW source at frozen commit"
+}

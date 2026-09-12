@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Independent Witness Verifier v0 Result",
+  "type": "object",
+  "required": ["schema_version", "IW_STATUS", "verification_status"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-independent-witness-verifier-v0"},
+    "IW_STATUS": {
+      "type": "string",
+      "enum": [
+        "IW_NOT_STARTED",
+        "IW_IN_PROGRESS",
+        "IW_REPRODUCTION_PARTIAL",
+        "IW_REPRODUCTION_MATCHED",
+        "IW_ACCEPTED",
+        "IW_REJECTED"
+      ]
+    },
+    "verification_status": {"type": "string"},
+    "MATCHED_NEQ_ACCEPTED": {"type": "boolean"},
+    "ACCEPTED_INDEPENDENT_REPRODUCTION": {"type": "boolean"},
+    "acceptance_scope": {"type": "object"},
+    "nonclaim_gates": {"type": "object"},
+    "role_separation": {"type": "object"},
+    "independence": {"type": "object"},
+    "reproduction": {"type": "object"}
+  }
+}
