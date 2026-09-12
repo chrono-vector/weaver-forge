@@ -133,14 +133,14 @@
       "mandatory": true
     },
     "WEAVER_COMMIT": {
-      "observed": "97a5c51b4b412f728a801496cda551827249b2b0",
-      "expected": "97a5c51b4b412f728a801496cda551827249b2b0",
+      "observed": "8803b700c1b45b05dfde5b3a2c237d5c5857ba0f",
+      "expected": "8803b700c1b45b05dfde5b3a2c237d5c5857ba0f",
       "match": true,
       "mandatory": true
     },
     "WEAVER_TREE": {
-      "observed": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
-      "expected": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
+      "observed": "faa190b57b3bccf0334c47af60ae96a9d06a235f",
+      "expected": "faa190b57b3bccf0334c47af60ae96a9d06a235f",
       "match": true,
       "mandatory": true
     },
@@ -199,14 +199,14 @@
       "mandatory": true
     },
     "CONTENT_MANIFEST_DIGEST": {
-      "observed": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
-      "expected": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
+      "observed": "05460f4349b88982af61476ca0020b9c3c801253e31f5be488669f25b41fca5c",
+      "expected": "05460f4349b88982af61476ca0020b9c3c801253e31f5be488669f25b41fca5c",
       "match": true,
       "mandatory": true
     },
     "PACK_SEAL_DIGEST": {
-      "observed": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
-      "expected": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
+      "observed": "f942afbc175e5c1ba2ca23286d031efb5d0c1d015d14bd1b21f3a6e0fe0d4698",
+      "expected": "f942afbc175e5c1ba2ca23286d031efb5d0c1d015d14bd1b21f3a6e0fe0d4698",
       "match": true,
       "mandatory": true
     },
@@ -291,9 +291,9 @@
     "EXTERNAL_SUBMISSION_VALID": true
   },
   "caw_verdict_changed": false,
-  "generated_at": "2026-09-12T06:40:21Z",
-  "result_id": "wiwv-v0-3c091a68740e4e211251146b9a61f8dc",
-  "result_digest": "3c091a68740e4e211251146b9a61f8dc2cdb35e65dc28a16d4ebc8921db99e41",
+  "generated_at": "2026-09-12T06:46:45Z",
+  "result_id": "wiwv-v0-7a8a6d13ba2d7dcaf445a2b838a56907",
+  "result_digest": "7a8a6d13ba2d7dcaf445a2b838a56907991ac7c17a4bc79126eb2fab734a1ebb",
   "annex_class": "HISTORICAL_RECORD",
   "seal_role": "SEAL_METADATA_ANNEX_NOT_IN_CONTENT_MANIFEST"
 }

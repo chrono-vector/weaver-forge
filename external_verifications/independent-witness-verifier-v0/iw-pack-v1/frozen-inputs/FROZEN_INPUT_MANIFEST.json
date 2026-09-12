@@ -30,6 +30,6 @@
     "schemas/weaver_iw_witness_run_metadata_v0.schema.json": "55be3e79483fc7e35595bfd52c66204d053836cac61e9e2c5e9235892d4838d4",
     "toolchain-profile.json": "96efdf02cc73397dbab68d91e9003a2d0e4656c8d18ebaa1493b88d2f4c68291",
     "untracked-exclusion-proof.json": "8a129c3c26136d5b01d26a18bc335a8a5789efb7dc57b81cbcf32b96628a0365",
-    "weaver-pin.json": "0329b3ef7795d4db862a0ade3616fb65175cda2ab367ff0043e00b1203f68514"
+    "weaver-pin.json": "b648a8127b98c0236c1db4228bc434f89ec1239149a8a90d137838d7419ded1c"
   }
 }

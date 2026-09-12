@@ -20,7 +20,7 @@
     "frozen-inputs/failure-history-policy.json": "758a0efeeb9a95ac894a2fbf6cfb2021695f018f6c51220b149048e487314643",
     "frozen-inputs/fixture-specs/p0014-createListing.json": "4a91e5cd1765dd37d12e3af3b66bbaee99f5e6cee0db8f939fa85661bb0af360",
     "frozen-inputs/fixture-specs/p0030-mint.json": "fabba2a0ce20ea736143d900e7a5d63198ac40453c9d057d78356feddacaf4b3",
-    "frozen-inputs/FROZEN_INPUT_MANIFEST.json": "8232bdd0050089ae511aa692e620a41f07683fe002c710e0de30319c5fe7e11e",
+    "frozen-inputs/FROZEN_INPUT_MANIFEST.json": "85f2c9e291a769069ae05669669bae15a6d01b7dbbe1593f489e2c9e5a2bf548",
     "frozen-inputs/pack-boundary.json": "df521c349a7a68c874d25be61affd92cd315979bff5ae341b343504d8049924e",
     "frozen-inputs/path-ids.json": "034c475f45c8a3ff59b186042ee4796cf4b3bdd30249949f70d1d76127388cb5",
     "frozen-inputs/path-sot/wrps-v0-p0014.json": "af8f6fde7008221d92296de5707eef015d468a19470d439800d4193ade7fcec2",
@@ -42,7 +42,7 @@
     "frozen-inputs/schemas/weaver_iw_witness_run_metadata_v0.schema.json": "55be3e79483fc7e35595bfd52c66204d053836cac61e9e2c5e9235892d4838d4",
     "frozen-inputs/toolchain-profile.json": "96efdf02cc73397dbab68d91e9003a2d0e4656c8d18ebaa1493b88d2f4c68291",
     "frozen-inputs/untracked-exclusion-proof.json": "8a129c3c26136d5b01d26a18bc335a8a5789efb7dc57b81cbcf32b96628a0365",
-    "frozen-inputs/weaver-pin.json": "0329b3ef7795d4db862a0ade3616fb65175cda2ab367ff0043e00b1203f68514",
+    "frozen-inputs/weaver-pin.json": "b648a8127b98c0236c1db4228bc434f89ec1239149a8a90d137838d7419ded1c",
     "instructions/DISCLOSURE.md": "5e1cbba47d14915f94d31db3407e9883ed4980fba7e746d93edc8d0988352ff6",
     "instructions/FAILURES.md": "0385b9d9c63eb86baf30b19caa52d02e7d5a83b5a6dd754c60df60e7ab2c3fc2",
     "instructions/INDEPENDENCE.md": "abdab9f5314b95d6cf04a2e5ff5813be4f17ce7ad70f3cde73458bcf5bbfe36a",
@@ -88,5 +88,5 @@
     "HISTORICAL_RECORD": "maintainer structural dry-run result annex",
     "OUT_OF_SCOPE": "reference-disclosure pre-run sealed comparison materials"
   },
-  "content_manifest_digest": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73"
+  "content_manifest_digest": "05460f4349b88982af61476ca0020b9c3c801253e31f5be488669f25b41fca5c"
 }
