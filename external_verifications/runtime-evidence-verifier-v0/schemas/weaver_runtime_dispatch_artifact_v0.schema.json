@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Dispatch Artifact v0",
+  "type": "object",
+  "required": ["schema_version", "call_outcome"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-dispatch-artifact-v0"},
+    "call_outcome": {"type": "string"},
+    "precondition_class": {"type": "string"},
+    "decoded_error": {"type": "string"},
+    "chain_id": {"type": "integer"},
+    "fork_block": {"type": "integer"}
+  }
+}

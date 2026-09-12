@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Authority Evidence Verifier v0 Result",
+  "type": "object",
+  "required": ["schema_version", "result_id", "verification_status"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-authority-evidence-verifier-v0"},
+    "result_id": {"type": "string"},
+    "verification_status": {"type": "string", "enum": ["ACCEPTED", "REJECTED"]},
+    "AUTHORITY_MECHANISM_STATUS": {"type": "string"},
+    "AUTHORITY_STATE_READ_STATUS": {"type": "string"},
+    "AUTHORITY_HOLDER_ADDRESS_STATUS": {"type": "string"},
+    "AUTHORITY_HOLDER_IDENTITY_STATUS": {"type": "string"},
+    "AUTHORITY_SCOPE_STATUS": {"type": "string"},
+    "AUTHORITY_MUTABILITY_STATUS": {"type": "string"},
+    "PRIVILEGED_EXECUTION_STATUS": {"type": "string"},
+    "LIVE_AUTHORITY_ACTION_STATUS": {"type": "string"},
+    "SYSTEM_PERMISSIONLESS": {"type": "boolean"},
+    "TRUSTLESS_VERIFIED": {"type": "boolean"},
+    "DECENTRALIZED_VERIFIED": {"type": "boolean"},
+    "network_used": {"type": "boolean"},
+    "rpc_used": {"type": "boolean"},
+    "caw_verdict_changed": {"type": "boolean"}
+  }
+}

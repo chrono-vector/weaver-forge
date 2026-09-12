@@ -1,0 +1,26 @@
+{
+  "schema_version": "iw-untracked-exclusion-proof-v0",
+  "modules": [
+    {
+      "path": "local untracked experiments",
+      "class": "OUT_OF_SCOPE",
+      "may_influence_acceptance": false
+    },
+    {
+      "path": "CAW working-tree dirty files",
+      "class": "OUT_OF_SCOPE",
+      "may_influence_acceptance": false
+    },
+    {
+      "path": "maintainer dry-run annex",
+      "class": "HISTORICAL_RECORD",
+      "may_influence_acceptance": false
+    },
+    {
+      "path": "iw-pack-v1 HASHED_PAYLOAD",
+      "class": "PACK_MEMBER",
+      "may_influence_acceptance": true
+    }
+  ],
+  "note": "Verifier must ignore influence_from_untracked_module / env flags outside sealed pack"
+}

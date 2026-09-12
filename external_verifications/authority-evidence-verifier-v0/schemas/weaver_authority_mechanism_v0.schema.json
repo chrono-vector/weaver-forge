@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Authority Mechanism v0",
+  "type": "object",
+  "required": ["AUTHORITY_ID", "CONTRACT", "MECHANISM_TYPE", "AUTHORITY_CLASS"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-authority-mechanism-v0"},
+    "AUTHORITY_ID": {"type": "string"},
+    "CONTRACT": {"type": "string"},
+    "CHAIN_ID": {},
+    "CONTRACT_ADDRESS": {},
+    "MECHANISM_TYPE": {
+      "type": "string",
+      "enum": [
+        "OWNABLE",
+        "ACCESS_CONTROL",
+        "VALIDATOR_GATE",
+        "CONTRACT_GATE",
+        "SIGNATURE_GATE",
+        "TOKEN_OWNER_GATE",
+        "PROFILE_OWNER_GATE",
+        "CUSTOM_ROLE",
+        "PERMISSIONLESS",
+        "IMMUTABLE_ALLOWLIST",
+        "DEPLOYER_ONESHOT",
+        "UNKNOWN"
+      ]
+    },
+    "AUTHORITY_CLASS": {
+      "type": "string",
+      "enum": [
+        "PROTOCOL_ADMIN_AUTHORITY",
+        "USER_ASSET_AUTHORIZATION",
+        "PERMISSIONLESS_FUNCTION",
+        "CONTRACT_GATED_AUTHORITY",
+        "SIGNATURE_GATED_EFFECT",
+        "OTHER",
+        "UNKNOWN"
+      ]
+    },
+    "CHECK_EXPRESSION": {"type": "string"},
+    "SOURCE_LOCATION": {"type": "string"},
+    "AFFECTED_FUNCTIONS": {"type": "array"},
+    "ROLE_OR_OWNER_SOURCE": {},
+    "RUNTIME_READ_METHOD": {},
+    "EVIDENCE_REFERENCES": {"type": "array"}
+  }
+}

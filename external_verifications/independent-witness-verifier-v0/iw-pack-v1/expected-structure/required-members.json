@@ -15,5 +15,5 @@
     "witness-receipt.json",
     "manifest.json"
   ],
-  "note": "No expected derived result hashes here"
+  "note": "No expected derived result hashes here; external_submission_receipt required for IW_ACCEPTED"
 }

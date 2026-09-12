@@ -3,14 +3,24 @@
   "method": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
   "target": "0x6404d1d3d878407a0977d99c832453f235da67c3",
   "abi_hint": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
-  "fixture_policy": "Use published synthetic fixture values from pack; encode locally",
+  "fixture_policy": "Deterministic synthetic fixture for local encoding; not a live listing",
+  "fork_block": 11685854,
+  "chain_id": 11155111,
   "params_template": {
-    "profileId": "SYNTHETIC_UINT32",
-    "listingType": "SYNTHETIC_UINT8",
-    "paymentToken": "SYNTHETIC_ADDRESS",
-    "price": "SYNTHETIC_UINT256",
-    "amount": "SYNTHETIC_UINT256",
-    "deadline": "SYNTHETIC_UINT64"
+    "profileId": 42,
+    "listingType": 0,
+    "paymentToken": "0x0000000000000000000000000000000000000000",
+    "price": "1000000000000000000",
+    "amount": "0",
+    "deadline": "86400"
   },
-  "expected_calldata_sha256": "REVEAL_AFTER_RUN_SEE_reference-disclosure"
+  "ui_inputs_reference": {
+    "tokenId": 42,
+    "listingType": 0,
+    "paymentToken": "0x0000000000000000000000000000000000000000",
+    "startPrice": "1.0",
+    "durationHours": "24"
+  },
+  "expected_calldata_sha256": "REVEAL_AFTER_RUN_SEE_reference-disclosure",
+  "note": "Do not place expected PASS / success verdict here"
 }

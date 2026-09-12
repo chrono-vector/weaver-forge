@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Local Fork Mutation v0",
+  "type": "object",
+  "required": ["type", "mutation_scope"],
+  "additionalProperties": true,
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_IMPERSONATION",
+        "LOCAL_BALANCE_SET",
+        "LOCAL_APPROVAL_TX",
+        "LOCAL_STATE_MUTATION",
+        "SNAPSHOT",
+        "REVERT",
+        "FORK_DISPOSED"
+      ]
+    },
+    "mutation_scope": {"const": "LOCAL_FORK_ONLY"},
+    "authority_claim": {"type": "boolean"},
+    "run_id": {"type": "string"}
+  }
+}

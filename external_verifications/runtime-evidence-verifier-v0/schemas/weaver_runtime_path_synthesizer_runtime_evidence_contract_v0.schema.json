@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Path Synthesizer Runtime Evidence Contract v0",
+  "type": "object",
+  "required": ["schema_version", "path_id", "join_key", "axes", "do_not_merge_into_static_path_status"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-path-synthesizer-runtime-evidence-contract-v0"},
+    "path_id": {"type": "string"},
+    "join_key": {"const": "PATH_ID"},
+    "axes": {"type": "object"},
+    "highest_runtime_level": {"type": ["string", "null"]},
+    "do_not_merge_into_static_path_status": {"const": true}
+  }
+}

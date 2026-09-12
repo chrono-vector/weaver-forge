@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Authority Link v0",
+  "type": "object",
+  "required": ["PATH_ID", "AUTHORITY_CLASS"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-authority-link-v0"},
+    "PATH_ID": {"type": "string"},
+    "CONTRACT_ADDRESS": {},
+    "METHOD": {"type": "string"},
+    "AUTHORITY_ID": {"type": "string"},
+    "CALLER_GATE_CLASS": {"type": "string"},
+    "AUTHORITY_CLASS": {"type": "string"},
+    "RUNTIME_RUN_ID": {},
+    "AUTHORITY_READ_RUN_ID": {"type": "string"},
+    "EVIDENCE_DIGEST": {"type": "string"},
+    "inherits_protocol_admin": {"type": "boolean"},
+    "SYSTEM_PERMISSIONLESS": {"type": "boolean"}
+  }
+}

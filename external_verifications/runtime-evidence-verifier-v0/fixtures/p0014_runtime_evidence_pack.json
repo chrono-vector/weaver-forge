@@ -1,0 +1,264 @@
+{
+  "schema_version": "weaver-runtime-evidence-pack-v0",
+  "path_id": "wrps-v0-p0014",
+  "static_runtime_link": {
+    "schema_version": "weaver-static-runtime-link-v0",
+    "PATH_ID": "wrps-v0-p0014",
+    "TARGET_ADDRESS": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+    "METHOD_SIGNATURE": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+    "SELECTOR": "0x56926d15",
+    "CALLDATA_SHA256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+    "CHAIN_ID": 11155111,
+    "FORK_BLOCK": 11685854,
+    "RUNTIME_RUN_IDS": {
+      "V_R0": "VR0P14-20260912-101043-DAE3021C",
+      "V_R1": "VR1P14-20260912-105756-3BDE465A",
+      "V_R2": "VR2P14-20260912-111514-D9C9AA04",
+      "V_R3": "VR3P14-20260912-112620-F16EA9AD"
+    }
+  },
+  "records": [
+    {
+      "level": "R0",
+      "run_id": "VR0P14-20260912-101043-DAE3021C",
+      "status": "RUNTIME_INPUT_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0014",
+      "TARGET_ADDRESS": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+      "METHOD_SIGNATURE": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+      "SELECTOR": "0x56926d15",
+      "CALLDATA_SHA256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+      "artifact": {
+        "schema_version": "weaver-runtime-input-artifact-v0",
+        "calldata_sha256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+        "selector": "0x56926d15",
+        "target_address": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+        "method_signature": "createListing(uint32,uint8,address,uint256,uint256,uint64)"
+      }
+    },
+    {
+      "level": "R1",
+      "run_id": "VR1P14-20260912-105756-3BDE465A",
+      "status": "RUNTIME_DISPATCH_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0014",
+      "TARGET_ADDRESS": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+      "METHOD_SIGNATURE": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+      "SELECTOR": "0x56926d15",
+      "CALLDATA_SHA256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+      "CHAIN_ID": 11155111,
+      "FORK_BLOCK": 11685854,
+      "precondition_class": "OWNERSHIP_PRECONDITION",
+      "decoded_result_or_error": "Not token owner",
+      "artifact": {
+        "schema_version": "weaver-runtime-dispatch-artifact-v0",
+        "call_outcome": "CALL_REVERTED",
+        "precondition_class": "OWNERSHIP_PRECONDITION",
+        "decoded_error": "Not token owner"
+      }
+    },
+    {
+      "level": "R2",
+      "run_id": "VR2P14-20260912-111514-D9C9AA04",
+      "status": "RUNTIME_DEEPER_PATH_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0014",
+      "TARGET_ADDRESS": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+      "METHOD_SIGNATURE": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+      "SELECTOR": "0x56926d15",
+      "CALLDATA_SHA256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+      "CHAIN_ID": 11155111,
+      "FORK_BLOCK": 11685854,
+      "ownership_gate": "CLEARED",
+      "approval_gate": "BLOCKED",
+      "next_precondition_class": "APPROVAL_PRECONDITION",
+      "decoded_result_or_error": "Marketplace not approved",
+      "artifact": {
+        "schema_version": "weaver-runtime-precondition-chain-v0",
+        "ownership_gate": "CLEARED",
+        "next_error": "Marketplace not approved"
+      }
+    },
+    {
+      "level": "R3",
+      "run_id": "VR3P14-20260912-112620-F16EA9AD",
+      "status": "RUNTIME_EXECUTION_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0014",
+      "TARGET_ADDRESS": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+      "METHOD_SIGNATURE": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
+      "SELECTOR": "0x56926d15",
+      "CALLDATA_SHA256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea",
+      "CHAIN_ID": 11155111,
+      "FORK_BLOCK": 11685854,
+      "call_outcome": "CALL_RETURNED_SUCCESS",
+      "state_transition": "REACHED",
+      "artifact": {
+        "schema_version": "weaver-runtime-result-event-v0",
+        "listingId": 74,
+        "event": "Listed",
+        "call_outcome": "CALL_RETURNED_SUCCESS"
+      }
+    }
+  ],
+  "precondition_chain": [
+    {
+      "PRECONDITION_ID": "p0014.ownership.gate",
+      "SOURCE_LOCATION": "CawProfileMarketplace.createListing ownership check",
+      "CONDITION": "msg.sender is token owner",
+      "INPUT_STATE": {
+        "token_owner": "0x7e2aeea84a4b351e915d1c8ffa2b60dae7ef6a86",
+        "vr1_caller": "non-owner (dispatch sample)"
+      },
+      "SETUP_ACTION": {
+        "type": "LOCAL_IMPERSONATION",
+        "account": "0x7e2aeea84a4b351e915d1c8ffa2b60dae7ef6a86",
+        "authority_claim": false,
+        "introduced_at": "VR2P14-20260912-111514-D9C9AA04"
+      },
+      "RESULT": "CLEARED",
+      "NEXT_CONDITION": "p0014.approval.gate",
+      "EVIDENCE_REFERENCES": [
+        "VR1P14-20260912-105756-3BDE465A",
+        "VR2P14-20260912-111514-D9C9AA04"
+      ]
+    },
+    {
+      "PRECONDITION_ID": "p0014.approval.gate",
+      "SOURCE_LOCATION": "CawProfileMarketplace.createListing approval check",
+      "CONDITION": "isApprovedForAll(owner, Marketplace) OR getApproved(tokenId)==Marketplace",
+      "INPUT_STATE": {
+        "pre_approval": "FAIL",
+        "token_id": 42
+      },
+      "SETUP_ACTION": {
+        "type": "LOCAL_APPROVAL_TX",
+        "method": "approve(address,uint256)",
+        "approval_target": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+        "authority_claim": false,
+        "introduced_at": "VR3P14-20260912-112620-F16EA9AD"
+      },
+      "RESULT": "CLEARED",
+      "NEXT_CONDITION": "SUCCESS",
+      "EVIDENCE_REFERENCES": [
+        "VR3P14-20260912-112620-F16EA9AD"
+      ]
+    },
+    {
+      "PRECONDITION_ID": "p0014.createListing.success",
+      "SOURCE_LOCATION": "CawProfileMarketplace.createListing return/event path",
+      "CONDITION": "createListing completes with listing state transition",
+      "INPUT_STATE": {
+        "ownership_gate": "CLEARED",
+        "approval_gate": "CLEARED",
+        "calldata_sha256": "b267246aafdc5c0672fb008cb9611e1e36bf0465b8d0116a5d66ba925bd856ea"
+      },
+      "SETUP_ACTION": {
+        "type": "NONE",
+        "authority_claim": false
+      },
+      "RESULT": "CLEARED",
+      "NEXT_CONDITION": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "VR3P14-20260912-112620-F16EA9AD"
+      ]
+    }
+  ],
+  "local_fork_mutations": [
+    {
+      "type": "ACCOUNT_IMPERSONATION",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "account": "0x7e2aeea84a4b351e915d1c8ffa2b60dae7ef6a86",
+      "purpose": "clear ownership gate for createListing sample",
+      "authority_claim": false,
+      "run_id": "VR2P14-20260912-111514-D9C9AA04"
+    },
+    {
+      "type": "LOCAL_BALANCE_SET",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "present": true,
+      "run_id": "VR3P14-20260912-112620-F16EA9AD"
+    },
+    {
+      "type": "LOCAL_APPROVAL_TX",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "method": "approve(address,uint256)",
+      "spender_or_operator": "0x6404d1D3D878407a0977d99C832453f235DA67C3",
+      "token_id": 42,
+      "result": "SUCCESS",
+      "run_id": "VR3P14-20260912-112620-F16EA9AD"
+    },
+    {
+      "type": "LOCAL_STATE_MUTATION",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "description": "createListing listingId=74 + Listed event",
+      "scope": "LOCAL_FORK_ONLY",
+      "run_id": "VR3P14-20260912-112620-F16EA9AD"
+    },
+    {
+      "type": "SNAPSHOT",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "snapshot_id_or_marker": "0x1",
+      "taken_before": "state_setup",
+      "run_id": "VR2P14-20260912-111514-D9C9AA04"
+    },
+    {
+      "type": "REVERT",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "reverted": true,
+      "run_id": "VR3P14-20260912-112620-F16EA9AD"
+    },
+    {
+      "type": "FORK_DISPOSED",
+      "mutation_scope": "LOCAL_FORK_ONLY",
+      "disposed": true,
+      "public_rpc_mutation": false,
+      "live_tx_hash": null,
+      "run_id": "VR3P14-20260912-112620-F16EA9AD"
+    }
+  ],
+  "result_event": {
+    "schema_version": "weaver-runtime-result-event-v0",
+    "scope": "BOUNDED_LOCAL_FORK_SAMPLE",
+    "run_id": "VR3P14-20260912-112620-F16EA9AD",
+    "return_value": {
+      "decoded": {
+        "listingId": 74
+      }
+    },
+    "events": [
+      {
+        "name": "Listed",
+        "relevance": "listing creation path entered"
+      }
+    ],
+    "state_transition": {
+      "kind": "listing_created",
+      "observed": true
+    },
+    "RUNTIME_STATE_TRANSITION_STATUS": "OBSERVED_LOCAL",
+    "transaction_receipt": {
+      "context": "LOCAL_FORK_ONLY",
+      "live_tx_hash": null,
+      "public_transaction": false,
+      "local_tx_hash": "0xb82d4aa7c32a1a035def268d166b2be4766017e7b39679b35772138261f1804e"
+    }
+  },
+  "live_transaction": {
+    "verified": false,
+    "public_transaction": false,
+    "live_tx_hash": null,
+    "derived_from_local_fork": false
+  },
+  "prior_axes": {
+    "STATIC_PATH_STATUS": "COMPLETE",
+    "AUTHORITY_STATUS": "NOT_VERIFIED",
+    "SIGNER_IDENTITY_STATUS": "NOT_VERIFIED",
+    "INDEPENDENT_WITNESS_STATUS": "NOT_SATISFIED"
+  },
+  "caw_verdict_snapshot": {
+    "CAW_VERDICT_CHANGED": false
+  },
+  "source_evidence_roots": {
+    "V_R0": "C:/dev/external-verification-work/caw-runtime-vr0-p0014/VR0P14-20260912-101043-DAE3021C",
+    "V_R1": "C:/dev/external-verification-work/caw-runtime-vr1-p0014/VR1P14-20260912-105756-3BDE465A",
+    "V_R2": "C:/dev/external-verification-work/caw-runtime-vr2-p0014/VR2P14-20260912-111514-D9C9AA04",
+    "V_R3": "C:/dev/external-verification-work/caw-runtime-vr3-p0014/VR3P14-20260912-112620-F16EA9AD"
+  }
+}

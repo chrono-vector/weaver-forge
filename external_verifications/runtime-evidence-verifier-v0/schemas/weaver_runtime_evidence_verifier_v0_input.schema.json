@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Evidence Verifier v0 Input",
+  "type": "object",
+  "required": ["schema_version", "runtime_evidence_pack"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-evidence-verifier-v0"},
+    "runtime_evidence_pack": {"type": "object"},
+    "authority_link": {
+      "description": "Optional link-only authority reference. Does not promote AUTHORITY_STATUS or runtime completion.",
+      "oneOf": [{"type": "object"}, {"type": "string"}, {"type": "null"}]
+    },
+    "authority_pack_digest": {
+      "description": "Optional opaque digest of an authority evidence pack (link-only).",
+      "type": ["string", "null"]
+    },
+    "design_run_id": {"type": "string"},
+    "notes": {"type": "string"}
+  }
+}

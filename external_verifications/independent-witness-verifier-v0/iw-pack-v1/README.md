@@ -13,6 +13,14 @@ Frozen Independent Witness pack for CAW BOUNDED_D scope.
 - CAW commit: `e2074718bcea293726ddfcf8764e1499e7b9217c`
 - Pack format: `iw-pack-v1`
 - IW verifier: `v0`
+- PACK_ROOT (relative): `iw-pack-v1`
+
+## Seal model
+
+- `CONTENT_MANIFEST`: hash of reproducibility payload files (HASHED_PAYLOAD)
+- `PACK_SEAL`: binds content_manifest_digest + canonical git commit/tree + schema/version pins
+- `PACK_ROOT_DIGEST`: digest of sealed metadata model (see PACK_FREEZE / PACK_SEAL)
+- Dry-run result is HISTORICAL_RECORD / SEAL_METADATA annex — not hashed into CONTENT_MANIFEST payload
 
 ## Nonclaims
 
@@ -29,13 +37,15 @@ Accepted IW reproduction (when performed by an external witness under separate a
 ## Independence
 
 Self-check ≠ Independent Verification. Maintainer dry-run ≠ Independent Witness.
+Self-declared independence alone is insufficient — external submission receipt required for IW_ACCEPTED.
+MAINTAINER_ORIGIN must be != YES.
 
 ## How to run
 
 1. Read `instructions/PROCEDURE.md`
-2. Verify `frozen-inputs/` digests
+2. Verify `frozen-inputs/` digests and toolchain profile
 3. Produce outputs into a copy of `witness-output-template/`
 4. Do **not** open `reference-disclosure/` until your output pack is frozen
-5. Submit pack for IW verifier adjudication
+5. Submit pack with external submission receipt for IW verifier adjudication
 
 Do not force a PASS. Record failures honestly.

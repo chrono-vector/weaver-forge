@@ -1,16 +1,26 @@
 {
   "PACK_VERSION": "iw-pack-v1",
-  "PACK_ROOT": "C:/dev/Weaver/weaver-forge/external_verifications/independent-witness-verifier-v0/iw-pack-v1",
-  "PACK_ROOT_DIGEST": "778beb45415be799514b548dfe5b57e1bbc014efce77107b8034577b0e042f40",
-  "MANIFEST_DIGEST": "6d9294c35c09611e334ef0224e434162b8727cf3eeb136a1d4dea2c25c969e8a",
+  "PACK_ROOT": "iw-pack-v1",
+  "PACK_ROOT_NOTE": "relative path only \u2014 never absolute filesystem path",
+  "PACK_ROOT_DIGEST": "e93112addb5ff7aea90fcf2342b983a736279d90caf4a6dadb98252dbb63cb7d",
+  "CONTENT_MANIFEST_DIGEST": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
+  "PACK_SEAL_DIGEST": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
+  "MANIFEST_DIGEST": "76191156635ead543969e85107c2b8ca71b1a288a64b4dc28e02834c68426b38",
   "CAW_COMMIT": "e2074718bcea293726ddfcf8764e1499e7b9217c",
-  "WEAVER_COMMIT": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
-  "WEAVER_TREE": "6256574e4723e484e17975148bbdec307e830d18",
+  "WEAVER_COMMIT": "97a5c51b4b412f728a801496cda551827249b2b0",
+  "WEAVER_TREE": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
   "IW_VERIFIER_VERSION": "v0",
   "SCHEMA_VERSIONS": [
     "weaver-independent-witness-pack-v0",
     "weaver-independent-witness-verifier-v0"
   ],
-  "member_count": 67,
-  "created_at": "2026-09-12T05:47:00Z"
+  "creation_run_id": "IWMAT-20260912-064021",
+  "file_classes": {
+    "HASHED_PAYLOAD": "reproducibility content hashed into CONTENT_MANIFEST",
+    "SEAL_METADATA": "CONTENT_MANIFEST / PACK_SEAL / PACK_FREEZE / PACK_MANIFEST",
+    "HISTORICAL_RECORD": "maintainer dry-run annex (not in CONTENT_MANIFEST payload)",
+    "OUT_OF_SCOPE": "untracked / excluded modules"
+  },
+  "member_count": 74,
+  "created_at": "2026-09-12T06:40:21Z"
 }

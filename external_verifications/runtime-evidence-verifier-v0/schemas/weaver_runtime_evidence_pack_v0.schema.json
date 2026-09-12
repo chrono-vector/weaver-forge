@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Evidence Pack v0",
+  "type": "object",
+  "required": ["schema_version", "records", "static_runtime_link"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-evidence-pack-v0"},
+    "path_id": {"type": "string"},
+    "static_runtime_link": {"type": "object"},
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Each record.level is RUN_STAGE (campaign chronology), not evidence capability."
+    },
+    "precondition_chain": {"type": "array"},
+    "local_fork_mutations": {"type": "array"},
+    "result_event": {"type": "object"},
+    "live_transaction": {"type": "object"},
+    "prior_axes": {"type": "object"},
+    "caw_verdict_snapshot": {"type": "object"},
+    "simulation_success": {
+      "type": "boolean",
+      "description": "Optional hint; verifier still requires call/status evidence."
+    },
+    "persistent_state_commit_observed": {
+      "type": "boolean",
+      "description": "True only when local/live state commit was actually observed."
+    },
+    "state_transition_observation_mode": {
+      "type": "string",
+      "description": "SIMULATED_ONLY | OBSERVED_LOCAL | NOT_OBSERVED_PERSISTENTLY | ..."
+    },
+    "execution_evidence_source_stage": {
+      "type": "string",
+      "description": "Optional pack hint for which RUN_STAGE produced execution evidence (VR0|VR1|VR2|VR3|OTHER)."
+    }
+  }
+}

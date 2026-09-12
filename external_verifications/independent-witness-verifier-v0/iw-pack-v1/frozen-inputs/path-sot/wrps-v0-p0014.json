@@ -4,6 +4,13 @@
   "METHOD": "createListing(uint32,uint8,address,uint256,uint256,uint64)",
   "TARGET_ADDRESS": "0x6404d1d3d878407a0977d99c832453f235da67c3",
   "CHAIN_ID": 11155111,
-  "STATIC_STATUS_REFERENCE": "COMPLETE",
-  "note": "Witness regenerates static binding checks from CAW source at frozen commit"
+  "ROLE": "POST_RUN_COMPARISON_REFERENCE_ONLY",
+  "STATIC_STATUS_REFERENCE": "COMPARISON_ONLY",
+  "NOT_PROOF_SOURCE": true,
+  "labels": {
+    "INPUT_SOURCE": "CAW frozen commit + procedure",
+    "DERIVED_BY_WITNESS": "callsite/method/target/ABI/args from CAW + fixture-spec",
+    "POST_RUN_COMPARISON": "path-sot reference only after derivation"
+  },
+  "note": "Witness regenerates static binding from CAW source; path-sot is not sole proof"
 }

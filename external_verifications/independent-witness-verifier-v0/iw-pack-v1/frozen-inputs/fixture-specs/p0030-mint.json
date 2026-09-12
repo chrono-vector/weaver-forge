@@ -3,9 +3,14 @@
   "method": "mint(address,uint256)",
   "target": "0x56817dc696448135203c0556f702c6a953260411",
   "selector_hint": "keccak256(mint(address,uint256))[:4] == 0x40c10f19",
+  "fork_block": 11686270,
+  "chain_id": 11155111,
   "params_template": {
-    "to": "SYNTHETIC_ADDRESS",
-    "amount": "SYNTHETIC_UINT256"
+    "to": "0x1111111111111111111111111111111111111111",
+    "amount": "10000000000000000000000000000",
+    "amount_human": "10000000000",
+    "parseUnits_decimals": 18
   },
-  "expected_calldata_sha256": "REVEAL_AFTER_RUN_SEE_reference-disclosure"
+  "expected_calldata_sha256": "REVEAL_AFTER_RUN_SEE_reference-disclosure",
+  "note": "Do not place expected PASS / success verdict here"
 }

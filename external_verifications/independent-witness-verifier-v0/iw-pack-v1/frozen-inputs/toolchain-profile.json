@@ -1,0 +1,113 @@
+{
+  "schema_version": "iw-toolchain-profile-v0",
+  "scope": "IW_v1_BOUNDED_D_required_tools_only",
+  "tools": [
+    {
+      "TOOL": "Node",
+      "VERSION_RANGE": "22.0.0 (.nvmrc) / >=18 engines floor",
+      "WHY": "CAW hardhat/ethers if used",
+      "SOURCE_OF_PIN": "CAW .nvmrc 22.0.0 at commit e2074718; engines >=18 if present",
+      "INSTALL_EXPECTATION": "nvm/fnm or system node",
+      "FALLBACK_ALLOWED": "YES\u2192anvil path",
+      "NETWORK_REQUIRED": "NO for install from lock"
+    },
+    {
+      "TOOL": "npm",
+      "VERSION_RANGE": "lockfile-aligned",
+      "WHY": "CAW deps",
+      "SOURCE_OF_PIN": "CAW package-lock at e2074718",
+      "INSTALL_EXPECTATION": "from CAW tree",
+      "FALLBACK_ALLOWED": "\u2014",
+      "NETWORK_REQUIRED": "optional registry once"
+    },
+    {
+      "TOOL": "Hardhat",
+      "VERSION_RANGE": "^2.22.18 (CAW package.json)",
+      "WHY": "local fork path (CAW)",
+      "SOURCE_OF_PIN": "CAW commit e2074718bcea293726ddfcf8764e1499e7b9217c package.json",
+      "INSTALL_EXPECTATION": "npm from CAW lock",
+      "FALLBACK_ALLOWED": "YES\u2192Anvil/Foundry",
+      "NETWORK_REQUIRED": "fork RPC read-only allowed"
+    },
+    {
+      "TOOL": "Anvil (Foundry)",
+      "VERSION_RANGE": "Foundry stable",
+      "WHY": "allowed local-fork fallback for IW runtime",
+      "SOURCE_OF_PIN": "toolchain-profile",
+      "INSTALL_EXPECTATION": "foundryup",
+      "FALLBACK_ALLOWED": "YES mutual with Hardhat",
+      "NETWORK_REQUIRED": "fork RPC read-only allowed"
+    },
+    {
+      "TOOL": "ethers",
+      "VERSION_RANGE": "^6.16.0 (CAW package.json)",
+      "WHY": "encode/eth_call",
+      "SOURCE_OF_PIN": "CAW commit e2074718bcea293726ddfcf8764e1499e7b9217c package.json",
+      "INSTALL_EXPECTATION": "npm from CAW lock",
+      "FALLBACK_ALLOWED": "YES\u2192viem/cast among approved",
+      "NETWORK_REQUIRED": "NO"
+    },
+    {
+      "TOOL": "viem / cast",
+      "VERSION_RANGE": "from CAW lock or Foundry cast",
+      "WHY": "encode/eth_call alternate",
+      "SOURCE_OF_PIN": "CAW lock / foundry",
+      "INSTALL_EXPECTATION": "\u2014",
+      "FALLBACK_ALLOWED": "YES among approved",
+      "NETWORK_REQUIRED": "NO"
+    },
+    {
+      "TOOL": "Python",
+      "VERSION_RANGE": ">=3.11,<3.15",
+      "WHY": "IW verifier",
+      "SOURCE_OF_PIN": "freeze / IW v1 requirement",
+      "INSTALL_EXPECTATION": "system/venv",
+      "FALLBACK_ALLOWED": "NO",
+      "NETWORK_REQUIRED": "NO"
+    },
+    {
+      "TOOL": "Git",
+      "VERSION_RANGE": ">=2.40",
+      "WHY": "checkout pins",
+      "SOURCE_OF_PIN": "documented",
+      "INSTALL_EXPECTATION": "system",
+      "FALLBACK_ALLOWED": "NO for commit pin",
+      "NETWORK_REQUIRED": "NO"
+    },
+    {
+      "TOOL": "CAW package.json + lockfile",
+      "VERSION_RANGE": "EXTERNAL_FROZEN_PIN at CAW commit e2074718bcea293726ddfcf8764e1499e7b9217c",
+      "WHY": "deps (hardhat ^2.22.18, ethers ^6.16.0)",
+      "SOURCE_OF_PIN": "CAW commit",
+      "INSTALL_EXPECTATION": "checkout CAW",
+      "FALLBACK_ALLOWED": "NO",
+      "NETWORK_REQUIRED": "NO"
+    },
+    {
+      "TOOL": "Hardhat config",
+      "VERSION_RANGE": "from CAW tree",
+      "WHY": "if hardhat path",
+      "SOURCE_OF_PIN": "CAW",
+      "INSTALL_EXPECTATION": "\u2014",
+      "FALLBACK_ALLOWED": "\u2014",
+      "NETWORK_REQUIRED": "\u2014"
+    },
+    {
+      "TOOL": "solc",
+      "VERSION_RANGE": "NOT_REQUIRED if ABI artifacts exist",
+      "WHY": "\u2014",
+      "SOURCE_OF_PIN": "\u2014",
+      "INSTALL_EXPECTATION": "\u2014",
+      "FALLBACK_ALLOWED": "\u2014",
+      "NETWORK_REQUIRED": "\u2014"
+    }
+  ],
+  "caw_freeze_pins": {
+    "CAW_COMMIT": "e2074718bcea293726ddfcf8764e1499e7b9217c",
+    "hardhat": "^2.22.18",
+    "ethers": "^6.16.0",
+    "nvmrc": "22.0.0",
+    "python_min": ">=3.11",
+    "anvil_foundry": "allowed_fallback_for_local_fork"
+  }
+}

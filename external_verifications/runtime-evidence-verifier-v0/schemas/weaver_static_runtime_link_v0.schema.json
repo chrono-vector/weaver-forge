@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Static Runtime Link v0",
+  "type": "object",
+  "required": [
+    "PATH_ID",
+    "TARGET_ADDRESS",
+    "METHOD_SIGNATURE",
+    "SELECTOR",
+    "CALLDATA_SHA256"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-static-runtime-link-v0"},
+    "PATH_ID": {"type": "string"},
+    "TARGET_ADDRESS": {"type": "string"},
+    "METHOD_SIGNATURE": {"type": "string"},
+    "SELECTOR": {"type": "string"},
+    "CALLDATA_SHA256": {"type": "string"},
+    "CHAIN_ID": {"type": "integer"},
+    "FORK_BLOCK": {"type": "integer"},
+    "RUNTIME_RUN_IDS": {"type": "object"},
+    "EVIDENCE_DIGESTS": {"type": "object"}
+  }
+}

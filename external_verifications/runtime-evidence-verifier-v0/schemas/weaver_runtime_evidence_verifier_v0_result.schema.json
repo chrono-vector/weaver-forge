@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Evidence Verifier v0 Result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "result_id",
+    "verification_status",
+    "runtime_execution_verified",
+    "execution_authorized",
+    "created_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-evidence-verifier-v0"},
+    "result_id": {"type": "string", "pattern": "^wrev-v0-[0-9a-f]{32}$"},
+    "verification_status": {"type": "string", "enum": ["ACCEPTED", "REJECTED"]},
+    "path_id": {"type": "string"},
+    "highest_runtime_level": {
+      "type": ["string", "null"],
+      "description": "Evidence capability label (not campaign run ordinal)."
+    },
+    "execution_evidence_source_stage": {
+      "type": ["string", "null"],
+      "description": "RUN_STAGE that produced LOCAL_EXECUTION_ALIGNED evidence."
+    },
+    "run_stage_meta": {"type": "object"},
+    "RUNTIME_INPUT_STATUS": {"type": "string"},
+    "RUNTIME_DISPATCH_STATUS": {"type": "string"},
+    "RUNTIME_PRECONDITION_STATUS": {"type": "string"},
+    "RUNTIME_EXECUTION_STATUS": {"type": "string"},
+    "RUNTIME_STATE_TRANSITION_STATUS": {"type": "string"},
+    "LIVE_TRANSACTION_STATUS": {"type": "string"},
+    "AUTHORITY_STATUS": {"type": "string"},
+    "SIGNER_IDENTITY_STATUS": {"type": "string"},
+    "INDEPENDENT_WITNESS_STATUS": {"type": "string"},
+    "runtime_execution_verified": {"const": false},
+    "execution_authorized": {"const": false},
+    "live_match_verified": {"const": false},
+    "created_at": {"type": "string"}
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "iw-pack-seal-v0",
+  "content_manifest_digest": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
+  "WEAVER_COMMIT": "97a5c51b4b412f728a801496cda551827249b2b0",
+  "WEAVER_TREE": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
+  "CAW_COMMIT": "e2074718bcea293726ddfcf8764e1499e7b9217c",
+  "IW_VERIFIER_VERSION": "v0",
+  "PACK_FORMAT_VERSION": "iw-pack-v1",
+  "PACK_SCHEMA": "weaver-independent-witness-pack-v0",
+  "SCHEMA_VERSIONS": [
+    "weaver-independent-witness-pack-v0",
+    "weaver-independent-witness-verifier-v0"
+  ],
+  "creation_run_id": "IWMAT-20260912-064021",
+  "PACK_ROOT": "iw-pack-v1",
+  "file_class": "SEAL_METADATA",
+  "PACK_SEAL_DIGEST": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
+  "PACK_ROOT_DIGEST": "e93112addb5ff7aea90fcf2342b983a736279d90caf4a6dadb98252dbb63cb7d"
+}

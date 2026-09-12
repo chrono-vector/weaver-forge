@@ -107,6 +107,15 @@
     "INDEPENDENCE_ACCEPTED": false,
     "dry_run_note": "MAINTAINER_DRY_RUN independence NOT_APPLICABLE_FOR_ACCEPTANCE"
   },
+  "external_submission": {
+    "receipt_present": true,
+    "SUBMISSION_RECEIPT_ID": "synth-ext-receipt-001",
+    "MAINTAINER_ORIGIN": "NO",
+    "ACCEPTANCE_ELIGIBLE": "YES",
+    "PACK_DIGEST_RECEIVED": "f9fdc7dd301e31fe7fb193892bdb652b7d26079040149f30b0f3a97fd91f7314",
+    "OUTPUT_DIGEST_SUBMITTED": "a11f9e4007142305a4495d7adf3a4a84b5bd6e58e34c8c80a197a9c6acb77deb",
+    "valid_for_iw_acceptance": true
+  },
   "role_separation": {
     "WITNESS_REFERENCE": true,
     "DESIGNATED_WITNESS": false,
@@ -124,8 +133,14 @@
       "mandatory": true
     },
     "WEAVER_COMMIT": {
-      "observed": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
-      "expected": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
+      "observed": "97a5c51b4b412f728a801496cda551827249b2b0",
+      "expected": "97a5c51b4b412f728a801496cda551827249b2b0",
+      "match": true,
+      "mandatory": true
+    },
+    "WEAVER_TREE": {
+      "observed": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
+      "expected": "d9d21229de8ec642c82b8e5a4411f778a348fbfe",
       "match": true,
       "mandatory": true
     },
@@ -183,6 +198,18 @@
       "match": true,
       "mandatory": true
     },
+    "CONTENT_MANIFEST_DIGEST": {
+      "observed": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
+      "expected": "9ec902e3e849b2d5c734cd69e47763222539aa0fe88d5f1e0cfc246cfd9c6e73",
+      "match": true,
+      "mandatory": true
+    },
+    "PACK_SEAL_DIGEST": {
+      "observed": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
+      "expected": "010059bf6e83e8dbadc6161791a249e4cb5886215e3aaeb8073ff3105676e31c",
+      "match": true,
+      "mandatory": true
+    },
     "SCHEMA_VERSIONS": {
       "observed": [
         "weaver-path-specific-sot-evidence-v0",
@@ -220,7 +247,10 @@
     "failure_count": 1,
     "retry_count": 1,
     "failures_preserved": true,
-    "retries_preserved": true
+    "retries_preserved": true,
+    "FAILURE_HISTORY_ASSURANCE": "SUBMITTED_HISTORY_PRESERVED",
+    "attempt_id_policy_note": "ATTEMPT_ID / PRIOR_ATTEMPT_ID retained; retries append; later PASS does not erase earlier failure",
+    "never_claims": "COMPLETE_HISTORY_CRYPTOGRAPHICALLY_PROVEN"
   },
   "nonclaim_gates": {
     "CAW_CERTIFIED": true,
@@ -257,10 +287,13 @@
     "REPRODUCTION_MATCHED": true,
     "INDEPENDENCE_ACCEPTED": false,
     "IW_ACCEPTED": false,
-    "DESIGNATED_WITNESS_ONLY": false
+    "DESIGNATED_WITNESS_ONLY": false,
+    "EXTERNAL_SUBMISSION_VALID": true
   },
   "caw_verdict_changed": false,
-  "generated_at": "2026-09-12T05:47:00Z",
-  "result_id": "wiwv-v0-a60c0d3afa2fef1034aad14a62f70ba3",
-  "result_digest": "a60c0d3afa2fef1034aad14a62f70ba3535873c47a80b38471eb93e3cc868698"
+  "generated_at": "2026-09-12T06:40:21Z",
+  "result_id": "wiwv-v0-3c091a68740e4e211251146b9a61f8dc",
+  "result_digest": "3c091a68740e4e211251146b9a61f8dc2cdb35e65dc28a16d4ebc8921db99e41",
+  "annex_class": "HISTORICAL_RECORD",
+  "seal_role": "SEAL_METADATA_ANNEX_NOT_IN_CONTENT_MANIFEST"
 }

@@ -1,0 +1,84 @@
+{
+  "schema_version": "weaver-runtime-evidence-pack-v0",
+  "path_id": "wrps-v0-p0030",
+  "static_runtime_link": {
+    "schema_version": "weaver-static-runtime-link-v0",
+    "PATH_ID": "wrps-v0-p0030",
+    "TARGET_ADDRESS": "0x56817dc696448135203C0556f702c6a953260411",
+    "METHOD_SIGNATURE": "mint(address,uint256)",
+    "SELECTOR": "0x40c10f19",
+    "CALLDATA_SHA256": "76dffbb3bba4336e7bbe803df8fb7c0ce58e45a7d02e9a92c8a45b52a5a0f117",
+    "CHAIN_ID": 11155111,
+    "FORK_BLOCK": 11686270,
+    "RUNTIME_RUN_IDS": {
+      "V_R0": "VR0P30-20260912-121749-A0C772C8",
+      "V_R1": "VR1P30-20260912-122352-6904D21C"
+    }
+  },
+  "records": [
+    {
+      "level": "R0",
+      "run_id": "VR0P30-20260912-121749-A0C772C8",
+      "status": "RUNTIME_INPUT_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0030",
+      "TARGET_ADDRESS": "0x56817dc696448135203C0556f702c6a953260411",
+      "METHOD_SIGNATURE": "mint(address,uint256)",
+      "SELECTOR": "0x40c10f19",
+      "CALLDATA_SHA256": "76dffbb3bba4336e7bbe803df8fb7c0ce58e45a7d02e9a92c8a45b52a5a0f117",
+      "artifact": {
+        "schema_version": "weaver-runtime-input-artifact-v0",
+        "calldata_sha256": "76dffbb3bba4336e7bbe803df8fb7c0ce58e45a7d02e9a92c8a45b52a5a0f117",
+        "selector": "0x40c10f19",
+        "target_address": "0x56817dc696448135203C0556f702c6a953260411",
+        "method_signature": "mint(address,uint256)"
+      }
+    },
+    {
+      "level": "R1",
+      "run_id": "VR1P30-20260912-122352-6904D21C",
+      "status": "RUNTIME_EXECUTION_ALIGNMENT_VERIFIED",
+      "PATH_ID": "wrps-v0-p0030",
+      "TARGET_ADDRESS": "0x56817dc696448135203C0556f702c6a953260411",
+      "METHOD_SIGNATURE": "mint(address,uint256)",
+      "SELECTOR": "0x40c10f19",
+      "CALLDATA_SHA256": "76dffbb3bba4336e7bbe803df8fb7c0ce58e45a7d02e9a92c8a45b52a5a0f117",
+      "CHAIN_ID": 11155111,
+      "FORK_BLOCK": 11686270,
+      "precondition_class": "OTHER",
+      "call_outcome": "CALL_RETURNED_SUCCESS",
+      "decoded_result_or_error": "SUCCESS_VOID_RETURN",
+      "artifact": {
+        "schema_version": "weaver-runtime-dispatch-artifact-v0",
+        "call_outcome": "CALL_RETURNED_SUCCESS",
+        "precondition_class": "OTHER",
+        "decoded_error": null,
+        "return_data": "0x"
+      }
+    }
+  ],
+  "precondition_chain": [],
+  "local_fork_mutations": [],
+  "result_event": {},
+  "simulation_success": true,
+  "persistent_state_commit_observed": false,
+  "state_transition_observation_mode": "SIMULATED_ONLY",
+  "live_transaction": {
+    "verified": false,
+    "public_transaction": false,
+    "live_tx_hash": null,
+    "derived_from_local_fork": false
+  },
+  "prior_axes": {
+    "STATIC_PATH_STATUS": "COMPLETE",
+    "AUTHORITY_STATUS": "NOT_VERIFIED",
+    "SIGNER_IDENTITY_STATUS": "NOT_VERIFIED",
+    "INDEPENDENT_WITNESS_STATUS": "NOT_SATISFIED"
+  },
+  "caw_verdict_snapshot": {
+    "CAW_VERDICT_CHANGED": false
+  },
+  "source_evidence_roots": {
+    "V_R0": "C:/dev/external-verification-work/caw-runtime-vr0-p0030/VR0P30-20260912-121749-A0C772C8",
+    "V_R1": "C:/dev/external-verification-work/caw-runtime-vr1-p0030/VR1P30-20260912-122352-6904D21C"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Authority Evidence Pack v0",
+  "type": "object",
+  "required": ["schema_version", "mechanisms"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-authority-evidence-pack-v0"},
+    "source_authority_run_id": {"type": "string"},
+    "pin": {"type": "object"},
+    "mechanisms": {"type": "array"},
+    "runtime_reads": {"type": "array"},
+    "mutability_records": {"type": "array"},
+    "scope_records": {"type": "array"},
+    "privileged_surfaces": {"type": "array"},
+    "permissionless_surfaces": {"type": "array"},
+    "holder_addresses": {"type": "array"},
+    "holder_identities": {"type": "array"},
+    "claim_reassessments": {"type": "array"},
+    "runtime_authority_links": {"type": "array"},
+    "unread_authority_ids": {"type": "array"},
+    "declared_axes": {"type": "object"},
+    "pack_digest": {"type": "string"}
+  }
+}

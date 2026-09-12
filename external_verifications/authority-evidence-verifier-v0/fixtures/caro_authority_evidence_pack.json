@@ -1,0 +1,1887 @@
+{
+  "schema_version": "weaver-authority-evidence-pack-v0",
+  "source_authority_run_id": "CARO-20260912-041428-A6BBA9BA",
+  "pin": {
+    "chain": "sepolia",
+    "chain_id": 11155111,
+    "block": 11686511,
+    "block_hash": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f"
+  },
+  "mechanisms": [
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-001",
+      "CONTRACT": "MintableCaw",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x56817dc696448135203c0556f702c6a953260411",
+      "MECHANISM_TYPE": "PERMISSIONLESS",
+      "CHECK_EXPRESSION": "(none)",
+      "SOURCE_LOCATION": "solidity/contracts/MintableCaw.sol:19-22",
+      "AFFECTED_FUNCTIONS": [
+        "mint(address,uint256)"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "N/A",
+      "RUNTIME_READ_METHOD": "STATIC_ONLY",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-001"
+      ],
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "MUTABLE_HINT": "IMMUTABLE",
+      "SCOPE_HINT": "MINT_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "natspec TEST ONLY; body _mint only",
+      "RAW_MECHANISM_TYPE": "none_permissionless"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-002",
+      "CONTRACT": "CawProfileMarketplace",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+      "MECHANISM_TYPE": "TOKEN_OWNER_GATE",
+      "CHECK_EXPRESSION": "ownerOf(tokenId)==msg.sender && (isApprovedForAll||getApproved==marketplace)",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileMarketplace.sol:131-136",
+      "AFFECTED_FUNCTIONS": [
+        "createListing",
+        "acceptOffer"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "ERC721 ownerOf",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-002"
+      ],
+      "AUTHORITY_CLASS": "USER_ASSET_AUTHORIZATION",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "USER_ASSET_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "No Ownable; comment states allowedPaymentTokens fixed at construct",
+      "RAW_MECHANISM_TYPE": "token_ownership_plus_erc721_approval"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-003",
+      "CONTRACT": "CawProfileMarketplace",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "IMMUTABLE_ALLOWLIST",
+      "CHECK_EXPRESSION": "allowedPaymentTokens[paymentToken]",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileMarketplace.sol:99-108,138",
+      "AFFECTED_FUNCTIONS": [
+        "createListing",
+        "createOfferETH",
+        "createOfferERC20"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "constructor mapping",
+      "RUNTIME_READ_METHOD": "allowedPaymentTokens(address)",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-003"
+      ],
+      "AUTHORITY_CLASS": "OTHER",
+      "MUTABLE_HINT": "IMMUTABLE",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "no post-deploy mutator; runtime allowlist true for ETH+MintableCaw",
+      "RAW_MECHANISM_TYPE": "immutable_payment_token_allowlist"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "CONTRACT": "CawProfile",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner (+ onlyOnce on key setters)",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfile.sol:167-218",
+      "AFFECTED_FUNCTIONS": [
+        "setL2Peer",
+        "setMinter",
+        "setUriGenerator",
+        "setPeer",
+        "setDelegate",
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable._owner",
+      "RUNTIME_READ_METHOD": "owner()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-005"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "MULTI_FUNCTION_ADMIN",
+      "STATIC_EVIDENCE_NOTES": "inherits Ownable+OApp",
+      "RAW_MECHANISM_TYPE": "Ownable_OZ_plus_OnlyOnce"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-006",
+      "CONTRACT": "CawProfile",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "MECHANISM_TYPE": "CONTRACT_GATE",
+      "CHECK_EXPRESSION": "minter == msg.sender / NotMinter",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfile.sol:224-258,490-491",
+      "AFFECTED_FUNCTIONS": [
+        "mint",
+        "mintAndAuth",
+        "mintAndDeposit",
+        "authenticateForMinter"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "address public minter",
+      "RUNTIME_READ_METHOD": "minter()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-006"
+      ],
+      "AUTHORITY_CLASS": "CONTRACT_GATED_AUTHORITY",
+      "MUTABLE_HINT": "IMMUTABLE_AFTER_SET",
+      "SCOPE_HINT": "MINT_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "setMinter onlyOnce by owner",
+      "RAW_MECHANISM_TYPE": "contract_gated_minter"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-007",
+      "CONTRACT": "CawProfile",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "PROFILE_OWNER_GATE",
+      "CHECK_EXPRESSION": "ownerOf(tokenId)==msg.sender",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfile.sol:479-650",
+      "AFFECTED_FUNCTIONS": [
+        "authenticate",
+        "deposit",
+        "withdraw",
+        "withdrawTo",
+        "transferAndSync"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "ERC721 ownerOf",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-007"
+      ],
+      "AUTHORITY_CLASS": "USER_ASSET_AUTHORIZATION",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "user-asset gate not protocol admin",
+      "RAW_MECHANISM_TYPE": "profile_nft_ownership"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-011",
+      "CONTRACT": "CawProfileL2",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileL2.sol:263-315",
+      "AFFECTED_FUNCTIONS": [
+        "setL1Peer",
+        "setCawActions",
+        "setERC1271Sibling",
+        "setPeer",
+        "setDelegate",
+        "ownership"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable._owner",
+      "RUNTIME_READ_METHOD": "owner(); cawActions(); bypassLZ(); cawProfile()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-011"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "MULTI_FUNCTION_ADMIN",
+      "STATIC_EVIDENCE_NOTES": "L1 co-deploy queried as CawProfileL2_L1",
+      "RAW_MECHANISM_TYPE": "Ownable_OZ_plus_OnlyOnce"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-013",
+      "CONTRACT": "CawProfileL2",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "MECHANISM_TYPE": "CONTRACT_GATE",
+      "CHECK_EXPRESSION": "msg.sender==cawActions / erc1271Sibling",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileL2.sol:357-408,1006-1223",
+      "AFFECTED_FUNCTIONS": [
+        "spendAndDistribute*",
+        "withdraw*",
+        "registerSessionFromActions",
+        "setWithdrawable"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "cawActions / erc1271Sibling storage",
+      "RUNTIME_READ_METHOD": "cawActions()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-013"
+      ],
+      "AUTHORITY_CLASS": "CONTRACT_GATED_AUTHORITY",
+      "MUTABLE_HINT": "IMMUTABLE_AFTER_SET",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "runtime cawActions==CawActions_L1",
+      "RAW_MECHANISM_TYPE": "contract_gated_cawActions_or_sibling"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-015",
+      "CONTRACT": "CawProfileL2",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "SIGNATURE_GATE",
+      "CHECK_EXPRESSION": "recoverOrValidate / ecrecover==owner",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileL2.sol:648-757",
+      "AFFECTED_FUNCTIONS": [
+        "registerSession*",
+        "revokeSessionBySig"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "signer / profile owner",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-015"
+      ],
+      "AUTHORITY_CLASS": "SIGNATURE_GATED_EFFECT",
+      "MUTABLE_HINT": "N/A",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "caller may be permissionless relay",
+      "RAW_MECHANISM_TYPE": "signature_gated"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-017",
+      "CONTRACT": "CawActions",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "PERMISSIONLESS",
+      "CHECK_EXPRESSION": "no msg.sender gate; signature/ZK verifies actor",
+      "SOURCE_LOCATION": "solidity/contracts/CawActions.sol:270-376",
+      "AFFECTED_FUNCTIONS": [
+        "processActions",
+        "safeProcessActions",
+        "processActionsWithZkSigs"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "user/session sig; validatorId=minted profile",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-017"
+      ],
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "MUTABLE_HINT": "N/A",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "Ownable present but no onlyOwner business methods",
+      "RAW_MECHANISM_TYPE": "permissionless_caller_plus_signature_or_zk"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-020",
+      "CONTRACT": "CawActions",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "OZ onlyOwner on ownership mutators only",
+      "SOURCE_LOCATION": "solidity/contracts/CawActions.sol:41-52",
+      "AFFECTED_FUNCTIONS": [
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable._owner",
+      "RUNTIME_READ_METHOD": "owner()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-020"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "OWNERSHIP_TRANSFER",
+      "STATIC_EVIDENCE_NOTES": "runtime owner non-zero same shared address",
+      "RAW_MECHANISM_TYPE": "Ownable_dead_admin_surface"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-021",
+      "CONTRACT": "CawActionsArchive",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN_L2",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner via OApp setPeer + onlyOnce",
+      "SOURCE_LOCATION": "solidity/contracts/CawActionsArchive.sol:171-200",
+      "AFFECTED_FUNCTIONS": [
+        "setPeer",
+        "setDelegate",
+        "ownership"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable",
+      "RUNTIME_READ_METHOD": "owner() on L2 Archive",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-021"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE_until_renounce_peers_one_shot",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "deployed on L2/L2b not read in this Sepolia pin",
+      "RAW_MECHANISM_TYPE": "Ownable_OApp_OnlyOnce_peer"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-022",
+      "CONTRACT": "CawActionsArchive",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "VALIDATOR_GATE",
+      "CHECK_EXPRESSION": "stakes[msg.sender] >= MIN_STAKE",
+      "SOURCE_LOCATION": "solidity/contracts/CawActionsArchive.sol:247-249",
+      "AFFECTED_FUNCTIONS": [
+        "submitReplication"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "stakes mapping",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-022"
+      ],
+      "AUTHORITY_CLASS": "OTHER",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "ARCHIVE_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "permissionless stake then submit",
+      "RAW_MECHANISM_TYPE": "validator_stake_gate"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-023",
+      "CONTRACT": "CawActionsArchive",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "PERMISSIONLESS",
+      "CHECK_EXPRESSION": "msg.sender != validator + proof checks",
+      "SOURCE_LOCATION": "solidity/contracts/CawActionsArchive.sol:469-600",
+      "AFFECTED_FUNCTIONS": [
+        "resolveChallenge",
+        "slashIncoherentRoot"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "any non-submitter",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-023"
+      ],
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "MUTABLE_HINT": "N/A",
+      "SCOPE_HINT": "SLASH_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "slash entire stake",
+      "RAW_MECHANISM_TYPE": "permissionless_challenger_anti_self_slash"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-025",
+      "CONTRACT": "CawNetworkManager / CawClientManager",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0xa5c515d35c291110090b6edc4278acdef1424c7a",
+      "MECHANISM_TYPE": "CUSTOM_ROLE",
+      "CHECK_EXPRESSION": "ownerAddress == msg.sender",
+      "SOURCE_LOCATION": "solidity/contracts/CawNetworkManager.sol (+ client ABI naming):120-458",
+      "AFFECTED_FUNCTIONS": [
+        "changeOwner",
+        "set*Fee",
+        "setFees",
+        "setFeeAddress",
+        "lockNetworkFees",
+        "lockNetworkOwnership",
+        "setGasOverride"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "networks/clients[id].ownerAddress",
+      "RUNTIME_READ_METHOD": "nextClientId(); getClientOwner(uint32)",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-025"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE_until_lock",
+      "SCOPE_HINT": "FEE_CONTROL",
+      "STATIC_EVIDENCE_NOTES": "runtime getClientOwner(1)==shared owner address",
+      "RAW_MECHANISM_TYPE": "per_network_or_client_owner"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-026",
+      "CONTRACT": "CawNetworkManager / CawClientManager",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "PERMISSIONLESS",
+      "CHECK_EXPRESSION": "existence/zero checks only; caller becomes owner",
+      "SOURCE_LOCATION": "solidity/contracts/CawNetworkManager.sol:218-248,480-487",
+      "AFFECTED_FUNCTIONS": [
+        "createNetwork/createClient",
+        "registerInstance"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "msg.sender",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-026"
+      ],
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "MUTABLE_HINT": "N/A",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "public create path",
+      "RAW_MECHANISM_TYPE": "permissionless_creation"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-028",
+      "CONTRACT": "CawBuyAndBurn",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "DEPLOYER_ONESHOT",
+      "CHECK_EXPRESSION": "msg.sender==deployer && cawProfile==0",
+      "SOURCE_LOCATION": "solidity/contracts/CawBuyAndBurn.sol:55-58",
+      "AFFECTED_FUNCTIONS": [
+        "setCawProfile"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "private immutable deployer",
+      "RUNTIME_READ_METHOD": "deployer",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-028"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "ONESHOT_THEN_FIXED",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "deployer has no getter; cawProfile already set on-chain",
+      "RAW_MECHANISM_TYPE": "immutable_deployer_oneshot"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-029",
+      "CONTRACT": "CawBuyAndBurn",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x5860d1e0b1bce200b273f41716f5db200fc7f486",
+      "MECHANISM_TYPE": "CONTRACT_GATE",
+      "CHECK_EXPRESSION": "msg.sender==cawProfile",
+      "SOURCE_LOCATION": "solidity/contracts/CawBuyAndBurn.sol:66-68",
+      "AFFECTED_FUNCTIONS": [
+        "swapAndSplit"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "cawProfile storage",
+      "RUNTIME_READ_METHOD": "cawProfile()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-029"
+      ],
+      "AUTHORITY_CLASS": "CONTRACT_GATED_AUTHORITY",
+      "MUTABLE_HINT": "IMMUTABLE_AFTER_SET",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "runtime cawProfile==CawProfile",
+      "RAW_MECHANISM_TYPE": "contract_gated"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-030",
+      "CONTRACT": "CawCapOracle",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "CONTRACT_GATE",
+      "CHECK_EXPRESSION": "msg.sender==l2Writer",
+      "SOURCE_LOCATION": "solidity/contracts/CawCapOracle.sol:147-148",
+      "AFFECTED_FUNCTIONS": [
+        "recordSample"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "immutable l2Writer",
+      "RUNTIME_READ_METHOD": "NONE",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-030"
+      ],
+      "AUTHORITY_CLASS": "CONTRACT_GATED_AUTHORITY",
+      "MUTABLE_HINT": "IMMUTABLE",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "no Ownable",
+      "RAW_MECHANISM_TYPE": "contract_gated_immutable_writer"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-033",
+      "CONTRACT": "CawProfileURI",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "0x9ceffadc838a39d10a241d9a473844ef0cb6274f",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner",
+      "SOURCE_LOCATION": "solidity/contracts/CawProfileURI.sol:110-112",
+      "AFFECTED_FUNCTIONS": [
+        "setDescription"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable._owner",
+      "RUNTIME_READ_METHOD": "owner(); description()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-033"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "CONFIG_ONLY",
+      "STATIC_EVIDENCE_NOTES": "runtime owner==shared non-zero address",
+      "RAW_MECHANISM_TYPE": "Ownable_OZ"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-034",
+      "CONTRACT": "CawChallengeRelay",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN_L2",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner + onlyOnce setPeer",
+      "SOURCE_LOCATION": "solidity/contracts/CawChallengeRelay.sol:54-76",
+      "AFFECTED_FUNCTIONS": [
+        "setPeer",
+        "setDelegate",
+        "ownership"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "OZ Ownable",
+      "RUNTIME_READ_METHOD": "owner() on L2 ChallengeRelay",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-034"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE_until_renounce",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "L2 deployment; not queried on Sepolia pin",
+      "RAW_MECHANISM_TYPE": "Ownable_OApp_OnlyOnce_peer"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-038",
+      "CONTRACT": "PathwayExpander",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "NOT_DEPLOYED",
+      "MECHANISM_TYPE": "OWNABLE",
+      "CHECK_EXPRESSION": "onlyOwner; oapp.owner()==this; peers(eid)==0",
+      "SOURCE_LOCATION": "solidity/contracts/PathwayExpander.sol:63-90",
+      "AFFECTED_FUNCTIONS": [
+        "addPeer",
+        "addPeers"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "Ownable owner",
+      "RUNTIME_READ_METHOD": "owner()",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-038"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "MUTABLE",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "NOT present in deployments.ts testnet addresses",
+      "RAW_MECHANISM_TYPE": "Ownable_additions_only_peer_expander"
+    },
+    {
+      "schema_version": "weaver-authority-mechanism-v0",
+      "AUTHORITY_ID": "AUTH-041",
+      "CONTRACT": "OnlyOnce",
+      "CHAIN_ID": 11155111,
+      "CONTRACT_ADDRESS": "UNKNOWN",
+      "MECHANISM_TYPE": "DEPLOYER_ONESHOT",
+      "CHECK_EXPRESSION": "!_used[key]",
+      "SOURCE_LOCATION": "solidity/contracts/OnlyOnce.sol:10-14",
+      "AFFECTED_FUNCTIONS": [
+        "inheritor setters tagged onlyOnce"
+      ],
+      "ROLE_OR_OWNER_SOURCE": "N/A",
+      "RUNTIME_READ_METHOD": "_used mapping",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mechanism:AUTH-041"
+      ],
+      "AUTHORITY_CLASS": "PROTOCOL_ADMIN_AUTHORITY",
+      "MUTABLE_HINT": "KEY_PERMANENTLY_USED",
+      "SCOPE_HINT": "OTHER",
+      "STATIC_EVIDENCE_NOTES": "hardening combined with onlyOwner",
+      "RAW_MECHANISM_TYPE": "oneshot_callsite_lock"
+    }
+  ],
+  "runtime_reads": [
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "CONTRACT": "CawProfile",
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "RETURN_VALUE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-011",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "RETURN_VALUE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-011"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-033",
+      "CONTRACT": "CawProfileURI",
+      "CONTRACT_ADDRESS": "0x9ceffadc838a39d10a241d9a473844ef0cb6274f",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "RETURN_VALUE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-020",
+      "CONTRACT": "CawActions_L1",
+      "CONTRACT_ADDRESS": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "RETURN_VALUE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-020"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-006",
+      "CONTRACT": "CawProfile",
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound minter contract address",
+      "RETURN_VALUE": "0x8d65d141a60b1e1136be62604783aade8e7290d9",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-006"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "CONTRACT": "CawProfile",
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound uriGenerator address",
+      "RETURN_VALUE": "0x9ceffadc838a39d10a241d9a473844ef0cb6274f",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-013",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound cawActions",
+      "RETURN_VALUE": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-013"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-013",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound erc1271Sibling",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-013"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+      "CURRENT_BLOCKER": true,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "Bound erc1271Sibling getter ABI mismatch remains a current blocker",
+      "ROW_ID": "CARO-MAIN-7"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-012",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bypassLZ flag",
+      "RETURN_VALUE": true,
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-012"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-012",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound cawProfile",
+      "RETURN_VALUE": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-012"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-029",
+      "CONTRACT": "CawBuyAndBurn",
+      "CONTRACT_ADDRESS": "0x5860d1e0b1bce200b273f41716f5db200fc7f486",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "bound CawProfile for swapAndSplit",
+      "RETURN_VALUE": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-029"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-033",
+      "CONTRACT": "CawProfileURI",
+      "CONTRACT_ADDRESS": "0x9ceffadc838a39d10a241d9a473844ef0cb6274f",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "current description (ABI-encoded string)",
+      "RETURN_VALUE": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000049434157204e414d45732061726520757365726e616d65204e465473207468652043415720736f6369616c206e6574776f726b206f6e2074686520657468657265756d20636861696e2e0000000000000000000000000000000000000000000000",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-002",
+      "CONTRACT": "CawProfileMarketplace",
+      "CONTRACT_ADDRESS": "0x6404d1d3d878407a0977d99c832453f235da67c3",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "Expect no Ownable \u2014 empty/revert confirms no owner()",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-002"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "Negative Ownable probe on Marketplace; not a current L2 unread gap",
+      "ROW_ID": "CARO-MAIN-12"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-001",
+      "CONTRACT": "MintableCaw",
+      "CONTRACT_ADDRESS": "0x56817dc696448135203c0556f702c6a953260411",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "Expect no Ownable",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-001"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "Negative Ownable probe on MintableCaw; not a current L2 unread gap",
+      "ROW_ID": "CARO-MAIN-13"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-025",
+      "CONTRACT": "CawClientManager",
+      "CONTRACT_ADDRESS": "0xa5c515d35c291110090b6edc4278acdef1424c7a",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "network owner for networkId=1 if exists",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-025"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": "CARO-20260912-041428-A6BBA9BA",
+      "SUPERSEDING_EVIDENCE": "authority-runtime-reads.json#supplemental_reads[nextClientId/getClientOwner]",
+      "RECONCILIATION_NOTE": "Superseded by CARO supplemental nextClientId/getClientOwner reads",
+      "ROW_ID": "CARO-MAIN-14"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-025",
+      "CONTRACT": "CawClientManager",
+      "CONTRACT_ADDRESS": "0xa5c515d35c291110090b6edc4278acdef1424c7a",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "protocol-level Ownable check",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-025"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "Negative protocol-level Ownable probe; not a current L2 unread gap",
+      "ROW_ID": "CARO-MAIN-15"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-019",
+      "CONTRACT": "CawActions_L1",
+      "CONTRACT_ADDRESS": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "immutable capOracle address",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-019"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+      "CURRENT_BLOCKER": true,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "immutable capOracle getter ABI mismatch remains a current blocker",
+      "ROW_ID": "CARO-MAIN-16"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-018",
+      "CONTRACT": "CawActions_L1",
+      "CONTRACT_ADDRESS": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "immutable erc1271Sibling",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-018"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+      "CURRENT_BLOCKER": true,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "immutable erc1271Sibling getter ABI mismatch remains a current blocker",
+      "ROW_ID": "CARO-MAIN-17"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "CONTRACT": "CawProfile",
+      "CONTRACT_ADDRESS": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OAppCore.delegate()",
+      "RETURN_VALUE": "0x",
+      "RUNTIME_READ_VERDICT": "LIVE_READ_VERIFIED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-011",
+      "CONTRACT": "CawProfileL2_L1",
+      "CONTRACT_ADDRESS": "0xa99936edd087ce11824232ebd83b036c90163688",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "READ_METHOD": "OAppCore.delegate()",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "READ_FAILED",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-011"
+      ],
+      "ORIGINAL_STATUS": "READ_FAILED",
+      "CURRENT_INTERPRETATION": "NON_EQUIVALENT_FAILURE",
+      "CURRENT_BLOCKER": true,
+      "SUPERSEDING_RUN_ID": null,
+      "SUPERSEDING_EVIDENCE": null,
+      "RECONCILIATION_NOTE": "OAppCore.delegate() failure is non-equivalent residue; current blocker",
+      "ROW_ID": "CARO-MAIN-19"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-021",
+      "CONTRACT": "CawActionsArchive",
+      "CONTRACT_ADDRESS": "UNKNOWN_L2",
+      "CHAIN_ID": null,
+      "BLOCK_NUMBER": null,
+      "BLOCK_HASH": null,
+      "READ_METHOD": "owner()",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "UNREAD",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:state-source:AUTH-021"
+      ],
+      "NOTES": "L2 authority state not queried on Sepolia pin",
+      "ORIGINAL_STATUS": "UNREAD",
+      "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": "CL2ARC-20260912-141403-C591BF62",
+      "SUPERSEDING_EVIDENCE": "CL2ARC L2 Archive authority coverage",
+      "RECONCILIATION_NOTE": "L2 AUTH-021 UNREAD historically superseded by CL2ARC; current L2 unread gap CLOSED",
+      "ROW_ID": "CARO-STATE-AUTH-021"
+    },
+    {
+      "schema_version": "weaver-authority-runtime-read-v0",
+      "AUTHORITY_ID": "AUTH-034",
+      "CONTRACT": "CawChallengeRelay",
+      "CONTRACT_ADDRESS": "UNKNOWN_L2",
+      "CHAIN_ID": null,
+      "BLOCK_NUMBER": null,
+      "BLOCK_HASH": null,
+      "READ_METHOD": "owner()",
+      "RETURN_VALUE": null,
+      "RUNTIME_READ_VERDICT": "UNREAD",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:state-source:AUTH-034"
+      ],
+      "NOTES": "L2 authority state not queried on Sepolia pin",
+      "ORIGINAL_STATUS": "UNREAD",
+      "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+      "CURRENT_BLOCKER": false,
+      "SUPERSEDING_RUN_ID": "CL2ARC-20260912-141403-C591BF62",
+      "SUPERSEDING_EVIDENCE": "CL2ARC L2 ChallengeRelay authority coverage",
+      "RECONCILIATION_NOTE": "L2 AUTH-034 UNREAD historically superseded by CL2ARC; current L2 unread gap CLOSED",
+      "ROW_ID": "CARO-STATE-AUTH-034"
+    }
+  ],
+  "mutability_records": [
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": null,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-006",
+      "MUTABILITY_CLASS": "NO_MUTATOR_FOUND",
+      "MUTATORS": [
+        "setMinter already onlyOnce"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "immutable after set; currently set to Minter",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-006"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-011",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": null,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-011"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-020",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": null,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-020"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-025",
+      "MUTABILITY_CLASS": "MUTABLE_BY_ROLE",
+      "MUTATORS": [
+        "changeOwner",
+        "lockNetworkOwnership/clientOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "locks freeze further mutation",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-025"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-033",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "setDescription",
+        "transferOwnership",
+        "renounceOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": null,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-003",
+      "MUTABILITY_CLASS": "IMMUTABLE",
+      "MUTATORS": [],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": null,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-003"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-001",
+      "MUTABILITY_CLASS": "IMMUTABLE",
+      "MUTATORS": [],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "no admin",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-001"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-029",
+      "MUTABILITY_CLASS": "IMMUTABLE",
+      "MUTATORS": [],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "cawProfile already set; setCawProfile would revert Already set",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-029"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-028",
+      "MUTABILITY_CLASS": "NO_MUTATOR_FOUND",
+      "MUTATORS": [],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "deployer immutable; one-shot already consumed",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-028"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-038",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "addPeer",
+        "transferOwnership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "address not deployed in testnet manifest",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-038"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-021",
+      "MUTABILITY_CLASS": "MUTABLE_BY_OWNER",
+      "MUTATORS": [
+        "setPeer onlyOnce",
+        "setDelegate",
+        "ownership"
+      ],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "L2 not read",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-021"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-mutability-v0",
+      "AUTHORITY_ID": "AUTH-013",
+      "MUTABILITY_CLASS": "IMMUTABLE",
+      "MUTATORS": [],
+      "RUNTIME_EXECUTION_STATUS": "NOT_EXECUTED",
+      "INVOKED": false,
+      "NOTES": "bindings one-shot after owner set",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:mutability:AUTH-013"
+      ]
+    }
+  ],
+  "scope_records": [
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-005",
+      "SCOPE": "MULTI_FUNCTION_ADMIN",
+      "HOLDER_STATE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "DETAIL": "peer/minter/URI/delegate until renounce",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-006",
+      "SCOPE": "MINT_CONTROL",
+      "HOLDER_STATE": "0x8d65d141a60b1e1136be62604783aade8e7290d9",
+      "DETAIL": "only minter may mint profiles",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-006"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-011",
+      "SCOPE": "MULTI_FUNCTION_ADMIN",
+      "HOLDER_STATE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "DETAIL": "L2 peer/actions/sibling wiring",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-011"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-013",
+      "SCOPE": "OTHER",
+      "HOLDER_STATE": "0xd20be35d2365c0f7daf563a47b29eb5a165c2007",
+      "DETAIL": "contract-gated spend/credit/session from actions",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-013"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-020",
+      "SCOPE": "OWNERSHIP_TRANSFER",
+      "HOLDER_STATE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "DETAIL": "dead Ownable; no protocol config onlyOwner methods",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-020"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-025",
+      "SCOPE": "FEE_CONTROL",
+      "HOLDER_STATE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "DETAIL": "clientId=1 fee/feeAddress/ownership until lock",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-025"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-033",
+      "SCOPE": "CONFIG_ONLY",
+      "HOLDER_STATE": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "DETAIL": "URI description string",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-002",
+      "SCOPE": "USER_ASSET_CONTROL",
+      "HOLDER_STATE": "per-token ERC721 owner",
+      "DETAIL": "listing own profile NFT",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-002"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-022",
+      "SCOPE": "ARCHIVE_CONTROL",
+      "HOLDER_STATE": "staked validators",
+      "DETAIL": "submitReplication",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-022"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-023",
+      "SCOPE": "SLASH_CONTROL",
+      "HOLDER_STATE": "any non-submitter with proofs",
+      "DETAIL": "slash stake",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-023"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-038",
+      "SCOPE": "OTHER",
+      "HOLDER_STATE": "UNKNOWN_NOT_DEPLOYED_IN_MANIFEST",
+      "DETAIL": "new LZ eid expansion if deployed",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-038"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-scope-v0",
+      "AUTHORITY_ID": "AUTH-001",
+      "SCOPE": "MINT_CONTROL",
+      "HOLDER_STATE": "anyone",
+      "DETAIL": "permissionless test mint",
+      "SYSTEM_WIDE": false,
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:scope:AUTH-001"
+      ]
+    }
+  ],
+  "privileged_surfaces": [
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-001",
+      "CONTRACT": "CawProfile",
+      "METHOD": "setMinter/setL2Peer/setUriGenerator/setPeer/setDelegate",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Bind mint authority, LZ peers/delegate, URI generator",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-002",
+      "CONTRACT": "CawProfileL2",
+      "METHOD": "setCawActions/setL1Peer/setERC1271Sibling/setPeer/setDelegate",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Bind spend/actions authority and cross-chain peers",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-003",
+      "CONTRACT": "CawActionsArchive",
+      "METHOD": "setPeer/setDelegate",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Authenticate challenge-relay peers; LZ delegate",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-004",
+      "CONTRACT": "CawChallengeRelay",
+      "METHOD": "setPeer/setDelegate",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Point relay at archive peers",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-005",
+      "CONTRACT": "CawClientManager",
+      "METHOD": "setFees/setFeeAddress/changeOwner/setGasOverride/locks",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "ROLE_GATED (client/network owner)",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Per-client fee policy and fee recipient",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-006",
+      "CONTRACT": "CawProfileURI",
+      "METHOD": "setDescription",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Change NFT metadata description string",
+      "SEVERITY": "LOW",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-007",
+      "CONTRACT": "PathwayExpander",
+      "METHOD": "addPeer/addPeers",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Add NEW LZ eids only (cannot rotate existing peers)",
+      "SEVERITY": "MEDIUM",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-008",
+      "CONTRACT": "CawBuyAndBurn",
+      "METHOD": "setCawProfile",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "deployer oneshot",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Bind sole swapAndSplit caller",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-009",
+      "CONTRACT": "CawActions",
+      "METHOD": "transferOwnership/renounceOwnership",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "OWNER_GATED",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Dead admin surface (no onlyOwner protocol config methods)",
+      "SEVERITY": "LOW",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-010",
+      "CONTRACT": "CawActionsArchive",
+      "METHOD": "resolveChallenge/slashIncoherentRoot",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "PERMISSIONLESS + proofs",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Slash validator stake / archive integrity",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    },
+    {
+      "schema_version": "weaver-privileged-surface-v0",
+      "SURFACE_ID": "PRIV-011",
+      "CONTRACT": "MintableCaw",
+      "METHOD": "mint",
+      "CAPABILITY": "EXISTS",
+      "AUTHORITY_REQUIRED": "PERMISSIONLESS",
+      "AUTHORITY_ID": null,
+      "EFFECT": "Unlimited test-token mint (natspec forbids mainnet)",
+      "SEVERITY": "HIGH",
+      "STATIC_EVIDENCE": "HIGH",
+      "RUNTIME_AUTHORITY_READ_EVIDENCE": "SEE_RUNTIME_READS",
+      "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+      "LIVE_ACTION_STATUS": "NOT_VERIFIED"
+    }
+  ],
+  "permissionless_surfaces": [
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-001",
+      "CONTRACT": "MintableCaw",
+      "METHOD": "mint(address,uint256)",
+      "SOURCE_BASIS": "MintableCaw.sol:20-22 no require/modifier",
+      "RUNTIME_BASIS": "p0030 VR1 eth_call success; LOCAL_EXECUTION_ALIGNED; SIMULATED_ONLY",
+      "LIMITATIONS": "Test faucet only; does not make protocol permissionless; live mint tx NOT_VERIFIED",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-002",
+      "CONTRACT": "CawClientManager",
+      "METHOD": "createClient / registerInstance",
+      "SOURCE_BASIS": "public create; caller becomes owner",
+      "RUNTIME_BASIS": "nextClientId read only; create not executed",
+      "LIMITATIONS": "Creates per-client ownership; not global admin absence",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-003",
+      "CONTRACT": "CawActions",
+      "METHOD": "processActions*",
+      "SOURCE_BASIS": "no msg.sender privilege gate; signature/ZK gates effects",
+      "RUNTIME_BASIS": "not sampled this run",
+      "LIMITATIONS": "Action author still signature-gated; tips to validator profile",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-004",
+      "CONTRACT": "CawActionsArchive",
+      "METHOD": "deposit / resolveChallenge*",
+      "SOURCE_BASIS": "self-stake deposit; challenger permissionless with proofs",
+      "RUNTIME_BASIS": "not sampled (L2)",
+      "LIMITATIONS": "submitReplication is VALIDATOR_GATED by stake",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-005",
+      "CONTRACT": "CawChallengeRelay",
+      "METHOD": "relayChallenge*",
+      "SOURCE_BASIS": "no caller auth beyond checkpoint existence",
+      "RUNTIME_BASIS": "not sampled (L2)",
+      "LIMITATIONS": "peer config remains owner-gated",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-006",
+      "CONTRACT": "CawProfileMinter",
+      "METHOD": "mint*",
+      "SOURCE_BASIS": "no Ownable; pays CAW",
+      "RUNTIME_BASIS": "not sampled this run",
+      "LIMITATIONS": "requires CawProfile.minter binding; economic cost",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-007",
+      "CONTRACT": "CawCapOracle",
+      "METHOD": "pushRatioIfStale",
+      "SOURCE_BASIS": "permissionless rate-limited",
+      "RUNTIME_BASIS": "not sampled",
+      "LIMITATIONS": "recordSample is CONTRACT_GATED",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-permissionless-surface-v0",
+      "SURFACE_ID": "PERM-008",
+      "CONTRACT": "CawProfileMarketplace",
+      "METHOD": "buy/bid/offer paths",
+      "SOURCE_BASIS": "no protocol admin; payment/state conditions",
+      "RUNTIME_BASIS": "p0014 createListing is TOKEN_OWNER_GATED not permissionless",
+      "LIMITATIONS": "listing creation is token-owner gated",
+      "SCOPE": "FUNCTION",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "SYSTEM_PERMISSIONLESS": false
+    }
+  ],
+  "holder_addresses": [
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfile",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "AUTHORITY_IDS": [
+        "AUTH-005"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfileL2_L1",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "AUTHORITY_IDS": [
+        "AUTH-011"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-011"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfileURI",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "AUTHORITY_IDS": [
+        "AUTH-033"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawActions_L1",
+      "READ_METHOD": "OZ Ownable.owner() at pinned block",
+      "AUTHORITY_IDS": [
+        "AUTH-020"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-020"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0x9ceffadc838a39d10a241d9a473844ef0cb6274f",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfile",
+      "READ_METHOD": "bound uriGenerator address",
+      "AUTHORITY_IDS": [
+        "AUTH-005"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000049434157204e414d45732061726520757365726e616d65204e465473207468652043415720736f6369616c206e6574776f726b206f6e2074686520657468657265756d20636861696e2e0000000000000000000000000000000000000000000000",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfileURI",
+      "READ_METHOD": "current description (ABI-encoded string)",
+      "AUTHORITY_IDS": [
+        "AUTH-033"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-033"
+      ]
+    },
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0x",
+      "VERIFICATION_STATUS": "PARTIAL_VERIFIED",
+      "CHAIN_ID": 11155111,
+      "BLOCK_NUMBER": 11686511,
+      "BLOCK_HASH": "0x2f49d70dca90330966a5110160339755977d0504ff637f61b2d7fee96640458f",
+      "CONTRACT": "CawProfile",
+      "READ_METHOD": "OAppCore.delegate()",
+      "AUTHORITY_IDS": [
+        "AUTH-005"
+      ],
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:read:AUTH-005"
+      ]
+    }
+  ],
+  "holder_identities": [
+    {
+      "schema_version": "weaver-authority-holder-v0",
+      "HOLDER_ADDRESS": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+      "IDENTITY_STATUS": "NOT_VERIFIED",
+      "IDENTITY_ASSERTION": "NOT_INFERRED",
+      "IDENTITY_EVIDENCE_REFERENCES": [],
+      "INFERENCE_FORBIDDEN": true
+    }
+  ],
+  "claim_reassessments": [
+    {
+      "schema_version": "weaver-authority-claim-reassessment-v0",
+      "CLAIM_ID": "claim-017-broad",
+      "CLAIM_CLASS": "PRIVILEGED_CONTROL",
+      "CLAIM_TEXT": "NO PRIVILEGED CONTROL",
+      "EVIDENCE_REFERENCES": [
+        "CARO:CARO-20260912-041428-A6BBA9BA:privileged-control-claim-reassessment"
+      ],
+      "AUTHORITY_FINDING": "material post-deploy privileged surfaces remain; shared non-zero Ownable holder on key L1 contracts",
+      "ASSESSMENT": "CONFIRMED",
+      "CONFIDENCE": "HIGH",
+      "OVERALL_CAW_VERDICT_IMPACT": "NONE",
+      "PRIOR_VERDICT": "CONTRADICTED (broad) / PARTIAL (narrow one-shot peers)",
+      "BROAD_SLOGAN": "CONTRADICTED",
+      "NARROW_ONESHOT": "PARTIAL"
+    }
+  ],
+  "runtime_authority_links": [
+    {
+      "schema_version": "weaver-runtime-authority-link-v0",
+      "PATH_ID": "wrps-v0-p0014",
+      "CONTRACT_ADDRESS": null,
+      "METHOD": "createListing",
+      "AUTHORITY_ID": "AUTH-002",
+      "AUTHORITY_IDS": [
+        "AUTH-002",
+        "AUTH-003"
+      ],
+      "CALLER_GATE_CLASS": "TOKEN_OWNER_GATED",
+      "AUTHORITY_CLASS": "USER_ASSET_AUTHORIZATION",
+      "RUNTIME_RUN_ID": null,
+      "AUTHORITY_READ_RUN_ID": "CARO-20260912-041428-A6BBA9BA",
+      "EVIDENCE_DIGEST": "4579ad360746af4aea7623839f21365227bd3f0bb996a23a0a2ea5996a4493eb",
+      "inherits_protocol_admin": false,
+      "SYSTEM_PERMISSIONLESS": false
+    },
+    {
+      "schema_version": "weaver-runtime-authority-link-v0",
+      "PATH_ID": "wrps-v0-p0030",
+      "CONTRACT_ADDRESS": null,
+      "METHOD": "mint(address,uint256)",
+      "AUTHORITY_ID": "AUTH-001",
+      "AUTHORITY_IDS": [
+        "AUTH-001"
+      ],
+      "CALLER_GATE_CLASS": "PERMISSIONLESS",
+      "AUTHORITY_CLASS": "PERMISSIONLESS_FUNCTION",
+      "RUNTIME_RUN_ID": null,
+      "AUTHORITY_READ_RUN_ID": "CARO-20260912-041428-A6BBA9BA",
+      "EVIDENCE_DIGEST": "8f7f60eaa54c8166d31f09be465d26a8ea91a79482c0573ae079d4ec4aa93da4",
+      "inherits_protocol_admin": false,
+      "SYSTEM_PERMISSIONLESS": false
+    }
+  ],
+  "prior_axes": {
+    "AUTHORITY_MECHANISM_MAPPED": "YES",
+    "CURRENT_AUTHORITY_STATE_READ": "PARTIAL",
+    "AUTHORITY_HOLDER_ADDRESS_VERIFIED": "PARTIAL",
+    "AUTHORITY_SCOPE_MAPPED": "YES",
+    "AUTHORITY_MUTABILITY_MAPPED": "YES",
+    "PRIVILEGED_EXECUTION_VERIFIED": "NO",
+    "LIVE_AUTHORITY_ACTION_VERIFIED": "NO"
+  },
+  "known_shared_l1_owner": "0xf71338f3eaa483aa66125598b09ba1988e694a95",
+  "unread_authority_ids": [],
+  "unresolved_reason": "Current residue is ABI getter mismatch / non-equivalent delegate failure plus holder identity NOT_VERIFIED and privileged execution / live authority action NOT_VERIFIED; not an open L2 unread gap (AUTH-021/034 historically superseded by CL2ARC).",
+  "caw_verdict_snapshot": {
+    "CAW_VERDICT_CHANGED": false,
+    "OVERALL_CAW_VERDICT_IMPACT": "NONE"
+  },
+  "declared_axes": {
+    "PRIVILEGED_EXECUTION_STATUS": "NOT_VERIFIED",
+    "LIVE_AUTHORITY_ACTION_STATUS": "NOT_VERIFIED",
+    "INDEPENDENT_WITNESS_STATUS": "NOT_SATISFIED",
+    "SYSTEM_PERMISSIONLESS": false,
+    "TRUSTLESS_VERIFIED": false,
+    "DECENTRALIZED_VERIFIED": false
+  },
+  "limitations": [
+    "normalized from existing CARO overlay only; no new RPC",
+    "holder address is not human/entity identity",
+    "architecture mapping is not privileged execution"
+  ],
+  "historical_read_reconciliation": {
+    "schema_version": "weaver-authority-historical-read-reconciliation-v0",
+    "source": "PREWIT-20260912-150547-C7E2A91F/authority-failure-reconciliation.json",
+    "class_counts": {
+      "ABI_GETTER_MISMATCH": 3,
+      "NEGATIVE_PROBE": 3,
+      "CURRENT_UNRESOLVED": 0,
+      "HISTORICAL_SUPERSEDED": 3,
+      "NON_EQUIVALENT_FAILURE": 1
+    },
+    "applied_rows": [
+      {
+        "ROW_ID": "CARO-MAIN-7",
+        "AUTHORITY_ID": "AUTH-013",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+        "CURRENT_BLOCKER": true,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-12",
+        "AUTHORITY_ID": "AUTH-002",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-13",
+        "AUTHORITY_ID": "AUTH-001",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-14",
+        "AUTHORITY_ID": "AUTH-025",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": "CARO-20260912-041428-A6BBA9BA"
+      },
+      {
+        "ROW_ID": "CARO-MAIN-15",
+        "AUTHORITY_ID": "AUTH-025",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "NEGATIVE_PROBE",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-16",
+        "AUTHORITY_ID": "AUTH-019",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+        "CURRENT_BLOCKER": true,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-17",
+        "AUTHORITY_ID": "AUTH-018",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "ABI_GETTER_MISMATCH",
+        "CURRENT_BLOCKER": true,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-MAIN-19",
+        "AUTHORITY_ID": "AUTH-011",
+        "ORIGINAL_STATUS": "READ_FAILED",
+        "CURRENT_INTERPRETATION": "NON_EQUIVALENT_FAILURE",
+        "CURRENT_BLOCKER": true,
+        "SUPERSEDING_RUN_ID": null
+      },
+      {
+        "ROW_ID": "CARO-STATE-AUTH-021",
+        "AUTHORITY_ID": "AUTH-021",
+        "ORIGINAL_STATUS": "UNREAD",
+        "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": "CL2ARC-20260912-141403-C591BF62"
+      },
+      {
+        "ROW_ID": "CARO-STATE-AUTH-034",
+        "AUTHORITY_ID": "AUTH-034",
+        "ORIGINAL_STATUS": "UNREAD",
+        "CURRENT_INTERPRETATION": "HISTORICAL_SUPERSEDED",
+        "CURRENT_BLOCKER": false,
+        "SUPERSEDING_RUN_ID": "CL2ARC-20260912-141403-C591BF62"
+      }
+    ],
+    "FAILURE_HISTORY_PRESERVED": true,
+    "note": "Raw RUNTIME_READ_VERDICT / RETURN_VALUE / EVIDENCE_REFERENCES preserved; metadata additive only"
+  },
+  "current_l2_unread_gap": "CLOSED",
+  "authority_aggregate_metadata": {
+    "AUTHORITY_STATE_COMPATIBILITY": "PARTIAL_LIVE_READ",
+    "reasons": [
+      "current ABI_GETTER_MISMATCH / NON_EQUIVALENT_FAILURE blockers remain",
+      "holder identity NOT_VERIFIED",
+      "privileged execution NOT_VERIFIED",
+      "live authority action NOT_VERIFIED",
+      "historical READ_FAILED / UNREAD rows preserved (not deleted)",
+      "current_l2_unread_gap=CLOSED (AUTH-021/034 HISTORICAL_SUPERSEDED)"
+    ],
+    "FAILURE_HISTORY_PRESERVED": true,
+    "does_not_claim_IW_satisfied": true,
+    "does_not_alter_static_complete_partial": true
+  },
+  "pack_digest": "3e2d3394be98d58eb358c56ba0bed3eeb685f3604a3ab78a53225e6e335d85fb"
+}

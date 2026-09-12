@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Result Event v0",
+  "type": "object",
+  "required": ["schema_version", "scope"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-result-event-v0"},
+    "scope": {"const": "BOUNDED_LOCAL_FORK_SAMPLE"},
+    "return_value": {"type": "object"},
+    "events": {"type": "array"},
+    "state_transition": {"type": "object"},
+    "RUNTIME_STATE_TRANSITION_STATUS": {"type": "string"},
+    "transaction_receipt": {"type": "object"}
+  }
+}

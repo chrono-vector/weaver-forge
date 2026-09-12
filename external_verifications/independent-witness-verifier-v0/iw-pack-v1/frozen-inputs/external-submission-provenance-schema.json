@@ -1,0 +1,18 @@
+{
+  "schema_version": "iw-external-submission-provenance-v0",
+  "required_receipt_fields": [
+    "SUBMISSION_RECEIPT_ID",
+    "SUBMISSION_CHANNEL_CLASS",
+    "SUBMISSION_TIMESTAMP",
+    "PACK_DIGEST_RECEIVED",
+    "OUTPUT_DIGEST_SUBMITTED",
+    "SUBMITTER_ROLE",
+    "MAINTAINER_ORIGIN",
+    "ACCEPTANCE_ELIGIBLE"
+  ],
+  "acceptance_rules": {
+    "MAINTAINER_ORIGIN": "must be != YES",
+    "ACCEPTANCE_ELIGIBLE": "must be YES",
+    "self_declared_independence": "insufficient without valid external receipt"
+  }
+}

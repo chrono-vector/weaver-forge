@@ -9,6 +9,14 @@
     "CHAIN_ID": 11155111,
     "REFERENCE_BLOCK": 11686511
   },
+  "visible_pre_run": {
+    "target": "0x9fcbb3d6880cd3293f1a731fe6c958a6621a74bf",
+    "method": "owner()",
+    "chain_id": 11155111,
+    "block": 11686511,
+    "abi_source": "CAW tree at frozen commit / Ownable owner()"
+  },
+  "expected_owner_policy": "REVEAL_AFTER_FREEZE_IN_reference-disclosure",
   "rationale": "AUTH-005 CawProfile.owner() is a simple Ownable getter on a stable Sepolia deployed address already successfully read in CARO; representative of authority packaging without L2 multi-chain reproduction or privileged execution.",
   "scope_limited_note": "One read \u2260 full authority map verification",
   "forbidden": [

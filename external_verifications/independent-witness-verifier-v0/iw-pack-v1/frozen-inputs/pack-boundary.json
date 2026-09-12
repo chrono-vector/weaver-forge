@@ -1,0 +1,17 @@
+{
+  "schema_version": "iw-pack-boundary-v0",
+  "PACK_ROOT": "iw-pack-v1",
+  "PACK_ROOT_NOTE": "ALWAYS relative (iw-pack-v1 or .); never absolute Windows/Unix path",
+  "file_classes": [
+    "HASHED_PAYLOAD",
+    "SEAL_METADATA",
+    "HISTORICAL_RECORD",
+    "OUT_OF_SCOPE"
+  ],
+  "seal_model": {
+    "CONTENT_MANIFEST": "hash HASHED_PAYLOAD files excluding seal/dry-run annex",
+    "PACK_SEAL": "content_manifest_digest + git commit/tree + versions + CAW commit + creation_run_id",
+    "PACK_ROOT_DIGEST": "digest of sealed metadata model in PACK_SEAL/PACK_FREEZE"
+  },
+  "dry_run_classification": "HISTORICAL_RECORD / SEAL_METADATA annex"
+}

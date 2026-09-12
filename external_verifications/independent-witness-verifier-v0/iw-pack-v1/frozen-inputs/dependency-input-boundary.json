@@ -1,0 +1,49 @@
+{
+  "schema_version": "iw-dependency-input-boundary-v0",
+  "classifications": [
+    {
+      "item": "CAW source tree at frozen commit",
+      "class": "EXTERNAL_FROZEN_PIN"
+    },
+    {
+      "item": "CAW package.json + package-lock.json",
+      "class": "EXTERNAL_FROZEN_PIN"
+    },
+    {
+      "item": "CAW hardhat ^2.22.18 / ethers ^6.16.0",
+      "class": "EXTERNAL_FROZEN_PIN"
+    },
+    {
+      "item": "Weaver IW verifier module",
+      "class": "PACK_MEMBER"
+    },
+    {
+      "item": "IW schemas",
+      "class": "PACK_MEMBER"
+    },
+    {
+      "item": "fixture-specs",
+      "class": "PACK_MEMBER"
+    },
+    {
+      "item": "path-sot comparison references",
+      "class": "PACK_MEMBER"
+    },
+    {
+      "item": "procedure inputs",
+      "class": "PACK_MEMBER"
+    },
+    {
+      "item": "solc compiler",
+      "class": "NOT_REQUIRED"
+    },
+    {
+      "item": "full CAW test suite",
+      "class": "NOT_REQUIRED"
+    },
+    {
+      "item": "untracked local modules",
+      "class": "OUT_OF_SCOPE"
+    }
+  ]
+}

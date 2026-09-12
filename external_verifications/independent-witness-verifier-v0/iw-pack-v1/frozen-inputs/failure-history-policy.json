@@ -1,0 +1,7 @@
+{
+  "schema_version": "iw-failure-history-policy-v0",
+  "FAILURE_HISTORY_ASSURANCE": "SUBMITTED_HISTORY_PRESERVED",
+  "forbidden_claim": "COMPLETE_HISTORY_CRYPTOGRAPHICALLY_PROVEN",
+  "ATTEMPT_ID_POLICY": "retain ATTEMPT_ID; PRIOR_ATTEMPT_ID / prior_failure_id on retries; append-only",
+  "note": "Later PASS does not erase earlier failure"
+}

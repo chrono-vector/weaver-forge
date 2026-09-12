@@ -21,7 +21,8 @@
     },
     "authority": {
       "CARO": "CARO-20260912-041428-A6BBA9BA",
-      "AUTH_ID": "AUTH-005"
+      "AUTH_ID": "AUTH-005",
+      "expected_owner_reveal": "AFTER_FREEZE_ONLY"
     }
   },
   "note": "Exact expected derived hashes intentionally omitted from pre-run visible surface; witness regenerates evidence."

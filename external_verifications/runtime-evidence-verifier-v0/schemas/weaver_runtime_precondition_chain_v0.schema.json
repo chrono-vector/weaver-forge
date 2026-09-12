@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Precondition Chain v0",
+  "type": "object",
+  "required": [
+    "PRECONDITION_ID",
+    "SOURCE_LOCATION",
+    "CONDITION",
+    "INPUT_STATE",
+    "SETUP_ACTION",
+    "RESULT",
+    "NEXT_CONDITION",
+    "EVIDENCE_REFERENCES"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "PRECONDITION_ID": {"type": "string"},
+    "SOURCE_LOCATION": {"type": "string"},
+    "CONDITION": {"type": "string"},
+    "INPUT_STATE": {"type": "object"},
+    "SETUP_ACTION": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "authority_claim": {"const": false}
+      }
+    },
+    "RESULT": {"type": "string", "enum": ["BLOCKED", "CLEARED", "SKIPPED", "ERROR"]},
+    "NEXT_CONDITION": {"type": "string"},
+    "EVIDENCE_REFERENCES": {"type": "array", "items": {"type": "string"}}
+  }
+}

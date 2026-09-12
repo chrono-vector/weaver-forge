@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Runtime Input Artifact v0",
+  "type": "object",
+  "required": ["schema_version", "calldata_sha256", "selector", "target_address"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-runtime-input-artifact-v0"},
+    "calldata_sha256": {"type": "string"},
+    "selector": {"type": "string"},
+    "target_address": {"type": "string"},
+    "method_signature": {"type": "string"}
+  }
+}

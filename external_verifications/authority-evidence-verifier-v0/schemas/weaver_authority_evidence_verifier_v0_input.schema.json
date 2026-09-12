@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weaver Authority Evidence Verifier v0 Input",
+  "type": "object",
+  "required": ["schema_version", "authority_evidence_pack"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "weaver-authority-evidence-verifier-v0"},
+    "authority_evidence_pack": {"type": "object"},
+    "design_run_id": {"type": "string"},
+    "notes": {"type": "string"}
+  }
+}
