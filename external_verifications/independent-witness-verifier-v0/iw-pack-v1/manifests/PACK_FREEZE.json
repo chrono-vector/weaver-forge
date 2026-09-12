@@ -1,16 +1,16 @@
 {
   "PACK_VERSION": "iw-pack-v1",
   "PACK_ROOT": "C:/dev/Weaver/weaver-forge/external_verifications/independent-witness-verifier-v0/iw-pack-v1",
-  "PACK_ROOT_DIGEST": "aeed39598dc4fe35c1ea474564532ec35f4669d0f0b180e62bffcff07064084e",
-  "MANIFEST_DIGEST": "71dad4be15e3f1d1c4c125d2cf8d34107bd9f8f2fa75a07463dc93fb4f2729e4",
+  "PACK_ROOT_DIGEST": "778beb45415be799514b548dfe5b57e1bbc014efce77107b8034577b0e042f40",
+  "MANIFEST_DIGEST": "6d9294c35c09611e334ef0224e434162b8727cf3eeb136a1d4dea2c25c969e8a",
   "CAW_COMMIT": "e2074718bcea293726ddfcf8764e1499e7b9217c",
-  "WEAVER_COMMIT": "890f3a1af8faaee602d09eb9195442b76862a072",
-  "WEAVER_TREE": "6cd2977079866fb9a35dc90fb3e59cd25e9031dc",
+  "WEAVER_COMMIT": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
+  "WEAVER_TREE": "6256574e4723e484e17975148bbdec307e830d18",
   "IW_VERIFIER_VERSION": "v0",
   "SCHEMA_VERSIONS": [
     "weaver-independent-witness-pack-v0",
     "weaver-independent-witness-verifier-v0"
   ],
   "member_count": 67,
-  "created_at": "2026-09-12T05:44:29Z"
+  "created_at": "2026-09-12T05:47:00Z"
 }

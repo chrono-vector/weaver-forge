@@ -124,8 +124,8 @@
       "mandatory": true
     },
     "WEAVER_COMMIT": {
-      "observed": "890f3a1af8faaee602d09eb9195442b76862a072",
-      "expected": "890f3a1af8faaee602d09eb9195442b76862a072",
+      "observed": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
+      "expected": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
       "match": true,
       "mandatory": true
     },
@@ -260,7 +260,7 @@
     "DESIGNATED_WITNESS_ONLY": false
   },
   "caw_verdict_changed": false,
-  "generated_at": "2026-09-12T05:44:29Z",
-  "result_id": "wiwv-v0-c495f1a5afabdba928f30df4c1a21769",
-  "result_digest": "c495f1a5afabdba928f30df4c1a21769d038720f00c2c5416c9d3d51a102ee89"
+  "generated_at": "2026-09-12T05:47:00Z",
+  "result_id": "wiwv-v0-a60c0d3afa2fef1034aad14a62f70ba3",
+  "result_digest": "a60c0d3afa2fef1034aad14a62f70ba3535873c47a80b38471eb93e3cc868698"
 }

@@ -2,8 +2,8 @@
   "schema_version": "iw-pack-manifest-v0",
   "pack_format_version": "iw-pack-v1",
   "CAW_COMMIT": "e2074718bcea293726ddfcf8764e1499e7b9217c",
-  "WEAVER_COMMIT_AT_MATERIALIZATION": "890f3a1af8faaee602d09eb9195442b76862a072",
-  "WEAVER_TREE_AT_MATERIALIZATION": "6cd2977079866fb9a35dc90fb3e59cd25e9031dc",
+  "WEAVER_COMMIT_AT_MATERIALIZATION": "912b1f08b20acb57fc8a5fe28cdc86376f77c6b0",
+  "WEAVER_TREE_AT_MATERIALIZATION": "6256574e4723e484e17975148bbdec307e830d18",
   "IW_VERIFIER_VERSION": "v0",
   "members": {
     "expected-structure/required-members.json": "5c82a51b54f7c4998eccf7bca67a1b7b93372e0112cba51597fdc0a9ddae360a",
@@ -12,7 +12,7 @@
     "frozen-inputs/caw-tree-digest.json": "1503889476d2edcd2dcf68453a2d86fb8d6c09d387ea4062d6fd2a4f1cded668",
     "frozen-inputs/fixture-specs/p0014-createListing.json": "5093ff0c2e5f23eab6eee50ff7204d54465128dcb8da3236d73fbc185117be36",
     "frozen-inputs/fixture-specs/p0030-mint.json": "be32a186a3cac86adb0eb07777268164b0577e8c51d84d2a994efa1de360bf6f",
-    "frozen-inputs/FROZEN_INPUT_MANIFEST.json": "30c8d7f992439439e5f9ad61754e8e7bd7613fb96f19778ca3df5ce9a1edac4f",
+    "frozen-inputs/FROZEN_INPUT_MANIFEST.json": "a46eef82d7bff996b6ed25e7ae9e647ae01c7c1e02529df4b8d86bebed29adb3",
     "frozen-inputs/path-ids.json": "034c475f45c8a3ff59b186042ee4796cf4b3bdd30249949f70d1d76127388cb5",
     "frozen-inputs/path-sot/wrps-v0-p0014.json": "1ef70b9e359f8baa5f1e241e196d59efa2d18c664f3d6cbd2b1b6b447af78a5b",
     "frozen-inputs/path-sot/wrps-v0-p0030.json": "8159dff39aeaa19892952001405630c28478c645cd2be0025e05f955165f9f4f",
@@ -31,7 +31,7 @@
     "frozen-inputs/schemas/weaver_iw_witness_environment_v0.schema.json": "7e3ca73af924e0ca78cbe391e37c4f3ede2c96438d43410ee9e1042bfdb51b6c",
     "frozen-inputs/schemas/weaver_iw_witness_receipt_v0.schema.json": "333f9b4a6839d9aa6c92737e4038f13d16f198c596cc5c28280dd3793e677c9d",
     "frozen-inputs/schemas/weaver_iw_witness_run_metadata_v0.schema.json": "55be3e79483fc7e35595bfd52c66204d053836cac61e9e2c5e9235892d4838d4",
-    "frozen-inputs/weaver-pin.json": "c62911429b447a50ab016bc4ef11c3a85141350c49cf25a88bec8a5550f6e96e",
+    "frozen-inputs/weaver-pin.json": "3a5f55695f42bd6a938a1f5f48d9e03b2139214cb91386f5ddb5a98847bc2a46",
     "instructions/DISCLOSURE.md": "0fbe6f2dc905abf8e536c978c3cca6f33f55d5631368eef4901978529f961f86",
     "instructions/FAILURES.md": "8b26be45ba495efbe74c6b81f6205115cea81a3600a768502989e8fcf7348eef",
     "instructions/INDEPENDENCE.md": "b57a032dd6ae0f0feea6ee739288aed02c079085a5005480890085736a1f7a30",
@@ -73,5 +73,5 @@
     "witness-output-template/witness-receipt.json": "67a9a2379aceda63e44a5bc579f7b4ab797d400bca44385574cdbb34c595535b",
     "witness-output-template/witness-run-metadata.json": "afea352d02419d4aed0afd2d263fc31050d62774988917ecbf4542a32f38cddb"
   },
-  "manifest_digest": "71dad4be15e3f1d1c4c125d2cf8d34107bd9f8f2fa75a07463dc93fb4f2729e4"
+  "manifest_digest": "6d9294c35c09611e334ef0224e434162b8727cf3eeb136a1d4dea2c25c969e8a"
 }

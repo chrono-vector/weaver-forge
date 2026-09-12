@@ -24,6 +24,6 @@
     "schemas/weaver_iw_witness_environment_v0.schema.json": "7e3ca73af924e0ca78cbe391e37c4f3ede2c96438d43410ee9e1042bfdb51b6c",
     "schemas/weaver_iw_witness_receipt_v0.schema.json": "333f9b4a6839d9aa6c92737e4038f13d16f198c596cc5c28280dd3793e677c9d",
     "schemas/weaver_iw_witness_run_metadata_v0.schema.json": "55be3e79483fc7e35595bfd52c66204d053836cac61e9e2c5e9235892d4838d4",
-    "weaver-pin.json": "c62911429b447a50ab016bc4ef11c3a85141350c49cf25a88bec8a5550f6e96e"
+    "weaver-pin.json": "3a5f55695f42bd6a938a1f5f48d9e03b2139214cb91386f5ddb5a98847bc2a46"
   }
 }
