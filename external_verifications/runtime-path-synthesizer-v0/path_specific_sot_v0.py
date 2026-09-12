@@ -2,6 +2,11 @@
 
 Additive overlay contract. Does not force a global canonical family.
 Does not discover deployments autonomously — consumes operator/S7 fixtures.
+
+Dynamic-target extension (minimal): separates STATIC_DOMAIN_COMPLETE from
+RUNTIME_TARGET_IDENTITY_COMPLETE. Finite/data-propagated domains may clear the
+address axis without inventing a single runtime address. Caller-propagated and
+unbounded dynamic targets must not masquerade as fixed SoT.
 """
 from __future__ import annotations
 
@@ -11,9 +16,39 @@ PATH_SOT_SCHEMA = "weaver-path-specific-sot-evidence-v0"
 
 PATH_SOT_USABLE = {
     "PATH_SOT_DUAL_VALID",
+    "PATH_SOT_BOUND_TO_A",
+    "PATH_SOT_BOUND_TO_B",
+    "PATH_SOT_BOUND_TO_SHARED_COMPONENT",
+    "PATH_SOT_BOUND_TO_STORAGE_CHAIN",
+    "PATH_SOT_BOUND_TO_L2_VARIANT",
+    "PATH_SOT_BOUND_TO_L2B_VARIANT",
     "PATH_SPECIFIC_USABLE",
     "PATH_SOT_USABLE",
     "ESTABLISHED",
+}
+
+# Dynamic-domain SoT classes: usable for ADDRESS axis clearance only when
+# static_domain_status == COMPLETE. Exact runtime member may remain UNKNOWN.
+PATH_SOT_DYNAMIC_DOMAIN_USABLE = {
+    "PATH_SOT_FINITE_DYNAMIC_SET",
+    "PATH_SOT_DATA_PROPAGATED_TARGET",
+}
+
+# Mechanism known but domain unbounded at this path granularity — never clears
+# ADDRESS_SOURCE as a fixed/finite SoT.
+PATH_SOT_DYNAMIC_NON_CLEARING = {
+    "PATH_SOT_CALLER_PROPAGATED_TARGET",
+    "PATH_SOT_UNBOUNDED_DYNAMIC",
+}
+
+DYNAMIC_TARGET_CLASSES = {
+    "FINITE_STATIC_ALLOWLIST",
+    "FINITE_DYNAMIC_TARGET_SET",
+    "CALLER_PROPAGATED_TARGET",
+    "DATA_OBJECT_PROPAGATED_TARGET",
+    "UNBOUNDED_RUNTIME_TARGET",
+    "CONFIG_SELECTED_TARGET",
+    "UNKNOWN",
 }
 
 PATH_SOT_CONFLICT_CLEARED = {"CLEARED", "NONE", "NO_CONFLICT", ""}
@@ -23,6 +58,9 @@ UNLABELED_TARGETS = {
     "UNLABELED_CLUSTER",
     "STATIC_TARGET_UNRESOLVED",
 }
+
+STATIC_DOMAIN_COMPLETE = "COMPLETE"
+RUNTIME_TARGET_IDENTITY_UNKNOWN = "UNKNOWN"
 
 
 def empty_path_sot_bundle() -> dict[str, Any]:
@@ -70,6 +108,21 @@ def normalize_path_sot_record(raw: dict[str, Any]) -> dict[str, Any]:
     )
     dual_valid = classification in {"PATH_SOT_DUAL_VALID"} or bool(raw.get("dual_valid"))
     evidence_refs = list(raw.get("evidence_references") or raw.get("CONFLICT_SOURCES_ATTACHED") or [])
+    dyn_class = (
+        raw.get("dynamic_target_class")
+        or raw.get("DYNAMIC_TARGET_CLASS")
+        or ""
+    )
+    static_domain = (
+        raw.get("static_domain_status")
+        or raw.get("STATIC_DOMAIN_STATUS")
+        or ""
+    )
+    runtime_identity = (
+        raw.get("runtime_target_identity_status")
+        or raw.get("RUNTIME_TARGET_IDENTITY_STATUS")
+        or ""
+    )
     return {
         "path_id": pid,
         "target_contract_role": static_target,
@@ -83,6 +136,11 @@ def normalize_path_sot_record(raw: dict[str, Any]) -> dict[str, Any]:
         "evidence_references": evidence_refs,
         "layer_note": raw.get("LAYER_NOTE") or raw.get("layer_note") or "",
         "global_canonical_required": False,
+        "dynamic_target_class": dyn_class,
+        "static_domain_status": static_domain,
+        "runtime_target_identity_status": runtime_identity,
+        "known_target_set": raw.get("known_target_set") or raw.get("KNOWN_TARGET_SET") or None,
+        "spender_or_operator": raw.get("spender_or_operator") or raw.get("SPENDER_OR_OPERATOR") or None,
     }
 
 
@@ -117,10 +175,26 @@ def index_path_sot(bundle: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _static_domain_complete(rec: dict[str, Any] | None) -> bool:
+    if not rec:
+        return False
+    return str(rec.get("static_domain_status") or "").upper() == STATIC_DOMAIN_COMPLETE
+
+
 def path_sot_usable(rec: dict[str, Any] | None) -> bool:
+    """True when path-SoT may clear the address axis.
+
+    Fixed-target usable classes clear as before.
+    Finite/data-propagated dynamic domains clear only when STATIC_DOMAIN_COMPLETE.
+    Caller-propagated / unbounded dynamic classes never clear as fixed SoT.
+    """
     if not rec:
         return False
     cls = rec.get("path_specific_sot_classification") or ""
+    if cls in PATH_SOT_DYNAMIC_NON_CLEARING:
+        return False
+    if cls in PATH_SOT_DYNAMIC_DOMAIN_USABLE:
+        return _static_domain_complete(rec)
     return cls in PATH_SOT_USABLE
 
 
@@ -131,12 +205,51 @@ def path_sot_conflict_cleared(rec: dict[str, Any] | None) -> bool:
 
 
 def path_sot_static_target_resolved(rec: dict[str, Any] | None) -> bool:
+    """Static target/domain resolved for STATIC_PATH_COMPLETE.
+
+    Exact runtime address is NOT required when a finite closed domain is complete.
+    Unbounded / caller-propagated dynamic paths remain unresolved.
+    """
     if not rec:
         return False
+    cls = rec.get("path_specific_sot_classification") or ""
+    if cls in PATH_SOT_DYNAMIC_NON_CLEARING:
+        return False
+    if cls in PATH_SOT_DYNAMIC_DOMAIN_USABLE:
+        return _static_domain_complete(rec)
     target = str(rec.get("target_contract_role") or "")
     if not target or target in UNLABELED_TARGETS or target == "NOT_BOUND":
         return False
     return True
+
+
+def dynamic_target_axes(rec: dict[str, Any] | None) -> dict[str, Any]:
+    """Emit separated dynamic-target axes. Does not imply authority/runtime."""
+    if not rec:
+        return {
+            "DYNAMIC_TARGET_CLASS": "",
+            "STATIC_DOMAIN_STATUS": "UNRESOLVED",
+            "RUNTIME_TARGET_IDENTITY_STATUS": "UNKNOWN",
+            "STATIC_DOMAIN_COMPLETE": False,
+            "RUNTIME_TARGET_IDENTITY_COMPLETE": False,
+        }
+    domain = str(rec.get("static_domain_status") or "UNRESOLVED").upper() or "UNRESOLVED"
+    identity = str(rec.get("runtime_target_identity_status") or RUNTIME_TARGET_IDENTITY_UNKNOWN).upper() or "UNKNOWN"
+    return {
+        "DYNAMIC_TARGET_CLASS": rec.get("dynamic_target_class") or "",
+        "STATIC_DOMAIN_STATUS": domain,
+        "RUNTIME_TARGET_IDENTITY_STATUS": identity,
+        "STATIC_DOMAIN_COMPLETE": domain == STATIC_DOMAIN_COMPLETE,
+        "RUNTIME_TARGET_IDENTITY_COMPLETE": identity == "KNOWN",
+        "KNOWN_TARGET_SET": rec.get("known_target_set"),
+        "SPENDER_OR_OPERATOR": rec.get("spender_or_operator"),
+    }
+
+
+def static_completion_implies_runtime_or_authority(rec: dict[str, Any] | None) -> bool:
+    """Nonclaim guard: static domain completion never implies runtime/authority."""
+    _ = rec
+    return False
 
 
 def address_axes_from_path_sot(
@@ -166,12 +279,21 @@ def address_axes_from_path_sot(
 def sot_status_axis(rec: dict[str, Any] | None, *, global_canonical_status: str = "UNRESOLVED") -> str:
     if global_canonical_status == "BOUND":
         return "GLOBAL_CANONICAL_BOUND"
-    if not rec or not path_sot_usable(rec):
+    if not rec:
+        return "NOT_ESTABLISHED"
+    cls = rec.get("path_specific_sot_classification") or ""
+    if cls in PATH_SOT_DYNAMIC_NON_CLEARING:
+        return "PATH_SOT_DYNAMIC_NON_CLEARING"
+    if not path_sot_usable(rec):
         return "NOT_ESTABLISHED"
     if not path_sot_conflict_cleared(rec):
         return "CONFLICT"
-    if rec.get("path_specific_sot_classification") == "PATH_SOT_DUAL_VALID" or rec.get("dual_valid"):
+    if cls == "PATH_SOT_DUAL_VALID" or rec.get("dual_valid"):
         return "PATH_SPECIFIC_DUAL_VALID"
+    if cls == "PATH_SOT_FINITE_DYNAMIC_SET":
+        return "PATH_SOT_FINITE_DYNAMIC_SET"
+    if cls == "PATH_SOT_DATA_PROPAGATED_TARGET":
+        return "PATH_SOT_DATA_PROPAGATED_TARGET"
     return "PATH_SPECIFIC_USABLE"
 
 

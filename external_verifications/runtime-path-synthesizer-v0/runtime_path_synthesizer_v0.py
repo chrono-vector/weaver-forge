@@ -21,6 +21,7 @@ from typing import Any
 from path_specific_sot_v0 import (
     PATH_SOT_SCHEMA,
     address_axes_from_path_sot,
+    dynamic_target_axes,
     index_path_clearance,
     index_path_sot,
     path_sot_conflict_cleared,
@@ -2187,6 +2188,18 @@ def synthesize_runtime_paths_v0(req: dict[str, Any]) -> dict[str, Any]:
             **axes,
             "address_axes": meta.get("address_axes") or address_axes_from_path_sot(sot_rec, global_canonical_status=global_canonical_status),
             "path_sot_cleared_gaps": meta.get("path_sot_cleared") or [],
+            **({k: v for k, v in dynamic_target_axes(sot_rec).items() if v not in ("", None, False) or k in {
+                "DYNAMIC_TARGET_CLASS",
+                "STATIC_DOMAIN_STATUS",
+                "RUNTIME_TARGET_IDENTITY_STATUS",
+                "STATIC_DOMAIN_COMPLETE",
+                "RUNTIME_TARGET_IDENTITY_COMPLETE",
+            }} if sot_rec and (sot_rec.get("dynamic_target_class") or sot_rec.get("path_specific_sot_classification", "").startswith("PATH_SOT_FINITE") or sot_rec.get("path_specific_sot_classification", "") in {
+                "PATH_SOT_FINITE_DYNAMIC_SET",
+                "PATH_SOT_DATA_PROPAGATED_TARGET",
+                "PATH_SOT_CALLER_PROPAGATED_TARGET",
+                "PATH_SOT_UNBOUNDED_DYNAMIC",
+            }) else {}),
         })
 
     r["nodes"] = nodes["items"]

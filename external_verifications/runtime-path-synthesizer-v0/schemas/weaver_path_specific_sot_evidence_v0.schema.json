@@ -29,7 +29,21 @@
           "path_specific_sot_classification": {"type": "string"},
           "evidence_references": {"type": "array", "items": {"type": "string"}},
           "layer_note": {"type": "string"},
-          "global_canonical_required": {"type": "boolean", "const": false}
+          "global_canonical_required": {"type": "boolean", "const": false},
+          "dynamic_target_class": {
+            "type": "string",
+            "description": "FINITE_DYNAMIC_TARGET_SET | DATA_OBJECT_PROPAGATED_TARGET | CALLER_PROPAGATED_TARGET | UNBOUNDED_RUNTIME_TARGET | ..."
+          },
+          "static_domain_status": {
+            "type": "string",
+            "description": "COMPLETE | PARTIAL | UNRESOLVED | NOT_APPLICABLE. Separated from runtime target identity."
+          },
+          "runtime_target_identity_status": {
+            "type": "string",
+            "description": "KNOWN | UNKNOWN | NOT_APPLICABLE. Exact runtime-selected address identity."
+          },
+          "known_target_set": {},
+          "spender_or_operator": {}
         }
       }
     },

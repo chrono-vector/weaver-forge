@@ -1421,5 +1421,173 @@ class StaticCompletionAxisT(unittest.TestCase):
         self.assertNotEqual(p["address_axes"]["GLOBAL_CANONICAL_STATUS"], "BOUND")
 
 
+class DynamicTargetSemanticsT(unittest.TestCase):
+    """Minimal dynamic-target SoT: domain complete ≠ runtime identity / authority / execution."""
+
+    def _dyn_sot(
+        self,
+        *,
+        path_id="wrps-v0-p0001",
+        classification="PATH_SOT_FINITE_DYNAMIC_SET",
+        dyn_class="FINITE_DYNAMIC_TARGET_SET",
+        domain="COMPLETE",
+        identity="UNKNOWN",
+        addresses=None,
+        target="ERC20_PAYMENT_TOKEN",
+        conflict="CLEARED",
+        known_set=None,
+        spender=None,
+    ):
+        return {
+            "schema_version": "weaver-path-specific-sot-evidence-v0",
+            "global_canonical_status": "UNRESOLVED",
+            "multi_generation_status": "OVERLAY_INGESTED_FIXTURE",
+            "records": [{
+                "path_id": path_id,
+                "target_contract_role": target,
+                "supported_addresses": addresses or {},
+                "generation_family": "DYNAMIC_DOMAIN",
+                "source_artifact_commit": {"FREEZE": "a" * 40},
+                "live_bytecode_binding_classification": {},
+                "dual_valid": False,
+                "conflict_status": conflict,
+                "path_specific_sot_classification": classification,
+                "evidence_references": ["dynamic-target-fixture"],
+                "global_canonical_required": False,
+                "dynamic_target_class": dyn_class,
+                "static_domain_status": domain,
+                "runtime_target_identity_status": identity,
+                "known_target_set": known_set,
+                "spender_or_operator": spender,
+            }],
+        }
+
+    def _partial_address_req(self, sot):
+        g = evidence_graph(normalized_records=[_rec(evidence_status="PARTIAL")])
+        x = req(static_evidence_graph=g, path_specific_sot_evidence=sot)
+        x["mutating_callsite_result"]["contract_address_sources_mapped"] = "PARTIAL"
+        x["mutating_callsite_result"]["callsite_results"][0]["contract_address_source"] = "unknown"
+        x["mutating_callsite_result"]["callsite_results"][0]["authority_status"] = "PARTIAL"
+        return x
+
+    def test_dt1_finite_four_token_allowlist_domain_complete(self):
+        from path_specific_sot_v0 import path_sot_usable, path_sot_static_target_resolved, dynamic_target_axes
+        tokens = {
+            "WETH": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "CAW": "0x56817dc696448135203C0556f702c6a953260411",
+            "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        }
+        sot = self._dyn_sot(addresses=tokens, known_set=list(tokens.values()), spender="MARKETPLACE")
+        rec = sot["records"][0]
+        self.assertTrue(path_sot_usable(rec))
+        self.assertTrue(path_sot_static_target_resolved(rec))
+        axes = dynamic_target_axes(rec)
+        self.assertEqual(axes["DYNAMIC_TARGET_CLASS"], "FINITE_DYNAMIC_TARGET_SET")
+        self.assertTrue(axes["STATIC_DOMAIN_COMPLETE"])
+        self.assertFalse(axes["RUNTIME_TARGET_IDENTITY_COMPLETE"])
+        self.assertEqual(len(axes["KNOWN_TARGET_SET"]), 4)
+
+    def test_dt2_runtime_selected_member_of_closed_set_still_identity_unknown(self):
+        sot = self._dyn_sot(identity="UNKNOWN", domain="COMPLETE")
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "COMPLETE")
+        self.assertEqual(p["RUNTIME_TARGET_IDENTITY_STATUS"], "UNKNOWN")
+        self.assertTrue(p["STATIC_DOMAIN_COMPLETE"])
+        self.assertFalse(p["RUNTIME_TARGET_IDENTITY_COMPLETE"])
+
+    def test_dt3_caller_propagated_arbitrary_address_does_not_clear(self):
+        sot = self._dyn_sot(
+            classification="PATH_SOT_CALLER_PROPAGATED_TARGET",
+            dyn_class="CALLER_PROPAGATED_TARGET",
+            domain="UNBOUNDED",
+            identity="UNKNOWN",
+            target="CALLER_SUPPLIED_ADDRESS",
+        )
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "PARTIAL")
+        self.assertEqual(p["SOT_STATUS"], "PATH_SOT_DYNAMIC_NON_CLEARING")
+        self.assertNotEqual(p["address_axes"]["PATH_USABLE_ADDRESS_STATUS"], "ESTABLISHED")
+
+    def test_dt4_data_object_propagated_address_domain_complete(self):
+        sot = self._dyn_sot(
+            classification="PATH_SOT_DATA_PROPAGATED_TARGET",
+            dyn_class="DATA_OBJECT_PROPAGATED_TARGET",
+            domain="COMPLETE",
+            identity="UNKNOWN",
+            target="ERC20_LISTING_PAYMENT_TOKEN",
+            spender="MARKETPLACE",
+        )
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "COMPLETE")
+        self.assertEqual(p["SOT_STATUS"], "PATH_SOT_DATA_PROPAGATED_TARGET")
+        self.assertEqual(p["DYNAMIC_TARGET_CLASS"], "DATA_OBJECT_PROPAGATED_TARGET")
+
+    def test_dt5_deterministic_spender_plus_dynamic_write_target(self):
+        sot = self._dyn_sot(
+            addresses={"MARKETPLACE_SPENDER": "0x6404d1D3D878407a0977d99C832453f235DA67C3"},
+            known_set=["0xa", "0xb", "0xc", "0xd"],
+            spender={"role": "MARKETPLACE", "address": "0x6404d1D3D878407a0977d99C832453f235DA67C3"},
+        )
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "COMPLETE")
+        self.assertEqual(p["SPENDER_OR_OPERATOR"]["role"], "MARKETPLACE")
+        self.assertEqual(p["RUNTIME_TARGET_IDENTITY_STATUS"], "UNKNOWN")
+
+    def test_dt6_exact_runtime_target_unknown_allowed(self):
+        from path_specific_sot_v0 import dynamic_target_axes
+        sot = self._dyn_sot(identity="UNKNOWN")
+        axes = dynamic_target_axes(sot["records"][0])
+        self.assertEqual(axes["RUNTIME_TARGET_IDENTITY_STATUS"], "UNKNOWN")
+        self.assertTrue(axes["STATIC_DOMAIN_COMPLETE"])
+
+    def test_dt7_unbounded_must_not_masquerade_as_fixed_sot(self):
+        from path_specific_sot_v0 import path_sot_usable, path_sot_static_target_resolved
+        sot = self._dyn_sot(
+            classification="PATH_SOT_UNBOUNDED_DYNAMIC",
+            dyn_class="UNBOUNDED_RUNTIME_TARGET",
+            domain="UNBOUNDED",
+            target="ARBITRARY",
+        )
+        rec = sot["records"][0]
+        self.assertFalse(path_sot_usable(rec))
+        self.assertFalse(path_sot_static_target_resolved(rec))
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        self.assertEqual(r["paths"][0]["STATIC_PATH_STATUS"], "PARTIAL")
+
+    def test_dt8_static_domain_complete_does_not_imply_runtime_identity(self):
+        from path_specific_sot_v0 import dynamic_target_axes
+        axes = dynamic_target_axes(self._dyn_sot(domain="COMPLETE", identity="UNKNOWN")["records"][0])
+        self.assertTrue(axes["STATIC_DOMAIN_COMPLETE"])
+        self.assertFalse(axes["RUNTIME_TARGET_IDENTITY_COMPLETE"])
+
+    def test_dt9_static_completion_does_not_imply_authority(self):
+        sot = self._dyn_sot()
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "COMPLETE")
+        self.assertEqual(p["AUTHORITY_STATUS"], "PARTIAL")
+        self.assertNotEqual(p["AUTHORITY_STATUS"], "VERIFIED")
+
+    def test_dt10_static_completion_does_not_imply_runtime_execution(self):
+        sot = self._dyn_sot()
+        x = self._partial_address_req(sot)
+        r = synthesize_runtime_paths_v0(x)
+        p = r["paths"][0]
+        self.assertEqual(p["STATIC_PATH_STATUS"], "COMPLETE")
+        self.assertEqual(p["RUNTIME_EXECUTION_STATUS"], "UNVERIFIED")
+        self.assertFalse(p["runtime_execution_verified"])
+
+
 if __name__ == "__main__":
     unittest.main()
