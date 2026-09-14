@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weaver-forge"
+version = "0.1.0"
+description = "Weaver Forge — bounded, evidence-preserving audit lifecycle"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [{ name = "Weaver Forge contributors" }]
+keywords = ["audit", "evidence", "verification", "lifecycle"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Security",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/chrono-vector/weaver-forge"
+Repository = "https://github.com/chrono-vector/weaver-forge"
+
+[project.scripts]
+weaver-forge-audit = "audit_lifecycle.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["audit_lifecycle*"]
+exclude = ["audit_lifecycle.tests*"]
+
+[tool.setuptools.package-data]
+audit_lifecycle = ["fixtures/fresh_target/*"]

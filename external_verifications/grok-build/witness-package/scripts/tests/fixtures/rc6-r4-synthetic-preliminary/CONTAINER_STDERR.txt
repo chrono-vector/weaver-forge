@@ -1,2 +1,0 @@
-# CONTAINER_STDERR capture for scenario success-artifact-present
-(captured output elided in fixture)

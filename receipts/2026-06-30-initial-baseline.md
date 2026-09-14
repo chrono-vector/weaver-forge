@@ -3,12 +3,12 @@
 ## What I built / shipped today
 - Created the initial documentation baseline for Weaver Forge
 - Added launch-ready structure: README, WELCOME, ROADMAP, CONTRIBUTING, CODE_OF_CONDUCT, PROJECT_PODS
-- Added receipt and witness review templates (RECEIPT_TEMPLATE.md, WITNESS_REVIEW_TEMPLATE.md)
+- Added receipt and independent-review templates
 
 ## Evidence
 - Repository: https://github.com/chrono-vector/weaver-forge
 - Commit: 6cace500843c2019d0328ec7a7faf05ed0a1cc46
-- Files: README.md, WELCOME.md, ROADMAP.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, PROJECT_PODS.md, RECEIPT_TEMPLATE.md, WITNESS_REVIEW_TEMPLATE.md
+- Files: README.md, WELCOME.md, ROADMAP.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, PROJECT_PODS.md, RECEIPT_TEMPLATE.md
 
 ## What this proves
 - Weaver Forge has a documented, launch-ready baseline before daily receipts or artifacts

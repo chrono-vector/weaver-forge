@@ -1,3 +1,0 @@
-CARGO_BUILD_EXIT=0
-
-# cargo build exit only; docker host wait completed successfully

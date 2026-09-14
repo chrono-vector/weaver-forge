@@ -1,2 +1,0 @@
-# BUILD_STDOUT capture for scenario success-artifact-present
-(captured output elided in fixture)

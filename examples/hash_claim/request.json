@@ -1,0 +1,26 @@
+{
+  "target_path": "examples/hash_claim/target",
+  "claim": {
+    "id": "EXAMPLE-HASH-CLAIM",
+    "statement": "examples/hash_claim/target/payload.txt matches the operator-pinned SHA-256",
+    "adapter": "hash_claim",
+    "adapter_params": {
+      "primary_file": "payload.txt",
+      "expected_sha256": "bb79743593377b90ff841e7786c3b2b63068e967d8b6baa00138f82a934cc295",
+      "mode": "verify_digest"
+    }
+  },
+  "policy": {
+    "human_review_required": false,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ],
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL"
+  },
+  "protected_paths": [],
+  "prior_freeze_sums": []
+}

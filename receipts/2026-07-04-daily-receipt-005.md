@@ -2,13 +2,12 @@
 
 ## What I built / shipped today
 - Added `scripts/check_receipt_coverage.py` — a Receipt Coverage Checker that inventories commits on HEAD and Markdown files under `receipts/`
-- Documented the checker in `PROJECT_METRICS.md` and `STATUS.md`
+- Documented the checker in `PROJECT_METRICS.md`
 - Clarified that receipt coverage is inventory-only; exact commit-to-receipt mapping is not yet enforceable
 
 ## Evidence
 - `scripts/check_receipt_coverage.py`
 - `PROJECT_METRICS.md` — Receipt Coverage Checker section and updated coverage row
-- `STATUS.md` — Receipt Coverage Checker row
 - Commit: b1648c0
 - Local validator run: `python scripts/validate_receipts.py` — all receipts PASS
 - Coverage checker run: `python scripts/check_receipt_coverage.py` — inventory report exit code 0

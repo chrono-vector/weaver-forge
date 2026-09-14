@@ -4,14 +4,13 @@
 - Strengthened receipt commit binding checks in `scripts/validate_receipts.py` — distinguishes missing, empty, malformed, and unreachable `Commit:` lines
 - Added `binding_commit_hash` and `resolve_commit_hash` helpers for primary receipt binding
 - Extended `scripts/check_receipt_coverage.py` to compare receipt-bound commits against repository history and emit drift warnings when HEAD outpaces the latest receipt binding
-- Updated `PROJECT_METRICS.md` and `STATUS.md` for commit binding validation and revised coverage wording
+- Updated `PROJECT_METRICS.md` for commit binding validation and revised coverage wording
 - Added `.gitignore` entry for `__pycache__/` to keep Python cache artifacts out of version control
 
 ## Evidence
 - `scripts/validate_receipts.py` — commit binding validation
 - `scripts/check_receipt_coverage.py` — binding commit tracking and drift warnings
 - `PROJECT_METRICS.md` — Commit binding validation row and updated coverage checker description
-- `STATUS.md` — Commit Binding Validation row and expanded "Not Yet Proven" boundary
 - `.gitignore`
 - Commit: b5f855e
 - Gitignore cleanup commit: fd30f85

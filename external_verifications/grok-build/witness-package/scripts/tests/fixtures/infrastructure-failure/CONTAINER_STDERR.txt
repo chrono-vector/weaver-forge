@@ -1,2 +1,0 @@
-# CONTAINER_STDERR capture for scenario infrastructure-failure
-(captured output elided in fixture)

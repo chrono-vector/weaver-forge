@@ -97,10 +97,9 @@ Warnings are evidence and should be preserved, not omitted.
 
 Open and review:
 
-- `STATUS.md`
+- `README.md`
 - `PROJECT_METRICS.md`
 - `REPRODUCE.md`
-- `WITNESS_REVIEW_TEMPLATE.md`
 - `E4_REPRODUCTION_PLAN.md`
 
 Record whether these files were present and whether their claims matched the reproduced results.
@@ -122,7 +121,7 @@ Record:
 
 ### 8. Produce a witness record
 
-Complete `WITNESS_REVIEW_TEMPLATE.md` or an equivalent evidence-preserving report that includes:
+Produce an evidence-preserving report that includes:
 
 - Reviewer identity
 - Independence statement

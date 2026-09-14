@@ -1,2 +1,0 @@
-# CONTAINER_STDERR capture for scenario build-not-started
-(captured output elided in fixture)

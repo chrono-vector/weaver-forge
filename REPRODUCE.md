@@ -1,203 +1,95 @@
 # Reproducing Weaver Forge
 
-This guide describes reproducibility paths for Weaver Forge and separates local validation, artifact verification, build/product execution, non-formal external trials, and formal Independent Witness reproduction.
+This guide describes how to reproduce the published Weaver Forge **product** checks from a clean checkout.
 
-It is a documentation guide only. It does not authorize Source Weaver audit work, Independent Witness activity, release readiness, production readiness, RC9, finding closure, blocker closure, artifact regeneration, tag movement, archive or bundle mutation, or checksum changes.
+It is a documentation guide only. Local PASS results do not grant external authority, independent-witness acceptance, production deployment authorization, or completeness of every possible claim family.
 
-For the current lifecycle boundary, see [STATUS.md](STATUS.md) and the RC8 lifecycle wording in [README.md](README.md).
-
----
-
-## Current lifecycle boundary
-
-As of the current status update:
-
-- RC8 is an immutable static-audit candidate: `grok-build-witness-v1.0.0-rc8`.
-- RC8 artifact generation and verification passed.
-- That result is not a formal Source Weaver audit.
-- No formal Source Weaver READY decision exists for RC8.
-- No formal Source Weaver NOT READY decision exists for RC8.
-- Independent Witness was not authorized.
-- Independent Witness reproduction was not performed.
-- C-014 remains `NOT_STARTED`.
-- No finding or blocker is `CLEAR` or `CLOSED`.
-- No release-readiness or production-readiness claim is made.
-- RC6 and RC7 remain immutable historical NOT READY candidates.
-- Existing immutable RC8 artifact bytes must not be changed.
+Product status remains `WEAVER_FORGE_COMPLETE` as stated in [`README.md`](README.md).
 
 ---
 
-## Reproduction categories
+## Requirements
 
-Use these categories precisely. A result in one category must not be described as a result in another category.
-
-| Category | Meaning | Current status in this guide |
-|----------|---------|------------------------------|
-| Static inspection | Reading repository documents, receipts, source files, or Git metadata without executing validators, builds, product binaries, Docker, Cargo, or network-dependent commands. | Permitted as ordinary review. Does not prove validation pass, audit readiness, or independent reproduction. |
-| Local receipt validation | Running `scripts/validate_receipts.py` in a full clone to check receipt structure and cited commit object existence. | Documented below as a local procedure. Not executed or revalidated by this documentation update. |
-| Coverage inventory | Running `scripts/check_receipt_coverage.py` to report receipt/commit inventory and drift warnings. | Documented below as optional inventory. Mapping is not described as complete or enforceable here. |
-| GitHub Actions observation | Viewing the public Actions workflow state for the repository. | Workflow existence is documented. Current CI success is not asserted by this guide. |
-| RC8 artifact verification | Checking immutable RC8 artifacts, sidecars, bundles, archives, tags, checksums, or provenance records. | Lifecycle status says RC8 artifact generation and verification passed. This guide does not rerun or redefine that verification and does not authorize artifact-byte changes. |
-| Build reproduction | Rebuilding software or evidence packages from documented pins. | Not authorized or specified by this general Weaver Forge guide. Follow only separately authorized package-specific instructions. |
-| Product execution | Running product binaries or target software. | Not authorized by this guide. |
-| Non-formal external trial reproduction | A non-authoritative outside reviewer repeats documented steps and reports observations. | Not formal Independent Witness reproduction and not a Source Weaver verdict. |
-| Formal Independent Witness reproduction | A separately authorized independent witness follows an approved handoff and reports direct observations under the witness rules. | Not authorized. Not performed. C-014 remains `NOT_STARTED`. |
-| VECTOR Package Ingress v0 — synthetic unittest | stdlib `unittest` of the ZIP-only Ingress evaluator using in-repo synthetic fixtures. No Owner package bytes. | Documented below as a **separate** category from RC8. Not executed by this documentation update. Not Independent Witness. Not RC8 READY. Not Evidence admission. Not Stage 6. |
+- Python **3.10+** (stdlib only for `audit_lifecycle/`)
+- Git on `PATH` when validating historical receipts
+- A checkout of this repository
 
 ---
 
-## Requirements for local receipt validation
+## Product reproduction (required)
 
-- Git on `PATH`.
-- Python 3.11 or newer.
-- Full Git history for the Weaver Forge repository.
+From the repository root:
 
-No `pip install` or virtual environment is required for the receipt validator or coverage checker documented here.
-
-Network access is needed only to clone from GitHub or to view GitHub Actions. If you already have a full local clone, the local validation commands below do not require network access.
-
----
-
-## Clone for local validation
-
-Use a **full** clone so every cited `Commit:` hash is present locally. Shallow clones such as `git clone --depth 1 ...` may fail commit-existence checks because older cited commits may be absent.
+### 1. Lifecycle unit tests
 
 ```bash
-git clone https://github.com/chrono-vector/weaver-forge.git
-cd weaver-forge
+python -m unittest audit_lifecycle.tests.test_lifecycle -v
 ```
 
-On Linux or macOS, use `python3` if `python` is not Python 3.
+Expected: **13 tests OK**.
 
-To reproduce a specific repository state, check out an explicit commit or tag rather than an unpinned branch tip.
+### 2. CLI help
+
+```bash
+python -m audit_lifecycle.cli --help
+```
+
+Expected: exit code `0`.
+
+### 3. Sanitized `hash_claim` example
+
+```bash
+# Write output OUTSIDE the source tree (do not use examples/hash_claim/runs/)
+OUT="${TMPDIR:-/tmp}/weaver-forge-hash-claim-runs"
+mkdir -p "$OUT"
+
+python -m audit_lifecycle.cli run \
+  --request examples/hash_claim/request.json \
+  --out "$OUT"
+
+python -m audit_lifecycle.cli verify \
+  --run "$OUT/<audit_id>"
+```
+
+With `human_review_required: false` in the sample request, a successful `run` auto-freezes once. A second freeze must fail closed (`FREEZE_ALREADY_EXISTS`).
+
+See [`examples/hash_claim/README.md`](examples/hash_claim/README.md).
 
 ---
 
-## Local receipt validation
+## Optional receipt validation
 
-From the repository root, or from `scripts/`, run:
+Historical daily receipts under `receipts/` may be checked with:
 
 ```bash
 python scripts/validate_receipts.py
 ```
 
-The validator checks receipt structure and cited `Commit:` hashes. Exit code `0` means the validator passed for the local checkout; exit code `1` means at least one validation failure was found.
-
-A successful local validator run is local validation evidence only. It is not formal Source Weaver audit evidence, not Independent Witness reproduction, not Independent Witness PASS, and not release or production readiness.
-
----
-
-## Optional coverage inventory
-
-The coverage checker reports inventory and drift information:
+Optional inventory:
 
 ```bash
 python scripts/check_receipt_coverage.py
 ```
 
-Exit code `0` means the inventory command completed. Warnings about inventory drift may be reported and do not by themselves establish failure. The checker is not described here as enforcing complete one-to-one commit-to-receipt traceability.
+Use a **full** clone when commit-existence checks matter. Shallow clones may omit older cited commits.
+
+A successful local receipt validator run is local validation evidence only. It is not independent-witness acceptance and not production readiness.
 
 ---
 
-## GitHub Actions observation
+## What reproduction can support
 
-The repository contains the workflow file `.github/workflows/validate-receipts.yml`, which runs the receipt validator on push and pull request with full Git history (`fetch-depth: 0`).
+- The lifecycle unittest suite passed in the observed environment
+- The CLI help entrypoint exited successfully
+- The sanitized `hash_claim` example produced a frozen package that `verify` accepted
+- Receipt files (if checked) satisfied the local validator at the time run
 
-To observe public workflow state, open:
-
-```text
-https://github.com/chrono-vector/weaver-forge/actions
-```
-
-Record the observed commit, workflow name, run URL, conclusion, and observation date if using Actions output as evidence.
-
-GitHub Actions success, if observed, is CI evidence only. It is not proof of external independent reproduction, not formal Source Weaver audit evidence, not Independent Witness PASS, and not release or production readiness.
-
----
-
-## RC8 artifact and provenance boundary
-
-RC8 is identified in current status documents as:
-
-| Item | Value |
-|------|-------|
-| RC8 tag | `grok-build-witness-v1.0.0-rc8` |
-| RC8 annotated tag object | `8113d952d3b127d32e138dbf804141f5d1dfb26f` |
-| RC8 peeled commit | `1de4b4d9523711418390f8331c95988523ef4481` |
-| RC8 tree | `87b40d8a32ca536a4cdba0eee474f6171c62f6bb` |
-
-RC8 artifact generation and verification passed according to current lifecycle authority. This guide does not recreate that process and does not authorize changes to immutable RC8 artifact bytes, archives, bundles, sidecars, checksums, fixtures, manifests, tags, commits, trees, or release identities.
-
----
-
-## Witness review and external reports
-
-External reviewers may report observations through GitHub Issues, pull requests, or another agreed channel. Reports should include:
-
-- operating system;
-- repository commit or tag;
-- whether the clone was full or shallow;
-- commands used;
-- expected result;
-- actual result;
-- relevant logs;
-- whether the reviewer is independent of the reviewed work.
-
-A non-formal outside report may be useful evidence, but it must not be described as formal Independent Witness reproduction unless a separate formal handoff has been authorized.
-
-Formal Independent Witness reproduction remains not authorized and not performed. C-014 remains `NOT_STARTED`.
-
----
-
-## What local validation can support
-
-Local validation can support claims such as:
-
-- the local checkout contains receipt files that satisfy the validator at the time run;
-- cited `Commit:` objects are present in the full local clone at the time run;
-- the coverage checker completed an inventory report at the time run.
-
-Each claim should include the command, checkout identity, date, environment, and captured output.
+Record the commit identity, commands, date, environment, and captured output with any claim.
 
 ## What this guide does not prove
 
-This guide does not prove:
-
-- formal Source Weaver audit completion or a formal Source Weaver READY/NOT READY decision for RC8;
-- Independent Witness authorization, reproduction, or PASS;
-- C-014 completion;
-- finding or blocker closure;
-- release readiness;
-- production readiness;
-- correctness beyond the specifically observed evidence;
-- bit-identical artifact reproduction;
-- current CI success unless separately observed and recorded with source, commit, run URL, and date.
-
----
-
-## VECTOR Package Ingress v0 — synthetic unittest only
-
-This category is **separate** from RC8 artifact verification, receipt validation, Source Weaver audit, and Independent Witness.
-
-VECTOR Package Ingress v0 checks package / container / digest / binding / boundary conditions under v0 only. Public input is a **ZIP path**. This repository does **not** include Owner VECTOR package bytes. The public suite is synthetic unittest only.
-
-From the repository root, with Python 3:
-
-```bash
-python external_verifications/vector-handoff/vector-ingress-v0/tests/test_vector_ingress_v0.py
-```
-
-Do **not** set `VECTOR_INGRESS_REAL_ZIP` for the public synthetic path. That environment variable is an Owner-opt-in gate for a local ZIP that is **not** in this repository. Public reproduction must not require it.
-
-A passing synthetic unittest means the in-repo fixtures satisfied the v0 evaluator at the time run. It is **not**:
-
-- Independent Witness PASS
-- Evidence admitted
-- Truth verified
-- Weaver execution authorized
-- Owner approval
-- RC8 READY
-- Stage 6
-- Public VECTOR v0
-
-See [external_verifications/vector-handoff/README.md](external_verifications/vector-handoff/README.md) and the VECTOR Package Ingress v0 section in [README.md](README.md).
+- Independent Witness acceptance
+- Production deployment authorization
+- That every possible audit claim family is supported
+- Cryptographic end-to-end notarization beyond SHA-256 package binding
+- Completeness of historical claim-to-commit mapping beyond what tools report

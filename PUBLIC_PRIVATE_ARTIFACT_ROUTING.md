@@ -22,11 +22,6 @@ Interpretation ≠ Verification
 Verification ≠ Execution
 Schema-valid ≠ True
 Replayable ≠ Externally True
-REPLAY_ELIGIBLE_BY_CONTRACT ≠ Replay Authorized
-Ingress Ready ≠ Evidence Admitted
-Ingress Ready ≠ Weaver Execution Authorized
-Ingress Ready ≠ Independent Witness PASS
-Ingress Ready ≠ Stage 6
 External review ≠ constitutional authority
 Human/Owner authorization ≠ machine validation
 ```
@@ -50,8 +45,7 @@ This public Weaver Forge repository. Use for:
 - public tests
 - public reproducibility docs
 - nonclaim / authority boundaries
-- public Independent Witness protocol
-- VECTOR Package Ingress v0 protocol, code, and tests
+- the `audit_lifecycle/` product entrypoint and examples
 
 ### `PRIVATE_REPO`
 
@@ -60,30 +54,25 @@ A future versioned private operational repository, if and when one is created. U
 - Owner authorization records with operational effect
 - private integration notes
 - internal planning that requires history
-- future named-person / organization GOV instances
 - raw internal AI reviews if retained
 
-W1 does not create this repository.
+This document does not create that repository.
 
 ### `PRIVATE_ARTIFACT_STORE`
 
 Private storage outside Git, if and when designated. Use for:
 
-- real VECTOR handoff ZIPs
-- real eight-member package bytes
-- real Ingress results
-- Replay results
-- Verification results
-- Independent Witness completed packages
+- real operational handoff packages
+- real independent-verification completed packages
 - human witness identity / signature / independence records
 - transfer bundles
 - build outputs
 - host inventories
 - raw logs
-- audit-export ZIPs
+- audit-export archives
 - backup / staging artifacts
 
-W1 does not create this store.
+This document does not create that store.
 
 ### `DO_NOT_PERSIST`
 
@@ -95,10 +84,8 @@ Future real operational artifacts **MUST NOT** be added to this public Weaver Fo
 
 | Artifact | Default destination |
 |---|---|
-| Real VECTOR Handoff ZIPs | `PRIVATE_ARTIFACT_STORE` |
-| Real VECTOR package members | `PRIVATE_ARTIFACT_STORE` |
-| Real VECTOR Ingress result JSON | `PRIVATE_ARTIFACT_STORE` |
-| Real Independent Witness submissions | `PRIVATE_ARTIFACT_STORE` |
+| Real operational handoff packages | `PRIVATE_ARTIFACT_STORE` |
+| Real independent-verification submissions | `PRIVATE_ARTIFACT_STORE` |
 | Completed real witness packages | `PRIVATE_ARTIFACT_STORE` |
 | Human / organizational witness identity and signatures | `PRIVATE_ARTIFACT_STORE` |
 | Independence records | `PRIVATE_ARTIFACT_STORE` |
@@ -107,43 +94,18 @@ Future real operational artifacts **MUST NOT** be added to this public Weaver Fo
 | Host / path inventories and operational logs | `PRIVATE_ARTIFACT_STORE` |
 | Secrets / credentials | never public; do not persist in Git |
 
-`VECTOR_INGRESS_REAL_ZIP` remains optional Owner-local integration only. It is not a license to commit the ZIP or its result into this repository.
-
-## VECTOR Ingress routing
+## Independent verification routing
 
 Keep public:
 
-- `external_verifications/vector-handoff/README.md`
-- VECTOR Ingress v0 code
-- schema
-- synthetic tests / fixtures
+- product documentation describing independence limits
+- synthetic fixtures used by public tests
+- evidence-preserving report guidance for uninvolved reviewers
 
 Keep private going forward:
 
-- real VECTOR ZIP
-- real package members
-- real package IDs / digests when tied to operational package publication
-- real Ingress result JSON
-- stdout captures containing owner-local paths
-
-## Independent Witness routing
-
-Keep public:
-
-- runbook
-- requirements
-- classification
-- security / redaction policy
-- schemas
-- templates
-- validators
-- synthetic fixtures
-- `external_verifications/grok-build/witness-submissions/README.md` as a policy-only placeholder
-
-Keep private going forward:
-
-- completed real witness package
-- real witness submission directory (`witness-submissions/<run_id>/`)
+- completed real witness packages
+- real witness submission directories
 - human / org identity
 - signatures
 - independence records
@@ -156,8 +118,7 @@ Status: `HISTORICAL_PUBLIC_MATERIAL — FORWARD ROUTING CHANGED`
 
 Ignore and routing rules apply **prospectively**.
 
-Already-committed historical bytes remain in Git history and tags. This includes existing `external_verifications/grok-build/evidence/**`, historical receipts, GOV-002 / GOV-003 / GOV-004, existing RC8 historical records, frozen tagged bytes, owner historical notes already public, `ENVIRONMENT.md`, historical `REPRODUCTION.md`, and the current Witness protocol tree.
-
-W1 does not remove, relocate, or rewrite that material. W1 does not rewrite Git history.
+Already-committed historical bytes may remain in Git history and tags.
+This routing document does not rewrite Git history.
 
 Do not pretend already-public Owner evidence disappears because of `.gitignore`.

@@ -27,23 +27,27 @@ secrets.json
 *.tar.gz
 *.tgz
 
-# VECTOR Ingress real / owner-local outputs
-# Do not ignore schemas or synthetic test fixtures.
+# Owner-local / private operational outputs
 /owner-local/
 /private-artifacts/
 /local-results/
-/vector-ingress-local/
-external_verifications/vector-handoff/local/
-**/vector-ingress-results/
 **/ingress-results/
-wvir-v0-*.json
-
-# Independent Witness real submissions
-# Keep the public policy/README placeholder tracked.
-external_verifications/grok-build/witness-submissions/*
-!external_verifications/grok-build/witness-submissions/README.md
-external_verifications/grok-build/witness-package/witness-submissions/*
-!external_verifications/grok-build/witness-package/witness-submissions/README.md
 
 # Logs / owner run artifacts
 *.log
+
+# Local phase / operator scratch (never publish as product evidence)
+phase5_runs/
+phase6_runs/
+phase61_runs/
+phase*_operator_request.json
+phase*_third_party_target/
+**/_negative_paths/
+examples/**/runs/
+
+# Temporary stdout / disposable copies
+*.stdout.txt
+*.stderr.txt
+*_disposable_*/
+.tmp/
+.temp/

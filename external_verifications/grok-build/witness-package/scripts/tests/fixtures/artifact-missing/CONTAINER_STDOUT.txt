@@ -1,2 +1,0 @@
-# CONTAINER_STDOUT capture for scenario artifact-missing
-(captured output elided in fixture)

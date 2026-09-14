@@ -1,1 +1,0 @@
-# BUILD_STDERR: container never launched (architecture_mismatch)

@@ -1,0 +1,4 @@
+# Weaver Forge synthetic hash_claim target
+# Portable example only. No private evidence.
+payload-version: 1
+content: hello-weaver-forge-hash-claim-example

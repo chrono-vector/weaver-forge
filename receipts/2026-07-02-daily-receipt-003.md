@@ -3,7 +3,7 @@
 ## What I built / shipped today
 - Added `REPRODUCE.md` as a concise reproduction guide for independent reviewers
 - Documented how to clone the repository and run the receipt validator
-- Documented expected evidence: receipt validation, commit existence validation, GitHub Actions success, `STATUS.md`, and `PROJECT_METRICS.md`
+- Documented expected evidence: receipt validation, commit existence validation, GitHub Actions success, and `PROJECT_METRICS.md`
 - Moved Weaver Forge closer to E4 independent reproduction readiness
 
 ## Evidence

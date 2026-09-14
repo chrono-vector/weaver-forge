@@ -1,2 +1,0 @@
-# CONTAINER_STDOUT capture for scenario cargo-failed
-(captured output elided in fixture)

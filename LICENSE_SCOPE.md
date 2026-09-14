@@ -11,9 +11,8 @@ applies to Owner-controlled reusable Public Core material, including:
 - scripts and tooling
 - templates
 - synthetic fixtures and tests
-- Owner-controlled Independent Witness protocol, tooling, and templates
-- VECTOR Ingress v0 reference code, schema, and tests
 - public reproducibility and reference documentation
+- the `audit_lifecycle/` product entrypoint and examples
 
 That grant is Apache-2.0. It is not “Apache-2.0 with extra restrictions.”
 Exclusions below are **outside** the grant.
@@ -40,21 +39,18 @@ Excluded:
    identity facts about software the Owner does not control.
 3. Human witness submissions.
 4. Signatures, identity, and independence evidence.
-5. Historical evidence records, including
-   `external_verifications/grok-build/evidence/**`.
+5. Historical evidence records retained only as prior repository history.
 6. Historical receipts (`receipts/**`) as committed historical records.
 7. Owner operational authorization instances.
-8. GOV / RC historical evidence-like records where embedded rights are
-   not wholly Owner-controlled.
-9. Content carrying another license or rights notice.
+8. Content carrying another license or rights notice.
 
-`xai-org/grok-build` / Grok Build / SpaceXAI / xAI product source,
-binaries, trademarks, and upstream LICENSE are **not copied** here and
-are not licensed by this repository.
+Third-party product source trees, binaries, trademarks, and upstream
+LICENSE texts that are merely described or referenced are **not copied**
+here and are not licensed by this repository.
 
-Future real VECTOR handoff ZIPs, real Ingress results, real Independent
-Witness submissions, identity/signature records, and other operational
-artifacts are routed by
+Future real operational handoff packages, real independent-verification
+submissions, identity/signature records, and other operational artifacts
+are routed by
 [`PUBLIC_PRIVATE_ARTIFACT_ROUTING.md`](PUBLIC_PRIVATE_ARTIFACT_ROUTING.md).
 They must not be added here by default and are not licensed by this
 Apache grant.
@@ -69,13 +65,8 @@ that is wholly Owner-controlled Public Core. It does not convert recorded
 third-party text, operational evidence, or mixed-rights historical
 records into Owner-licensed content.
 
-Synthetic Independent Witness fixtures (including fictional "Jane Doe"
-examples) are Owner test material under Apache-2.0.
-
-Owner-authored original text in GOV / RC process documents that is
-wholly Owner-controlled remains Public Core. Embedded third-party
-quotations and operational-authorization instances inside those records
-remain excluded.
+Synthetic fixtures used in public tests are Owner test material under
+Apache-2.0.
 
 ## Nonclaims
 

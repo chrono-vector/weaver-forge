@@ -1,7 +1,7 @@
 # Daily Receipt 007 - 2026-07-06
 
 ## What I built / shipped today
-- Improved E4 reproduction readiness across `README.md`, `REPRODUCE.md`, and `WITNESS_REVIEW_TEMPLATE.md`
+- Improved E4 reproduction readiness across `README.md` and `REPRODUCE.md`
 - Documented full-clone, Python, network, validator, coverage-checker, GitHub Actions, and witness-review requirements
 - Added a direct independent-reproduction link from `README.md`
 - Clarified that shallow clones cannot satisfy commit-existence validation
@@ -9,7 +9,6 @@
 ## Evidence
 - `README.md` — Independent reproduction section
 - `REPRODUCE.md` — expanded requirements, commands, expected evidence, and witness-review guidance
-- `WITNESS_REVIEW_TEMPLATE.md` — full-clone and reproduction checklist updates
 - Commit: bf83c299006f651d2d357434e94585ea87586a33
 - Commit author date: `2026-07-06T16:59:03+09:00`
 - Commit date: `2026-07-06T16:59:03+09:00`

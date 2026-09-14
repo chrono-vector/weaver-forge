@@ -1,1 +1,0 @@
-cargo build -p xai-grok-pager-bin

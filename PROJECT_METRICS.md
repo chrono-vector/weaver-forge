@@ -20,8 +20,8 @@ Factual snapshot of measurable project health as of 2026-07-05. Bounded by repos
 | Commit binding validation | ✅ | Validator flags missing/malformed/unreachable `Commit:` hashes; coverage checker warns when HEAD outpaces receipt binding |
 | Commit existence validation | ✅ | Validator checks `Commit:` hashes via `git cat-file` |
 | GitHub Actions | ✅ | `.github/workflows/validate-receipts.yml` — 5 workflow runs on `main`, all passing |
-| Witness reviews | ✅ | `WITNESS_REVIEW.md`, `WITNESS_REVIEW_TEMPLATE.md`, `receipts/2026-06-30-first-witness-review.md` |
-| Independent witness reviews | ❌ | No completed review from an uninvolved reviewer (owner-authored witness work only) |
+| Witness reviews | ⏳ | Historical receipts record early owner-authored review practice; no public witness-template surface is claimed here |
+| Independent witness reviews | ❌ | No completed review from an uninvolved reviewer |
 
 ## Current Evidence Ladder
 
