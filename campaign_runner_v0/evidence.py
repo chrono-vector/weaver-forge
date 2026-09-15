@@ -5,15 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .models import KNOWN_REUSE_AUDITS, PROTOCOL_BOUND_CLAIMS
+from .bindings import CampaignBindings
 from .safety import SafetyError, load_json, resolve_confined, sha256_file, safe_relative
 
 
-def verify_frozen_audit_reuse(workspace: Path, claim_id: str) -> dict[str, Any]:
-    """Verify existing AUR-A-001/002 frozen evidence without modifying it."""
-    meta = KNOWN_REUSE_AUDITS.get(claim_id)
+def verify_frozen_audit_reuse(
+    workspace: Path, claim_id: str, bindings: CampaignBindings
+) -> dict[str, Any]:
+    """Verify an existing frozen Weaver package without modifying it."""
+    meta = bindings.reuse_meta(claim_id)
     if not meta:
-        raise SafetyError(f"no known reusable audit for {claim_id}")
+        raise SafetyError(f"no reusable audit binding for {claim_id}")
 
     run_dir = resolve_confined(workspace, meta["run_relpath"])
     frozen_dir = resolve_confined(workspace, meta["frozen_relpath"])
@@ -50,26 +52,34 @@ def verify_frozen_audit_reuse(workspace: Path, claim_id: str) -> dict[str, Any]:
         "audit_id": meta["audit_id"],
         "run_path": meta["run_relpath"],
         "frozen_path": meta["frozen_relpath"],
-        "audit_record_path": meta["audit_record_relpath"],
+        "audit_record_path": meta.get("audit_record_relpath"),
         "sha256sums_digest": observed_sums_digest,
+        "evidence_digests": {"sha256sums": observed_sums_digest},
+        "verification_scope": meta["scope"],
+        "verification_mechanism": meta.get(
+            "verification_mechanism", "reuse_frozen_document_identity_audit"
+        ),
         "scope": meta["scope"],
         "verdict": "PASS",
         "pass_kind": meta["scope"],
+        "source_binding": meta.get("source_binding"),
+        "package_reference": meta["frozen_relpath"],
         "epistemic_notes": [
             "HASH MATCH ≠ CONTENT TRUTH",
-            "INDIVIDUAL AUDIT PASS ≠ AURORA COMPLETE",
+            "INDIVIDUAL AUDIT PASS ≠ CAMPAIGN COMPLETE",
             "Reuse only; no refreeze; no rewrite",
+            "STATE ≠ EVIDENCE",
         ],
     }
 
 
-def bind_protocol_harness(workspace: Path, claim_id: str) -> dict[str, Any]:
+def bind_protocol_harness(
+    workspace: Path, claim_id: str, bindings: CampaignBindings
+) -> dict[str, Any]:
     """Bind existing protocol harness result; civic remains INCONCLUSIVE."""
-    if claim_id not in PROTOCOL_BOUND_CLAIMS:
-        raise SafetyError(f"{claim_id} is not a protocol-bound claim")
-    harness_path = resolve_confined(
-        workspace, "sandbox_harness/results/HARNESS_RESULT_LATEST.json"
-    )
+    if not bindings.is_protocol_bound(claim_id):
+        raise SafetyError(f"{claim_id} is not a protocol-bound claim in campaign bindings")
+    harness_path = resolve_confined(workspace, bindings.protocol_harness_relpath)
     if not harness_path.is_file():
         raise SafetyError("missing protocol harness result")
     harness = load_json(harness_path)
@@ -82,18 +92,23 @@ def bind_protocol_harness(workspace: Path, claim_id: str) -> dict[str, Any]:
     if protocol_check == "PASS" and civic_state == "PASS":
         raise SafetyError("protocol harness illegally promotes civic PASS")
     if civic_state not in {"INCONCLUSIVE", None}:
-        # Accept INCONCLUSIVE only for these four.
-        if claim_id in PROTOCOL_BOUND_CLAIMS and civic_state != "INCONCLUSIVE":
+        if civic_state != "INCONCLUSIVE":
             raise SafetyError(f"unexpected civic_claim_state for {claim_id}: {civic_state}")
 
+    harness_digest = sha256_file(harness_path)
     return {
-        "evidence_id": f"protocol:{harness.get('harness_id', 'aurora_protocol_harness_v0')}:{claim_id}",
+        "evidence_id": (
+            f"protocol:{harness.get('harness_id', 'protocol_harness')}:{claim_id}"
+        ),
         "claim_id": claim_id,
         "kind": "PROTOCOL_HARNESS_BIND",
         "immutable": True,
         "modified": False,
-        "harness_path": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
-        "harness_sha256": sha256_file(harness_path),
+        "harness_path": bindings.protocol_harness_relpath,
+        "harness_sha256": harness_digest,
+        "evidence_digests": {"harness": harness_digest},
+        "verification_scope": "PROTOCOL_SIMULATION_ONLY",
+        "verification_mechanism": "bind_protocol_harness_evidence",
         "protocol_check": protocol_check,
         "civic_claim_state": "INCONCLUSIVE",
         "civic_claim_verdict": None,
@@ -103,12 +118,13 @@ def bind_protocol_harness(workspace: Path, claim_id: str) -> dict[str, Any]:
         "epistemic_notes": [
             "PROTOCOL HARNESS PASS ≠ CIVIC / REAL-WORLD PASS",
             "Bound existing authorized protocol evidence only",
+            "STATE ≠ EVIDENCE",
         ],
     }
 
 
 def load_synthetic_test_evidence(path: Path, workspace: Path) -> dict[str, Any]:
-    """Load TEST_ONLY synthetic evidence; never treat as real Aurora evidence."""
+    """Load TEST_ONLY synthetic evidence; never treat as real campaign evidence."""
     data = load_json(path)
     markers = {
         data.get("marker"),
@@ -117,7 +133,6 @@ def load_synthetic_test_evidence(path: Path, workspace: Path) -> dict[str, Any]:
     }
     required = {"TEST_ONLY", "SYNTHETIC", "NOT_REAL_AURORA_EVIDENCE"}
     if not required.issubset({str(x) for x in markers if x}):
-        # Also accept boolean flags.
         flags_ok = (
             data.get("TEST_ONLY") is True
             and data.get("SYNTHETIC") is True
@@ -137,12 +152,14 @@ def load_synthetic_test_evidence(path: Path, workspace: Path) -> dict[str, Any]:
         "TEST_ONLY": True,
         "SYNTHETIC": True,
         "NOT_REAL_AURORA_EVIDENCE": True,
-        "path": safe_relative(path, workspace.parent if workspace.name == "aurora_audit" else workspace),
+        "path": safe_relative(
+            path, workspace.parent if workspace.name == "aurora_audit" else workspace
+        ),
         "payload": data,
         "canonical_aurora_admission": False,
         "notes": [
             "Synthetic fixture for resume testing only",
-            "Must never enter canonical Aurora evidence as real evidence",
+            "Must never enter canonical campaign evidence as real evidence",
         ],
     }
 
@@ -155,5 +172,6 @@ def empty_evidence_register(campaign_id: str) -> dict[str, Any]:
         "notes": [
             "Aggregate register only; not a substitute for underlying evidence.",
             "Frozen packages remain authoritative and immutable.",
+            "CAMPAIGN_STATE is resumability/cache only — STATE ≠ EVIDENCE.",
         ],
     }

@@ -1,0 +1,128 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "compatibility_assessments": [
+    {
+      "adapter": "reuse_frozen_document_identity_audit",
+      "claim_id": "TST-001",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "reuse_frozen_document_identity_audit",
+      "claim_id": "TST-002",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-003",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-004",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "bind_protocol_harness_evidence",
+      "claim_id": "TST-005",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-006",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-007",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-008",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "bind_protocol_harness_evidence",
+      "claim_id": "TST-009",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-010",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-011",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "bind_protocol_harness_evidence",
+      "claim_id": "TST-012",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-013",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-014",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-015",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-016",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-017",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "bind_protocol_harness_evidence",
+      "claim_id": "TST-018",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-019",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-020",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-021",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-022",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    },
+    {
+      "adapter": "classify_bounded_states",
+      "claim_id": "TST-023",
+      "compatibility": "BOUNDED_TEST_ONLY"
+    }
+  ],
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "schema": "weaver.campaign_runner_v0.test_only.weaver_compatibility.v0"
+}

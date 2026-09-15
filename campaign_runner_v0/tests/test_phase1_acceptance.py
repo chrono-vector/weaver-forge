@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from campaign_runner_v0.models import KNOWN_REUSE_AUDITS
+from campaign_runner_v0.bindings import load_campaign_bindings
 from campaign_runner_v0.runner import run_campaign
 
 
@@ -26,13 +26,11 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_one_invocation_processes_all_23(aurora_workspace, policy_path):
-    # Use dedicated campaign id for acceptance so re-runs are clean-ish;
-    # real operational id also exercised by CLI later.
+def test_one_invocation_processes_all_claims(aurora_workspace, policy_path):
     campaign_id = "aurora_operational_v1"
-    # Snapshot frozen packages.
+    bindings = load_campaign_bindings(aurora_workspace)
     frozen_digests = {}
-    for meta in KNOWN_REUSE_AUDITS.values():
+    for meta in bindings.reuse_audits.values():
         sums = aurora_workspace / meta["frozen_relpath"] / "SHA256SUMS.txt"
         frozen_digests[str(sums)] = _digest(sums)
         for name in ("MANIFEST.json", "FINAL_DECISION.json"):
@@ -46,7 +44,7 @@ def test_one_invocation_processes_all_23(aurora_workspace, policy_path):
         dry_run=False,
     )
     assert result["ok"] is True
-    assert result["claim_count"] == 23
+    assert result["claim_count"] == bindings.expected_claim_count == 23
     counts = result["state_counts"]
     for k, v in EXPECTED_COUNTS.items():
         assert counts.get(k, 0) == v, f"{k}: expected {v} got {counts.get(k)}"
@@ -79,12 +77,11 @@ def test_one_invocation_processes_all_23(aurora_workspace, policy_path):
     assert result["blocker_queue"]["finite"] is True
     assert result["blocker_queue"]["count"] >= 1
 
-    # Frozen packages unchanged.
     for path, dig in frozen_digests.items():
         assert _digest(Path(path)) == dig
 
-    # No false epistemic promotion flags.
     for row in claims.values():
         assert row.get("protocol_promoted_to_civic_pass") is not True
         assert row.get("promotes_content_truth") is not True
         assert row.get("treated_proposal_as_implemented") is not True
+        assert row.get("state_authoritative") is not True

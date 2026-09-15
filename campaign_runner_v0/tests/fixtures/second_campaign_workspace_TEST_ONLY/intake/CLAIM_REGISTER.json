@@ -1,0 +1,267 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "atomic_claims_extracted": 23,
+  "claims": [
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-001",
+      "claim_id": "TST-001",
+      "claim_type": "A_DOCUMENT_PROVENANCE",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-001"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-002",
+      "claim_id": "TST-002",
+      "claim_type": "A_DOCUMENT_PROVENANCE",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-002"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-003",
+      "claim_id": "TST-003",
+      "claim_type": "D_MEASURABLE_EMPIRICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-003"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-004",
+      "claim_id": "TST-004",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-004"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-005",
+      "claim_id": "TST-005",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-005"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-006",
+      "claim_id": "TST-006",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-006"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-007",
+      "claim_id": "TST-007",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-007"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-008",
+      "claim_id": "TST-008",
+      "claim_type": "D_MEASURABLE_EMPIRICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-008"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-009",
+      "claim_id": "TST-009",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-009"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-010",
+      "claim_id": "TST-010",
+      "claim_type": "G_SYMBOLIC",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-010"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-011",
+      "claim_id": "TST-011",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-011"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-012",
+      "claim_id": "TST-012",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-012"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-013",
+      "claim_id": "TST-013",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-013"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-014",
+      "claim_id": "TST-014",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-014"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-015",
+      "claim_id": "TST-015",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-015"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-016",
+      "claim_id": "TST-016",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-016"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-017",
+      "claim_id": "TST-017",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-017"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-018",
+      "claim_id": "TST-018",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-018"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-019",
+      "claim_id": "TST-019",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-019"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-020",
+      "claim_id": "TST-020",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-020"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-021",
+      "claim_id": "TST-021",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-021"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-022",
+      "claim_id": "TST-022",
+      "claim_type": "G_SYMBOLIC",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-022"
+    },
+    {
+      "NOT_REAL_AURORA_EVIDENCE": true,
+      "SYNTHETIC": true,
+      "TEST_ONLY": true,
+      "author_language": "synthetic:TST-023",
+      "claim_id": "TST-023",
+      "claim_type": "H_HISTORICAL",
+      "evidence_required": "synthetic fixture evidence",
+      "exact_source_section": "TEST_ONLY",
+      "short_faithful_paraphrase": "TEST_ONLY synthetic claim TST-023"
+    }
+  ],
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "schema": "weaver.campaign_runner_v0.test_only.claim_register.v0"
+}

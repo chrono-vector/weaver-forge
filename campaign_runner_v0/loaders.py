@@ -1,11 +1,11 @@
-"""Load and validate existing Aurora intake / source artifacts."""
+"""Load and validate workspace intake / source artifacts."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from .models import EXPECTED_SOURCE_HASHES
+from .bindings import CampaignBindings
 from .safety import SafetyError, load_json, resolve_confined, sha256_file
 
 
@@ -15,6 +15,7 @@ REQUIRED_INTAKE = {
     "weaver_compatibility": "intake/WEAVER_COMPATIBILITY.json",
     "source_inventory": "intake/SOURCE_INVENTORY.json",
     "source_manifest": "frozen_sources/SOURCE_MANIFEST.json",
+    "campaign_bindings": "intake/CAMPAIGN_BINDINGS.json",
 }
 
 
@@ -29,7 +30,11 @@ def load_workspace_artifacts(workspace: Path) -> dict[str, Any]:
     return out
 
 
-def validate_claim_register(register: dict[str, Any]) -> list[dict[str, Any]]:
+def validate_claim_register(
+    register: dict[str, Any],
+    *,
+    bindings: CampaignBindings | None = None,
+) -> list[dict[str, Any]]:
     claims = register.get("claims")
     if not isinstance(claims, list) or not claims:
         raise SafetyError("CLAIM_REGISTER.claims missing or empty")
@@ -38,11 +43,21 @@ def validate_claim_register(register: dict[str, Any]) -> list[dict[str, Any]]:
         raise SafetyError("CLAIM_REGISTER contains claim without claim_id")
     if len(ids) != len(set(ids)):
         raise SafetyError("CLAIM_REGISTER has duplicate claim_id values")
-    if len(claims) != 23:
-        raise SafetyError(f"expected 23 claims, found {len(claims)}")
-    if register.get("atomic_claims_extracted") not in (None, 23):
-        if register.get("atomic_claims_extracted") != 23:
-            raise SafetyError("atomic_claims_extracted must be 23")
+
+    expected = bindings.expected_claim_count if bindings is not None else None
+    if expected is not None and len(claims) != expected:
+        raise SafetyError(f"expected {expected} claims, found {len(claims)}")
+
+    extracted = register.get("atomic_claims_extracted")
+    if extracted is not None:
+        if expected is not None and extracted != expected:
+            raise SafetyError(
+                f"atomic_claims_extracted ({extracted}) must equal expected_claim_count ({expected})"
+            )
+        if extracted != len(claims):
+            raise SafetyError(
+                f"atomic_claims_extracted ({extracted}) must equal claim register length ({len(claims)})"
+            )
     return claims
 
 
@@ -78,14 +93,20 @@ def validate_compatibility(
 
 
 def verify_source_integrity(workspace: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    """Recompute Source A/B hashes and compare to expected digests."""
+    """Recompute source file hashes and compare to SOURCE_MANIFEST expected digests."""
     sources = manifest.get("sources") or {}
+    if not isinstance(sources, dict) or not sources:
+        raise SafetyError("SOURCE_MANIFEST.sources missing or empty")
     results: dict[str, Any] = {"status": "SOURCE_IDENTITY_VERIFIED", "sources": {}}
-    for key, expected in EXPECTED_SOURCE_HASHES.items():
-        src = sources.get(key)
-        if not src:
-            raise SafetyError(f"SOURCE_MANIFEST missing {key}")
+    for key, src in sources.items():
+        if not isinstance(src, dict):
+            raise SafetyError(f"SOURCE_MANIFEST source {key} invalid")
+        expected = src.get("expected_sha256")
+        if not expected or not isinstance(expected, str):
+            raise SafetyError(f"SOURCE_MANIFEST missing expected_sha256 for {key}")
         rel = src.get("filename") or Path(src.get("path", "")).name
+        if not rel:
+            raise SafetyError(f"SOURCE_MANIFEST missing filename/path for {key}")
         path = resolve_confined(workspace, f"frozen_sources/{rel}")
         if not path.is_file():
             raise SafetyError(f"frozen source missing: {rel}")

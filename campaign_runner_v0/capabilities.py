@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-# Capabilities are declarative labels only — no broad worker fleet.
+from .bindings import CampaignBindings
+
+# Capabilities are declarative labels only — no claim-ID product constants.
 CAPABILITIES: dict[str, dict[str, Any]] = {
     "reuse_frozen_document_identity_audit": {
         "description": "Verify and bind existing frozen Weaver hash/document-identity audits.",
@@ -12,7 +14,7 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
         "target_code_execution": False,
         "external_services": False,
         "applies_to_routes": ["VERIFIABLE_NOW"],
-        "applies_to_claims": ["AUR-A-001", "AUR-A-002"],
+        "applies_to_claims": ["from_campaign_bindings.reuse_audits"],
     },
     "bind_protocol_harness_evidence": {
         "description": (
@@ -22,7 +24,7 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
         "target_code_execution": False,
         "external_services": False,
         "applies_to_routes": ["SANDBOX_TESTABLE"],
-        "applies_to_claims": ["AUR-A-005", "AUR-A-009", "AUR-A-012", "AUR-A-018"],
+        "applies_to_claims": ["from_campaign_bindings.protocol_bound_claims"],
     },
     "classify_bounded_states": {
         "description": (
@@ -44,7 +46,7 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
         "applies_to_claims": ["*"],
     },
     "source_manifest_integrity": {
-        "description": "Verify frozen Source A/B identity against expected SHA-256 digests.",
+        "description": "Verify frozen source identity against SOURCE_MANIFEST expected digests.",
         "network": False,
         "target_code_execution": False,
         "external_services": False,
@@ -54,15 +56,20 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
 }
 
 
-def select_capability(claim_id: str, route: str) -> str | None:
-    if claim_id in {"AUR-A-001", "AUR-A-002"}:
+def select_capability(
+    claim_id: str, route: str, bindings: CampaignBindings
+) -> str | None:
+    if claim_id in bindings.reuse_audits:
         return "reuse_frozen_document_identity_audit"
-    if claim_id in {"AUR-A-005", "AUR-A-009", "AUR-A-012", "AUR-A-018"}:
+    if bindings.is_protocol_bound(claim_id):
         return "bind_protocol_harness_evidence"
+    if bindings.requires_human_auth(claim_id):
+        return "classify_bounded_states"
     if route in CAPABILITIES["classify_bounded_states"]["applies_to_routes"]:
         return "classify_bounded_states"
     if route == "VERIFIABLE_NOW":
-        return "reuse_frozen_document_identity_audit"
+        # Verifiable-now without a reuse binding cannot invent PASS.
+        return "classify_bounded_states"
     return None
 
 

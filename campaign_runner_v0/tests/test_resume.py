@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
-from campaign_runner_v0.models import KNOWN_REUSE_AUDITS
+from campaign_runner_v0.bindings import load_campaign_bindings
 from campaign_runner_v0.runner import run_campaign
 
 FIXTURE = (
@@ -19,11 +20,14 @@ def _digest(path: Path) -> str:
 
 
 def test_resume_with_synthetic_advances_only_affected_branch(
-    aurora_workspace, policy_path, tmp_path
+    aurora_workspace, policy_path
 ):
     campaign_id = "aurora_resume_test_v1"
+    cdir = aurora_workspace / "campaigns" / campaign_id
+    if cdir.exists():
+        shutil.rmtree(cdir)
+    bindings = load_campaign_bindings(aurora_workspace)
 
-    # Baseline run.
     first = run_campaign(
         workspace=aurora_workspace,
         campaign_id=campaign_id,
@@ -33,12 +37,11 @@ def test_resume_with_synthetic_advances_only_affected_branch(
     assert first["campaign_state"]["claims"]["AUR-A-001"]["state"] == "PASS"
 
     frozen_before = {}
-    for meta in KNOWN_REUSE_AUDITS.values():
+    for meta in bindings.reuse_audits.values():
         for name in ("SHA256SUMS.txt", "MANIFEST.json", "FINAL_DECISION.json"):
             p = aurora_workspace / meta["frozen_relpath"] / name
             frozen_before[str(p)] = _digest(p)
 
-    # Capture unaffected claim updated_at before resume.
     before_states = {
         cid: dict(row)
         for cid, row in first["campaign_state"]["claims"].items()
@@ -59,25 +62,20 @@ def test_resume_with_synthetic_advances_only_affected_branch(
     assert claims["AUR-A-001"]["state"] == "PASS"
     assert claims["AUR-A-002"]["state"] == "PASS"
 
-    # Unaffected immutable / furthest claims remain same state.
     for cid, prev in before_states.items():
         assert claims[cid]["state"] == prev["state"]
 
-    # Synthetic evidence present; not admitted as canonical Aurora.
     entries = second["evidence_register"]["entries"]
     syn = [e for e in entries if e.get("TEST_ONLY")]
     assert syn, "expected synthetic evidence entry"
     assert all(e.get("canonical_aurora_admission") is False for e in syn)
 
-    # Frozen untouched.
     for path, dig in frozen_before.items():
         assert _digest(Path(path)) == dig
 
-    # No duplicate freeze / rebind of frozen packages — reuse entries still single.
     reuse = [e for e in entries if e.get("kind") == "FROZEN_WEAVER_AUDIT_REUSE"]
     assert len(reuse) == 2
 
-    # Receipts show skip for unaffected immutable.
     receipts_path = (
         aurora_workspace / "campaigns" / campaign_id / "worker_receipts.jsonl"
     )
@@ -87,13 +85,12 @@ def test_resume_with_synthetic_advances_only_affected_branch(
         r
         for r in actions
         if r.get("claim_id") == "AUR-A-001"
-        and r.get("action") == "SKIP_IMMUTABLE_COMPLETED"
+        and r.get("action") == "SKIP_VALIDATED_REUSE"
     ]
-    assert skip_001, "AUR-A-001 should be skipped on resume"
+    assert skip_001, "AUR-A-001 should be skipped after evidence revalidation"
     syn_actions = [
         r for r in actions if r.get("action") == "APPLY_TEST_ONLY_SYNTHETIC"
     ]
     assert syn_actions
 
-    # Synthetic must never appear under canonical audits/runs as real evidence file.
     assert not (aurora_workspace / "audits" / "AUR-A-008" / "SYNTHETIC.json").exists()

@@ -1,0 +1,43 @@
+{
+  "schema": "weaver.campaign_runner_v0.campaign_bindings.v0",
+  "workspace": "aurora_audit",
+  "notes": [
+    "Campaign-specific configuration only.",
+    "Not product-code constants.",
+    "Reusable audits bind claim_id to validated frozen Weaver package references.",
+    "STATE != EVIDENCE; bindings alone do not mint PASS without package validation."
+  ],
+  "expected_claim_count": 23,
+  "protocol_harness_relpath": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+  "protocol_bound_claims": [
+    "AUR-A-005",
+    "AUR-A-009",
+    "AUR-A-012",
+    "AUR-A-018"
+  ],
+  "human_auth_required_claims": [
+    "AUR-A-021"
+  ],
+  "reuse_audits": {
+    "AUR-A-001": {
+      "audit_id": "WFA-20260915T042439Z-8BE7790F",
+      "run_relpath": "runs/WFA-20260915T042439Z-8BE7790F",
+      "frozen_relpath": "runs/WFA-20260915T042439Z-8BE7790F/freeze/WFA-20260915T042439Z-8BE7790F_FROZEN",
+      "audit_record_relpath": "audits/AUR-A-001/AUDIT_RECORD.md",
+      "expected_sha256sums_digest": "5b5b695a50bf03b98bffad8027ad753f719b5ef9ddff82d4f4850fa98bc6c8ae",
+      "scope": "DOCUMENT_IDENTITY_ONLY",
+      "verdict": "PASS",
+      "verification_mechanism": "reuse_frozen_document_identity_audit"
+    },
+    "AUR-A-002": {
+      "audit_id": "WFA-20260915T043650Z-C49CA863",
+      "run_relpath": "runs/WFA-20260915T043650Z-C49CA863",
+      "frozen_relpath": "runs/WFA-20260915T043650Z-C49CA863/freeze/WFA-20260915T043650Z-C49CA863_FROZEN",
+      "audit_record_relpath": "audits/AUR-A-002/AUDIT_RECORD.md",
+      "expected_sha256sums_digest": "2c0abec238b749811c0bd19793df751721d9f81a9cfbea3e73d0f5d94bf63643",
+      "scope": "DOCUMENT_IDENTITY_TEXTUAL_PRESENCE_ONLY",
+      "verdict": "PASS",
+      "verification_mechanism": "reuse_frozen_document_identity_audit"
+    }
+  }
+}

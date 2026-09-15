@@ -1,0 +1,128 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "routes": [
+    {
+      "claim_id": "TST-001",
+      "rationale": "TEST_ONLY route for TST-001",
+      "route": "VERIFIABLE_NOW"
+    },
+    {
+      "claim_id": "TST-002",
+      "rationale": "TEST_ONLY route for TST-002",
+      "route": "VERIFIABLE_NOW"
+    },
+    {
+      "claim_id": "TST-003",
+      "rationale": "TEST_ONLY route for TST-003",
+      "route": "INSUFFICIENT_EVIDENCE"
+    },
+    {
+      "claim_id": "TST-004",
+      "rationale": "TEST_ONLY route for TST-004",
+      "route": "NORMATIVE_NOT_FACTUAL"
+    },
+    {
+      "claim_id": "TST-005",
+      "rationale": "TEST_ONLY route for TST-005",
+      "route": "SANDBOX_TESTABLE"
+    },
+    {
+      "claim_id": "TST-006",
+      "rationale": "TEST_ONLY route for TST-006",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-007",
+      "rationale": "TEST_ONLY route for TST-007",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-008",
+      "rationale": "TEST_ONLY route for TST-008",
+      "route": "VERIFIABLE_WITH_ADDITIONAL_EVIDENCE"
+    },
+    {
+      "claim_id": "TST-009",
+      "rationale": "TEST_ONLY route for TST-009",
+      "route": "SANDBOX_TESTABLE"
+    },
+    {
+      "claim_id": "TST-010",
+      "rationale": "TEST_ONLY route for TST-010",
+      "route": "SYMBOLIC_NOT_EMPIRICALLY_TESTABLE"
+    },
+    {
+      "claim_id": "TST-011",
+      "rationale": "TEST_ONLY route for TST-011",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-012",
+      "rationale": "TEST_ONLY route for TST-012",
+      "route": "SANDBOX_TESTABLE"
+    },
+    {
+      "claim_id": "TST-013",
+      "rationale": "TEST_ONLY route for TST-013",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-014",
+      "rationale": "TEST_ONLY route for TST-014",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-015",
+      "rationale": "TEST_ONLY route for TST-015",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-016",
+      "rationale": "TEST_ONLY route for TST-016",
+      "route": "NORMATIVE_NOT_FACTUAL"
+    },
+    {
+      "claim_id": "TST-017",
+      "rationale": "TEST_ONLY route for TST-017",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-018",
+      "rationale": "TEST_ONLY route for TST-018",
+      "route": "SANDBOX_TESTABLE"
+    },
+    {
+      "claim_id": "TST-019",
+      "rationale": "TEST_ONLY route for TST-019",
+      "route": "NORMATIVE_NOT_FACTUAL"
+    },
+    {
+      "claim_id": "TST-020",
+      "rationale": "TEST_ONLY route for TST-020",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED"
+    },
+    {
+      "claim_id": "TST-021",
+      "rationale": "TEST_ONLY route for TST-021",
+      "route": "SANDBOX_TESTABLE"
+    },
+    {
+      "claim_id": "TST-022",
+      "rationale": "TEST_ONLY route for TST-022",
+      "route": "SYMBOLIC_NOT_EMPIRICALLY_TESTABLE"
+    },
+    {
+      "claim_id": "TST-023",
+      "rationale": "TEST_ONLY route for TST-023",
+      "route": "UNSUPPORTED_HISTORICAL_CLAIM"
+    }
+  ],
+  "schema": "weaver.campaign_runner_v0.test_only.verification_routing.v0"
+}

@@ -1,0 +1,46 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "expected_claim_count": 23,
+  "human_auth_required_claims": [
+    "TST-021"
+  ],
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "protocol_bound_claims": [
+    "TST-005",
+    "TST-009",
+    "TST-012",
+    "TST-018"
+  ],
+  "protocol_harness_relpath": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+  "reuse_audits": {
+    "TST-001": {
+      "audit_id": "WFA-TST-001-SYNTH",
+      "audit_record_relpath": "audits/TST-001/AUDIT_RECORD.md",
+      "expected_sha256sums_digest": "f425de5cd51f13314a8ace5397b15c448229e2021a4620da99981baaee396f20",
+      "frozen_relpath": "runs/WFA-TST-001-SYNTH/freeze/WFA-TST-001-SYNTH_FROZEN",
+      "run_relpath": "runs/WFA-TST-001-SYNTH",
+      "scope": "DOCUMENT_IDENTITY_ONLY",
+      "source_binding": "frozen_sources/source_a_TEST_ONLY.txt@1d3f5b5e1127693e2a636fd65d796af0aee3f987e1c44b94f36d90e2a954b17d",
+      "verdict": "PASS",
+      "verification_mechanism": "reuse_frozen_document_identity_audit"
+    },
+    "TST-002": {
+      "audit_id": "WFA-TST-002-SYNTH",
+      "audit_record_relpath": "audits/TST-002/AUDIT_RECORD.md",
+      "expected_sha256sums_digest": "f425de5cd51f13314a8ace5397b15c448229e2021a4620da99981baaee396f20",
+      "frozen_relpath": "runs/WFA-TST-002-SYNTH/freeze/WFA-TST-002-SYNTH_FROZEN",
+      "run_relpath": "runs/WFA-TST-002-SYNTH",
+      "scope": "DOCUMENT_IDENTITY_TEXTUAL_PRESENCE_ONLY",
+      "source_binding": "frozen_sources/source_a_TEST_ONLY.txt@1d3f5b5e1127693e2a636fd65d796af0aee3f987e1c44b94f36d90e2a954b17d",
+      "verdict": "PASS",
+      "verification_mechanism": "reuse_frozen_document_identity_audit"
+    }
+  },
+  "schema": "weaver.campaign_runner_v0.campaign_bindings.v0"
+}

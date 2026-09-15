@@ -1,0 +1,25 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "schema": "weaver.campaign_runner_v0.test_only.source_manifest.v0",
+  "sources": {
+    "SOURCE_A": {
+      "expected_sha256": "1d3f5b5e1127693e2a636fd65d796af0aee3f987e1c44b94f36d90e2a954b17d",
+      "filename": "source_a_TEST_ONLY.txt",
+      "path": "frozen_sources/source_a_TEST_ONLY.txt",
+      "role": "PRIMARY_AUDIT_TARGET"
+    },
+    "SOURCE_B": {
+      "expected_sha256": "e39ffb9eedaeafd70a1103fc9a35a74417a7c59149921c65e1681845b299a58c",
+      "filename": "source_b_TEST_ONLY.txt",
+      "path": "frozen_sources/source_b_TEST_ONLY.txt",
+      "role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "schema": "weaver.campaign_runner_v0.test_only.source_inventory.v0",
+  "sources": [
+    "SOURCE_A",
+    "SOURCE_B"
+  ]
+}

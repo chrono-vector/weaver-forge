@@ -1,0 +1,42 @@
+{
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "SYNTHETIC": true,
+  "TEST_ONLY": true,
+  "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+  "harness_id": "second_campaign_protocol_harness_TEST_ONLY",
+  "labels": [
+    "TEST_ONLY",
+    "SYNTHETIC",
+    "NOT_REAL_AURORA_EVIDENCE"
+  ],
+  "scenarios": {
+    "TST-005": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "TST-005",
+      "note": "TEST_ONLY SYNTHETIC protocol scenario - NOT_REAL_AURORA_EVIDENCE",
+      "protocol_check": "PASS"
+    },
+    "TST-009": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "TST-009",
+      "note": "TEST_ONLY SYNTHETIC protocol scenario - NOT_REAL_AURORA_EVIDENCE",
+      "protocol_check": "PASS"
+    },
+    "TST-012": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "TST-012",
+      "note": "TEST_ONLY SYNTHETIC protocol scenario - NOT_REAL_AURORA_EVIDENCE",
+      "protocol_check": "PASS"
+    },
+    "TST-018": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "TST-018",
+      "note": "TEST_ONLY SYNTHETIC protocol scenario - NOT_REAL_AURORA_EVIDENCE",
+      "protocol_check": "PASS"
+    }
+  }
+}

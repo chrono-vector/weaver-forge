@@ -39,6 +39,11 @@ Under `aurora_audit/campaigns/<campaign_id>/`:
 - AI PLAN ≠ EVIDENCE
 - TEXT PRESENCE ≠ CLAIM TRUTH
 - HUMAN AUTHORIZATION ≠ CLAIM TRUTH
+- STATE ≠ EVIDENCE (CAMPAIGN_STATE alone never justifies PASS/FAIL)
+
+Campaign-specific facts (reuse bindings, protocol-bound claims, human-auth claims,
+optional expected claim count) live in workspace `intake/CAMPAIGN_BINDINGS.json`.
+Source hashes are taken from `frozen_sources/SOURCE_MANIFEST.json`.
 
 ## Tests
 

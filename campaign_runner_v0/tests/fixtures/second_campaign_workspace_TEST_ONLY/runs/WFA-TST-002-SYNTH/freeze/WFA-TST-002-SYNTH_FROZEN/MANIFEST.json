@@ -1,0 +1,6 @@
+{
+  "audit_id": "WFA-TST-002-SYNTH",
+  "TEST_ONLY": true,
+  "SYNTHETIC": true,
+  "NOT_REAL_AURORA_EVIDENCE": true
+}

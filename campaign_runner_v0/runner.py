@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .bindings import load_campaign_bindings
 from .capabilities import capability_registry_snapshot, require_capability
 from .epistemic import EpistemicViolation, assert_claim_result_safe, assert_transition_allowed
 from .evidence import (
@@ -25,9 +26,8 @@ from .loaders import (
     verify_source_integrity,
 )
 from .models import (
+    EVIDENCE_BACKED_TERMINAL_STATES,
     FURTHEST_LEGITIMATE_STATES,
-    HUMAN_AUTH_REQUIRED_CLAIMS,
-    IMMUTABLE_COMPLETED_STATES,
     empty_state_counts,
     validate_claim_state,
 )
@@ -48,6 +48,7 @@ from .safety import (
     resolve_confined,
     write_json,
 )
+from .state_revalidation import compute_state_integrity_digest, revalidate_prior_claim_states
 
 
 def _utc_now() -> str:
@@ -74,7 +75,6 @@ def load_policy(path: Path | None) -> dict[str, Any]:
         loaded = load_json(path)
         if not isinstance(loaded, dict):
             raise SafetyError("policy must be a JSON object")
-        # Source text never controls policy — only explicit policy file fields.
         for k, v in loaded.items():
             if k.startswith("_"):
                 continue
@@ -124,6 +124,7 @@ def _set_state(
         "state": new_state,
         "reason": reason,
         "updated_at_utc": _utc_now(),
+        "state_authoritative": False,
     }
     if extra:
         row.update(extra)
@@ -139,29 +140,48 @@ def _process_claim(
     evidence_register: dict[str, Any],
     receipts: list[dict[str, Any]],
     synthetic_by_claim: dict[str, dict[str, Any]],
+    bindings: Any,
     dry_run: bool,
 ) -> None:
     cid = plan_row["claim_id"]
     existing = claim_states.get(cid)
-    if existing and existing.get("state") in IMMUTABLE_COMPLETED_STATES:
-        # Skip rerun of completed immutable audits.
+
+    # Efficient reuse: only after evidence-backed terminal was revalidated this invocation.
+    if (
+        existing
+        and existing.get("state") in EVIDENCE_BACKED_TERMINAL_STATES
+        and existing.get("evidence_validated") is True
+        and existing.get("basis") == "FROZEN_AUDIT_REUSE"
+        and cid not in synthetic_by_claim
+    ):
         receipts.append(
             _receipt(
                 claim_id=cid,
                 capability=plan_row.get("capability"),
-                action="SKIP_IMMUTABLE_COMPLETED",
+                action="SKIP_VALIDATED_REUSE",
                 result="UNCHANGED",
-                detail={"state": existing["state"]},
+                detail={
+                    "state": existing["state"],
+                    "evidence_id": existing.get("evidence_id"),
+                    "evidence_digests": existing.get("evidence_digests"),
+                    "note": "STATE≠EVIDENCE; skip only after revalidation",
+                },
             )
         )
         return
 
-    # Resume: skip if already at furthest legitimate and no new synthetic evidence.
+    # Resume: skip furthest non-PASS/FAIL when aligned with plan, or when a prior
+    # TEST_ONLY advance must be preserved without re-supplying synthetic evidence.
     if (
         existing
         and existing.get("state") in FURTHEST_LEGITIMATE_STATES
+        and existing.get("state") not in EVIDENCE_BACKED_TERMINAL_STATES
         and cid not in synthetic_by_claim
-        and existing.get("state") == plan_row.get("planned_state")
+        and (
+            existing.get("state") == plan_row.get("planned_state")
+            or existing.get("TEST_ONLY") is True
+        )
+        and not existing.get("tamper_or_invalid_terminal_cleared")
     ):
         receipts.append(
             _receipt(
@@ -173,6 +193,16 @@ def _process_claim(
             )
         )
         return
+
+    # Cleared untrusted terminals start from NEW for transitions.
+    if existing and existing.get("tamper_or_invalid_terminal_cleared"):
+        claim_states[cid] = {
+            "claim_id": cid,
+            "state": "NEW",
+            "reason": existing.get("reason") or "cleared untrusted terminal",
+            "updated_at_utc": _utc_now(),
+            "state_authoritative": False,
+        }
 
     _set_state(claim_states, cid, "RUNNING", reason="campaign processing")
     capability = plan_row.get("capability")
@@ -191,9 +221,13 @@ def _process_claim(
                     "kind": "FROZEN_WEAVER_AUDIT_REUSE",
                     "immutable": True,
                     "scope": "DOCUMENT_IDENTITY_ONLY",
+                    "sha256sums_digest": "dry-run",
+                    "evidence_digests": {"sha256sums": "dry-run"},
+                    "verification_scope": "DOCUMENT_IDENTITY_ONLY",
+                    "verification_mechanism": "reuse_frozen_document_identity_audit",
                 }
             else:
-                ev = verify_frozen_audit_reuse(workspace, cid)
+                ev = verify_frozen_audit_reuse(workspace, cid, bindings)
             evidence_register["entries"].append(ev)
             _set_state(
                 claim_states,
@@ -204,10 +238,20 @@ def _process_claim(
                     "route": route,
                     "capability": capability,
                     "evidence_id": ev["evidence_id"],
+                    "evidence_references": [ev["evidence_id"]],
+                    "evidence_digests": ev.get("evidence_digests")
+                    or {"sha256sums": ev.get("sha256sums_digest")},
+                    "verification_scope": ev.get("verification_scope") or ev.get("scope"),
+                    "verification_mechanism": ev.get("verification_mechanism"),
+                    "source_binding": ev.get("source_binding"),
+                    "package_reference": ev.get("package_reference") or ev.get("frozen_path"),
+                    "run_reference": ev.get("run_path"),
                     "pass_kind": ev.get("scope") or "DOCUMENT_IDENTITY_ONLY",
                     "hash_match": True,
                     "promotes_content_truth": False,
                     "basis": "FROZEN_AUDIT_REUSE",
+                    "evidence_validated": True,
+                    "state_authoritative": False,
                 },
             )
             receipts.append(
@@ -231,7 +275,7 @@ def _process_claim(
                     "civic_claim_state": "INCONCLUSIVE",
                 }
             else:
-                ev = bind_protocol_harness(workspace, cid)
+                ev = bind_protocol_harness(workspace, cid, bindings)
             evidence_register["entries"].append(ev)
             _set_state(
                 claim_states,
@@ -245,9 +289,14 @@ def _process_claim(
                     "route": route,
                     "capability": capability,
                     "evidence_id": ev["evidence_id"],
+                    "evidence_references": [ev["evidence_id"]],
+                    "evidence_digests": ev.get("evidence_digests"),
+                    "verification_scope": ev.get("verification_scope"),
+                    "verification_mechanism": ev.get("verification_mechanism"),
                     "protocol_check": ev.get("protocol_check"),
                     "protocol_promoted_to_civic_pass": False,
                     "pass_kind": "NONE",
+                    "state_authoritative": False,
                 },
             )
             receipts.append(
@@ -261,7 +310,7 @@ def _process_claim(
             )
             return
 
-        if cid in HUMAN_AUTH_REQUIRED_CLAIMS:
+        if plan_row.get("requires_human_auth"):
             _set_state(
                 claim_states,
                 cid,
@@ -274,6 +323,7 @@ def _process_claim(
                     "route": route,
                     "capability": capability,
                     "human_authorization_used_as_claim_truth": False,
+                    "state_authoritative": False,
                 },
             )
             receipts.append(
@@ -286,15 +336,11 @@ def _process_claim(
             )
             return
 
-        # Synthetic TEST_ONLY resume path for blocked evidence claims.
         if cid in synthetic_by_claim:
             syn = synthetic_by_claim[cid]
             evidence_register["entries"].append(syn)
-            # Under TEST semantics: advance to a bounded state, never real PASS civic truth.
-            # For AUR-A-008, synthetic telemetry may justify INCONCLUSIVE under test, not PASS.
             new_state = syn.get("payload", {}).get("test_advance_state") or "INCONCLUSIVE"
             if new_state == "PASS":
-                # Hard rule: synthetic must not mint real Aurora PASS.
                 new_state = "INCONCLUSIVE"
             _set_state(
                 claim_states,
@@ -308,10 +354,12 @@ def _process_claim(
                     "route": route,
                     "capability": capability,
                     "evidence_id": syn["evidence_id"],
+                    "evidence_references": [syn["evidence_id"]],
                     "TEST_ONLY": True,
                     "SYNTHETIC": True,
                     "NOT_REAL_AURORA_EVIDENCE": True,
                     "new_sufficient_evidence": new_state == "PASS",
+                    "state_authoritative": False,
                 },
             )
             receipts.append(
@@ -325,10 +373,11 @@ def _process_claim(
             )
             return
 
-        # Bounded classification states from plan.
         reason_map = {
             "BLOCKED_EVIDENCE": "Additional / insufficient evidence; not converted to FAIL",
-            "IMPLEMENTATION_REQUIRED": "Proposal/described mechanism not implemented (PROPOSAL ≠ IMPLEMENTED)",
+            "IMPLEMENTATION_REQUIRED": (
+                "Proposal/described mechanism not implemented (PROPOSAL ≠ IMPLEMENTED)"
+            ),
             "NORMATIVE_NOT_FACTUAL": "Normative/ethical claim — not empirical PASS/FAIL",
             "SYMBOLIC_NOT_EMPIRICAL": "Symbolic/metaphorical — not empirically testable",
             "HISTORICAL_CORROBORATION_REQUIRED": (
@@ -346,6 +395,7 @@ def _process_claim(
             "classification_used_as_verdict": False,
             "ai_plan_used_as_evidence": False,
             "text_presence_promoted_to_claim_truth": False,
+            "state_authoritative": False,
         }
         _set_state(claim_states, cid, planned, reason=reason, extra=extra)
         receipts.append(
@@ -357,7 +407,6 @@ def _process_claim(
             )
         )
     except (SafetyError, EpistemicViolation, KeyError) as exc:
-        # Worker failure → fail closed for this claim without corrupting others.
         _set_state(
             claim_states,
             cid,
@@ -395,7 +444,6 @@ def run_campaign(
         policy["dry_run"] = True
     policy["dry_run"] = bool(policy.get("dry_run"))
 
-    # Hard deny writes to core / frozen.
     if policy.get("allow_audit_lifecycle_write"):
         raise SafetyError("policy must not allow audit_lifecycle writes")
     if policy.get("allow_frozen_rewrite"):
@@ -407,7 +455,6 @@ def run_campaign(
     owner = f"campaign_runner_v0:{campaign_id}:{uuid.uuid4().hex[:8]}"
 
     if force_unlock_stale and lock_path.exists() and not policy["dry_run"]:
-        # Only remove if stale per policy — otherwise fail closed later.
         try:
             meta = load_json(lock_path)
             age = datetime.now(timezone.utc).timestamp() - float(meta.get("acquired_at_epoch", 0))
@@ -417,17 +464,21 @@ def run_campaign(
             raise SafetyError("stale lock unreadable — fail closed")
 
     artifacts = load_workspace_artifacts(workspace)
-    claims = validate_claim_register(artifacts["claim_register"])
+    bindings = load_campaign_bindings(workspace)
+    claims = validate_claim_register(artifacts["claim_register"], bindings=bindings)
     claim_ids = {c["claim_id"] for c in claims}
     routes_by_id = validate_routing(artifacts["verification_routing"], claim_ids)
     compat_by_id = validate_compatibility(artifacts["weaver_compatibility"], claim_ids)
     source_integrity = verify_source_integrity(workspace, artifacts["source_manifest"])
 
     plan = build_verification_plan(
-        claims, routes_by_id, compat_by_id, campaign_id=campaign_id
+        claims,
+        routes_by_id,
+        compat_by_id,
+        campaign_id=campaign_id,
+        bindings=bindings,
     )
 
-    # Load prior state for resume / idempotency.
     prior_state: dict[str, Any] | None = None
     if state_path.exists() and not policy["dry_run"]:
         try:
@@ -441,10 +492,21 @@ def run_campaign(
 
     evidence_register = empty_evidence_register(campaign_id)
     if prior_state and isinstance(prior_state.get("evidence_register"), dict):
-        # Keep prior evidence entries; avoid duplicate frozen binds.
         evidence_register = prior_state["evidence_register"]
 
-    # Synthetic evidence (TEST_ONLY) — isolated; never canonical.
+    revalidation_report: dict[str, Any] | None = None
+    if prior_state and not policy["dry_run"]:
+        revalidation_report = revalidate_prior_claim_states(
+            workspace=workspace,
+            claim_states=claim_states,
+            evidence_register=evidence_register,
+            plan=plan,
+            bindings=bindings,
+            prior_integrity_digest=(prior_state.get("state_integrity") or {}).get(
+                "digest"
+            ),
+        )
+
     synthetic_by_claim: dict[str, dict[str, Any]] = {}
     for p in synthetic_evidence_paths or []:
         syn = load_synthetic_test_evidence(Path(p), workspace)
@@ -459,11 +521,6 @@ def run_campaign(
         stale_seconds=int(policy.get("lock_stale_seconds", 3600)),
         dry_run=policy["dry_run"],
     ):
-        # Duplicate invocation protection: if prior completed identical plan fingerprint
-        # and no synthetic evidence, still refresh reports but skip claim reprocessing
-        # for immutable/furthest (handled per-claim).
-
-        # Initialize NEW for any missing claims.
         for c in claims:
             cid = c["claim_id"]
             if cid not in claim_states:
@@ -472,15 +529,26 @@ def run_campaign(
                     "state": "NEW",
                     "reason": "loaded from claim register",
                     "updated_at_utc": _utc_now(),
+                    "state_authoritative": False,
                 }
 
-        # Mark PLANNED / ROUTED for all before processing.
         for row in plan["claims"]:
             cid = row["claim_id"]
             cur = claim_states[cid]["state"]
-            if cur in IMMUTABLE_COMPLETED_STATES:
+            if (
+                cur in EVIDENCE_BACKED_TERMINAL_STATES
+                and claim_states[cid].get("evidence_validated") is True
+            ):
                 continue
-            if cur == "NEW":
+            if cur == "NEW" or claim_states[cid].get("tamper_or_invalid_terminal_cleared"):
+                if claim_states[cid].get("tamper_or_invalid_terminal_cleared"):
+                    claim_states[cid] = {
+                        "claim_id": cid,
+                        "state": "NEW",
+                        "reason": claim_states[cid].get("reason") or "cleared",
+                        "updated_at_utc": _utc_now(),
+                        "state_authoritative": False,
+                    }
                 _set_state(claim_states, cid, "PLANNED", reason="verification plan built")
                 _set_state(
                     claim_states,
@@ -498,13 +566,10 @@ def run_campaign(
                     extra={"route": row["route"], "capability": row.get("capability")},
                 )
 
-        # Process every claim in deterministic plan order.
         existing_evidence_ids = {
             e.get("evidence_id") for e in evidence_register.get("entries", [])
         }
         for row in plan["claims"]:
-            cid = row["claim_id"]
-            # Avoid duplicate frozen/protocol evidence entries on resume.
             before_ids = set(existing_evidence_ids)
             _process_claim(
                 workspace=workspace,
@@ -513,18 +578,15 @@ def run_campaign(
                 evidence_register=evidence_register,
                 receipts=receipts,
                 synthetic_by_claim=synthetic_by_claim,
+                bindings=bindings,
                 dry_run=policy["dry_run"],
             )
             for e in evidence_register.get("entries", []):
                 eid = e.get("evidence_id")
                 if eid in before_ids:
                     continue
-                if eid in existing_evidence_ids:
-                    # Deduplicate identical rebinds.
-                    continue
                 existing_evidence_ids.add(eid)
 
-        # Deduplicate evidence entries by evidence_id (keep first).
         seen: set[str] = set()
         deduped = []
         for e in evidence_register.get("entries", []):
@@ -542,7 +604,6 @@ def run_campaign(
         for row in claim_states.values():
             counts[row["state"]] = counts.get(row["state"], 0) + 1
 
-        # Ensure all 23 reached a furthest legitimate state.
         unfinished = [
             cid
             for cid, row in claim_states.items()
@@ -553,11 +614,12 @@ def run_campaign(
                 f"campaign did not advance all claims to furthest state: {unfinished}"
             )
 
+        integrity_digest = compute_state_integrity_digest(claim_states, evidence_register)
         campaign_state = {
             "schema": "weaver.campaign_runner_v0.campaign_state.v0",
             "campaign_id": campaign_id,
             "invocation_id": invocation_id,
-            "workspace": "aurora_audit",
+            "workspace": workspace.name,
             "updated_at_utc": _utc_now(),
             "status": "COMPLETED_INVOCATION",
             "claim_count": len(claim_states),
@@ -568,6 +630,16 @@ def run_campaign(
             "human_action_requests": human_actions,
             "capability_registry": capability_registry_snapshot(),
             "source_integrity": source_integrity,
+            "state_integrity": {
+                "digest": integrity_digest,
+                "algorithm": "sha256",
+                "covers": ["claims", "evidence_register.entries"],
+                "note": (
+                    "Integrity digest binds cache bytes only. "
+                    "STATE≠EVIDENCE; PASS/FAIL require validated evidence provenance."
+                ),
+            },
+            "revalidation": revalidation_report,
             "plan_fingerprint": hashlib.sha256(
                 json.dumps(plan, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest(),
@@ -575,7 +647,7 @@ def run_campaign(
 
         report = build_campaign_report(
             campaign_id=campaign_id,
-            workspace="aurora_audit",
+            workspace=workspace.name,
             source_integrity=source_integrity,
             plan=plan,
             claim_states=claim_states,
@@ -590,7 +662,6 @@ def run_campaign(
             claim_states, evidence_register, campaign_id=campaign_id
         )
 
-        # Persist artifacts (never into freeze/).
         if not policy["dry_run"]:
             for name, data in (
                 ("VERIFICATION_PLAN.json", plan),
@@ -635,4 +706,5 @@ def run_campaign(
             "matrix_md": matrix_md,
             "index_md": index_md,
             "source_integrity": source_integrity,
+            "revalidation": revalidation_report,
         }

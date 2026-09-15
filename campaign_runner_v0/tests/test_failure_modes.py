@@ -9,20 +9,16 @@ from unittest import mock
 
 import pytest
 
+from campaign_runner_v0.bindings import load_campaign_bindings
 from campaign_runner_v0.capabilities import require_capability
 from campaign_runner_v0.evidence import load_synthetic_test_evidence, verify_frozen_audit_reuse
 from campaign_runner_v0.loaders import verify_source_integrity, load_workspace_artifacts
 from campaign_runner_v0.runner import run_campaign
-from campaign_runner_v0.safety import CampaignLock, SafetyError, resolve_confined
+from campaign_runner_v0.safety import SafetyError, resolve_confined
 
 
-def test_source_hash_mismatch_fail_closed(aurora_workspace, policy_path, tmp_path):
+def test_source_hash_mismatch_fail_closed(aurora_workspace):
     arts = load_workspace_artifacts(aurora_workspace)
-    manifest = json.loads(json.dumps(arts["source_manifest"]))
-    # Corrupt expected hash in a copy used via monkeypatch of EXPECTED — easier:
-    # temporarily rename source file in an isolated workspace copy.
-    ws = tmp_path / "aurora_audit"
-    # Minimal copy of needed structure is heavy; instead patch sha256_file.
     with mock.patch(
         "campaign_runner_v0.loaders.sha256_file",
         return_value="0" * 64,
@@ -60,24 +56,25 @@ def test_unsupported_capability():
 
 
 def test_missing_frozen_package(aurora_workspace):
+    bindings = load_campaign_bindings(aurora_workspace)
     with mock.patch(
         "campaign_runner_v0.evidence.resolve_confined",
         side_effect=lambda root, rel: Path("/nonexistent/frozen"),
     ):
         with pytest.raises(SafetyError, match="missing referenced frozen package"):
-            verify_frozen_audit_reuse(aurora_workspace, "AUR-A-001")
+            verify_frozen_audit_reuse(aurora_workspace, "AUR-A-001", bindings)
 
 
-def test_missing_evidence_harness(aurora_workspace, policy_path, tmp_path):
-    # Build a stripped workspace for binding failure is complex; unit-test binder.
+def test_missing_evidence_harness(aurora_workspace, tmp_path):
     from campaign_runner_v0.evidence import bind_protocol_harness
 
+    bindings = load_campaign_bindings(aurora_workspace)
     with mock.patch(
         "campaign_runner_v0.evidence.resolve_confined",
         return_value=tmp_path / "missing.json",
     ):
         with pytest.raises(SafetyError, match="missing protocol harness"):
-            bind_protocol_harness(aurora_workspace, "AUR-A-005")
+            bind_protocol_harness(aurora_workspace, "AUR-A-005", bindings)
 
 
 def test_duplicate_invocation_idempotent(aurora_workspace, policy_path):
@@ -90,7 +87,6 @@ def test_duplicate_invocation_idempotent(aurora_workspace, policy_path):
     )
     assert r1["state_counts"] == r2["state_counts"]
     assert r2["campaign_state"]["claims"]["AUR-A-001"]["state"] == "PASS"
-    # Evidence reuse entries not duplicated beyond 2.
     reuse = [
         e
         for e in r2["evidence_register"]["entries"]
@@ -104,7 +100,6 @@ def test_stale_lock_takeover_and_fresh_lock_blocks(aurora_workspace, policy_path
     cdir = aurora_workspace / "campaigns" / campaign_id
     cdir.mkdir(parents=True, exist_ok=True)
     lock_path = cdir / "campaign.lock"
-    # Fresh foreign lock should block.
     lock_path.write_text(
         json.dumps({"owner": "other", "acquired_at_epoch": time.time(), "pid": 1}),
         encoding="utf-8",
@@ -113,7 +108,6 @@ def test_stale_lock_takeover_and_fresh_lock_blocks(aurora_workspace, policy_path
         run_campaign(
             workspace=aurora_workspace, campaign_id=campaign_id, policy_path=policy_path
         )
-    # Stale lock can be force-unlocked.
     lock_path.write_text(
         json.dumps(
             {"owner": "other", "acquired_at_epoch": time.time() - 99999, "pid": 1}
@@ -130,7 +124,6 @@ def test_stale_lock_takeover_and_fresh_lock_blocks(aurora_workspace, policy_path
 
 
 def test_human_denial_remains_blocked(aurora_workspace, policy_path):
-    # AUR-A-021 stays BLOCKED_HUMAN — authorization denial / absence.
     result = run_campaign(
         workspace=aurora_workspace,
         campaign_id="aurora_human_denial_test",
@@ -167,7 +160,6 @@ def test_worker_failure_fail_closed(aurora_workspace, policy_path):
             campaign_id=campaign_id,
             policy_path=policy_path,
         )
-    # Fail-closed per claim: 001/002 become blocked, others still process.
     claims = result["campaign_state"]["claims"]
     assert claims["AUR-A-001"]["state"] in {"BLOCKED_EVIDENCE", "BLOCKED_AUTHORITY"}
     assert claims["AUR-A-005"]["state"] == "INCONCLUSIVE"
@@ -176,11 +168,9 @@ def test_worker_failure_fail_closed(aurora_workspace, policy_path):
 
 def test_mid_run_interruption_recovery(aurora_workspace, policy_path):
     campaign_id = "aurora_interrupt_recovery_test"
-    # First: complete run.
     run_campaign(
         workspace=aurora_workspace, campaign_id=campaign_id, policy_path=policy_path
     )
-    # Simulate interruption mid-second-run by injecting lock then recovering via stale unlock.
     cdir = aurora_workspace / "campaigns" / campaign_id
     lock_path = cdir / "campaign.lock"
     lock_path.write_text(
@@ -205,6 +195,7 @@ def test_mid_run_interruption_recovery(aurora_workspace, policy_path):
 
 
 def test_report_generation_failure_fail_closed(aurora_workspace, policy_path):
+    bindings = load_campaign_bindings(aurora_workspace)
     with mock.patch(
         "campaign_runner_v0.runner.build_campaign_report",
         side_effect=RuntimeError("report boom"),
@@ -215,12 +206,7 @@ def test_report_generation_failure_fail_closed(aurora_workspace, policy_path):
                 campaign_id="aurora_report_fail_test",
                 policy_path=policy_path,
             )
-    # Prior completed campaigns' frozen evidence still intact.
-    for meta in (
-        __import__(
-            "campaign_runner_v0.models", fromlist=["KNOWN_REUSE_AUDITS"]
-        ).KNOWN_REUSE_AUDITS.values()
-    ):
+    for meta in bindings.reuse_audits.values():
         assert (aurora_workspace / meta["frozen_relpath"] / "SHA256SUMS.txt").is_file()
 
 
