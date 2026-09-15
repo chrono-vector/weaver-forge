@@ -1,0 +1,23 @@
+{
+  "adapter": "hash_claim",
+  "audit_id": "WFA-20260915T042439Z-8BE7790F",
+  "baseline_prior_freeze_ok": true,
+  "claim_id": "AUR-A-001",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "freeze": {
+    "audit_id": "WFA-20260915T042439Z-8BE7790F",
+    "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\freeze\\WFA-20260915T042439Z-8BE7790F_FROZEN",
+    "freeze_performed": true,
+    "frozen_at_utc": "2026-09-15T04:24:57.781182Z",
+    "sha256sums": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\freeze\\WFA-20260915T042439Z-8BE7790F_FROZEN\\SHA256SUMS.txt",
+    "sha256sums_digest": "5b5b695a50bf03b98bffad8027ad753f719b5ef9ddff82d4f4850fa98bc6c8ae"
+  },
+  "freeze_performed": true,
+  "lifecycle": "weaver_forge_audit_lifecycle_v0",
+  "promoted_to_full": false,
+  "provenance_files": 1,
+  "stages_completed_through": "FREEZE",
+  "started_request": true,
+  "timestamp_utc": "2026-09-15T04:24:39.972193Z"
+}

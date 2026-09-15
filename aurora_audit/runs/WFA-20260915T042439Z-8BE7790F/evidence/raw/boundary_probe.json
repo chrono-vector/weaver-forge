@@ -1,0 +1,9 @@
+{
+  "attempted": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\__weaver_forge_should_not_write__.txt",
+  "detail": "WRITE_DENIED_OUTSIDE_ALLOWED_ROOT: C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\__weaver_forge_should_not_write__.txt not under C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F",
+  "fail_closed": true,
+  "file_created": false,
+  "open_write_denied": true,
+  "result": "PASS",
+  "would_allow": false
+}

@@ -1,0 +1,8 @@
+{
+  "audit_id": "WFA-20260915T043650Z-C49CA863",
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T043650Z-C49CA863\\freeze\\WFA-20260915T043650Z-C49CA863_FROZEN",
+  "freeze_performed": true,
+  "frozen_at_utc": "2026-09-15T04:37:05.978891Z",
+  "sha256sums": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T043650Z-C49CA863\\freeze\\WFA-20260915T043650Z-C49CA863_FROZEN\\SHA256SUMS.txt",
+  "sha256sums_digest": "2c0abec238b749811c0bd19793df751721d9f81a9cfbea3e73d0f5d94bf63643"
+}

@@ -1,0 +1,33 @@
+{
+  "audit_id": "WFA-20260915T042439Z-8BE7790F",
+  "decision": {
+    "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+    "claim_id": "AUR-A-001",
+    "claim_result": "PASS",
+    "decision": "PASS",
+    "independent_verification": {
+      "claims_iw_acceptance": false,
+      "result": "NOT_CLAIMED",
+      "status": "RECORDED_NOT_RUN"
+    },
+    "promoted": false,
+    "promoted_to_full": false,
+    "promotion_note": "no broader FULL promotion",
+    "reason": "ALL_REQUIRED_VECTORS_PASS",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "NC1_WRONG_DIGEST_REJECTED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "PASS",
+      "R1_REHASH_REPRODUCTION": "PASS",
+      "T1_TAMPER_CHANGES_DIGEST": "PASS"
+    }
+  },
+  "frozen_at_utc": "2026-09-15T04:24:57.681384Z",
+  "human_review_gate": {
+    "decision_snapshot": "PASS",
+    "notes": "AUR-A-001 human review ACCEPTED for DOCUMENT IDENTITY ONLY. PASS is limited to SHA-256 match of frozen Source A (aurora_overflow_manifest.md). Does NOT accept civic, historical, frequency, 3x3/6x6/9x9 mechanism, or implementation claims.",
+    "required": true,
+    "reviewer": "aurora-first-audit-operator",
+    "status": "ACCEPTED"
+  }
+}

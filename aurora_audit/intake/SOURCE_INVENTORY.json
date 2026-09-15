@@ -1,0 +1,107 @@
+{
+  "schema": "weaver.aurora_overflow.intake.source_inventory.v0",
+  "workspace": "aurora_audit",
+  "created_at_utc": "2026-09-15T04:01:41Z",
+  "resumed_at_utc": "2026-09-15T04:15:42Z",
+  "reviewed_implementation_commit": "f109d9da7d4ceeac953e227c1f8dad2fd07ae308",
+  "final_completion_record_commit": "27c800ad250be505bb6c301ca49f70b13e994139",
+  "product_code_modified": false,
+  "phase": "PHASE_1_SOURCE_FREEZE",
+  "status": "SOURCE_IDENTITY_VERIFIED",
+  "prior_status": "SOURCE_IDENTITY_FAILURE",
+  "epistemic_rules_acknowledged": [
+    "Text existence is not proof of implementation.",
+    "Stated checksums such as '1.00000 Permanent Flow' are not cryptographic checksums.",
+    "'777 Hz Synchronization Verified' is a claim unless supported by measurable evidence.",
+    "Atlantean historical claims are not established history without independent evidence.",
+    "Symbolic/spiritual language must not be silently converted into physical/scientific fact.",
+    "A proposed civic mechanism must not be treated as an implemented system.",
+    "Prior GPT claim-register conclusions are not authority.",
+    "Preserve author language separately from Weaver Forge classification.",
+    "FLAG ≠ VERDICT; SCORE ≠ PERSON; PREDICTION ≠ CONSENT.",
+    "Human agency remains the root authority."
+  ],
+  "sources": {
+    "SOURCE_A": {
+      "label": "LUX Aurora Overflow Manifest",
+      "expected_filename": "aurora_overflow_manifest.md",
+      "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "located": true,
+      "operator_supplied_path": "C:\\Users\\mine0\\Downloads\\aurora_overflow_manifest.md",
+      "workspace_copy_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_sources\\aurora_overflow_manifest.md",
+      "path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md",
+      "byte_length": 8418,
+      "observed_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "identity_verified": true,
+      "identity_result": "SHA256_MATCH",
+      "frozen_copy_path": "aurora_audit/frozen_sources/aurora_overflow_manifest.md",
+      "notes": "Exact filename located in operator Downloads. Copied byte-for-byte into aurora_sources/ then frozen_sources/. Observed SHA-256 matches expected Source A digest. No substitute document used."
+    },
+    "SOURCE_B": {
+      "label": "Google AI Mode precursor / provenance text",
+      "expected_description": "The saved Google AI Mode source/provenance text supplied by the operator.",
+      "expected_filename": "google_ai_mode_aurora_source.txt",
+      "expected_sha256": "9653ff6b4c59da68bd8ecaae4186172aa7fb367b6fb2711d97129a92aa9c39c2",
+      "located": true,
+      "operator_supplied_path": "C:\\Users\\mine0\\Downloads\\google_ai_mode_aurora_source.txt",
+      "workspace_copy_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_sources\\google_ai_mode_aurora_source.txt",
+      "path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\google_ai_mode_aurora_source.txt",
+      "byte_length": 10192,
+      "observed_sha256": "9653ff6b4c59da68bd8ecaae4186172aa7fb367b6fb2711d97129a92aa9c39c2",
+      "identity_verified": true,
+      "identity_result": "SHA256_MATCH",
+      "frozen_copy_path": "aurora_audit/frozen_sources/google_ai_mode_aurora_source.txt",
+      "content_form": "Saved Google search/AI Mode URL (google.com/search with udm=50 / aim markers) whose decoded q= text discusses Atlantean money-free 3×3 / 6×6 / 9×9 themes, Crystal Ledger, Flame-Stewards, Gift/Need/Overflow.",
+      "notes": "Exact filename located in operator Downloads. Copied byte-for-byte. Observed SHA-256 matches operator-expected Source B digest. Treated as precursor/provenance text only."
+    }
+  },
+  "source_relationship": {
+    "declared_relationship": "SOURCE_B is conceptual ancestry / provenance precursor to SOURCE_A (LUX Manifest). They must remain distinct.",
+    "relationship_status": "CONFIRMED_DISTINCT_WITH_THEMATIC_OVERLAP",
+    "distinction_preserved": true,
+    "evidence_role_of_source_b": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY",
+    "source_b_does_not_supply": [
+      "cryptographic proof of Source A claims",
+      "implementation evidence that Aurora Overflow systems exist",
+      "empirical measurement of 777 Hz synchronization",
+      "independent historical corroboration of Atlantean institutions"
+    ],
+    "lux_manifest_vs_google_ai_mode": {
+      "LUX_Manifest": "SOURCE_A — located; SHA-256 verified; frozen",
+      "Google_AI_Mode_precursor": "SOURCE_B — located; SHA-256 verified; frozen; ancestry/provenance only"
+    }
+  },
+  "search_record": {
+    "workspace_root": "c:\\dev\\Weaver\\weaver-forge",
+    "resume_action": "Operator directed copy from Downloads into aurora_sources/, then intake resume from SOURCE_IDENTITY_FAILURE.",
+    "exact_filename_hits_for_aurora_overflow_manifest_md": [
+      "C:\\Users\\mine0\\Downloads\\aurora_overflow_manifest.md",
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_sources\\aurora_overflow_manifest.md",
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md"
+    ],
+    "hash_match_hits_for_expected_source_a_sha256": [
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_sources\\aurora_overflow_manifest.md",
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md"
+    ],
+    "hash_match_hits_for_expected_source_b_sha256": [
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_sources\\google_ai_mode_aurora_source.txt",
+      "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\google_ai_mode_aurora_source.txt"
+    ],
+    "intentionally_not_substituted": [
+      "c:\\dev\\docs\\signals\\2026-07-12_lux_the_old_gods_of_mars.md (different document; prior intake noted SHA-256 ≠ expected Source A)"
+    ]
+  },
+  "stop_condition": {
+    "triggered": false,
+    "prior_code": "SOURCE_IDENTITY_FAILURE",
+    "cleared_at_utc": "2026-09-15T04:15:42Z",
+    "reason": "SOURCE A and SOURCE B located; both observed SHA-256 digests match operator-expected values. Intake resumed through PHASE 2–6.",
+    "phases_unblocked": [
+      "PHASE_2_INDEPENDENT_CLAIM_EXTRACTION",
+      "PHASE_3_VERIFICATION_ROUTING",
+      "PHASE_4_WEAVER_FORGE_COMPATIBILITY",
+      "PHASE_5_3X3_PILOT_EXTRACTION",
+      "PHASE_6_OUTPUT"
+    ]
+  }
+}

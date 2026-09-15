@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "adapter_params": {
+    "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+    "mode": "verify_digest",
+    "primary_file": "aurora_overflow_manifest.md"
+  },
+  "audit_id": "WFA-20260915T043650Z-C49CA863",
+  "claim_id": "AUR-A-002",
+  "fail_criteria": [],
+  "pass_criteria": [],
+  "statement": "DOCUMENT IDENTITY / TEXTUAL PRESENCE ONLY: aurora_audit/frozen_sources/aurora_overflow_manifest.md has SHA-256 a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de and contains the author-stated string 'Checksum: 1.00000 Permanent Flow'. This audit does NOT treat that author-stated checksum as a cryptographic digest, and does not assert Aurora/ZOREL civic truth, historical claims, frequency validation, 3x3/6x6/9x9 mechanism function, civic/economic implementation, or any unsupported claim verification.",
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md"
+}

@@ -1,0 +1,14 @@
+{
+  "classification": "PINNED_INPUT",
+  "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+  "files": [
+    {
+      "bytes": 8418,
+      "relative_path": "aurora_overflow_manifest.md",
+      "sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de"
+    }
+  ],
+  "modified": false,
+  "origin_absolute": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md",
+  "pinned_root": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\pinned_target"
+}

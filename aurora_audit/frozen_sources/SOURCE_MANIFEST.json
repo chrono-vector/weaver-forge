@@ -1,0 +1,51 @@
+{
+  "schema": "weaver.aurora_overflow.frozen_sources.source_manifest.v0",
+  "workspace": "aurora_audit/frozen_sources",
+  "established_at_utc": "2026-09-15T05:30:00Z",
+  "rehashed_at_utc": "2026-09-15T04:50:00Z",
+  "immutable_boundary": true,
+  "notes": [
+    "SOURCE \u2260 CLAIM",
+    "HASH MATCH \u2260 CONTENT TRUTH",
+    "Frozen sources are identity boundaries for audits; they are not verified claim corpora."
+  ],
+  "sources": {
+    "SOURCE_A": {
+      "label": "LUX Aurora Overflow Manifest",
+      "filename": "aurora_overflow_manifest.md",
+      "path": "aurora_audit/frozen_sources/aurora_overflow_manifest.md",
+      "role": "PRIMARY_AUDIT_TARGET",
+      "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "observed_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "identity_result": "SHA256_MATCH",
+      "byte_length": 8418,
+      "provenance": {
+        "operator_supplied_path": "C:\\Users\\mine0\\Downloads\\aurora_overflow_manifest.md",
+        "workspace_drop_path": "aurora_sources/aurora_overflow_manifest.md",
+        "intake_inventory_ref": "aurora_audit/intake/SOURCE_INVENTORY.json",
+        "relationship": "Primary LUX Manifest; distinct from Source B"
+      }
+    },
+    "SOURCE_B": {
+      "label": "Google AI Mode precursor / provenance text",
+      "filename": "google_ai_mode_aurora_source.txt",
+      "path": "aurora_audit/frozen_sources/google_ai_mode_aurora_source.txt",
+      "role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY",
+      "expected_sha256": "9653ff6b4c59da68bd8ecaae4186172aa7fb367b6fb2711d97129a92aa9c39c2",
+      "observed_sha256": "9653ff6b4c59da68bd8ecaae4186172aa7fb367b6fb2711d97129a92aa9c39c2",
+      "identity_result": "SHA256_MATCH",
+      "byte_length": 10192,
+      "provenance": {
+        "operator_supplied_path": "C:\\Users\\mine0\\Downloads\\google_ai_mode_aurora_source.txt",
+        "workspace_drop_path": "aurora_sources/google_ai_mode_aurora_source.txt",
+        "intake_inventory_ref": "aurora_audit/intake/SOURCE_INVENTORY.json",
+        "relationship": "Conceptual ancestry / precursor only; does not prove Source A claims"
+      }
+    }
+  },
+  "integrity": {
+    "source_a_match": true,
+    "source_b_match": true,
+    "status": "SOURCE_IDENTITY_VERIFIED"
+  }
+}

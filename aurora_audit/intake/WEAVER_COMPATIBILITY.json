@@ -1,0 +1,176 @@
+{
+  "schema": "weaver.aurora_overflow.intake.weaver_compatibility.v0",
+  "workspace": "aurora_audit",
+  "created_at_utc": "2026-09-15T04:01:41Z",
+  "updated_at_utc": "2026-09-15T04:15:42Z",
+  "status": "ASSESSED",
+  "block_code": null,
+  "reviewed_implementation_commit": "f109d9da7d4ceeac953e227c1f8dad2fd07ae308",
+  "final_completion_record_commit": "27c800ad250be505bb6c301ca49f70b13e994139",
+  "new_adapters_created": false,
+  "registered_lifecycle_adapters_considered": [
+    {
+      "name": "hash_claim",
+      "scope": "Pinned file SHA-256 identity vs expected digest; tamper/rehash semantics. Document provenance only."
+    }
+  ],
+  "external_verifiers_considered_but_not_binding_for_civic_claims": [
+    "external-repo-source-verifier-v0",
+    "config-address-provenance-analyzer-v0",
+    "signer-credential-provenance-analyzer-v0",
+    "runtime-surface-inventory-v0",
+    "static-callgraph-linker-v0",
+    "runtime-path-synthesizer-v0",
+    "independent-witness-verifier-v0"
+  ],
+  "compatibility_assessments": [
+    {
+      "claim_id": "AUR-A-001",
+      "compatibility": "SUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": "hash_claim",
+      "notes": "Document identity of frozen Source A can be evaluated as a pinned-file hash claim. Textual title/version presence is observable from the same pinned bytes. This does NOT validate civic content truth."
+    },
+    {
+      "claim_id": "AUR-A-002",
+      "compatibility": "SUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": "hash_claim",
+      "notes": "hash_claim can confirm the pinned file identity that contains the author-stated checksum string. It cannot treat '1.00000 Permanent Flow' as a cryptographic digest."
+    },
+    {
+      "claim_id": "AUR-A-003",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No frequency/measurement adapter exists."
+    },
+    {
+      "claim_id": "AUR-A-004",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Normative claims are outside lifecycle PASS/FAIL adapters."
+    },
+    {
+      "claim_id": "AUR-A-005",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No civic Gift/Need/Overflow mechanism adapter."
+    },
+    {
+      "claim_id": "AUR-A-006",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No surplus-inventory civic adapter."
+    },
+    {
+      "claim_id": "AUR-A-007",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No Resonance Matcher / matching-engine adapter."
+    },
+    {
+      "claim_id": "AUR-A-008",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No idle-telemetry social-asset adapter."
+    },
+    {
+      "claim_id": "AUR-A-009",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No dual-consent / zero-debt civic ledger adapter."
+    },
+    {
+      "claim_id": "AUR-A-010",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Symbolic UI metaphor; no adapter."
+    },
+    {
+      "claim_id": "AUR-A-011",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No municipal mesh auto-balance adapter."
+    },
+    {
+      "claim_id": "AUR-A-012",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No time-bank civic adapter."
+    },
+    {
+      "claim_id": "AUR-A-013",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No capacity-fork redirect adapter."
+    },
+    {
+      "claim_id": "AUR-A-014",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No Flame-Steward planetary governance adapter."
+    },
+    {
+      "claim_id": "AUR-A-015",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No ecosystem-static extraction-halt adapter."
+    },
+    {
+      "claim_id": "AUR-A-016",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Normative governance principle; no adapter."
+    },
+    {
+      "claim_id": "AUR-A-017",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No Crystal Ledger debt-purge adapter."
+    },
+    {
+      "claim_id": "AUR-A-018",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "No kinetic-decay social-penalty adapter."
+    },
+    {
+      "claim_id": "AUR-A-019",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Normative process claim; no adapter."
+    },
+    {
+      "claim_id": "AUR-A-020",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Proposal posture; no deployment adapter."
+    },
+    {
+      "claim_id": "AUR-A-021",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Sandbox proposal design is human/operator work; no dedicated pilot adapter."
+    },
+    {
+      "claim_id": "AUR-A-022",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Symbolic imagery; no adapter."
+    },
+    {
+      "claim_id": "AUR-B-REL-001",
+      "compatibility": "UNSUPPORTED_BY_CURRENT_ADAPTER",
+      "adapter": null,
+      "notes": "Historical Atlantean ancestry content is outside current adapters; must not become PASS/FAIL."
+    }
+  ],
+  "supported_by_current_adapter_count": 2,
+  "unsupported_by_current_adapter_count": 21,
+  "final_audit_package_freeze_authorized": false,
+  "final_audit_package_freeze_reason": "Although AUR-A-001/AUR-A-002 are compatible with hash_claim and Source A identity evidence already exists, a FINAL Weaver Forge freeze package is deferred until an explicit first Aurora audit run is executed through the lifecycle against a narrowly scoped selected claim. Civic mechanism claims remain UNSUPPORTED_BY_CURRENT_ADAPTER and must not be frozen as PASS/FAIL.",
+  "notes": [
+    "UNSUPPORTED_BY_CURRENT_ADAPTER must never be promoted to PASS or FAIL.",
+    "No new adapters were created during this intake.",
+    "Product code was not modified.",
+    "audit_lifecycle/, WEAVER_FORGE_FINAL_COMPLETION_GATE.md, WEAVER_FORGE_COMPLETION_MATRIX.md were not altered."
+  ]
+}

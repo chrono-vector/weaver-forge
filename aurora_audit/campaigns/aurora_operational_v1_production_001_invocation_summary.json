@@ -1,0 +1,26 @@
+{
+  "blocker_count": 12,
+  "campaign_dir": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\campaigns\\aurora_operational_v1_production_001",
+  "campaign_id": "aurora_operational_v1_production_001",
+  "claim_count": 23,
+  "dry_run": false,
+  "invocation_id": "INV-20260915T075452Z-a074ab87",
+  "ok": true,
+  "state_counts": {
+    "BLOCKED_AUTHORITY": 0,
+    "BLOCKED_EVIDENCE": 2,
+    "BLOCKED_HUMAN": 1,
+    "FAIL": 0,
+    "HISTORICAL_CORROBORATION_REQUIRED": 1,
+    "IMPLEMENTATION_REQUIRED": 8,
+    "INCONCLUSIVE": 4,
+    "NEW": 0,
+    "NORMATIVE_NOT_FACTUAL": 3,
+    "PASS": 2,
+    "PLANNED": 0,
+    "ROUTED": 0,
+    "RUNNING": 0,
+    "SYMBOLIC_NOT_EMPIRICAL": 2,
+    "UNSUPPORTED": 0
+  }
+}

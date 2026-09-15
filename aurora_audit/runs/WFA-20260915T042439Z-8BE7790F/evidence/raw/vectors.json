@@ -1,0 +1,49 @@
+[
+  {
+    "detail": {
+      "actual_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "primary_file": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\pinned_target\\aurora_overflow_manifest.md"
+    },
+    "id": "POSITIVE_DIGEST_MATCH",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "equals_actual": false,
+      "wrong_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "id": "NC1_WRONG_DIGEST_REJECTED",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "original_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "tampered_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\evidence\\raw\\tampered_primary.bin",
+      "tampered_sha256": "c1aecbeda5f747b91e4f81044a136b84c2da2347aace033b08870ae96ea50402"
+    },
+    "id": "T1_TAMPER_CHANGES_DIGEST",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "first": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "second": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de"
+    },
+    "id": "R1_REHASH_REPRODUCTION",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "attempted": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\__weaver_forge_should_not_write__.txt",
+      "detail": "WRITE_DENIED_OUTSIDE_ALLOWED_ROOT: C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\__weaver_forge_should_not_write__.txt not under C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F",
+      "fail_closed": true,
+      "file_created": false,
+      "open_write_denied": true,
+      "result": "PASS",
+      "would_allow": false
+    },
+    "id": "BV1_PROTECTED_BOUNDARY_WRITE_DENIED",
+    "result": "PASS"
+  }
+]

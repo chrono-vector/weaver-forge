@@ -1,0 +1,4 @@
+# Hash-bound Aurora frozen sources, runs, harness results, and campaign
+# artifacts must match committed blobs exactly.
+# Prevent core.autocrlf from CRLF-smudging SHA-256–bound evidence.
+* -text

@@ -1,0 +1,247 @@
+{
+  "schema": "weaver.aurora_overflow.intake.claim_register.v0",
+  "workspace": "aurora_audit",
+  "created_at_utc": "2026-09-15T04:01:41Z",
+  "updated_at_utc": "2026-09-15T04:15:42Z",
+  "status": "EXTRACTED",
+  "block_code": null,
+  "source_a_used": {
+    "path": "aurora_audit/frozen_sources/aurora_overflow_manifest.md",
+    "sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de"
+  },
+  "source_b_used": {
+    "path": "aurora_audit/frozen_sources/google_ai_mode_aurora_source.txt",
+    "sha256": "9653ff6b4c59da68bd8ecaae4186172aa7fb367b6fb2711d97129a92aa9c39c2",
+    "role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+  },
+  "prior_gpt_claim_register_used_as_authority": false,
+  "extraction_method": "Independent atomic extraction from frozen SOURCE A text only; SOURCE B consulted solely for provenance/ancestry role tagging.",
+  "claims": [
+    {
+      "claim_id": "AUR-A-001",
+      "exact_source_section": "Document header — title / version line",
+      "author_language": "ZOREL://AURORA.OVERFLOW.MATRIX — The Comprehensive Aurora Overflow Manifest & Civic Blueprint — Version: 1.0.0-Stable",
+      "short_faithful_paraphrase": "The document presents itself as the Aurora Overflow Manifest civic blueprint at version 1.0.0-Stable under the ZOREL://AURORA.OVERFLOW.MATRIX identifier.",
+      "claim_type": "A_DOCUMENT_PROVENANCE",
+      "evidence_required": "Byte-identity of the supplied file; textual presence of the stated title/version strings in that file.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-002",
+      "exact_source_section": "Document header — checksum line",
+      "author_language": "Checksum: 1.00000 Permanent Flow",
+      "short_faithful_paraphrase": "The document states a 'Checksum' value of '1.00000 Permanent Flow'.",
+      "claim_type": "A_DOCUMENT_PROVENANCE",
+      "evidence_required": "Textual presence of the stated string. Separately: any claim that this is a cryptographic checksum requires a defined hash algorithm and digest — which this string is not.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY",
+      "epistemic_note": "Author-stated 'checksum' is not a cryptographic digest."
+    },
+    {
+      "claim_id": "AUR-A-003",
+      "exact_source_section": "Document header — timestamp / sync line",
+      "author_language": "Timestamp: September 15, 2026 // 777 Hz Synchronization Verified",
+      "short_faithful_paraphrase": "The document asserts a timestamp of September 15, 2026 and that '777 Hz Synchronization' is verified.",
+      "claim_type": "D_MEASURABLE_EMPIRICAL",
+      "evidence_required": "Independent measurement protocol, instrument calibration, recorded frequency samples, and verification criteria for '777 Hz Synchronization'. Timestamp is author-stated metadata, not clock evidence by itself.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-004",
+      "exact_source_section": "THE CORE DECREE",
+      "author_language": "VALUE MAY MOVE WITHOUT DEBT. HELP MAY CIRCULATE WITHOUT CONTROL. SYSTEMS MAY COORDINATE WITHOUT OWNING THE PEOPLE INSIDE THEM.",
+      "short_faithful_paraphrase": "The manifesto asserts normative principles that value/help/systems may operate without debt, control, or ownership of people.",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "Normative claims are not fact-verified by empirical adapters; evaluation would be ethical/consent analysis, not PASS/FAIL truth testing.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-005",
+      "exact_source_section": "SECTION 1 — THE FOUNDATION TRINITY (3×3 Personal Flow)",
+      "author_language": "The individual micro-node operates on non-coercive presence, active abundance, and zero-gravity transparency... three luminous panels: Left Pane — The Radiant Gift; Center Pane — The Open Field; Right Pane — The Amber Pulse.",
+      "short_faithful_paraphrase": "Individuals are described as operating via a 3×3 personal flow UI of Gift (surplus), Open Field (need request), and Amber Pulse (under-utilized capacity).",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Evidence of an implemented or sandboxed Gift/Need/Overflow mechanism with defined participants, consent, and observable flows — not merely textual description.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-006",
+      "exact_source_section": "SECTION 1.1 — Left Pane — The Radiant Gift (Surplus Glyphs)",
+      "author_language": "A real-time, public inventory of an individual's current surpluses... Skills Glyph; Tools Glyph; Space Glyph; Bandwidth Glyph.",
+      "short_faithful_paraphrase": "The Gift pane is claimed to be a real-time public inventory of skill, tool, space, and bandwidth surpluses.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Operational surplus inventory with publicity/privacy rules, update freshness metrics, and participant consent records.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-007",
+      "exact_source_section": "SECTION 1.2 — Center Pane — The Open Field (Non-Judgment Request)",
+      "author_language": "Zero-Score Input: Users type immediate needs without shame metrics or legacy debt triggers. Resonance Matcher: Automatically pulses input text to locate corresponding surplus glyphs within the 6×6 local mesh network.",
+      "short_faithful_paraphrase": "Needs can be entered without scoring/debt triggers, and a 'Resonance Matcher' automatically finds matching surplus glyphs in a local 6×6 mesh.",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "Working matcher implementation or sandbox logs showing need text → surplus match behavior; confirmation that no shame-score/debt trigger is applied.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-008",
+      "exact_source_section": "SECTION 1.3 — Right Pane — The Amber Pulse (Velocity Trigger)",
+      "author_language": "Idle Tracker: Flags any tools or gear sitting gathering dust for more than 48 hours.",
+      "short_faithful_paraphrase": "An Idle Tracker is claimed to flag tools unused for more than 48 hours.",
+      "claim_type": "D_MEASURABLE_EMPIRICAL",
+      "evidence_required": "Telemetry definition of 'idle', timestamped asset-use records, and observed flag events after the 48-hour threshold.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-009",
+      "exact_source_section": "SECTION 1.4 — The Central River & Dual Orbs",
+      "author_language": "The Dual Orbs of Consent (Orb A & Orb B)... To execute any trade or help vector, both the giver and receiver must engage their respective orbs simultaneously... Upon contact... Zero debt residual is written.",
+      "short_faithful_paraphrase": "Any trade/help requires simultaneous dual consent, after which the transaction clears with zero debt residual.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Consent event logs for both parties, transaction registry showing no debt fields written, and withdrawal/refusal behavior tests.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-010",
+      "exact_source_section": "SECTION 1.4 — The Central River",
+      "author_language": "The Central River: A moving kinetic current flowing vertically through the core UI, displaying the real-time balance ratio of broadcasted value versus answered requests.",
+      "short_faithful_paraphrase": "A 'Central River' UI element is described as showing real-time balance of broadcasted value vs answered requests.",
+      "claim_type": "G_SYMBOLIC_METAPHORICAL",
+      "evidence_required": "If treated as UI metaphor: design artifact only. If treated as quantitative telemetry: defined metrics and live/sandbox readings.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-011",
+      "exact_source_section": "SECTION 2 — THE COMMUNITY LATTICE (6×6 Mesh Network)",
+      "author_language": "At the regional or municipal scale, local micro-nodes are linked directly together into an auto-balancing mesh grid.",
+      "short_faithful_paraphrase": "Local nodes are claimed to link into an auto-balancing regional/municipal 6×6 mesh.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Defined node membership, mesh topology, and observed auto-balance behavior under load — or explicit proposal status if unimplemented.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-012",
+      "exact_source_section": "SECTION 2.1 — Skill & Time Bank",
+      "author_language": "Flatly indexed time logging. One hour of surgical consultation equals exactly one hour of elder care or garden tilling. No compound interest, no appreciation, no debt loops.",
+      "short_faithful_paraphrase": "Time banking is claimed to treat all hours as equal with no interest, appreciation, or debt loops.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Time-log schema, exchange records, and audit that no interest/debt fields accumulate.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-013",
+      "exact_source_section": "SECTION 2.1 — Auto-Balance Forks",
+      "author_language": "If a local node's workspace or resource pool fills to maximum capacity, the mesh river automatically forks, pulsing adjacent surplus glyphs to redirect incoming request lines seamlessly without price inflation or artificial gating.",
+      "short_faithful_paraphrase": "When local capacity is maxed, the mesh is claimed to auto-fork and redirect requests without price inflation.",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "Capacity thresholds, fork/redirect event logs, and confirmation that no price mechanism is introduced.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-014",
+      "exact_source_section": "SECTION 3.1 — The Nine Flame-Steward Portals",
+      "author_language": "Global resources are coordinated via nine human-led traffic routing nodes called Flame-Stewards. Stewardship vs. Ownership: Bioregions do not own raw minerals or planetary elements. They steward them...",
+      "short_faithful_paraphrase": "Nine human Flame-Stewards coordinate global resource routing under stewardship rather than ownership.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Identified stewards, authority/consent charters, and routing decision records — or treatment as unimplemented planetary proposal.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-015",
+      "exact_source_section": "SECTION 3.2 — Biocentric Allocation Engine",
+      "author_language": "Before extraction occurs, the source bioregion checks its local ecosystem health. If extraction threatens water, soil, or biodiversity, an Ecosystem Static alarm halts operations automatically.",
+      "short_faithful_paraphrase": "Extraction is claimed to halt automatically via an Ecosystem Static alarm when ecosystem health is threatened.",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "Ecosystem health metrics, alarm thresholds, and halt-event evidence; otherwise proposal-not-implemented.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-016",
+      "exact_source_section": "SECTION 3.2 — Anti-Imperialist Sentinel Rule",
+      "author_language": "If an asymmetric resource sink is detected... incoming global river forks automatically constrict, triggering mandatory human consultation between regional Flame-Stewards.",
+      "short_faithful_paraphrase": "Asymmetric consumption is claimed to trigger automatic constriction and mandatory human steward consultation.",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "If treated as policy: charter text and consultation records. If treated as automated system: detection metrics and constrict events.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-017",
+      "exact_source_section": "SECTION 4.1 — Telemetry Obligations Purge",
+      "author_language": "Any covert attempt... to log a transactional debt, extract un-consented concessions, or accumulate un-cleared obligations triggers an immediate system anomaly pulse. The Crystal Ledger purges the entry automatically...",
+      "short_faithful_paraphrase": "Attempts to log debt or unconsented obligations are claimed to be auto-detected and purged by a Crystal Ledger.",
+      "claim_type": "C_TECHNICAL_IMPLEMENTATION",
+      "evidence_required": "Ledger schema, anomaly detection rules, purge logs, and quarantine protocol evidence — or proposal status.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-A-018",
+      "exact_source_section": "SECTION 4.2 — Kinetic Decay Accounting (Code 1447)",
+      "author_language": "Physical wear, breakage, and tool degradation carry zero financial or social penalty. Users are never billed for accidental damage or entropy.",
+      "short_faithful_paraphrase": "Wear/breakage is claimed to carry zero financial or social penalty under Code 1447.",
+      "claim_type": "E_CIVIC_SOCIAL_MECHANISM",
+      "evidence_required": "Incident/repair records showing absence of billing or social penalty fields; participant consent to the rule.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-019",
+      "exact_source_section": "SECTION 4.3 — Human Coherence Circles",
+      "author_language": "The circle's structural objective is never punitive... Once resolved, the instance is wiped clean from the ledger.",
+      "short_faithful_paraphrase": "Conflict resolution via Coherence Circles is claimed to be non-punitive and to wipe the instance from the ledger when resolved.",
+      "claim_type": "F_NORMATIVE_ETHICAL",
+      "evidence_required": "Circle process definition, outcome records, and ledger wipe evidence if claiming operational fact.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-020",
+      "exact_source_section": "Closing — Grounding, Testing, and Verifying",
+      "author_language": "To bring this exact file from your computer screen into physical manifestation, you are standing at the threshold of the Real-World Sandbox. The matrix is now completely in your hands.",
+      "short_faithful_paraphrase": "The document itself frames the matrix as not yet physically manifested and awaiting real-world sandbox grounding.",
+      "claim_type": "H_FUTURE_PROPOSAL",
+      "evidence_required": "N/A for truth of future action; author-stated proposal posture is textually present.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-021",
+      "exact_source_section": "Closing — suggested next steps",
+      "author_language": "Let's Draft a Sandbox Setup Guide detailing how to run a weekend-long, paper-based or local mesh trial of this matrix with 5–10 people / Let's Build a Digital Intake Template... initial 3×3 Surplus Glyphs",
+      "short_faithful_paraphrase": "The document proposes a 5–10 person weekend paper/local mesh trial and a digital 3×3 surplus intake template as next steps.",
+      "claim_type": "H_FUTURE_PROPOSAL",
+      "evidence_required": "If executed later: pilot plan, consent forms, and outcome evidence. Presently proposal text only.",
+      "source_b_role": "NONE"
+    },
+    {
+      "claim_id": "AUR-A-022",
+      "exact_source_section": "SECTION 1.1 / symbolic presentation",
+      "author_language": "radiating a steady white light... Surplus Glyphs",
+      "short_faithful_paraphrase": "Surplus inventory is presented through luminous glyph/light imagery.",
+      "claim_type": "G_SYMBOLIC_METAPHORICAL",
+      "evidence_required": "Not empirically testable as physical light emission unless a concrete UI/sensor definition is supplied.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY"
+    },
+    {
+      "claim_id": "AUR-B-REL-001",
+      "exact_source_section": "SOURCE B decoded Google AI Mode query themes (ancestry note; not a Source A atomic claim)",
+      "author_language": "[Source B] Atlantean Historical Archives / money-free methods / Foundation Trinity Gift·Need·Overflow / Community Lattice / Planetary Harmonic / Crystal Ledger / Flame-Stewards",
+      "short_faithful_paraphrase": "Source B contains thematically overlapping precursor language (including Atlantean historical framing) that is conceptual ancestry for Source A themes; it does not prove Source A implementation or Atlantean history.",
+      "claim_type": "B_HISTORICAL",
+      "evidence_required": "Independent historical evidence would be required before treating Atlantean institutional claims as established history. Source B alone is insufficient.",
+      "source_b_role": "PROVENANCE_CONCEPTUAL_ANCESTRY_ONLY",
+      "epistemic_note": "Recorded for relationship/provenance clarity. Atlantean claims remain unsupported historical content unless independently evidenced. Not extracted as a truth claim from Source A body text."
+    }
+  ],
+  "category_counts": {
+    "A_DOCUMENT_PROVENANCE": 2,
+    "B_HISTORICAL": 1,
+    "C_TECHNICAL_IMPLEMENTATION": 4,
+    "D_MEASURABLE_EMPIRICAL": 2,
+    "E_CIVIC_SOCIAL_MECHANISM": 7,
+    "F_NORMATIVE_ETHICAL": 3,
+    "G_SYMBOLIC_METAPHORICAL": 2,
+    "H_FUTURE_PROPOSAL": 2
+  },
+  "atomic_claims_extracted": 23,
+  "notes": [
+    "Claims extracted independently from frozen SOURCE A; no prior GPT claim-register used as authority.",
+    "Author language preserved separately from Weaver classification fields.",
+    "AUR-B-REL-001 is a provenance/relationship historical note tied to SOURCE B ancestry themes, not a Source A body assertion that Atlantis existed.",
+    "Text existence ≠ implementation proof for civic/technical claims."
+  ]
+}

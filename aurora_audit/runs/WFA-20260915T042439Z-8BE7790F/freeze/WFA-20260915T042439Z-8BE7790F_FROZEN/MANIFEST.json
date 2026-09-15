@@ -1,0 +1,105 @@
+{
+  "audit_id": "WFA-20260915T042439Z-8BE7790F",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "final_decision_sha256": "0d5b468d83f8351ca7263dad768ae1d8b695ed2a40af39a3eb4b1d7c313cecac",
+  "final_evidence_index_sha256": "ae7b0e29cf33af9ef018d5bd59345705609297c5369d5a2a27e68362fdc92734",
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F\\freeze\\WFA-20260915T042439Z-8BE7790F_FROZEN",
+  "freeze_label": "WFA-20260915T042439Z-8BE7790F_FROZEN",
+  "human_review": {
+    "decision_snapshot": "PASS",
+    "notes": "AUR-A-001 human review ACCEPTED for DOCUMENT IDENTITY ONLY. PASS is limited to SHA-256 match of frozen Source A (aurora_overflow_manifest.md). Does NOT accept civic, historical, frequency, 3x3/6x6/9x9 mechanism, or implementation claims.",
+    "required": true,
+    "reviewer": "aurora-first-audit-operator",
+    "status": "ACCEPTED"
+  },
+  "promoted_to_full": false,
+  "referenced_audit_files": [
+    {
+      "path": "AUDIT_REQUEST.json",
+      "role": "artifact",
+      "sha256": "4faf2442438618474df709cec83971122294f8276db0c59b12b6ddf333c34db3"
+    },
+    {
+      "path": "BASELINE.json",
+      "role": "lifecycle",
+      "sha256": "bf0548f4b2647cabfd7b1b9bc987680b95cccb4f57e5a4639d0a7c4360d853ed"
+    },
+    {
+      "path": "CLAIM.json",
+      "role": "lifecycle",
+      "sha256": "d41e108d2db3d740da1d90da3c811e213eb3ec27169e508e948b61bcafc4e107"
+    },
+    {
+      "path": "DECISION.json",
+      "role": "decision",
+      "sha256": "9a0a4480241c2c19017077e22078ad3d7655bf4c231679e77714bb30e85b2dab"
+    },
+    {
+      "path": "evidence/logs/adapter.log",
+      "role": "evidence",
+      "sha256": "6845805d79b73fa8c7675b4a5a17e9cf8d05607ae9457b58f38fd0b083ec0bce"
+    },
+    {
+      "path": "evidence/raw/adapter_result.json",
+      "role": "evidence",
+      "sha256": "36ed3c8e272b1f2cfa3b4815973df71a79cb3711aede2b262789e509d018c663"
+    },
+    {
+      "path": "evidence/raw/boundary_probe.json",
+      "role": "evidence",
+      "sha256": "9c1a33aee577fbb4db31f12868865ba68be5dd0138807019b790c5a6cd37cf6e"
+    },
+    {
+      "path": "evidence/raw/tampered_primary.bin",
+      "role": "evidence",
+      "sha256": "c1aecbeda5f747b91e4f81044a136b84c2da2347aace033b08870ae96ea50402"
+    },
+    {
+      "path": "evidence/raw/vectors.json",
+      "role": "evidence",
+      "sha256": "e2326496d7386116deb51da6807e541025766c24decee967f60d940fcf925e9f"
+    },
+    {
+      "path": "EXECUTION_MANIFEST.json",
+      "role": "decision",
+      "sha256": "79d684b502655a49d565e5c6cd58bfb463f519138edec6bac54d04a5c3166add"
+    },
+    {
+      "path": "HUMAN_REVIEW.json",
+      "role": "artifact",
+      "sha256": "1082f478982ab3ce2ce0fb070bd0e245f9404cf52efbff5ea06a773337558320"
+    },
+    {
+      "path": "HUMAN_REVIEW_GATE.json",
+      "role": "artifact",
+      "sha256": "accea69b190ac1a3a4d34f64959356dbc169f0480ea3ad7ac00e03eaffcfb0b1"
+    },
+    {
+      "path": "INDEPENDENT_VERIFICATION.json",
+      "role": "artifact",
+      "sha256": "63a9990992f1654ca85c78c3fac3c6acc62c5d2e94bfd524de484dc06e353837"
+    },
+    {
+      "path": "pinned_target/aurora_overflow_manifest.md",
+      "role": "pinned_input",
+      "sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de"
+    },
+    {
+      "path": "PROVENANCE.json",
+      "role": "provenance",
+      "sha256": "246880773d889aec5376f997a2ef8e34c36dc59aca53cf820235281a2343a2b1"
+    },
+    {
+      "path": "SCOPE.json",
+      "role": "lifecycle",
+      "sha256": "00f270b6507f2d5f626bc6a71510ff0c2346a46b003e3912d4b33da8f905cc3e"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "role": "artifact",
+      "sha256": "1764c581ba9cc5e68f55d238cd83387296c873a86b586748872c0c0e61374fd9"
+    }
+  ],
+  "reproduction_instructions": "REPRODUCTION_INSTRUCTIONS.md"
+}

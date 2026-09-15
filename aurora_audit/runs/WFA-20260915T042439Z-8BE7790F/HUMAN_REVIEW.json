@@ -1,0 +1,5 @@
+{
+  "status": "ACCEPTED",
+  "reviewer": "aurora-first-audit-operator",
+  "notes": "AUR-A-001 human review ACCEPTED for DOCUMENT IDENTITY ONLY. PASS is limited to SHA-256 match of frozen Source A (aurora_overflow_manifest.md). Does NOT accept civic, historical, frequency, 3x3/6x6/9x9 mechanism, or implementation claims."
+}

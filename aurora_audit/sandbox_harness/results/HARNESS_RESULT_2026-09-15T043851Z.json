@@ -1,0 +1,116 @@
+{
+  "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+  "executed_at_utc": "2026-09-15T04:38:51Z",
+  "harness_id": "aurora_protocol_harness_v0",
+  "scenarios": {
+    "AUR-A-005": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-005",
+      "note": "Harness encodes 3x3 flow rules; does not prove individuals operate this way in reality.",
+      "observable_contradict_if": "Match without dual consent, or debt/score fields written",
+      "observable_support_if": "Gift/Need/Overflow cards flow with dual-consented clear and idle overflow flag",
+      "protocol_check": "PASS",
+      "result": {
+        "cleared_status": "CLEARED",
+        "match_ok": true,
+        "match_reasons": [
+          "DUAL_CONSENT_OK",
+          "ZERO_DEBT_CLEARED"
+        ],
+        "needs_posted": 2,
+        "offers_posted": 3,
+        "overflow_flagged": 2,
+        "zero_debt_residual": true
+      }
+    },
+    "AUR-A-009": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-009",
+      "negative_debt_field": {
+        "blocked": true,
+        "reason": "FORBIDDEN_DEBT_FIELDS:['iou']"
+      },
+      "negative_missing_consent": {
+        "reason": "DUAL_CONSENT_MISSING",
+        "rejected": true
+      },
+      "note": "Protocol rules hold in simulation only.",
+      "observable_contradict_if": "Single-party consent succeeds, or debt residual written",
+      "observable_support_if": "Both consents required; cleared card has zero_debt_residual and no debt fields",
+      "positive_dual_consent": {
+        "ok": true,
+        "reasons": [
+          "DUAL_CONSENT_OK",
+          "ZERO_DEBT_CLEARED"
+        ],
+        "status": "CLEARED"
+      },
+      "protocol_check": "PASS"
+    },
+    "AUR-A-012": {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-012",
+      "clean_log_ok": true,
+      "duration_mismatch_control": {
+        "ok": true,
+        "reason": "DURATION_MISMATCH_FOR_EQUALITY_TEST"
+      },
+      "flat_equality": {
+        "ok": true,
+        "reason": "FLAT_EQUAL:surgical_consultation==garden_tilling@1.0h"
+      },
+      "interest_field_blocked": true,
+      "note": "Flat indexing rule encoded; not a live time-bank deployment.",
+      "observable_contradict_if": "Skill prestige reweights hours, or interest/debt accumulates",
+      "observable_support_if": "Equal hours exchange as equal units; no interest/debt fields",
+      "protocol_check": "PASS"
+    },
+    "AUR-A-018": {
+      "bill_rejected": {
+        "blocked": true,
+        "reason": "FORBIDDEN_DEBT_FIELDS:['bill']"
+      },
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-018",
+      "note": "Code 1447 zero-penalty rule encoded; not observed participant incidents.",
+      "observable_contradict_if": "Financial or social penalty fields written on wear",
+      "observable_support_if": "Wear/breakage logged with repair flag and no bill/penalty fields",
+      "protocol_check": "PASS",
+      "zero_penalty": {
+        "ok": true,
+        "reason": "WEAR_ZERO_PENALTY_OK"
+      }
+    },
+    "AUR-A-021": {
+      "blocker": "Requires consenting human participants (5\u201310) for weekend paper/local mesh trial; harness cannot substitute.",
+      "civic_claim_state": "READY_FOR_SANDBOX",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-021",
+      "executed": false,
+      "note": "Pilot design exists under aurora_audit/pilots/3x3/; DESIGNED_NOT_LAUNCHED.",
+      "protocol_check": null
+    }
+  },
+  "summary": {
+    "any_civic_pass_promoted": false,
+    "not_executed": [
+      "AUR-A-021"
+    ],
+    "protocol_checks_executed": [
+      "AUR-A-005",
+      "AUR-A-009",
+      "AUR-A-012",
+      "AUR-A-018"
+    ],
+    "protocol_checks_passed": [
+      "AUR-A-005",
+      "AUR-A-009",
+      "AUR-A-012",
+      "AUR-A-018"
+    ]
+  }
+}

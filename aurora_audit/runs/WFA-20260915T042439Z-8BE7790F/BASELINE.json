@@ -1,0 +1,23 @@
+{
+  "allowed_write_root": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F",
+  "audit_id": "WFA-20260915T042439Z-8BE7790F",
+  "baseline_at_utc": "2026-09-15T04:24:39.851895Z",
+  "prior_freeze_integrity": {
+    "all_ok": true,
+    "checks": {}
+  },
+  "protected_paths": [
+    {
+      "exists": true,
+      "is_dir": true,
+      "is_file": false,
+      "path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources"
+    },
+    {
+      "exists": true,
+      "is_dir": true,
+      "is_file": false,
+      "path": "C:\\dev\\Weaver\\weaver-forge\\aurora_sources"
+    }
+  ]
+}

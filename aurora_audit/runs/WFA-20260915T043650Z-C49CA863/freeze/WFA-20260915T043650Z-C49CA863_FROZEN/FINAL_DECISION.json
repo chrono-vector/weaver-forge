@@ -1,0 +1,33 @@
+{
+  "audit_id": "WFA-20260915T043650Z-C49CA863",
+  "decision": {
+    "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+    "claim_id": "AUR-A-002",
+    "claim_result": "PASS",
+    "decision": "PASS",
+    "independent_verification": {
+      "claims_iw_acceptance": false,
+      "result": "NOT_CLAIMED",
+      "status": "RECORDED_NOT_RUN"
+    },
+    "promoted": false,
+    "promoted_to_full": false,
+    "promotion_note": "no broader FULL promotion",
+    "reason": "ALL_REQUIRED_VECTORS_PASS",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "NC1_WRONG_DIGEST_REJECTED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "PASS",
+      "R1_REHASH_REPRODUCTION": "PASS",
+      "T1_TAMPER_CHANGES_DIGEST": "PASS"
+    }
+  },
+  "frozen_at_utc": "2026-09-15T04:37:05.883594Z",
+  "human_review_gate": {
+    "decision_snapshot": "PASS",
+    "notes": "AUR-A-002 human review ACCEPTED for DOCUMENT IDENTITY / TEXTUAL PRESENCE ONLY. PASS is limited to SHA-256 identity of frozen Source A containing the author-stated string 'Checksum: 1.00000 Permanent Flow'. Does NOT treat that string as a cryptographic digest. Does NOT accept civic, historical, frequency, 3x3/6x6/9x9 mechanism, or implementation claims.",
+    "required": true,
+    "reviewer": "aurora-verification-program-operator",
+    "status": "ACCEPTED"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "requests": [
+    {
+      "action": "AUTHORIZE_AND_EXECUTE_SANDBOX_OR_SUPPLY_CONSENT_RECORDS",
+      "blocker_type": "BLOCKED_HUMAN",
+      "claim_id": "AUR-A-021",
+      "reason": "Human sandbox authorization / consenting participants required; HUMAN AUTHORIZATION \u2260 CLAIM TRUTH",
+      "schema": "weaver.campaign_runner_v0.human_action_request.v0"
+    }
+  ]
+}

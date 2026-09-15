@@ -1,0 +1,28 @@
+{
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md",
+  "claim": {
+    "id": "AUR-A-001",
+    "statement": "DOCUMENT IDENTITY ONLY: aurora_audit/frozen_sources/aurora_overflow_manifest.md has SHA-256 a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de. This audit does not assert Aurora/ZOREL civic truth, historical claims, frequency validation, 3x3/6x6/9x9 mechanism function, civic/economic implementation, or any unsupported claim verification.",
+    "adapter": "hash_claim",
+    "adapter_params": {
+      "primary_file": "aurora_overflow_manifest.md",
+      "expected_sha256": "a38e9f918bed135b5e5a90580830611923c81866aeecb5b8b7b35edd3552d3de",
+      "mode": "verify_digest"
+    }
+  },
+  "policy": {
+    "human_review_required": true,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ],
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL"
+  },
+  "protected_paths": [
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources",
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_sources"
+  ]
+}

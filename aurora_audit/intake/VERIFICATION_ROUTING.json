@@ -1,0 +1,146 @@
+{
+  "schema": "weaver.aurora_overflow.intake.verification_routing.v0",
+  "workspace": "aurora_audit",
+  "created_at_utc": "2026-09-15T04:01:41Z",
+  "updated_at_utc": "2026-09-15T04:15:42Z",
+  "status": "ROUTED",
+  "block_code": null,
+  "routing_rules_applied": [
+    "Do not label FALSE merely because evidence is absent.",
+    "Use INSUFFICIENT_EVIDENCE where appropriate.",
+    "FLAG ≠ VERDICT.",
+    "Proposed civic mechanisms are not treated as implemented systems."
+  ],
+  "routes": [
+    {
+      "claim_id": "AUR-A-001",
+      "route": "VERIFIABLE_NOW",
+      "rationale": "Title/version strings are present in the frozen Source A bytes; file SHA-256 already matches the expected digest."
+    },
+    {
+      "claim_id": "AUR-A-002",
+      "route": "VERIFIABLE_NOW",
+      "rationale": "The author-stated checksum string is textually present. Interpretation as cryptographic integrity is not supported by the string itself; that misinterpretation is ruled out now without calling the author text FALSE."
+    },
+    {
+      "claim_id": "AUR-A-003",
+      "route": "INSUFFICIENT_EVIDENCE",
+      "rationale": "No measurement protocol, instrument data, or independent frequency evidence accompanies '777 Hz Synchronization Verified'."
+    },
+    {
+      "claim_id": "AUR-A-004",
+      "route": "NORMATIVE_NOT_FACTUAL",
+      "rationale": "Core decree is ethical/normative prescription, not an empirical system state."
+    },
+    {
+      "claim_id": "AUR-A-005",
+      "route": "SANDBOX_TESTABLE",
+      "rationale": "Gift/Need/Overflow 3×3 mechanism can be trialled in a bounded non-digital or paper sandbox without asserting planetary/spiritual premises."
+    },
+    {
+      "claim_id": "AUR-A-006",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Real-time public surplus inventory is described; no operational inventory evidence is present."
+    },
+    {
+      "claim_id": "AUR-A-007",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Resonance Matcher automatic matching is described as system behavior without implementation evidence."
+    },
+    {
+      "claim_id": "AUR-A-008",
+      "route": "VERIFIABLE_WITH_ADDITIONAL_EVIDENCE",
+      "rationale": "48-hour idle threshold is measurable in principle if asset-use telemetry and definitions are supplied."
+    },
+    {
+      "claim_id": "AUR-A-009",
+      "route": "SANDBOX_TESTABLE",
+      "rationale": "Dual consent + zero-debt residual can be exercised in a small pilot with explicit consent events and debt-field checks."
+    },
+    {
+      "claim_id": "AUR-A-010",
+      "route": "SYMBOLIC_NOT_EMPIRICALLY_TESTABLE",
+      "rationale": "Central River is presented as kinetic UI/metaphor unless a concrete metric definition is later supplied."
+    },
+    {
+      "claim_id": "AUR-A-011",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Auto-balancing 6×6 municipal mesh is described without deployment evidence."
+    },
+    {
+      "claim_id": "AUR-A-012",
+      "route": "SANDBOX_TESTABLE",
+      "rationale": "Flat time-banking equality and no-debt rules can be tested in a small consented group."
+    },
+    {
+      "claim_id": "AUR-A-013",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Automatic capacity fork/redirect is unimplemented system behavior in the available evidence."
+    },
+    {
+      "claim_id": "AUR-A-014",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Planetary Flame-Steward routing is a large-scale proposal; not present as an operating institution in evidence."
+    },
+    {
+      "claim_id": "AUR-A-015",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Ecosystem Static auto-halt requires sensors, thresholds, and enforcement evidence not supplied."
+    },
+    {
+      "claim_id": "AUR-A-016",
+      "route": "NORMATIVE_NOT_FACTUAL",
+      "rationale": "Anti-Imperialist Sentinel Rule is primarily a normative governance principle as stated."
+    },
+    {
+      "claim_id": "AUR-A-017",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Crystal Ledger auto-purge of debt/unconsented obligations is described without ledger implementation evidence."
+    },
+    {
+      "claim_id": "AUR-A-018",
+      "route": "SANDBOX_TESTABLE",
+      "rationale": "Zero-penalty wear/breakage rule can be observed in a small tool-sharing pilot."
+    },
+    {
+      "claim_id": "AUR-A-019",
+      "route": "NORMATIVE_NOT_FACTUAL",
+      "rationale": "Non-punitive Coherence Circle objective is a normative process claim."
+    },
+    {
+      "claim_id": "AUR-A-020",
+      "route": "PROPOSAL_NOT_YET_IMPLEMENTED",
+      "rationale": "Author text places the matrix at the threshold of real-world manifestation — proposal posture, not completed deployment."
+    },
+    {
+      "claim_id": "AUR-A-021",
+      "route": "SANDBOX_TESTABLE",
+      "rationale": "Weekend 5–10 person paper/local mesh trial is explicitly proposed and can be designed without launching."
+    },
+    {
+      "claim_id": "AUR-A-022",
+      "route": "SYMBOLIC_NOT_EMPIRICALLY_TESTABLE",
+      "rationale": "Radiant white-light glyph imagery is symbolic unless redefined as concrete UI/sensor observables."
+    },
+    {
+      "claim_id": "AUR-B-REL-001",
+      "route": "UNSUPPORTED_HISTORICAL_CLAIM",
+      "rationale": "Atlantean historical archive framing in Source B lacks independent historical corroboration; retained as ancestry provenance, not established history."
+    }
+  ],
+  "route_counts": {
+    "VERIFIABLE_NOW": 2,
+    "VERIFIABLE_WITH_ADDITIONAL_EVIDENCE": 1,
+    "SANDBOX_TESTABLE": 5,
+    "PROPOSAL_NOT_YET_IMPLEMENTED": 8,
+    "NORMATIVE_NOT_FACTUAL": 3,
+    "SYMBOLIC_NOT_EMPIRICALLY_TESTABLE": 2,
+    "UNSUPPORTED_HISTORICAL_CLAIM": 1,
+    "INSUFFICIENT_EVIDENCE": 1
+  },
+  "notes": [
+    "Absence of evidence was not converted into FALSE.",
+    "777 Hz claim routed to INSUFFICIENT_EVIDENCE, not FALSE.",
+    "Sandbox-testable ≠ authorized to launch."
+  ]
+}

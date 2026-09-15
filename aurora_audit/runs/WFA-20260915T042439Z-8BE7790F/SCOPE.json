@@ -1,0 +1,24 @@
+{
+  "allowed_write_boundary": [
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F",
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\runs\\WFA-20260915T042439Z-8BE7790F/**"
+  ],
+  "audit_id": "WFA-20260915T042439Z-8BE7790F",
+  "notes": "Compiled by audit_lifecycle.claim_scope; operator must not hand-edit during run.",
+  "policy": {
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL",
+    "human_review_required": true,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ]
+  },
+  "protected_paths": [
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources",
+    "C:\\dev\\Weaver\\weaver-forge\\aurora_sources"
+  ],
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\aurora_audit\\frozen_sources\\aurora_overflow_manifest.md"
+}
