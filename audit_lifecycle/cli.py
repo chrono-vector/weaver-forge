@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .freeze import FreezeAlreadyExists
+from .freeze import FreezeAlreadyExists, FreezeIntegrityError
 from .orchestrator import AuditOrchestrator
 from .request import AuditRequest, read_json, write_json
 
@@ -60,6 +60,19 @@ def main(argv: list[str] | None = None) -> int:
         orch = AuditOrchestrator(run_dir.parent)
         try:
             status = orch.freeze_run(run_dir, policy)
+        except FreezeIntegrityError as e:
+            print(
+                json.dumps(
+                    {
+                        "error": "FREEZE_INTEGRITY_FAILURE",
+                        "code": getattr(e, "code", "FREEZE_INTEGRITY_FAILURE"),
+                        "detail": str(e),
+                        "run": str(run_dir),
+                    },
+                    indent=2,
+                )
+            )
+            return 4
         except FreezeAlreadyExists as e:
             print(
                 json.dumps(

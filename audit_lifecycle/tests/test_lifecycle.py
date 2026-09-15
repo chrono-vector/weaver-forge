@@ -14,7 +14,7 @@ sys.path.insert(0, str(WF_ROOT))
 
 from audit_lifecycle.boundary import BoundaryManager, BoundaryViolation
 from audit_lifecycle.evidence import EvidenceCollector
-from audit_lifecycle.freeze import FreezeAlreadyExists
+from audit_lifecycle.freeze import FreezeAlreadyExists, FreezeIntegrityError
 from audit_lifecycle.orchestrator import AuditOrchestrator
 from audit_lifecycle.request import AuditRequest, read_json, sha256_file, write_json
 from audit_lifecycle.review_gate import HumanReviewRequired
@@ -155,6 +155,7 @@ class TestLifecycleE2E(unittest.TestCase):
             for p in freeze_dir.iterdir()
             if p.is_file()
         }
+        status_before = (run / "FREEZE_STATUS.json").read_text(encoding="utf-8")
         with self.assertRaises(FreezeAlreadyExists) as ctx:
             orch.freeze_run(run, req.policy)
         self.assertIn("FREEZE_ALREADY_EXISTS", str(ctx.exception))
@@ -166,6 +167,108 @@ class TestLifecycleE2E(unittest.TestCase):
         self.assertEqual(before, after)
         for name, digest in before.items():
             self.assertEqual(sha256_file(freeze_dir / name), digest)
+        self.assertEqual(
+            (run / "FREEZE_STATUS.json").read_text(encoding="utf-8"),
+            status_before,
+        )
+
+    def test_Pi_B1_freeze_oneshot_survives_deleted_package_dir(self):
+        """Pi B1: deleting freeze/<id>_FROZEN must not allow regenerate."""
+        orch = AuditOrchestrator(self.out / "runs")
+        req = self._request()
+        result = orch.run_through_decision(req)
+        run = Path(result["audit_root"])
+        write_json(
+            run / "HUMAN_REVIEW.json",
+            {
+                "status": "ACCEPTED",
+                "reviewer": "pi-b1-regression",
+                "notes": "legitimate first freeze then delete package dir only",
+            },
+        )
+        freeze = orch.freeze_run(run, req.policy)
+        self.assertTrue(freeze["freeze_performed"])
+        freeze_dir = Path(freeze["freeze_directory"])
+        self.assertTrue(freeze_dir.is_dir())
+
+        status_path = run / "FREEZE_STATUS.json"
+        status_before = read_json(status_path)
+        status_text_before = status_path.read_text(encoding="utf-8")
+        self.assertTrue(status_before.get("freeze_performed"))
+        sha_sums_before = (run / "SHA256SUMS.txt").read_text(encoding="utf-8")
+
+        # Pi attack: delete only the frozen package directory; leave FREEZE_STATUS.
+        shutil.rmtree(freeze_dir)
+        self.assertFalse(freeze_dir.exists())
+        self.assertTrue(status_path.is_file())
+        self.assertEqual(status_path.read_text(encoding="utf-8"), status_text_before)
+
+        with self.assertRaises(FreezeIntegrityError) as ctx:
+            orch.freeze_run(run, req.policy)
+        self.assertIn("FREEZE_INTEGRITY_FAILURE", str(ctx.exception))
+        self.assertIn("FREEZE_PACKAGE_MISSING", str(ctx.exception))
+
+        # No replacement freeze created
+        self.assertFalse(freeze_dir.exists())
+        self.assertFalse(any((run / "freeze").glob("*_FROZEN")) if (run / "freeze").is_dir() else False)
+
+        # Prior freeze state not silently rebound/replaced
+        self.assertEqual(status_path.read_text(encoding="utf-8"), status_text_before)
+        self.assertEqual(read_json(status_path), status_before)
+        self.assertEqual(
+            (run / "SHA256SUMS.txt").read_text(encoding="utf-8"),
+            sha_sums_before,
+        )
+        failure = read_json(run / "FAILURE.json")
+        self.assertEqual(failure.get("code"), "FREEZE_PACKAGE_MISSING")
+        self.assertTrue(failure.get("refuse_regenerate"))
+
+    def test_freeze_status_missing_package_is_integrity_failure(self):
+        """FREEZE_STATUS exists but frozen directory missing → fail closed."""
+        orch = AuditOrchestrator(self.out / "runs")
+        req = self._request()
+        result = orch.run_through_decision(req)
+        run = Path(result["audit_root"])
+        write_json(
+            run / "HUMAN_REVIEW.json",
+            {
+                "status": "ACCEPTED",
+                "reviewer": "integrity-missing-pkg",
+                "notes": "status-only inconsistency",
+            },
+        )
+        freeze = orch.freeze_run(run, req.policy)
+        freeze_dir = Path(freeze["freeze_directory"])
+        status_before = (run / "FREEZE_STATUS.json").read_text(encoding="utf-8")
+        shutil.rmtree(freeze_dir)
+        with self.assertRaises(FreezeIntegrityError):
+            orch.freeze_run(run, req.policy)
+        self.assertFalse(freeze_dir.exists())
+        self.assertEqual(
+            (run / "FREEZE_STATUS.json").read_text(encoding="utf-8"),
+            status_before,
+        )
+
+    def test_completed_freeze_cannot_be_replaced(self):
+        """Existing completed freeze cannot be replaced while package remains."""
+        orch = AuditOrchestrator(self.out / "runs")
+        req = self._request()
+        result = orch.run_through_decision(req)
+        run = Path(result["audit_root"])
+        write_json(
+            run / "HUMAN_REVIEW.json",
+            {
+                "status": "ACCEPTED",
+                "reviewer": "no-replace",
+                "notes": "completed freeze immutable",
+            },
+        )
+        first = orch.freeze_run(run, req.policy)
+        status_before = read_json(run / "FREEZE_STATUS.json")
+        with self.assertRaises(FreezeAlreadyExists):
+            orch.freeze_run(run, req.policy)
+        self.assertEqual(read_json(run / "FREEZE_STATUS.json"), status_before)
+        self.assertTrue(Path(first["freeze_directory"]).is_dir())
 
     def test_T10_stored_pass_edit_rebound_rejected(self):
         """Stored FAIL→PASS with rebound hashes must fail semantic verify (pre-freeze)."""

@@ -1,11 +1,11 @@
 # WEAVER FORGE FINAL COMPLETION GATE
 
-**Date (UTC):** 2026-09-14  
+**Date (UTC):** 2026-09-15  
 **Fixed completion definition:** unchanged from operator brief (third party receives Weaver Forge, provides audit target, completes lifecycle REQUEST→FINAL AUDIT PACKAGE without ad-hoc procedure redesign).
 
-## Verdict status (Phase 6.1)
+## Verdict status (Pi final-review B1 remediation)
 
-# REOPENED — AWAITING FINAL INDEPENDENT PI/CODEX RE-REVIEW
+# REOPENED — AWAITING INDEPENDENT PI RE-REVIEW + CODEX FINAL REVIEW
 
 **Do not treat as `WEAVER_FORGE_COMPLETE`.**
 
@@ -16,30 +16,35 @@ Phase 5 had recorded `WEAVER_FORGE_COMPLETE`. Independent review then diverged:
 | Pi (initial) | `WEAVER_FORGE_COMPLETE_WITH_NONMATERIAL_LIMITATIONS` |
 | Codex (Phase 6) | `WEAVER_FORGE_NOT_COMPLETE` (material blockers B1, B2) |
 | Pi (Phase 6 re-review) | Remaining material gap: FINAL_DECISION semantic verification missing |
+| Pi (final review of `ad82617…`) | `WEAVER_FORGE_NOT_COMPLETE` — **material blocker B1**: freeze one-shot bypass after frozen package directory deletion |
 
-Completion was **reopened** before final human confirmation. Phase 6 remediated B1 and DECISION-side B2. Phase 6.1 performed **targeted remediation only** for the FINAL_DECISION semantic gap Pi demonstrated (Codex Phase 6 review did not detect that case).
+Completion remains **reopened**. Phase 6 remediated directory-presence B1 and DECISION-side B2. Phase 6.1 remediated FINAL_DECISION semantics. **Pi final-review B1** showed one-shot still depended on freeze directory existence; bounded remediation now keys off completed `FREEZE_STATUS.json` independently of package directory presence.
 
-**Candidate status for final re-review:** `READY_FOR_FINAL_PI_CODEX_REVIEW`
+**Candidate status:** `READY_FOR_PI_REREVIEW` (not COMPLETE; Codex final review after Pi re-review)
+
+**Parent candidate:** `ad82617817971821c59a2e8ab9895182e8173565`
 
 ## Gate checklist
 
 | Gate | Met |
 |------|-----|
-| Completion Matrix has no unresolved material gaps for B1/B2 + FINAL_DECISION semantics | YES — see Phase 6 / 6.1 rows in `WEAVER_FORGE_COMPLETION_MATRIX.md` |
-| Fresh end-to-end audit completes | YES — Phase 6.1 `WFA-20260914T101819Z-8C1418EB` frozen |
+| Completion Matrix has no unresolved material gaps for prior B1/B2 + FINAL_DECISION + Pi final B1 | YES — pending independent re-review confirmation |
+| Fresh end-to-end audit completes | YES — Pi B1 remediation `WFA-20260915T032852Z-C88F783F` frozen + verified |
 | Negative path works | YES — FAIL preserved; DECISION false PASS semantically rejected |
 | FINAL_DECISION false promotion + rebound hashes rejected | YES — T13 + Phase 6.1 disposable-copy retest |
 | Tamper path works | YES — SHA256SUMS mismatch detected |
 | Boundary violation fails closed | YES — BV1 PASS; CAW freezes unchanged |
 | Evidence is reproducible | YES — R1 + freeze reproduction instructions |
 | Final decision is conservative | YES — `promoted_to_full=false`; IW not claimed |
-| Freeze generated correctly | YES — one-shot; second attempt `FREEZE_ALREADY_EXISTS` |
+| Freeze generated correctly | YES — one-shot; second attempt denied; **deleted package dir cannot regenerate** |
 | Semantic verify re-derives hash_claim decision for DECISION **and** FINAL_DECISION | YES — material fields vs recomputed MATCH required |
 | Third-party reproduction instructions sufficient | YES — freeze `REPRODUCTION_INSTRUCTIONS.md` + CLI |
 | Prior Phase 5 freeze unchanged | YES — digest `91a36ee4…69bc877` |
 | Prior Phase 6 freeze unchanged | YES — digest `88e46cb8…115dd75` |
+| Prior Phase 6.1 freeze unchanged | YES — digest `f7f46fc7…7b95d04` |
 | CAW-003 / CAW-004 digests unchanged | YES — `cb391513…` / `ccb73439…` |
-| Independent final re-review complete | **NO — pending Pi/Codex** |
+| Independent Pi re-review of B1 remediation | **NO — pending** |
+| Independent Codex final review | **NO — pending after Pi** |
 
 ## Entry point (third party)
 
@@ -54,7 +59,7 @@ python -m audit_lifecycle.cli verify --run <run_dir>
 Operator supplies only: `target_path`, `claim`, `policy` (optional protections/prior freeze digests).  
 Manifests, hash inventories, decisions, and freeze structure are produced by Weaver Forge.  
 `verify` checks SHA bindings **and** semantic hash_claim recomputation against both `DECISION.json` and frozen `FINAL_DECISION.json`.  
-`freeze` is one-shot: an existing `freeze/<id>_FROZEN/` cannot be regenerated.
+`freeze` is one-shot: a completed `FREEZE_STATUS.json` cannot be regenerated even if `freeze/<id>_FROZEN/` is deleted (missing package → `FREEZE_INTEGRITY_FAILURE`).
 
 ## Explicit non-claims
 
@@ -63,6 +68,7 @@ Manifests, hash inventories, decisions, and freeze structure are produced by Wea
 - Lifecycle PASS does not mean `CRYPTO_SUPPORTED_E2E_FULL` for Caw DM.
 - Additional adapters may be registered for new claim families without changing the lifecycle; without a semantic verifier they fail semantic verify conservatively.
 - Implementation finish ≠ declared COMPLETE.
+- Pi B1 remediation ≠ `WEAVER_FORGE_COMPLETE` (requires independent Pi re-review + Codex final review).
 
 ## PHASE progress summary
 
@@ -74,7 +80,9 @@ Manifests, hash inventories, decisions, and freeze structure are produced by Wea
 | 4 Implement gaps | DONE — `audit_lifecycle/` + tests |
 | 5 Fresh E2E | DONE — P5-PRIMARY frozen + negative/tamper/boundary/incomplete paths (historical) |
 | 5→6 Independent review | Codex B1/B2 material; completion reopened |
-| 6 Targeted remediation | DONE — freeze one-shot + DECISION semantic verify; tests 12 OK; fresh run `WFA-20260914T100138Z-4F362FB9` (**unchanged**) |
+| 6 Targeted remediation | DONE — freeze dir one-shot + DECISION semantic verify; tests 12 OK; fresh run `WFA-20260914T100138Z-4F362FB9` (**unchanged**) |
 | 6→6.1 Pi re-review | FINAL_DECISION semantic gap demonstrated (false FULL + rebound still `verify_ok=true`); Codex Phase 6 did not detect |
-| 6.1 Targeted remediation | DONE — FINAL_DECISION vs recomputed; T13 PASS; suite **13 OK**; fresh run `WFA-20260914T101819Z-8C1418EB` |
-| Final gate | **REOPENED — READY_FOR_FINAL_PI_CODEX_REVIEW** (not COMPLETE) |
+| 6.1 Targeted remediation | DONE — FINAL_DECISION vs recomputed; T13 PASS; suite **13 OK**; fresh run `WFA-20260914T101819Z-8C1418EB` (**unchanged**) |
+| Pi final review (`ad82617`) | `WEAVER_FORGE_NOT_COMPLETE` — material B1: delete `*_FROZEN/` then re-freeze regenerated package |
+| Pi B1 remediation | DONE — `FREEZE_STATUS`-keyed one-shot + integrity failure; suite **16 OK**; fresh run `WFA-20260915T032852Z-C88F783F`; B1 reproduction rejected |
+| Final gate | **REOPENED — READY_FOR_PI_REREVIEW** (not COMPLETE; Codex final review after Pi) |

@@ -10,7 +10,7 @@ from .boundary import BoundaryManager, BoundaryViolation
 from .claim_scope import compile_claim_and_scope
 from .decision import decide
 from .evidence import EvidenceCollector
-from .freeze import FreezeAlreadyExists, create_freeze_package
+from .freeze import assert_one_shot_freeze_allowed, create_freeze_package
 from .independent_verification import run_independent_verification_hook
 from .pin import pin_target
 from .request import AuditRequest, read_json, sha256_file, stable_run_id, utc_now, write_json
@@ -225,11 +225,9 @@ class AuditOrchestrator:
         decision: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         audit_root = audit_root.resolve()
-        freeze_dir = audit_root / "freeze" / f"{audit_root.name}_FROZEN"
-        if freeze_dir.exists():
-            raise FreezeAlreadyExists(
-                f"FREEZE_ALREADY_EXISTS: refuse regenerate/overwrite of existing freeze at {freeze_dir}"
-            )
+        # One-shot from FREEZE_STATUS (independent of freeze dir presence) —
+        # must run before any SHA rebind or package mutation.
+        assert_one_shot_freeze_allowed(audit_root)
         if decision is None:
             from .request import read_json
 
