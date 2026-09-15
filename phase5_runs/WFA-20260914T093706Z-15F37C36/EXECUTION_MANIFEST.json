@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "audit_id": "WFA-20260914T093706Z-15F37C36",
+  "baseline_prior_freeze_ok": true,
+  "claim_id": "P5-TAMPER",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "lifecycle": "weaver_forge_audit_lifecycle_v0",
+  "promoted_to_full": false,
+  "provenance_files": 2,
+  "stages_completed_through": "DECISION",
+  "started_request": true,
+  "timestamp_utc": "2026-09-14T09:37:06.210104Z"
+}

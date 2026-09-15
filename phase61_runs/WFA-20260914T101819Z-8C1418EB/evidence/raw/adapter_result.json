@@ -1,0 +1,49 @@
+{
+  "claim_result": "PASS",
+  "vectors": [
+    {
+      "id": "POSITIVE_DIGEST_MATCH",
+      "result": "PASS",
+      "detail": {
+        "expected_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+        "actual_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+        "primary_file": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\pinned_target\\payload.txt"
+      }
+    },
+    {
+      "id": "NC1_WRONG_DIGEST_REJECTED",
+      "result": "PASS",
+      "detail": {
+        "wrong_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+        "equals_actual": false
+      }
+    },
+    {
+      "id": "T1_TAMPER_CHANGES_DIGEST",
+      "result": "PASS",
+      "detail": {
+        "original_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+        "tampered_sha256": "e4246a91d25da0b1f2380ec58a0327a9811e5d90a59ed1fb27cdb47b556cd7e4",
+        "tampered_path": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\evidence\\raw\\tampered_primary.bin"
+      }
+    },
+    {
+      "id": "R1_REHASH_REPRODUCTION",
+      "result": "PASS",
+      "detail": {
+        "first": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+        "second": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc"
+      }
+    }
+  ],
+  "artifacts": {
+    "primary_file": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\pinned_target\\payload.txt",
+    "actual_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+    "inventory": [
+      {
+        "path": "payload.txt",
+        "sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc"
+      }
+    ]
+  }
+}

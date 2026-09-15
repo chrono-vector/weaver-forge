@@ -1,0 +1,5 @@
+{
+  "notes": "Explicit policy human_review_required gate",
+  "reviewer": "phase5-third-party-operator",
+  "status": "ACCEPTED"
+}

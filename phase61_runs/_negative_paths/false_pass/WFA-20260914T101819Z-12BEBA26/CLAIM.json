@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "adapter_params": {
+    "expected_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+    "mode": "force_fail",
+    "primary_file": "payload.txt"
+  },
+  "audit_id": "WFA-20260914T101819Z-12BEBA26",
+  "claim_id": "P61-PRIMARY",
+  "fail_criteria": [],
+  "pass_criteria": [],
+  "statement": "phase6_third_party_target/payload.txt matches the operator-pinned SHA-256",
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase6_third_party_target"
+}

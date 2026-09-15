@@ -1,0 +1,18 @@
+{
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "independent_verification": {
+    "claims_iw_acceptance": false,
+    "result": "NOT_CLAIMED",
+    "status": "RECORDED_NOT_RUN"
+  },
+  "promoted": false,
+  "reason": "FALSE_PASS_EDIT",
+  "vectors": {
+    "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+    "NC1_WRONG_DIGEST_REJECTED": "PASS",
+    "POSITIVE_DIGEST_MATCH": "FAIL",
+    "R1_REHASH_REPRODUCTION": "PASS",
+    "T1_TAMPER_CHANGES_DIGEST": "PASS"
+  }
+}

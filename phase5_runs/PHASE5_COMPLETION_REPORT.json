@@ -1,0 +1,354 @@
+{
+  "boundary": {
+    "fail_closed": true,
+    "happy_bv": "PASS",
+    "probe_files_in_caw004_freeze": []
+  },
+  "caw004_freeze_digest": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+  "caw004_unchanged": true,
+  "caw004_unchanged_expected": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+  "failing": {
+    "claim_result": "FAIL",
+    "decision": "FAIL",
+    "promoted": false,
+    "reason": "ADAPTER_CLAIM_NOT_PASS",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "NC1_WRONG_DIGEST_REJECTED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "FAIL",
+      "R1_REHASH_REPRODUCTION": "PASS",
+      "T1_TAMPER_CHANGES_DIGEST": "PASS"
+    }
+  },
+  "happy": {
+    "decision": {
+      "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+      "claim_id": "P5-TAMPER",
+      "claim_result": "PASS",
+      "decision": "PASS",
+      "promoted": false,
+      "promoted_to_full": false,
+      "promotion_note": "no broader FULL promotion",
+      "reason": "ALL_REQUIRED_VECTORS_PASS",
+      "vectors": {
+        "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+        "NC1_WRONG_DIGEST_REJECTED": "PASS",
+        "POSITIVE_DIGEST_MATCH": "PASS",
+        "R1_REHASH_REPRODUCTION": "PASS",
+        "T1_TAMPER_CHANGES_DIGEST": "PASS"
+      }
+    },
+    "freeze": {
+      "audit_id": "WFA-20260914T093640Z-D40C47BD",
+      "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN",
+      "freeze_performed": true,
+      "frozen_at_utc": "2026-09-14T09:37:05.811040Z",
+      "sha256sums": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN\\SHA256SUMS.txt",
+      "sha256sums_digest": "2a999699fe71373616513d39ed417472a90755535849de55e77b8ebeada7fdfb"
+    },
+    "verify": {
+      "audit_root": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD",
+      "decision": {
+        "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+        "claim_id": "P5-TAMPER",
+        "claim_result": "PASS",
+        "decision": "PASS",
+        "promoted": false,
+        "promoted_to_full": false,
+        "promotion_note": "no broader FULL promotion",
+        "reason": "ALL_REQUIRED_VECTORS_PASS",
+        "vectors": {
+          "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+          "NC1_WRONG_DIGEST_REJECTED": "PASS",
+          "POSITIVE_DIGEST_MATCH": "PASS",
+          "R1_REHASH_REPRODUCTION": "PASS",
+          "T1_TAMPER_CHANGES_DIGEST": "PASS"
+        }
+      },
+      "freeze_status": {
+        "audit_id": "WFA-20260914T093640Z-D40C47BD",
+        "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN",
+        "freeze_performed": true,
+        "frozen_at_utc": "2026-09-14T09:37:05.811040Z",
+        "sha256sums": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN\\SHA256SUMS.txt",
+        "sha256sums_digest": "2a999699fe71373616513d39ed417472a90755535849de55e77b8ebeada7fdfb"
+      },
+      "freeze_sums_ok": true,
+      "has_failure_artifact": false,
+      "sha256sums": {
+        "details": [
+          {
+            "actual": "019d7b48c96c95b19702f3921bd44f55cff06add66e582cf9a9b99e29b4d8f68",
+            "expected": "019d7b48c96c95b19702f3921bd44f55cff06add66e582cf9a9b99e29b4d8f68",
+            "ok": true,
+            "path": "AUDIT_REQUEST.json"
+          },
+          {
+            "actual": "69bcdadcb9139ed2afcfe1b67a9dd941948fc166e7f054740c01bfb67ad4d36e",
+            "expected": "69bcdadcb9139ed2afcfe1b67a9dd941948fc166e7f054740c01bfb67ad4d36e",
+            "ok": true,
+            "path": "BASELINE.json"
+          },
+          {
+            "actual": "a0791401fd7c9f04f467a4008d384e22a864be9d26daed6b64a7e936b1fe92c2",
+            "expected": "a0791401fd7c9f04f467a4008d384e22a864be9d26daed6b64a7e936b1fe92c2",
+            "ok": true,
+            "path": "CLAIM.json"
+          },
+          {
+            "actual": "1e5c5a8ee99568c7bde0c7495c31cf4580a96b27fbbbe5ca5ebb8054b7aafaa8",
+            "expected": "1e5c5a8ee99568c7bde0c7495c31cf4580a96b27fbbbe5ca5ebb8054b7aafaa8",
+            "ok": true,
+            "path": "DECISION.json"
+          },
+          {
+            "actual": "6bac3201cfa55864cd4b161dda9bceea461f2424b6e7a603861c450f760576e2",
+            "expected": "6bac3201cfa55864cd4b161dda9bceea461f2424b6e7a603861c450f760576e2",
+            "ok": true,
+            "path": "evidence/logs/adapter.log"
+          },
+          {
+            "actual": "47af82525d80060e5d406806bd1acc8b7e1ec28613886eebffe280332dfb4a88",
+            "expected": "47af82525d80060e5d406806bd1acc8b7e1ec28613886eebffe280332dfb4a88",
+            "ok": true,
+            "path": "evidence/raw/adapter_result.json"
+          },
+          {
+            "actual": "c004cbe9f57e41a009d5e69fc7b7ba9f50104aae9fb04d996f2bca712fcff1ee",
+            "expected": "c004cbe9f57e41a009d5e69fc7b7ba9f50104aae9fb04d996f2bca712fcff1ee",
+            "ok": true,
+            "path": "evidence/raw/boundary_probe.json"
+          },
+          {
+            "actual": "d4617331bab4c7ef40f59f2852b091aa6997ca2b9fdfbcd4aa3bbdf2be92d61a",
+            "expected": "d4617331bab4c7ef40f59f2852b091aa6997ca2b9fdfbcd4aa3bbdf2be92d61a",
+            "ok": true,
+            "path": "evidence/raw/tampered_primary.bin"
+          },
+          {
+            "actual": "16559c6aae28d17fe1f827722f4eea16bae2a6f08b8f05bfd1f5dfba23e45f1c",
+            "expected": "16559c6aae28d17fe1f827722f4eea16bae2a6f08b8f05bfd1f5dfba23e45f1c",
+            "ok": true,
+            "path": "evidence/raw/vectors.json"
+          },
+          {
+            "actual": "281f0508803a0ed45a9259fe9d65060d5369b8b8dde289ede735d82d42d681c3",
+            "expected": "281f0508803a0ed45a9259fe9d65060d5369b8b8dde289ede735d82d42d681c3",
+            "ok": true,
+            "path": "EXECUTION_MANIFEST.json"
+          },
+          {
+            "actual": "ae9fe26c56ce18f7a9cb8ed47d0a30bb86da317e7c9cf48e16f2209180b2fd2b",
+            "expected": "ae9fe26c56ce18f7a9cb8ed47d0a30bb86da317e7c9cf48e16f2209180b2fd2b",
+            "ok": true,
+            "path": "freeze/WFA-20260914T093640Z-D40C47BD_FROZEN/FINAL_DECISION.json"
+          },
+          {
+            "actual": "9fdf33bb957859dadc97827170bf5391fac995c5cfd889e0a97992698e6a64db",
+            "expected": "9fdf33bb957859dadc97827170bf5391fac995c5cfd889e0a97992698e6a64db",
+            "ok": true,
+            "path": "freeze/WFA-20260914T093640Z-D40C47BD_FROZEN/FINAL_EVIDENCE_INDEX.json"
+          },
+          {
+            "actual": "85efb3df14340f037bad97c3a3fa1ccd82c198d29b48c9477d6fbd932f317f56",
+            "expected": "85efb3df14340f037bad97c3a3fa1ccd82c198d29b48c9477d6fbd932f317f56",
+            "ok": true,
+            "path": "freeze/WFA-20260914T093640Z-D40C47BD_FROZEN/MANIFEST.json"
+          },
+          {
+            "actual": "ef5115f1b7699a0eab04e8b75a04b6de920dd13e01096ce04dab7e758cd944df",
+            "expected": "ef5115f1b7699a0eab04e8b75a04b6de920dd13e01096ce04dab7e758cd944df",
+            "ok": true,
+            "path": "freeze/WFA-20260914T093640Z-D40C47BD_FROZEN/REPRODUCTION_INSTRUCTIONS.md"
+          },
+          {
+            "actual": "1fd14715403f0d58f82952e7db07af004c17380cd7db7530b8cc50ce9846953e",
+            "expected": "1fd14715403f0d58f82952e7db07af004c17380cd7db7530b8cc50ce9846953e",
+            "ok": true,
+            "path": "FREEZE_STATUS.json"
+          },
+          {
+            "actual": "da09503bdfe27b6662d479295ddf1185b93fad02a98ba5d92143d325432e8263",
+            "expected": "da09503bdfe27b6662d479295ddf1185b93fad02a98ba5d92143d325432e8263",
+            "ok": true,
+            "path": "HUMAN_REVIEW.json"
+          },
+          {
+            "actual": "45cc53c701d8255e774594854ea5c3e1d09a7e15bbdce5ed877b0f06ddd2d136",
+            "expected": "45cc53c701d8255e774594854ea5c3e1d09a7e15bbdce5ed877b0f06ddd2d136",
+            "ok": true,
+            "path": "HUMAN_REVIEW_GATE.json"
+          },
+          {
+            "actual": "9e8c7a088aed449ae4671afcca4d1c49bc513de45a7a482e1169edd50fb97209",
+            "expected": "9e8c7a088aed449ae4671afcca4d1c49bc513de45a7a482e1169edd50fb97209",
+            "ok": true,
+            "path": "pinned_target/EXPECTED_SHA256.txt"
+          },
+          {
+            "actual": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+            "expected": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+            "ok": true,
+            "path": "pinned_target/payload.txt"
+          },
+          {
+            "actual": "6b2d2715a8e35be0abddaee5fd0104acd4b536887c4844b0e405596aadd0c03a",
+            "expected": "6b2d2715a8e35be0abddaee5fd0104acd4b536887c4844b0e405596aadd0c03a",
+            "ok": true,
+            "path": "PROVENANCE.json"
+          },
+          {
+            "actual": "8473d627fa33a5675317324eccb73f6780cf083655573237f04592cf9dc67928",
+            "expected": "8473d627fa33a5675317324eccb73f6780cf083655573237f04592cf9dc67928",
+            "ok": true,
+            "path": "SCOPE.json"
+          }
+        ],
+        "matched": 21,
+        "mismatched": 0,
+        "ok": true
+      },
+      "sha256sums_ok": true
+    }
+  },
+  "incomplete": {
+    "claim_result": "INCONCLUSIVE",
+    "decision": "INCONCLUSIVE",
+    "promoted": false,
+    "reason": "INCOMPLETE_EVIDENCE",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "PASS"
+    }
+  },
+  "paths": {
+    "happy_existing": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD"
+  },
+  "phase5_checks": {
+    "boundary_fail_closed": true,
+    "failing_audit_no_false_pass": true,
+    "incomplete_no_false_pass": true,
+    "normal_success_frozen": true,
+    "prior_freeze_unmutated": true,
+    "tamper_detected": true
+  },
+  "phase5_pass": true,
+  "tamper": {
+    "pre_tamper_decision": "PASS",
+    "verify_after_tamper": {
+      "audit_root": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093706Z-15F37C36",
+      "decision": {
+        "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+        "claim_id": "P5-TAMPER",
+        "claim_result": "PASS",
+        "decision": "PASS",
+        "promoted": false,
+        "promoted_to_full": false,
+        "promotion_note": "no broader FULL promotion",
+        "reason": "ALL_REQUIRED_VECTORS_PASS",
+        "vectors": {
+          "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+          "NC1_WRONG_DIGEST_REJECTED": "PASS",
+          "POSITIVE_DIGEST_MATCH": "PASS",
+          "R1_REHASH_REPRODUCTION": "PASS",
+          "T1_TAMPER_CHANGES_DIGEST": "PASS"
+        }
+      },
+      "freeze_status": null,
+      "freeze_sums_ok": null,
+      "has_failure_artifact": false,
+      "sha256sums": {
+        "details": [
+          {
+            "actual": "cc6a7090f4e07539881f35dffea5582e416443134ea30d42bdddaa75b8c4ebd1",
+            "expected": "cc6a7090f4e07539881f35dffea5582e416443134ea30d42bdddaa75b8c4ebd1",
+            "ok": true,
+            "path": "AUDIT_REQUEST.json"
+          },
+          {
+            "actual": "60a13ccbb839a22879261e3d71a52fb4c1de83b087902bd5d68f2606f78cb283",
+            "expected": "60a13ccbb839a22879261e3d71a52fb4c1de83b087902bd5d68f2606f78cb283",
+            "ok": true,
+            "path": "BASELINE.json"
+          },
+          {
+            "actual": "3a3a54c8d909f92afdd2508da8b11e6bcacc83b78e2e6df5f61cf14f09c0830a",
+            "expected": "3a3a54c8d909f92afdd2508da8b11e6bcacc83b78e2e6df5f61cf14f09c0830a",
+            "ok": true,
+            "path": "CLAIM.json"
+          },
+          {
+            "actual": "3332d49f0f4cde3dd6e6c9c6079309c0ee6234fd953927bf0984790955a5a01f",
+            "expected": "92e4b4f6bfe740e0ca29a48e6a3b0d4ae75607e52eb2fd62d4653a9253db4b75",
+            "ok": false,
+            "path": "DECISION.json"
+          },
+          {
+            "actual": "0094e5f5d83c3ad5b71bae02ecbd0a18fcad429cb95523c12a7dce97da445074",
+            "expected": "0094e5f5d83c3ad5b71bae02ecbd0a18fcad429cb95523c12a7dce97da445074",
+            "ok": true,
+            "path": "evidence/logs/adapter.log"
+          },
+          {
+            "actual": "9a1e9a970ecda3760d228f17c09a17f8ea2b3afc4ba15005e921e132d507e6c6",
+            "expected": "9a1e9a970ecda3760d228f17c09a17f8ea2b3afc4ba15005e921e132d507e6c6",
+            "ok": true,
+            "path": "evidence/raw/adapter_result.json"
+          },
+          {
+            "actual": "69d3ea136aedee4ce97331e4142629f8ee70160a2eddacdac99bc61a963f1d33",
+            "expected": "69d3ea136aedee4ce97331e4142629f8ee70160a2eddacdac99bc61a963f1d33",
+            "ok": true,
+            "path": "evidence/raw/boundary_probe.json"
+          },
+          {
+            "actual": "d4617331bab4c7ef40f59f2852b091aa6997ca2b9fdfbcd4aa3bbdf2be92d61a",
+            "expected": "d4617331bab4c7ef40f59f2852b091aa6997ca2b9fdfbcd4aa3bbdf2be92d61a",
+            "ok": true,
+            "path": "evidence/raw/tampered_primary.bin"
+          },
+          {
+            "actual": "346202b111613d600976330b38444dc7bb2ec68d4368a9734a38faf2c22c2dc2",
+            "expected": "346202b111613d600976330b38444dc7bb2ec68d4368a9734a38faf2c22c2dc2",
+            "ok": true,
+            "path": "evidence/raw/vectors.json"
+          },
+          {
+            "actual": "ccaf4f0b69ccb0d2ee10f9e226fdbb95e8be5b0fd6dad71d2cd789e062784e0d",
+            "expected": "ccaf4f0b69ccb0d2ee10f9e226fdbb95e8be5b0fd6dad71d2cd789e062784e0d",
+            "ok": true,
+            "path": "EXECUTION_MANIFEST.json"
+          },
+          {
+            "actual": "9e8c7a088aed449ae4671afcca4d1c49bc513de45a7a482e1169edd50fb97209",
+            "expected": "9e8c7a088aed449ae4671afcca4d1c49bc513de45a7a482e1169edd50fb97209",
+            "ok": true,
+            "path": "pinned_target/EXPECTED_SHA256.txt"
+          },
+          {
+            "actual": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+            "expected": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+            "ok": true,
+            "path": "pinned_target/payload.txt"
+          },
+          {
+            "actual": "f6d4acef710c76c24de896685f331294d062a67044a25dc04cf6b26bc31d8756",
+            "expected": "f6d4acef710c76c24de896685f331294d062a67044a25dc04cf6b26bc31d8756",
+            "ok": true,
+            "path": "PROVENANCE.json"
+          },
+          {
+            "actual": "ec2590f9d11c7017dc768fca7e13afcd9631c3a412328c5240fbcf56ebaf58ff",
+            "expected": "ec2590f9d11c7017dc768fca7e13afcd9631c3a412328c5240fbcf56ebaf58ff",
+            "ok": true,
+            "path": "SCOPE.json"
+          }
+        ],
+        "matched": 13,
+        "mismatched": 1,
+        "ok": false
+      },
+      "sha256sums_ok": false
+    }
+  }
+}

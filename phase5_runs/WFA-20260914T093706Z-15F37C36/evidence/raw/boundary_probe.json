@@ -1,0 +1,9 @@
+{
+  "attempted": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED\\__weaver_forge_should_not_write__.txt",
+  "detail": "WRITE_DENIED_OUTSIDE_ALLOWED_ROOT: C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED\\__weaver_forge_should_not_write__.txt not under C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093706Z-15F37C36",
+  "fail_closed": true,
+  "file_created": false,
+  "open_write_denied": true,
+  "result": "PASS",
+  "would_allow": false
+}

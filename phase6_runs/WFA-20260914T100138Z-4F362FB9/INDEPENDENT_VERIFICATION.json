@@ -1,0 +1,10 @@
+{
+  "at_utc": "2026-09-14T10:01:38.487621Z",
+  "claims_independent_witness": false,
+  "claims_iw_acceptance": false,
+  "mode": "record_only",
+  "note": "Weaver Forge lifecycle records this stage explicitly. Existing tools under external_verifications/ may be invoked only when policy enables them; PASS here is not IW acceptance.",
+  "result": "NOT_CLAIMED",
+  "stage": "independent_verification",
+  "status": "RECORDED_NOT_RUN"
+}

@@ -1,0 +1,15 @@
+{
+  "claim_result": "INCONCLUSIVE",
+  "decision": "INCONCLUSIVE",
+  "independent_verification": {
+    "claims_iw_acceptance": false,
+    "result": "NOT_CLAIMED",
+    "status": "RECORDED_NOT_RUN"
+  },
+  "promoted": false,
+  "reason": "INCOMPLETE_EVIDENCE",
+  "vectors": {
+    "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+    "POSITIVE_DIGEST_MATCH": "PASS"
+  }
+}

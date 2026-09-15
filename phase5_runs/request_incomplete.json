@@ -1,0 +1,35 @@
+{
+  "claim": {
+    "statement": "phase5_third_party_target/payload.txt matches the operator-pinned SHA-256",
+    "id": "P5-INCOMPLETE",
+    "adapter_params": {
+      "expected_sha256": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+      "mode": "incomplete",
+      "primary_file": "payload.txt"
+    },
+    "adapter": "hash_claim"
+  },
+  "policy": {
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ],
+    "human_review_required": true,
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL"
+  },
+  "protected_paths": [
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED",
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED"
+  ],
+  "prior_freeze_sums": [
+    {
+      "path": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED\\SHA256SUMS.txt",
+      "sha256": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+      "label": "CAW-004_FREEZE_SHA256SUMS"
+    }
+  ],
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase5_third_party_target"
+}

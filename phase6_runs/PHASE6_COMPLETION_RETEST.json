@@ -1,0 +1,37 @@
+{
+  "phase": 6,
+  "purpose": "Targeted remediation re-test for Codex blockers B1/B2",
+  "fresh_run_id": "WFA-20260914T100138Z-4F362FB9",
+  "fresh_run_root": "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\WFA-20260914T100138Z-4F362FB9",
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\WFA-20260914T100138Z-4F362FB9\\freeze\\WFA-20260914T100138Z-4F362FB9_FROZEN",
+  "freeze_sha256sums_digest": "88e46cb8465e47000d3555375de8e609f0efdd8c798ae3c6a9fdf480b115dd75",
+  "checks": {
+    "normal_successful_audit": true,
+    "first_freeze_succeeds": true,
+    "second_freeze_rejected": true,
+    "second_freeze_error": "FREEZE_ALREADY_EXISTS",
+    "original_freeze_byte_identical_after_reject": true,
+    "verify_hash_integrity": true,
+    "verify_semantic_hash_claim": true,
+    "valid_pass_matches_recomputed_pass": true,
+    "semantically_false_pass_rejected": true,
+    "incomplete_evidence_inconclusive": true,
+    "boundary_violation_fail_closed": true,
+    "tamper_detected": true,
+    "caw003_unchanged": true,
+    "caw004_unchanged": true,
+    "phase5_freeze_unchanged": true
+  },
+  "prior_digests": {
+    "caw003_sha256sums": "cb391513ae51af3742c94bba5ee87c804e5ee5632d6020d83c551acca200e69b",
+    "caw004_sha256sums": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+    "phase5_freeze_sha256sums": "91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877",
+    "phase5_run_id": "WFA-20260914T093800Z-1E452FA4"
+  },
+  "unit_tests": {
+    "command": "python -m unittest audit_lifecycle.tests.test_lifecycle -v",
+    "result": "12 OK (8 existing + T9 T10 T11 T12)"
+  },
+  "candidate_completion_status": "READY_FOR_PI_CODEX_REVIEW",
+  "declared_complete": false
+}

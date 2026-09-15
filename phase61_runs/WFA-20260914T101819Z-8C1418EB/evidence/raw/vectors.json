@@ -1,0 +1,49 @@
+[
+  {
+    "detail": {
+      "actual_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+      "expected_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+      "primary_file": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\pinned_target\\payload.txt"
+    },
+    "id": "POSITIVE_DIGEST_MATCH",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "equals_actual": false,
+      "wrong_digest": "0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "id": "NC1_WRONG_DIGEST_REJECTED",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "original_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+      "tampered_path": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\evidence\\raw\\tampered_primary.bin",
+      "tampered_sha256": "e4246a91d25da0b1f2380ec58a0327a9811e5d90a59ed1fb27cdb47b556cd7e4"
+    },
+    "id": "T1_TAMPER_CHANGES_DIGEST",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "first": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+      "second": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc"
+    },
+    "id": "R1_REHASH_REPRODUCTION",
+    "result": "PASS"
+  },
+  {
+    "detail": {
+      "attempted": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED\\__weaver_forge_should_not_write__.txt",
+      "detail": "WRITE_DENIED_OUTSIDE_ALLOWED_ROOT: C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED\\__weaver_forge_should_not_write__.txt not under C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB",
+      "fail_closed": true,
+      "file_created": false,
+      "open_write_denied": true,
+      "result": "PASS",
+      "would_allow": false
+    },
+    "id": "BV1_PROTECTED_BOUNDARY_WRITE_DENIED",
+    "result": "PASS"
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "all_checks_passed": true,
+  "candidate_completion_status": "READY_FOR_FINAL_PI_CODEX_REVIEW",
+  "checks": {
+    "boundary_fail_closed": true,
+    "caw003_unchanged": true,
+    "caw004_unchanged": true,
+    "decision_false_pass_rebound_fails": true,
+    "final_decision_false_promotion_rebound_fails": true,
+    "fresh_run_still_verifies_after_negatives": true,
+    "incomplete_inconclusive": true,
+    "phase5_freeze_unchanged": true,
+    "phase6_freeze_unchanged": true,
+    "second_freeze_fails_closed": true,
+    "tamper_still_fails": true,
+    "valid_run_verifies": true
+  },
+  "declared_complete": false,
+  "final_decision_attack_verify": {
+    "decision_match": true,
+    "final_decision_match": false,
+    "freeze_sums_ok": true,
+    "semantic_ok": false,
+    "sha256sums_ok": true,
+    "verify_ok": false
+  },
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB\\freeze\\WFA-20260914T101819Z-8C1418EB_FROZEN",
+  "freeze_sha256sums_digest": "f7f46fc72cecf5cb824ce8b7003532263d82f787be67582c3427705637b95d04",
+  "fresh_run_id": "WFA-20260914T101819Z-8C1418EB",
+  "fresh_run_root": "C:\\dev\\Weaver\\weaver-forge\\phase61_runs\\WFA-20260914T101819Z-8C1418EB",
+  "phase": "6.1",
+  "prior_digests": {
+    "caw003_sha256sums": "cb391513ae51af3742c94bba5ee87c804e5ee5632d6020d83c551acca200e69b",
+    "caw004_sha256sums": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+    "phase5_freeze_sha256sums": "91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877",
+    "phase5_run_id": "WFA-20260914T093800Z-1E452FA4",
+    "phase6_freeze_sha256sums": "88e46cb8465e47000d3555375de8e609f0efdd8c798ae3c6a9fdf480b115dd75",
+    "phase6_run_id": "WFA-20260914T100138Z-4F362FB9"
+  },
+  "purpose": "FINAL_DECISION semantic gap targeted remediation re-test",
+  "second_freeze_error": "FREEZE_ALREADY_EXISTS",
+  "unit_tests": {
+    "command": "python -m unittest audit_lifecycle.tests.test_lifecycle -v",
+    "result": "13 OK (12 existing + T13)"
+  }
+}

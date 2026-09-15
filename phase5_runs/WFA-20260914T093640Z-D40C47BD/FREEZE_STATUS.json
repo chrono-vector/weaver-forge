@@ -1,0 +1,8 @@
+{
+  "audit_id": "WFA-20260914T093640Z-D40C47BD",
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN",
+  "freeze_performed": true,
+  "frozen_at_utc": "2026-09-14T09:37:05.811040Z",
+  "sha256sums": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN\\SHA256SUMS.txt",
+  "sha256sums_digest": "2a999699fe71373616513d39ed417472a90755535849de55e77b8ebeada7fdfb"
+}

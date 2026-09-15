@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "adapter_params": {
+    "expected_sha256": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5",
+    "mode": "verify_digest",
+    "primary_file": "payload.txt"
+  },
+  "audit_id": "WFA-20260914T093706Z-15F37C36",
+  "claim_id": "P5-TAMPER",
+  "fail_criteria": [],
+  "pass_criteria": [],
+  "statement": "phase5_third_party_target/payload.txt matches the operator-pinned SHA-256",
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase5_third_party_target"
+}

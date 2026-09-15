@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "audit_id": "WFA-20260914T101820Z-7964A866",
+  "baseline_prior_freeze_ok": true,
+  "claim_id": "P61-PRIMARY",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "lifecycle": "weaver_forge_audit_lifecycle_v0",
+  "promoted_to_full": false,
+  "provenance_files": 1,
+  "stages_completed_through": "DECISION",
+  "started_request": true,
+  "timestamp_utc": "2026-09-14T10:18:20.333639Z"
+}

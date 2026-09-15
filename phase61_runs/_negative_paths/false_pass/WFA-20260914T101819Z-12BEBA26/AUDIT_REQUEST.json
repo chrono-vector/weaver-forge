@@ -1,0 +1,37 @@
+{
+  "audit_id": "WFA-20260914T101819Z-12BEBA26",
+  "claim": {
+    "adapter": "hash_claim",
+    "adapter_params": {
+      "expected_sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc",
+      "mode": "force_fail",
+      "primary_file": "payload.txt"
+    },
+    "id": "P61-PRIMARY",
+    "statement": "phase6_third_party_target/payload.txt matches the operator-pinned SHA-256"
+  },
+  "policy": {
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL",
+    "human_review_required": true,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ]
+  },
+  "prior_freeze_sums": [
+    {
+      "label": "CAW-004_FREEZE_SHA256SUMS",
+      "path": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED\\SHA256SUMS.txt",
+      "sha256": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666"
+    }
+  ],
+  "protected_paths": [
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED",
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED"
+  ],
+  "received_at_utc": "2026-09-14T10:18:19.977900Z",
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase6_third_party_target"
+}

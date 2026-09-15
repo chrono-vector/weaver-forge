@@ -1,0 +1,33 @@
+{
+  "audit_id": "WFA-20260914T101819Z-8C1418EB",
+  "decision": {
+    "broader_classification": "CRYPTO_SUPPORTED_E2E_FULL",
+    "claim_id": "P61-PRIMARY",
+    "claim_result": "PASS",
+    "decision": "PASS",
+    "independent_verification": {
+      "claims_iw_acceptance": false,
+      "result": "NOT_CLAIMED",
+      "status": "RECORDED_NOT_RUN"
+    },
+    "promoted": false,
+    "promoted_to_full": true,
+    "promotion_note": "TAMPERED_FULL_PROMOTION",
+    "reason": "ALL_REQUIRED_VECTORS_PASS",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "NC1_WRONG_DIGEST_REJECTED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "PASS",
+      "R1_REHASH_REPRODUCTION": "PASS",
+      "T1_TAMPER_CHANGES_DIGEST": "PASS"
+    }
+  },
+  "frozen_at_utc": "2026-09-14T10:18:19.883649Z",
+  "human_review_gate": {
+    "decision_snapshot": "PASS",
+    "notes": "Phase 6.1 fresh freeze",
+    "required": true,
+    "reviewer": "phase61-operator",
+    "status": "ACCEPTED"
+  }
+}

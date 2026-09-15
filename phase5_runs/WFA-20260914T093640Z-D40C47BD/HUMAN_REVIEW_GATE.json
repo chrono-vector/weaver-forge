@@ -1,0 +1,7 @@
+{
+  "decision_snapshot": "PASS",
+  "notes": "Explicit policy human_review_required gate",
+  "required": true,
+  "reviewer": "phase5-third-party-operator",
+  "status": "ACCEPTED"
+}

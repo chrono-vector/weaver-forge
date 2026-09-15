@@ -1,0 +1,6 @@
+PHASE5 THIRD-PARTY AUDIT TARGET
+===============================
+Operator-supplied artifact for Weaver Forge completion gate.
+Created after audit_lifecycle implementation.
+Claim: this file's SHA-256 is pinned and independently verified
+by the predefined Weaver Forge audit lifecycle without ad-hoc redesign.

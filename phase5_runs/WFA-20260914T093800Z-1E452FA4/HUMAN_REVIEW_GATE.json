@@ -1,0 +1,7 @@
+{
+  "decision_snapshot": "PASS",
+  "notes": "P5-PRIMARY clean freeze after independent_verification hook",
+  "required": true,
+  "reviewer": "phase5-third-party-operator",
+  "status": "ACCEPTED"
+}

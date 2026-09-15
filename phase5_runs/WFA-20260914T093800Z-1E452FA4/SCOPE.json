@@ -1,0 +1,24 @@
+{
+  "allowed_write_boundary": [
+    "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093800Z-1E452FA4",
+    "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093800Z-1E452FA4/**"
+  ],
+  "audit_id": "WFA-20260914T093800Z-1E452FA4",
+  "notes": "Compiled by audit_lifecycle.claim_scope; operator must not hand-edit during run.",
+  "policy": {
+    "broader_classification_on_pass": "CLAIM_SUPPORTED_PARTIAL",
+    "human_review_required": true,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ]
+  },
+  "protected_paths": [
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED",
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED"
+  ],
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase5_third_party_target"
+}

@@ -1,0 +1,14 @@
+{
+  "classification": "PINNED_INPUT",
+  "expected_sha256": null,
+  "files": [
+    {
+      "bytes": 65,
+      "relative_path": "payload.txt",
+      "sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc"
+    }
+  ],
+  "modified": false,
+  "origin_absolute": "C:\\dev\\Weaver\\weaver-forge\\phase6_third_party_target",
+  "pinned_root": "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\_negative_paths\\false_pass\\WFA-20260914T100234Z-635CCC58\\pinned_target"
+}

@@ -1,0 +1,37 @@
+{
+  "false_pass_rejected": {
+    "sha256sums_ok": true,
+    "semantic_ok": false,
+    "verify_ok": false,
+    "recomputed": "FAIL",
+    "stored": "PASS"
+  },
+  "incomplete": {
+    "decision": "INCONCLUSIVE",
+    "reason": "INCOMPLETE_EVIDENCE"
+  },
+  "boundary": {
+    "bv1": "PASS",
+    "leaks": []
+  },
+  "tamper": {
+    "sha256sums_ok": false,
+    "semantic_ok": true,
+    "verify_ok": false
+  },
+  "integrity": {
+    "caw003": "cb391513ae51af3742c94bba5ee87c804e5ee5632d6020d83c551acca200e69b",
+    "caw003_expected": "cb391513ae51af3742c94bba5ee87c804e5ee5632d6020d83c551acca200e69b",
+    "caw004": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+    "caw004_expected": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+    "p5_sums": "91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877",
+    "p5_expected": "91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877",
+    "p5_files": {
+      "FINAL_DECISION.json": "30eece085bf761b36a496b02dc8ba76c8d67fe40b221ef4a8cf02207c5b96f1f",
+      "FINAL_EVIDENCE_INDEX.json": "895011082f64e8ca7b33c4afa998e6546bff89f1c98ace1824316aa4a25da1a7",
+      "MANIFEST.json": "b456abe6f5dc02056d2127bd614bdab8c3a4e1d6c0ec43fca46597777ee008c7",
+      "REPRODUCTION_INSTRUCTIONS.md": "43915e4a742f17c35c34d01198469e78c8db614e0429775826370f3dd1310e33",
+      "SHA256SUMS.txt": "91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877"
+    }
+  }
+}

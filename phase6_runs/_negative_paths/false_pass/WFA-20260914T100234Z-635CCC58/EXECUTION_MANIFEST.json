@@ -1,0 +1,14 @@
+{
+  "adapter": "hash_claim",
+  "audit_id": "WFA-20260914T100234Z-635CCC58",
+  "baseline_prior_freeze_ok": true,
+  "claim_id": "P6-NEG",
+  "claim_result": "FAIL",
+  "decision": "FAIL",
+  "lifecycle": "weaver_forge_audit_lifecycle_v0",
+  "promoted_to_full": false,
+  "provenance_files": 1,
+  "stages_completed_through": "DECISION",
+  "started_request": true,
+  "timestamp_utc": "2026-09-14T10:02:34.177948Z"
+}

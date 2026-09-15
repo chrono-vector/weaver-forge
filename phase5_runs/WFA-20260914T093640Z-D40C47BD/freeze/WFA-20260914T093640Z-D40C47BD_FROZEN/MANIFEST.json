@@ -1,0 +1,105 @@
+{
+  "audit_id": "WFA-20260914T093640Z-D40C47BD",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "final_decision_sha256": "ae9fe26c56ce18f7a9cb8ed47d0a30bb86da317e7c9cf48e16f2209180b2fd2b",
+  "final_evidence_index_sha256": "9fdf33bb957859dadc97827170bf5391fac995c5cfd889e0a97992698e6a64db",
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD\\freeze\\WFA-20260914T093640Z-D40C47BD_FROZEN",
+  "freeze_label": "WFA-20260914T093640Z-D40C47BD_FROZEN",
+  "human_review": {
+    "decision_snapshot": "PASS",
+    "notes": "Explicit policy human_review_required gate",
+    "required": true,
+    "reviewer": "phase5-third-party-operator",
+    "status": "ACCEPTED"
+  },
+  "promoted_to_full": false,
+  "referenced_audit_files": [
+    {
+      "path": "AUDIT_REQUEST.json",
+      "role": "artifact",
+      "sha256": "019d7b48c96c95b19702f3921bd44f55cff06add66e582cf9a9b99e29b4d8f68"
+    },
+    {
+      "path": "BASELINE.json",
+      "role": "lifecycle",
+      "sha256": "69bcdadcb9139ed2afcfe1b67a9dd941948fc166e7f054740c01bfb67ad4d36e"
+    },
+    {
+      "path": "CLAIM.json",
+      "role": "lifecycle",
+      "sha256": "a0791401fd7c9f04f467a4008d384e22a864be9d26daed6b64a7e936b1fe92c2"
+    },
+    {
+      "path": "DECISION.json",
+      "role": "decision",
+      "sha256": "1e5c5a8ee99568c7bde0c7495c31cf4580a96b27fbbbe5ca5ebb8054b7aafaa8"
+    },
+    {
+      "path": "evidence/logs/adapter.log",
+      "role": "evidence",
+      "sha256": "6bac3201cfa55864cd4b161dda9bceea461f2424b6e7a603861c450f760576e2"
+    },
+    {
+      "path": "evidence/raw/adapter_result.json",
+      "role": "evidence",
+      "sha256": "47af82525d80060e5d406806bd1acc8b7e1ec28613886eebffe280332dfb4a88"
+    },
+    {
+      "path": "evidence/raw/boundary_probe.json",
+      "role": "evidence",
+      "sha256": "c004cbe9f57e41a009d5e69fc7b7ba9f50104aae9fb04d996f2bca712fcff1ee"
+    },
+    {
+      "path": "evidence/raw/tampered_primary.bin",
+      "role": "evidence",
+      "sha256": "d4617331bab4c7ef40f59f2852b091aa6997ca2b9fdfbcd4aa3bbdf2be92d61a"
+    },
+    {
+      "path": "evidence/raw/vectors.json",
+      "role": "evidence",
+      "sha256": "16559c6aae28d17fe1f827722f4eea16bae2a6f08b8f05bfd1f5dfba23e45f1c"
+    },
+    {
+      "path": "EXECUTION_MANIFEST.json",
+      "role": "decision",
+      "sha256": "be15727d94d42848bd01008b99276daebc9121879a5790ce1d565c5ee51feae3"
+    },
+    {
+      "path": "HUMAN_REVIEW.json",
+      "role": "artifact",
+      "sha256": "da09503bdfe27b6662d479295ddf1185b93fad02a98ba5d92143d325432e8263"
+    },
+    {
+      "path": "HUMAN_REVIEW_GATE.json",
+      "role": "artifact",
+      "sha256": "45cc53c701d8255e774594854ea5c3e1d09a7e15bbdce5ed877b0f06ddd2d136"
+    },
+    {
+      "path": "pinned_target/EXPECTED_SHA256.txt",
+      "role": "pinned_input",
+      "sha256": "9e8c7a088aed449ae4671afcca4d1c49bc513de45a7a482e1169edd50fb97209"
+    },
+    {
+      "path": "pinned_target/payload.txt",
+      "role": "pinned_input",
+      "sha256": "6a0bf10de57c00ccca2a9b12eb74e102b0b3153ed66d90a7ba68450e48e503e5"
+    },
+    {
+      "path": "PROVENANCE.json",
+      "role": "provenance",
+      "sha256": "6b2d2715a8e35be0abddaee5fd0104acd4b536887c4844b0e405596aadd0c03a"
+    },
+    {
+      "path": "SCOPE.json",
+      "role": "lifecycle",
+      "sha256": "8473d627fa33a5675317324eccb73f6780cf083655573237f04592cf9dc67928"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "role": "artifact",
+      "sha256": "d40eb57bb91a56c32767cd4f51bceefbfd3f2f396d8b5a01fd432edd67ad64b7"
+    }
+  ],
+  "reproduction_instructions": "REPRODUCTION_INSTRUCTIONS.md"
+}

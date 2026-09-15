@@ -1,0 +1,23 @@
+{
+  "allowed_write_boundary": [
+    "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\_negative_paths\\boundary\\WFA-20260914T100234Z-611031FC",
+    "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\_negative_paths\\boundary\\WFA-20260914T100234Z-611031FC/**"
+  ],
+  "audit_id": "WFA-20260914T100234Z-611031FC",
+  "notes": "Compiled by audit_lifecycle.claim_scope; operator must not hand-edit during run.",
+  "policy": {
+    "human_review_required": true,
+    "required_vectors": [
+      "POSITIVE_DIGEST_MATCH",
+      "NC1_WRONG_DIGEST_REJECTED",
+      "T1_TAMPER_CHANGES_DIGEST",
+      "R1_REHASH_REPRODUCTION",
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED"
+    ]
+  },
+  "protected_paths": [
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED",
+    "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED"
+  ],
+  "target_path": "C:\\dev\\Weaver\\weaver-forge\\phase6_third_party_target"
+}

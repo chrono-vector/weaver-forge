@@ -1,0 +1,30 @@
+{
+  "allowed_write_root": "C:\\dev\\Weaver\\weaver-forge\\phase5_runs\\WFA-20260914T093640Z-D40C47BD",
+  "audit_id": "WFA-20260914T093640Z-D40C47BD",
+  "baseline_at_utc": "2026-09-14T09:36:40.277264Z",
+  "prior_freeze_integrity": {
+    "all_ok": true,
+    "checks": {
+      "CAW-004_FREEZE_SHA256SUMS": {
+        "digest": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+        "expected": "ccb734394bf157d30346b9e6ba9c3d451284b487c96c0a578848e920f62a0666",
+        "ok": true,
+        "path": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED\\SHA256SUMS.txt"
+      }
+    }
+  },
+  "protected_paths": [
+    {
+      "exists": true,
+      "is_dir": true,
+      "is_file": false,
+      "path": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-003\\freeze\\CAW_003_HUMAN_REVIEW_ACCEPTED"
+    },
+    {
+      "exists": true,
+      "is_dir": true,
+      "is_file": false,
+      "path": "C:\\dev\\eig-runtime\\audits\\caw\\CAW-004\\freeze\\CAW_004_HUMAN_REVIEW_ACCEPTED"
+    }
+  ]
+}

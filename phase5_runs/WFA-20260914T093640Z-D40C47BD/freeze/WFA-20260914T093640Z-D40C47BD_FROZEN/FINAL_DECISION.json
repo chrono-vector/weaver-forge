@@ -1,0 +1,28 @@
+{
+  "audit_id": "WFA-20260914T093640Z-D40C47BD",
+  "decision": {
+    "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+    "claim_id": "P5-TAMPER",
+    "claim_result": "PASS",
+    "decision": "PASS",
+    "promoted": false,
+    "promoted_to_full": false,
+    "promotion_note": "no broader FULL promotion",
+    "reason": "ALL_REQUIRED_VECTORS_PASS",
+    "vectors": {
+      "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+      "NC1_WRONG_DIGEST_REJECTED": "PASS",
+      "POSITIVE_DIGEST_MATCH": "PASS",
+      "R1_REHASH_REPRODUCTION": "PASS",
+      "T1_TAMPER_CHANGES_DIGEST": "PASS"
+    }
+  },
+  "frozen_at_utc": "2026-09-14T09:37:05.748139Z",
+  "human_review_gate": {
+    "decision_snapshot": "PASS",
+    "notes": "Explicit policy human_review_required gate",
+    "required": true,
+    "reviewer": "phase5-third-party-operator",
+    "status": "ACCEPTED"
+  }
+}

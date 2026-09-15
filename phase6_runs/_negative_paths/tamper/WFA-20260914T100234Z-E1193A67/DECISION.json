@@ -1,0 +1,23 @@
+{
+  "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+  "claim_id": "P6-TAMPER",
+  "claim_result": "PASS",
+  "decision": "PASS",
+  "independent_verification": {
+    "claims_iw_acceptance": false,
+    "result": "NOT_CLAIMED",
+    "status": "RECORDED_NOT_RUN"
+  },
+  "promoted": false,
+  "promoted_to_full": false,
+  "promotion_note": "no broader FULL promotion",
+  "reason": "ALL_REQUIRED_VECTORS_PASS",
+  "vectors": {
+    "BV1_PROTECTED_BOUNDARY_WRITE_DENIED": "PASS",
+    "NC1_WRONG_DIGEST_REJECTED": "PASS",
+    "POSITIVE_DIGEST_MATCH": "PASS",
+    "R1_REHASH_REPRODUCTION": "PASS",
+    "T1_TAMPER_CHANGES_DIGEST": "PASS"
+  }
+}
+

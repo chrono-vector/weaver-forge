@@ -1,0 +1,92 @@
+{
+  "audit_id": "WFA-20260914T100138Z-4F362FB9",
+  "audit_root": "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\WFA-20260914T100138Z-4F362FB9",
+  "entries": [
+    {
+      "path": "AUDIT_REQUEST.json",
+      "role": "artifact",
+      "sha256": "19220784a7ac36ea7e9e778df7cf2d1fb2cfef08c2494070b3722048a852ae77"
+    },
+    {
+      "path": "BASELINE.json",
+      "role": "lifecycle",
+      "sha256": "4c457508684c643fe4ce47f64b1dee5b04a2f48b50d177a56deb3eb6255493c3"
+    },
+    {
+      "path": "CLAIM.json",
+      "role": "lifecycle",
+      "sha256": "e2dc89c12082fe0e24e122db9ef509c76d5f936aaafc3703f8ba550eabbfc1ea"
+    },
+    {
+      "path": "DECISION.json",
+      "role": "decision",
+      "sha256": "5de88ad28f0fd55f2931e42875245fb6673c09ed8b2aafcb2f84e26d7a689360"
+    },
+    {
+      "path": "evidence/logs/adapter.log",
+      "role": "evidence",
+      "sha256": "6bd03c5b9a6ebe60a8d82c2c7cc88568c899985b570dd9c3ffc982456a975fe2"
+    },
+    {
+      "path": "evidence/raw/adapter_result.json",
+      "role": "evidence",
+      "sha256": "4e6b97b474af39df28a6c9f07f4302886deb2b880f3648527498571f52d24b04"
+    },
+    {
+      "path": "evidence/raw/boundary_probe.json",
+      "role": "evidence",
+      "sha256": "f5458256bf9474dd5693a8afca5f5a984a18378aa003d4f16ac34036ebee04dc"
+    },
+    {
+      "path": "evidence/raw/tampered_primary.bin",
+      "role": "evidence",
+      "sha256": "e4246a91d25da0b1f2380ec58a0327a9811e5d90a59ed1fb27cdb47b556cd7e4"
+    },
+    {
+      "path": "evidence/raw/vectors.json",
+      "role": "evidence",
+      "sha256": "6e1b2cc79beb55976d627127af61854b2cbe2cb201289efaf065844ebfc29cc4"
+    },
+    {
+      "path": "EXECUTION_MANIFEST.json",
+      "role": "decision",
+      "sha256": "be899992302dff52e84f69862f97c70073ad3ae708287c1db7d7c662974b4c2f"
+    },
+    {
+      "path": "HUMAN_REVIEW.json",
+      "role": "artifact",
+      "sha256": "01a7bfcd4565951dbfc35c293c778bb93353304b49aeca5ef9017dd4a3e1ea9f"
+    },
+    {
+      "path": "HUMAN_REVIEW_GATE.json",
+      "role": "artifact",
+      "sha256": "07b3aed4154320cce3e744863ce620fbfd285339b4c9cea459e5e416e2b1fbdd"
+    },
+    {
+      "path": "INDEPENDENT_VERIFICATION.json",
+      "role": "artifact",
+      "sha256": "894111c1d0ea7a85848183a7da4fc75b8455cb9d4d0eb3a849bc387454b75f44"
+    },
+    {
+      "path": "pinned_target/payload.txt",
+      "role": "pinned_input",
+      "sha256": "8462413d12861eb0be28a78a29d930d85d2f535058f3d9673fa552c87edbb9fc"
+    },
+    {
+      "path": "PROVENANCE.json",
+      "role": "provenance",
+      "sha256": "d536e101bf4c1030d673ff90ad38c3a9143b23bdacebf9c61d9ed943247eb139"
+    },
+    {
+      "path": "SCOPE.json",
+      "role": "lifecycle",
+      "sha256": "5f985cf12c7ba3f5654a18f5edab491a01df9e7a9cdf27e27f84f455bc063612"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "role": "artifact",
+      "sha256": "d6334070f2441fa6337a4286f9764e54cfe2a6270ce9fa84e33829b6e49d7843"
+    }
+  ],
+  "freeze_directory": "C:\\dev\\Weaver\\weaver-forge\\phase6_runs\\WFA-20260914T100138Z-4F362FB9\\freeze\\WFA-20260914T100138Z-4F362FB9_FROZEN"
+}
