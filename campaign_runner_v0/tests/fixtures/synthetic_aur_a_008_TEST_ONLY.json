@@ -1,0 +1,19 @@
+{
+  "evidence_id": "synthetic-test:AUR-A-008:idle-telemetry-v0",
+  "claim_id": "AUR-A-008",
+  "TEST_ONLY": true,
+  "SYNTHETIC": true,
+  "NOT_REAL_AURORA_EVIDENCE": true,
+  "marker": "TEST_ONLY",
+  "evidence_class": "SYNTHETIC",
+  "labels": ["TEST_ONLY", "SYNTHETIC", "NOT_REAL_AURORA_EVIDENCE"],
+  "test_advance_state": "INCONCLUSIVE",
+  "description": "Synthetic idle-tracker telemetry fixture for resume testing only. Not real Aurora evidence.",
+  "payload": {
+    "idle_definition": "TEST_ONLY unused > 48h",
+    "flag_events": [
+      {"asset_id": "TEST_TOOL_1", "idle_hours": 49, "flagged": true}
+    ]
+  },
+  "canonical_aurora_admission": false
+}

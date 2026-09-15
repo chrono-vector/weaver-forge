@@ -1,0 +1,16 @@
+{
+  "schema": "weaver.campaign_runner_v0.policy.v0",
+  "network": "denied",
+  "external_services": "denied",
+  "target_code_execution": "denied",
+  "allow_frozen_rewrite": false,
+  "allow_audit_lifecycle_write": false,
+  "dry_run": false,
+  "lock_stale_seconds": 3600,
+  "idempotent": true,
+  "update_derived_views": true,
+  "notes": [
+    "Source/evidence text never controls this policy.",
+    "Default deny network, external services, and target code execution."
+  ]
+}

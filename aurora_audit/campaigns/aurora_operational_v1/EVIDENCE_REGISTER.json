@@ -1,0 +1,121 @@
+{
+  "campaign_id": "aurora_operational_v1",
+  "entries": [
+    {
+      "audit_id": "WFA-20260915T042439Z-8BE7790F",
+      "audit_record_path": "audits/AUR-A-001/AUDIT_RECORD.md",
+      "claim_id": "AUR-A-001",
+      "epistemic_notes": [
+        "HASH MATCH \u2260 CONTENT TRUTH",
+        "INDIVIDUAL AUDIT PASS \u2260 AURORA COMPLETE",
+        "Reuse only; no refreeze; no rewrite"
+      ],
+      "evidence_id": "reuse:WFA-20260915T042439Z-8BE7790F",
+      "frozen_path": "runs/WFA-20260915T042439Z-8BE7790F/freeze/WFA-20260915T042439Z-8BE7790F_FROZEN",
+      "immutable": true,
+      "kind": "FROZEN_WEAVER_AUDIT_REUSE",
+      "modified": false,
+      "pass_kind": "DOCUMENT_IDENTITY_ONLY",
+      "rerun": false,
+      "run_path": "runs/WFA-20260915T042439Z-8BE7790F",
+      "scope": "DOCUMENT_IDENTITY_ONLY",
+      "sha256sums_digest": "5b5b695a50bf03b98bffad8027ad753f719b5ef9ddff82d4f4850fa98bc6c8ae",
+      "verdict": "PASS"
+    },
+    {
+      "audit_id": "WFA-20260915T043650Z-C49CA863",
+      "audit_record_path": "audits/AUR-A-002/AUDIT_RECORD.md",
+      "claim_id": "AUR-A-002",
+      "epistemic_notes": [
+        "HASH MATCH \u2260 CONTENT TRUTH",
+        "INDIVIDUAL AUDIT PASS \u2260 AURORA COMPLETE",
+        "Reuse only; no refreeze; no rewrite"
+      ],
+      "evidence_id": "reuse:WFA-20260915T043650Z-C49CA863",
+      "frozen_path": "runs/WFA-20260915T043650Z-C49CA863/freeze/WFA-20260915T043650Z-C49CA863_FROZEN",
+      "immutable": true,
+      "kind": "FROZEN_WEAVER_AUDIT_REUSE",
+      "modified": false,
+      "pass_kind": "DOCUMENT_IDENTITY_TEXTUAL_PRESENCE_ONLY",
+      "rerun": false,
+      "run_path": "runs/WFA-20260915T043650Z-C49CA863",
+      "scope": "DOCUMENT_IDENTITY_TEXTUAL_PRESENCE_ONLY",
+      "sha256sums_digest": "2c0abec238b749811c0bd19793df751721d9f81a9cfbea3e73d0f5d94bf63643",
+      "verdict": "PASS"
+    },
+    {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-005",
+      "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+      "epistemic_notes": [
+        "PROTOCOL HARNESS PASS \u2260 CIVIC / REAL-WORLD PASS",
+        "Bound existing authorized protocol evidence only"
+      ],
+      "evidence_id": "protocol:aurora_protocol_harness_v0:AUR-A-005",
+      "harness_path": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+      "harness_sha256": "8a0d221ede679062605a684c157f6893f6705e1b293ac74c9a967ef175dcff7a",
+      "immutable": true,
+      "kind": "PROTOCOL_HARNESS_BIND",
+      "modified": false,
+      "protocol_check": "PASS"
+    },
+    {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-009",
+      "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+      "epistemic_notes": [
+        "PROTOCOL HARNESS PASS \u2260 CIVIC / REAL-WORLD PASS",
+        "Bound existing authorized protocol evidence only"
+      ],
+      "evidence_id": "protocol:aurora_protocol_harness_v0:AUR-A-009",
+      "harness_path": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+      "harness_sha256": "8a0d221ede679062605a684c157f6893f6705e1b293ac74c9a967ef175dcff7a",
+      "immutable": true,
+      "kind": "PROTOCOL_HARNESS_BIND",
+      "modified": false,
+      "protocol_check": "PASS"
+    },
+    {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-012",
+      "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+      "epistemic_notes": [
+        "PROTOCOL HARNESS PASS \u2260 CIVIC / REAL-WORLD PASS",
+        "Bound existing authorized protocol evidence only"
+      ],
+      "evidence_id": "protocol:aurora_protocol_harness_v0:AUR-A-012",
+      "harness_path": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+      "harness_sha256": "8a0d221ede679062605a684c157f6893f6705e1b293ac74c9a967ef175dcff7a",
+      "immutable": true,
+      "kind": "PROTOCOL_HARNESS_BIND",
+      "modified": false,
+      "protocol_check": "PASS"
+    },
+    {
+      "civic_claim_state": "INCONCLUSIVE",
+      "civic_claim_verdict": null,
+      "claim_id": "AUR-A-018",
+      "epistemic_boundary": "PROTOCOL_SIMULATION_ONLY_NOT_CIVIC_TRUTH",
+      "epistemic_notes": [
+        "PROTOCOL HARNESS PASS \u2260 CIVIC / REAL-WORLD PASS",
+        "Bound existing authorized protocol evidence only"
+      ],
+      "evidence_id": "protocol:aurora_protocol_harness_v0:AUR-A-018",
+      "harness_path": "sandbox_harness/results/HARNESS_RESULT_LATEST.json",
+      "harness_sha256": "8a0d221ede679062605a684c157f6893f6705e1b293ac74c9a967ef175dcff7a",
+      "immutable": true,
+      "kind": "PROTOCOL_HARNESS_BIND",
+      "modified": false,
+      "protocol_check": "PASS"
+    }
+  ],
+  "notes": [
+    "Aggregate register only; not a substitute for underlying evidence.",
+    "Frozen packages remain authoritative and immutable."
+  ],
+  "schema": "weaver.campaign_runner_v0.evidence_register.v0",
+  "updated_at_utc": "2026-09-15T05:54:28Z"
+}

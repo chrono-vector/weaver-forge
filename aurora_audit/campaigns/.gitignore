@@ -1,0 +1,6 @@
+# Runtime locks (not durable campaign evidence)
+**/campaign.lock
+
+# Pytest-created ephemeral campaign dirs (not operational acceptance)
+aurora_*test*/
+aurora_*_test/

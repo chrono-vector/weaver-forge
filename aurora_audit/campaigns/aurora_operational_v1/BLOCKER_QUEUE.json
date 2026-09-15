@@ -1,0 +1,104 @@
+{
+  "blockers": [
+    {
+      "blocker_type": "BLOCKED_EVIDENCE",
+      "claim_id": "AUR-A-003",
+      "evidence_required": true,
+      "human_action_required": false,
+      "reason": "Additional / insufficient evidence; not converted to FAIL",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-006",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-007",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "BLOCKED_EVIDENCE",
+      "claim_id": "AUR-A-008",
+      "evidence_required": true,
+      "human_action_required": false,
+      "reason": "Additional / insufficient evidence; not converted to FAIL",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-011",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-013",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-014",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-015",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-017",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "IMPLEMENTATION_REQUIRED",
+      "claim_id": "AUR-A-020",
+      "evidence_required": false,
+      "human_action_required": false,
+      "reason": "Proposal/described mechanism not implemented (PROPOSAL \u2260 IMPLEMENTED)",
+      "resumable": true
+    },
+    {
+      "blocker_type": "BLOCKED_HUMAN",
+      "claim_id": "AUR-A-021",
+      "evidence_required": false,
+      "human_action_required": true,
+      "reason": "Human sandbox authorization / consenting participants required; HUMAN AUTHORIZATION \u2260 CLAIM TRUTH",
+      "resumable": true
+    },
+    {
+      "blocker_type": "HISTORICAL_CORROBORATION_REQUIRED",
+      "claim_id": "AUR-B-REL-001",
+      "evidence_required": true,
+      "human_action_required": false,
+      "reason": "Historical claim lacks independent corroboration; not PASS/FAIL",
+      "resumable": true
+    }
+  ],
+  "count": 12,
+  "finite": true,
+  "generated_at_utc": "2026-09-15T05:54:28Z",
+  "schema": "weaver.campaign_runner_v0.blocker_queue.v0"
+}
