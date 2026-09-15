@@ -1,11 +1,14 @@
-# WEAVER_FORGE_COMPLETION_MATRIX (post Phase 4–6.1 + Pi final-review B1)
+# WEAVER_FORGE_COMPLETION_MATRIX (final independent completion)
 
-**Assessment update (UTC):** 2026-09-15T03:30:00Z  
+**Assessment update (UTC):** 2026-09-15  
 **Prior Phase 5 assessment:** recorded `WEAVER_FORGE_COMPLETE` pending independent review  
 **Codex independent review (Phase 6):** `WEAVER_FORGE_NOT_COMPLETE` (material blockers B1/B2)  
 **Pi independent review (Phase 6 re-review):** discovered remaining **FINAL_DECISION semantic verification gap** (material)  
 **Pi independent final review (candidate `ad82617817971821c59a2e8ab9895182e8173565`):** `WEAVER_FORGE_NOT_COMPLETE` — **material blocker B1** (freeze one-shot bypass after frozen package directory deletion)  
-**Completion verdict status:** **REOPENED** — Pi final-review B1 remediated; do **not** declare `WEAVER_FORGE_COMPLETE`  
+**Reviewed implementation commit:** `f109d9da7d4ceeac953e227c1f8dad2fd07ae308` (Pi B1 remediation)  
+**Pi FINAL INDEPENDENT RE-REVIEW:** `WEAVER_FORGE_COMPLETE` — B1 **CLOSED**; material blockers: **None**; 16/16 OK  
+**Codex FINAL INDEPENDENT REVIEW:** `WEAVER_FORGE_COMPLETE` — B1 **PASS**; material blockers: **None**; 16/16 OK  
+**Completion verdict status:** **WEAVER_FORGE_COMPLETE**  
 **Product package:** `weaver-forge/audit_lifecycle/`  
 **Phase 5 clean freeze (historical, unchanged):** `phase5_runs/WFA-20260914T093800Z-1E452FA4`  
 **Phase 5 freeze SHA256SUMS digest (unchanged):** `91a36ee4dc74eccac82457637096e65c0fad3a9b90e663b5b3a2fc12169bc877`  
@@ -16,7 +19,9 @@
 **Pi B1 remediation fresh freeze:** `pi_b1_runs/WFA-20260915T032852Z-C88F783F`  
 **Pi B1 remediation freeze SHA256SUMS digest (pre-attack reproduction):** `16b1fe18522b14cccdb75f04b7d8a4219770db2be3a5a01b1a3574fbfc260779`
 
-Status = productized capability after Phase 4–6.1 + **Pi final-review B1 remediation** (FREEZE_STATUS one-shot independent of freeze directory presence).
+**Distinction:** the reviewed implementation commit is `f109d9da7d4ceeac953e227c1f8dad2fd07ae308`. Any later documentation-only completion-record commit must not amend that implementation commit.
+
+Status = productized capability after Phase 4–6.1 + Pi final-review B1 remediation + **final independent Pi + Codex reviews**.
 
 | # | Stage | Status | Citation |
 |---|-------|--------|----------|
@@ -40,19 +45,23 @@ Status = productized capability after Phase 4–6.1 + **Pi final-review B1 remed
 | 18 | Human review gate | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `review_gate.py`; freeze blocked without `HUMAN_REVIEW.json` when required |
 | 19 | Manifest creation | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `EXECUTION_MANIFEST.json`, freeze `MANIFEST.json` |
 | 20 | SHA-256 evidence binding | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `SHA256SUMS.txt` + verify |
-| 21 | Freeze (one-shot) | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `assert_one_shot_freeze_allowed` — completed `FREEZE_STATUS.json` blocks re-freeze even if `*_FROZEN/` deleted (Pi final B1) |
+| 21 | Freeze (one-shot) | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `assert_one_shot_freeze_allowed` — completed `FREEZE_STATUS.json` blocks re-freeze even if `*_FROZEN/` deleted (Pi final B1 CLOSED) |
 | 22 | Final evidence index | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `FINAL_EVIDENCE_INDEX.json` |
 | 23 | Re-run/reproduction instructions | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | freeze `REPRODUCTION_INSTRUCTIONS.md` |
 | 24 | Failure-path preservation | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | FAIL/INCONCLUSIVE runs retained; `FAILURE.json` on exceptions / freeze integrity |
 | 25 | Boundary-violation fail-closed | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | BV1 + `BoundaryViolation`; no probe files in protected freezes |
 | 26 | Semantic verify (hash_claim) | IMPLEMENTED+TESTED+E2E_VERIFIED+THIRD_PARTY_REPRODUCIBLE | `semantic_verification.py`; stored DECISION **and** frozen FINAL_DECISION vs recomputed (Phase 6 B2 + Phase 6.1) |
 
-**Unresolved material MISSING after Pi B1 remediation:** none identified for freeze-directory-deletion one-shot bypass; awaiting **independent Pi re-review** and **Codex final review**. Do **not** mark `WEAVER_FORGE_COMPLETE`.
+**Unresolved material MISSING:** none. Pi and Codex final independent reviews of `f109d9da7d4ceeac953e227c1f8dad2fd07ae308` both return `WEAVER_FORGE_COMPLETE` with no material blockers.
 
-**Scoped non-claims (not gaps against the fixed completion definition):**
+**Scoped non-claims / nonmaterial limitations (not gaps against the fixed completion definition):**
+- Historical/generated evidence may contain absolute local paths.
+- Only supported/registered semantic adapter families are verified; unsupported adapters fail conservatively.
+- Lifecycle PASS does not itself claim Independent Witness acceptance, production authorization, or `CRYPTO_SUPPORTED_E2E_FULL`.
+- Deleted frozen-package verify may produce an unhandled missing-file error rather than structured JSON, but it fails closed and was judged nonmaterial by Pi.
+- INCONCLUSIVE may be preserved/frozen where policy permits, but remains explicitly INCONCLUSIVE and is not promoted to PASS.
 - CAW dual-endpoint crypto is prior practice evidence (`CAW-003`/`CAW-004`), not required as the Phase 5/6/6.1/Pi-B1 fresh target.
 - New claim families need a registered adapter + semantic verifier; unsupported adapters fail semantic verify conservatively.
-- Independent Witness acceptance is never implied by lifecycle PASS.
 
 ## Phase 5 results (historical summary — unchanged evidence)
 
@@ -104,7 +113,7 @@ Status = productized capability after Phase 4–6.1 + **Pi final-review B1 remed
 
 | Finding | Remediation | Status |
 |---------|-------------|--------|
-| Freeze one-shot bypassed after `freeze/<id>_FROZEN/` deleted while `FREEZE_STATUS.json` remains | `assert_one_shot_freeze_allowed`: completed `FREEZE_STATUS` rejects re-freeze **before** SHA rebind; missing package → `FREEZE_INTEGRITY_FAILURE` / `FAILURE.json` | ENFORCED + tested (Pi B1 regression) + E2E |
+| Freeze one-shot bypassed after `freeze/<id>_FROZEN/` deleted while `FREEZE_STATUS.json` remains | `assert_one_shot_freeze_allowed`: completed `FREEZE_STATUS` rejects re-freeze **before** SHA rebind; missing package → `FREEZE_INTEGRITY_FAILURE` / `FAILURE.json` | ENFORCED + tested (Pi B1 regression) + E2E; **CLOSED by Pi / PASS by Codex** |
 
 **Root cause:** `freeze_run` / `create_freeze_package` gated only on freeze directory existence, not on prior completed `FREEZE_STATUS.json`.
 
@@ -116,6 +125,15 @@ Status = productized capability after Phase 4–6.1 + **Pi final-review B1 remed
 | Legitimate first freeze | still succeeds |
 | Unit/integration suite | `python -m unittest audit_lifecycle.tests.test_lifecycle -v` → **16 OK** |
 
-**Pending:** independent Pi re-review of this remediation, then Codex final review. **Do not declare `WEAVER_FORGE_COMPLETE`.**
+## Final independent completion
 
-See also: `phase61_runs/PHASE61_COMPLETION_RETEST.json`, `phase6_runs/PHASE6_COMPLETION_RETEST.json`, `phase5_runs/PHASE5_COMPLETION_REPORT.json`.
+| Item | Record |
+|------|--------|
+| Reviewed implementation commit | `f109d9da7d4ceeac953e227c1f8dad2fd07ae308` |
+| Pi final verdict | `WEAVER_FORGE_COMPLETE` (B1 CLOSED; material blockers: None) |
+| Codex final verdict | `WEAVER_FORGE_COMPLETE` (B1 PASS; material blockers: None) |
+| Final test result | 16 tests / 16 OK |
+| Product-code changes after independent review | None (documentation-only finalization) |
+| Final status | **WEAVER_FORGE_COMPLETE** |
+
+See also: `WEAVER_FORGE_FINAL_COMPLETION_GATE.md`, `phase61_runs/PHASE61_COMPLETION_RETEST.json`, `phase6_runs/PHASE6_COMPLETION_RETEST.json`, `phase5_runs/PHASE5_COMPLETION_REPORT.json`.
