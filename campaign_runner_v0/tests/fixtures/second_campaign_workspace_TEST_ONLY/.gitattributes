@@ -1,0 +1,3 @@
+# Hash-bound TEST_ONLY fixture bytes must match committed blobs exactly.
+# Prevent core.autocrlf from CRLF-smudging sources / SHA256SUMS / digests.
+* -text
