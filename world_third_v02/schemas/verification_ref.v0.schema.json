@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "world-third-weaver-verification-ref-v0",
+  "title": "WORLD THIRD Weaver Verification Ref v0",
+  "description": "Content-addressed reference to an existing Weaver verification artifact/result. VERIFICATION_REF ≠ WEAVER VERDICT. WEAVER PASS ≠ IW/HUMAN/CANONICAL acceptance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_type",
+    "schema_version",
+    "schema_id",
+    "artifact_class",
+    "verification_ref_id",
+    "work_id",
+    "verifier",
+    "verification_artifact_ref",
+    "verification_type",
+    "verification_result",
+    "created_at",
+    "verification_digest",
+    "nonclaims",
+    "claims_iw_acceptance",
+    "artifact_sha256"
+  ],
+  "properties": {
+    "artifact_type": {
+      "const": "world_third_weaver_verification_ref_v0"
+    },
+    "schema_version": { "const": "0" },
+    "schema_id": { "const": "world-third-weaver-verification-ref-v0" },
+    "artifact_class": { "const": "world_third_weaver_verification_ref" },
+    "verification_ref_id": {
+      "type": "string",
+      "pattern": "^wtvr-v0-[a-f0-9]{32}$"
+    },
+    "work_id": { "type": "string", "minLength": 1 },
+    "verifier": { "type": "string", "minLength": 1 },
+    "verification_artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_ref", "artifact_type", "sha256", "bytes_length"],
+      "properties": {
+        "artifact_ref": { "type": "string", "minLength": 1 },
+        "artifact_type": {
+          "type": "string",
+          "enum": [
+            "weaver_eig_cleanup_residue_verifier_result_v0",
+            "weaver_audit_lifecycle_decision_v0",
+            "weaver_lifecycle_independent_verification_record_v0",
+            "weaver_verification_verdict_v0"
+          ]
+        },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "bytes_length": { "type": "integer", "minimum": 0 },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?Z$"
+        }
+      }
+    },
+    "verification_type": { "type": "string", "minLength": 1 },
+    "verification_result": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "BLOCKED",
+        "PARTIAL",
+        "UNKNOWN",
+        "INCOMPLETE",
+        "NOT_CLAIMED"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?Z$"
+    },
+    "target_identity": { "type": "string", "minLength": 1 },
+    "target_commit_or_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_kind", "value"],
+      "properties": {
+        "binding_kind": {
+          "type": "string",
+          "enum": ["git_commit", "content_digest", "immutable_version"]
+        },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence_pack_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_ref", "sha256", "bytes_length"],
+      "properties": {
+        "artifact_ref": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "bytes_length": { "type": "integer", "minimum": 0 },
+        "artifact_type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verification_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonclaims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verification_ref_is_not_authorization",
+        "verification_ref_is_not_execution_receipt",
+        "verification_ref_is_not_iw_acceptance",
+        "verification_ref_is_not_human_review",
+        "verification_ref_is_not_canonical_status",
+        "verification_ref_is_not_publication_approval",
+        "verification_ref_does_not_prove_production_safety",
+        "verification_ref_does_not_broaden_original_verification_scope",
+        "verification_ref_is_not_weaver_verdict_itself",
+        "weaver_pass_ne_iw_accepted",
+        "weaver_pass_ne_human_accepted",
+        "weaver_pass_ne_canonical"
+      ],
+      "properties": {
+        "verification_ref_is_not_authorization": { "const": true },
+        "verification_ref_is_not_execution_receipt": { "const": true },
+        "verification_ref_is_not_iw_acceptance": { "const": true },
+        "verification_ref_is_not_human_review": { "const": true },
+        "verification_ref_is_not_canonical_status": { "const": true },
+        "verification_ref_is_not_publication_approval": { "const": true },
+        "verification_ref_does_not_prove_production_safety": { "const": true },
+        "verification_ref_does_not_broaden_original_verification_scope": {
+          "const": true
+        },
+        "verification_ref_is_not_weaver_verdict_itself": { "const": true },
+        "weaver_pass_ne_iw_accepted": { "const": true },
+        "weaver_pass_ne_human_accepted": { "const": true },
+        "weaver_pass_ne_canonical": { "const": true }
+      }
+    },
+    "claims_iw_acceptance": { "const": false },
+    "artifact_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "work_id_adapter_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_kind",
+        "source_identity_field",
+        "source_identity_value",
+        "mapping_note"
+      ],
+      "properties": {
+        "binding_kind": { "const": "explicit_adapter" },
+        "source_identity_field": { "type": "string", "minLength": 1 },
+        "source_identity_value": { "type": "string", "minLength": 1 },
+        "mapping_note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "underlying_nonclaims": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "boolean" }
+    },
+    "underlying_run_id": { "type": "string", "minLength": 1 },
+    "underlying_claim_id": { "type": "string", "minLength": 1 },
+    "underlying_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "claim_id": { "type": "string", "minLength": 1 },
+        "covers_entire_repository": { "type": "boolean" },
+        "note": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
