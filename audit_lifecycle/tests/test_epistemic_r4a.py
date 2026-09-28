@@ -207,7 +207,13 @@ class TestProvenanceAndOrigins(unittest.TestCase):
         ]
         acct = account_independent_origins(records)
         self.assertEqual(acct.artifact_count, 4)
-        self.assertEqual(acct.independent_evidence_count, 1)
+        # M1 zero-count admission model: count stays 0 under NOT_CONFIGURED.
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(acct.qualified_lineage_ids, ())
+        self.assertEqual(
+            acct.independent_evidence_admission_status, "NOT_CONFIGURED"
+        )
+        self.assertEqual(set(acct.lineage_ids), {"L-anchor", "L1"})
 
     def test_self_asserted_independence_does_not_increase_count(self):
         self_decl = IndependenceBasis(
@@ -465,11 +471,18 @@ class TestR4AM1IndependentOriginSelfAssertion(unittest.TestCase):
         anchor = _anchor()
         subject = _prov("a1", "L-ok", bases=(ok,))
         index = ProvenanceGraphIndex.build([anchor, subject])
-        self.assertTrue(ok.is_qualified(graph_index=index, claimant=subject))
-        # Without graph context, nonempty structured refs alone do not qualify.
+        # Under NOT_CONFIGURED, descriptive basis never positively qualifies.
+        self.assertFalse(ok.is_qualified(graph_index=index, claimant=subject))
         self.assertFalse(ok.is_qualified())
         acct = account_independent_origins([anchor, subject])
-        self.assertEqual(acct.independent_evidence_count, 1)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(acct.qualified_lineage_ids, ())
+        self.assertEqual(
+            acct.independent_evidence_admission_status, "NOT_CONFIGURED"
+        )
+        # Basis metadata remains descriptive on the record.
+        self.assertEqual(subject.independence_basis_refs[0].basis_kind, "DISTINCT_OBSERVER")
+        self.assertEqual(len(subject.independence_basis_refs[0].refs), 1)
 
 
 class TestR4AM2DerivedLineageInflation(unittest.TestCase):
@@ -551,7 +564,14 @@ class TestR4AM2DerivedLineageInflation(unittest.TestCase):
         b = _prov("b", "L-claim-2", bases=(basis_b,))
         acct = account_independent_origins([anchor, a, b])
         self.assertEqual(acct.artifact_count, 3)
-        self.assertEqual(acct.independent_evidence_count, 1)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(
+            acct.independent_evidence_admission_status, "NOT_CONFIGURED"
+        )
+        # Graph accepts the acyclic parent link; lineages remain recorded.
+        validate_provenance_graph([anchor, a, b])
+        self.assertIn("L-claim-1", acct.lineage_ids)
+        self.assertIn("L-claim-2", acct.lineage_ids)
 
     def test_repeated_parent_chain_does_not_inflate_origin_count(self):
         basis = _qualified_basis(kind="EXTERNAL_WITNESS_RECEIPT", ref_id="wit-1")
@@ -579,7 +599,8 @@ class TestR4AM2DerivedLineageInflation(unittest.TestCase):
         )
         acct = account_independent_origins([anchor, root, d1, d2])
         self.assertEqual(acct.artifact_count, 4)
-        self.assertEqual(acct.independent_evidence_count, 1)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        validate_provenance_graph([anchor, root, d1, d2])
 
     def test_same_source_digest_multiple_claimed_lineages_do_not_inflate(self):
         basis = _qualified_basis()
@@ -600,7 +621,8 @@ class TestR4AM2DerivedLineageInflation(unittest.TestCase):
         )
         acct = account_independent_origins([anchor, r1, r2])
         self.assertEqual(acct.artifact_count, 3)
-        self.assertEqual(acct.independent_evidence_count, 1)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        validate_provenance_graph([anchor, r1, r2])
 
     def test_repeated_derivative_artifacts_do_not_inflate(self):
         basis = _qualified_basis(kind="EXTERNAL_WITNESS_RECEIPT", ref_id="wit-1")
@@ -618,7 +640,6 @@ class TestR4AM2DerivedLineageInflation(unittest.TestCase):
             derived_from="root",
             digest="d-root",
             source_id="src-root",
-            parent_sources=["src-root"],
         )
         d2 = _prov(
             "d2",
@@ -626,11 +647,11 @@ class TestR4AM2DerivedLineageInflation(unittest.TestCase):
             derived_from="root",
             digest="d-root",
             source_id="src-root",
-            parent_sources=["src-root"],
         )
         acct = account_independent_origins([anchor, root, d1, d2])
         self.assertEqual(acct.artifact_count, 4)
-        self.assertEqual(acct.independent_evidence_count, 1)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        validate_provenance_graph([anchor, root, d1, d2])
 
 
 class TestR4AM3VerifiedScopeValidationBypass(unittest.TestCase):
@@ -1140,6 +1161,505 @@ class TestNonmaterialLocalGuards(unittest.TestCase):
     def test_reject_empty_claim_id(self):
         with self.assertRaises(EpistemicValidationError):
             validate_epistemic_record(_claim(claim_id=""), kind="claim")
+
+
+# ---------------------------------------------------------------------------
+# Root-cause final remediation invariants (M1–M4 + R1-N1; M5 preserved)
+# ---------------------------------------------------------------------------
+
+
+class TestRootM1ZeroCountAdmissionModel(unittest.TestCase):
+    """M1: independent_evidence_count is always 0 under NOT_CONFIGURED."""
+
+    def _assert_zero(self, records):
+        acct = account_independent_origins(records)
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(acct.qualified_lineage_ids, ())
+        self.assertEqual(
+            acct.independent_evidence_admission_status, "NOT_CONFIGURED"
+        )
+        from audit_lifecycle.epistemic.provenance import (
+            INDEPENDENT_EVIDENCE_ADMISSION_STATUS,
+        )
+
+        self.assertEqual(INDEPENDENT_EVIDENCE_ADMISSION_STATUS, "NOT_CONFIGURED")
+        return acct
+
+    def test_arbitrary_claimant_only_graphs_always_count_zero(self):
+        records = [
+            _prov(
+                "a1",
+                "L1",
+                bases=(_qualified_basis(ref_id="obs-x"),),
+                source_id="obs-x",
+            ),
+            _prov(
+                "a2",
+                "L2",
+                bases=(_qualified_basis(basis_id="b2", kind="DISTINCT_METHOD", ref_id="obs-y"),),
+                source_id="obs-y",
+            ),
+        ]
+        acct = self._assert_zero(records)
+        self.assertEqual(acct.artifact_count, 2)
+
+    def test_self_reference_counts_zero(self):
+        basis = IndependenceBasis(
+            basis_id="b-self",
+            basis_kind="DISTINCT_OBSERVER",
+            refs=(_vref("PROVENANCE_ARTIFACT", "a1"),),
+        )
+        self._assert_zero([_prov("a1", "L-self", bases=(basis,))])
+
+    def test_unrelated_existing_ref_counts_zero(self):
+        basis = IndependenceBasis(
+            basis_id="b-unrel",
+            basis_kind="DISTINCT_OBSERVER",
+            refs=(_vref("PROVENANCE_SOURCE", "other"),),
+        )
+        self._assert_zero(
+            [
+                _anchor(source_id="other", artifact_id="other-art"),
+                _prov("a1", "L1", bases=(basis,)),
+            ]
+        )
+
+    def test_reciprocal_refs_count_zero(self):
+        a_basis = IndependenceBasis(
+            basis_id="ba",
+            basis_kind="DISTINCT_OBSERVER",
+            refs=(_vref("PROVENANCE_ARTIFACT", "b"),),
+        )
+        b_basis = IndependenceBasis(
+            basis_id="bb",
+            basis_kind="DISTINCT_OBSERVER",
+            refs=(_vref("PROVENANCE_ARTIFACT", "a"),),
+        )
+        self._assert_zero(
+            [
+                _prov("a", "La", bases=(a_basis,)),
+                _prov("b", "Lb", bases=(b_basis,)),
+            ]
+        )
+
+    def test_fabricated_valid_looking_basis_counts_zero(self):
+        fabricated = _qualified_basis(
+            kind="INDEPENDENT_REPRODUCTION",
+            ref_kind="PROVENANCE_DIGEST",
+            ref_id="d-anchor",
+        )
+        self._assert_zero(
+            [_anchor(digest="d-anchor"), _prov("subj", "L-fab", bases=(fabricated,))]
+        )
+
+    def test_graph_resolved_basis_counts_zero(self):
+        ok = _qualified_basis()
+        self._assert_zero([_anchor(), _prov("a1", "L-ok", bases=(ok,))])
+
+    def test_valid_looking_basis_metadata_remains_descriptive(self):
+        ok = _qualified_basis()
+        rec = _prov("a1", "L-desc", bases=(ok,))
+        self.assertEqual(rec.independence_basis_refs[0].basis_kind, "DISTINCT_OBSERVER")
+        self.assertTrue(rec.independence_basis_refs[0].refs)
+        self.assertFalse(rec.independence_basis_refs[0].is_qualified())
+        self._assert_zero([_anchor(), rec])
+
+    def test_admission_status_always_not_configured(self):
+        acct = account_independent_origins([])
+        self.assertEqual(acct.independent_evidence_admission_status, "NOT_CONFIGURED")
+        self.assertEqual(acct.to_dict()["independent_evidence_admission_status"], "NOT_CONFIGURED")
+
+
+class TestRootM2UnifiedProvenanceGraph(unittest.TestCase):
+    """M2: one validated typed provenance graph before accounting."""
+
+    def test_artifact_cycle_rejects(self):
+        a = _prov("a", "L1", derived_from="b")
+        b = _prov("b", "L1", derived_from="a", digest="abca", source_id="src-a")
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph([a, b])
+
+    def test_source_cycle_rejects(self):
+        a = _prov("a", "L1", parent_sources=["src-b"], source_id="src-a")
+        b = _prov("b", "L2", parent_sources=["src-a"], source_id="src-b")
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph([a, b])
+
+    def test_mixed_cycle_rejects(self):
+        a = _prov("a", "L1", derived_from="b")
+        b = _prov(
+            "b",
+            "L1",
+            parent_sources=["src-a"],
+            digest="abca",
+            source_id="src-b",
+        )
+        # Need a with source src-a for production edge src-a -> a.
+        a = _prov("a", "L1", derived_from="b", source_id="src-a")
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph([a, b])
+
+    def test_self_edge_rejects(self):
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph(
+                [_prov("a", "L1", derived_from="a")]
+            )
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph(
+                [_prov("a", "L1", parent_sources=["a"])]
+            )
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph(
+                [_prov("a", "L1", parent_sources=["src-a"], source_id="src-a")]
+            )
+
+    def test_missing_source_parent_rejects(self):
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph(
+                [_prov("a", "L1", parent_sources=["missing-src"])]
+            )
+
+    def test_ambiguous_source_parent_rejects(self):
+        # artifact_id "shared" also used as another record's source_id.
+        a = _prov("shared", "L1", source_id="src-a")
+        b = _prov("b", "L2", parent_sources=["shared"], source_id="shared")
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph([a, b])
+
+    def test_valid_acyclic_chain_accepted(self):
+        root = _prov("root", "L1", digest="d0", source_id="s0")
+        mid = _prov("mid", "L1", derived_from="root", digest="d1", source_id="s1")
+        leaf = _prov("leaf", "L1", parent_sources=["mid"], digest="d2", source_id="s2")
+        index = validate_provenance_graph([root, mid, leaf])
+        self.assertEqual(len(index.resolved_edges), 2)
+        acct = account_independent_origins([root, mid, leaf])
+        self.assertEqual(acct.artifact_count, 3)
+        self.assertEqual(acct.independent_evidence_count, 0)
+
+    def test_related_lineage_collapses_consistently_count_remains_zero(self):
+        a = _prov("a", "L-claim-1", parent_sources=["b"], digest="d", source_id="s")
+        b = _prov("b", "L-claim-2", digest="d", source_id="s")
+        acct = account_independent_origins([a, b])
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(set(acct.lineage_ids), {"L-claim-1", "L-claim-2"})
+
+    def test_unrelated_roots_remain_graph_distinct(self):
+        a = _prov("a", "La", digest="da", source_id="sa")
+        b = _prov("b", "Lb", digest="db", source_id="sb")
+        index = validate_provenance_graph([a, b])
+        self.assertEqual(len(index.resolved_edges), 0)
+        acct = account_independent_origins([a, b])
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(set(acct.lineage_ids), {"La", "Lb"})
+
+
+class TestRootM3ExplicitParserBoundary(unittest.TestCase):
+    """M3: present epistemic key => fail-closed R4; absent => legacy."""
+
+    def test_absent_epistemic_legacy_across_paths(self):
+        from audit_lifecycle.epistemic.validation import parse_optional_epistemic_container
+
+        result = parse_optional_epistemic_container(False, None, identity={})
+        self.assertEqual(result.mode, "legacy")
+        self.assertIsNone(result.record)
+        req = AuditRequest.from_dict(
+            {"target_path": ".", "claim": {"id": "L", "statement": "legacy"}}
+        )
+        self.assertNotIn("epistemic", req.claim)
+        adapted = adapt_campaign_claim({"claim_id": "L", "statement": "legacy"})
+        self.assertIsInstance(adapted, LegacyClaimView)
+
+    def _reject_request(self, epi):
+        with self.assertRaises(ValueError):
+            AuditRequest.from_dict(
+                {
+                    "target_path": ".",
+                    "claim": {"id": "X", "statement": "s", "epistemic": epi},
+                }
+            )
+
+    def _reject_adapter(self, epi):
+        with self.assertRaises(EpistemicValidationError):
+            adapt_campaign_claim(
+                {"claim_id": "X", "statement": "s", "epistemic": epi}
+            )
+
+    def _reject_claim_scope(self, epi):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "t.txt").write_text("t", encoding="utf-8")
+            bypass = AuditRequest(
+                target_path=str(root / "t.txt"),
+                claim={"id": "X", "statement": "s", "epistemic": epi},
+            )
+            with self.assertRaises(ValueError):
+                compile_claim_and_scope(bypass, root, "A1")
+
+    def test_present_null_rejects(self):
+        self._reject_request(None)
+        self._reject_adapter(None)
+        self._reject_claim_scope(None)
+
+    def test_present_scalar_rejects(self):
+        self._reject_request("not-a-mapping")
+        self._reject_adapter(42)
+        self._reject_claim_scope(True)
+
+    def test_present_array_rejects(self):
+        self._reject_request([])
+        self._reject_adapter([{"claim_kind": "FORMAL"}])
+
+    def test_empty_mapping_rejects(self):
+        self._reject_request({})
+        self._reject_adapter({})
+
+    def test_partial_mapping_rejects(self):
+        partial = {"schema_version": "r4.epistemic.claim.v1", "authority": False}
+        self._reject_request(partial)
+        self._reject_adapter(partial)
+
+    def test_unsupported_version_rejects(self):
+        bad = {
+            "schema_version": "r4.epistemic.claim.v99",
+            "claim_kind": "FORMAL",
+            "epistemic_status": "REPORTED",
+            "scope": "x",
+            "authority": False,
+        }
+        self._reject_request(bad)
+        self._reject_adapter(bad)
+
+    def test_authority_true_rejects(self):
+        bad = {
+            "schema_version": "r4.epistemic.claim.v1",
+            "claim_kind": "FORMAL",
+            "epistemic_status": "REPORTED",
+            "scope": "x",
+            "authority": True,
+        }
+        self._reject_request(bad)
+        self._reject_adapter(bad)
+
+    def test_valid_r4_accepts(self):
+        good = {
+            "schema_version": "r4.epistemic.claim.v1",
+            "claim_kind": "FORMAL",
+            "epistemic_status": "REPORTED",
+            "scope": "x",
+            "authority": False,
+        }
+        req = AuditRequest.from_dict(
+            {
+                "target_path": ".",
+                "claim": {"id": "R4", "statement": "ok", "epistemic": good},
+            }
+        )
+        self.assertEqual(req.claim["epistemic"]["claim_kind"], "FORMAL")
+        adapted = adapt_campaign_claim(
+            {"claim_id": "R4", "statement": "ok", "epistemic": good}
+        )
+        self.assertIsInstance(adapted, EpistemicClaimRecord)
+
+    def test_valid_legacy_accepts_without_backfill(self):
+        view = read_claim_record({"claim_id": "L", "statement": "legacy only"})
+        self.assertIsInstance(view, LegacyClaimView)
+        self.assertIsNone(view.epistemic_status)
+
+
+class TestRootM4CategoricalStructuralKeys(unittest.TestCase):
+    """M4: reserved keys forbidden regardless of value; prose remains valid."""
+
+    RESERVED = (
+        "authority",
+        "authorized",
+        "execution_authorized",
+        "execution_permission",
+        "human_final",
+        "human_final_status",
+        "final_accepted",
+        "vector_authorized",
+        "eig_authorized",
+        "weaver_pass",
+        "weaver_fail",
+        "weaver_status",
+        "final_status",
+        "approval",
+        "approved",
+    )
+
+    VALUES = (
+        True,
+        False,
+        None,
+        "PASS",
+        "INCONCLUSIVE",
+        "ACCEPTED",
+        "REJECTED",
+        "PENDING",
+        0,
+        1,
+        [],
+        {},
+    )
+
+    def test_reserved_keys_case_separator_nested_array_all_reject(self):
+        for key in self.RESERVED:
+            variants = {
+                key,
+                key.upper(),
+                key.replace("_", "-"),
+                key.replace("_", " "),
+                "".join(p.capitalize() for p in key.split("_")),
+            }
+            for variant in variants:
+                for value in self.VALUES:
+                    if variant.lower().replace("-", "").replace(" ", "") == "authority" and value is False:
+                        # top-level authority:false is the sole allowed form;
+                        # nested still rejects.
+                        with self.assertRaises(AuthorityViolation):
+                            enforce_non_authority(
+                                {"authority": False, "extra": {variant: value}}
+                            )
+                        continue
+                    with self.assertRaises(AuthorityViolation):
+                        enforce_non_authority(
+                            {"authority": False, "extra": {variant: value}}
+                        )
+                    with self.assertRaises(AuthorityViolation):
+                        enforce_non_authority(
+                            {
+                                "authority": False,
+                                "extra": {"nested": {variant: value}},
+                            }
+                        )
+                    with self.assertRaises(AuthorityViolation):
+                        enforce_non_authority(
+                            {
+                                "authority": False,
+                                "extra": {"events": [{variant: value}]},
+                            }
+                        )
+
+    def test_explicit_examples_reject(self):
+        cases = [
+            {"weaver_status": "PASS"},
+            {"weaver_status": "INCONCLUSIVE"},
+            {"human_final_status": "ACCEPTED"},
+            {"human_final_status": "REJECTED"},
+            {"final_status": "PENDING"},
+            {"approved": False},
+        ]
+        for extra in cases:
+            with self.assertRaises(AuthorityViolation):
+                enforce_non_authority({"authority": False, "extra": extra})
+
+    def test_benign_prose_remains_valid(self):
+        rec = validate_epistemic_record(
+            _claim(
+                extra={
+                    "review_note": (
+                        "reviewer wrote that the prior run was approved"
+                    ),
+                }
+            ),
+            kind="claim",
+        )
+        self.assertIn("approved", rec.extra["review_note"])
+
+
+class TestRootR1N1StrictStructuredTypes(unittest.TestCase):
+    """R1-N1: no coercion of malformed structured evidence values."""
+
+    def _prov_base(self, **overrides):
+        base = {
+            "schema_version": "r4.epistemic.provenance.v1",
+            "artifact_id": "a1",
+            "digest": "d1",
+            "source_id": "s1",
+            "lineage_id": "L1",
+            "authority": False,
+        }
+        base.update(overrides)
+        return base
+
+    def test_cartesian_type_rejections_for_ids(self):
+        bad_values = [None, True, False, 1, 1.5, [], {}, "   "]
+        for field in ("artifact_id", "digest", "source_id", "lineage_id"):
+            for bad in bad_values:
+                payload = self._prov_base(**{field: bad})
+                with self.assertRaises((ValueError, EpistemicValidationError)):
+                    ProvenanceRecord.from_dict(payload)
+
+    def test_schema_version_bool_number_rejected(self):
+        for bad in [True, 1, None, ["r4.epistemic.provenance.v1"]]:
+            with self.assertRaises((ValueError, EpistemicValidationError)):
+                ProvenanceRecord.from_dict(self._prov_base(schema_version=bad))
+
+    def test_derived_from_wrong_types_rejected(self):
+        for bad in [True, 1, [], {}, ""]:
+            with self.assertRaises((ValueError, EpistemicValidationError)):
+                ProvenanceRecord.from_dict(self._prov_base(derived_from=bad))
+
+    def test_parent_sources_wrong_shapes_rejected(self):
+        for bad in ["src", 1, True, {}, [1], [None], ["  "], ["ok", 2]]:
+            with self.assertRaises((ValueError, EpistemicValidationError)):
+                ProvenanceRecord.from_dict(self._prov_base(parent_sources=bad))
+
+    def test_basis_kind_and_ref_fields_no_coercion(self):
+        for bad_kind in [None, True, 1, [], {}]:
+            with self.assertRaises((ValueError, EpistemicValidationError)):
+                IndependenceBasis.from_dict(
+                    {"basis_id": "b1", "basis_kind": bad_kind, "refs": []}
+                )
+        for bad_ref in [None, True, 1, [], {}]:
+            with self.assertRaises((ValueError, EpistemicValidationError)):
+                ValidatedBasisRef.from_dict(
+                    {"ref_kind": "PROVENANCE_SOURCE", "ref_id": bad_ref}
+                )
+        with self.assertRaises((ValueError, EpistemicValidationError)):
+            ValidatedBasisRef.from_dict(
+                {"ref_kind": True, "ref_id": "x"}
+            )
+
+    def test_authority_must_be_boolean_false(self):
+        for bad in [0, "false", None, True]:
+            with self.assertRaises((ValueError, EpistemicValidationError, AuthorityViolation)):
+                ProvenanceRecord.from_dict(self._prov_base(authority=bad))
+
+    def test_mixed_valid_invalid_basis_list_rejected(self):
+        with self.assertRaises((ValueError, EpistemicValidationError)):
+            ProvenanceRecord.from_dict(
+                self._prov_base(
+                    independence_basis_refs=[
+                        {
+                            "basis_id": "b1",
+                            "basis_kind": "DISTINCT_OBSERVER",
+                            "refs": [
+                                {
+                                    "ref_kind": "PROVENANCE_SOURCE",
+                                    "ref_id": "obs-1",
+                                }
+                            ],
+                        },
+                        42,
+                    ]
+                )
+            )
+
+
+class TestRootM5AdmissionStatusFieldPreserved(unittest.TestCase):
+    """M5: serialization preserved; admission status field is stable."""
+
+    def test_accounting_dict_round_trip_stable(self):
+        acct = account_independent_origins(
+            [_anchor(), _prov("a1", "L1", bases=(_qualified_basis(),))]
+        )
+        d1 = acct.to_dict()
+        d2 = acct.to_dict()
+        self.assertEqual(canonical_digest(d1), canonical_digest(d2))
+        self.assertEqual(d1["independent_evidence_admission_status"], "NOT_CONFIGURED")
+        self.assertEqual(d1["independent_evidence_count"], 0)
+        self.assertIn("lineage_ids", SET_LIKE_SEQUENCE_FIELDS)
 
 
 if __name__ == "__main__":

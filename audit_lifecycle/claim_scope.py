@@ -27,10 +27,11 @@ def compile_claim_and_scope(
         "adapter_params": request.claim.get("adapter_params", {}),
         "target_path": str(target),
     }
-    # R4-A additive: pass through optional epistemic block only after full validation.
+    # R4-A additive: pass through optional epistemic block only after full validation
+    # via the canonical parse_optional_epistemic_container boundary.
     # Legacy claims without R4 metadata remain compatible (no mandatory R4 fields).
     # Explicit authority:true is rejected by validation — never overwritten to false.
-    if "epistemic" in request.claim and isinstance(request.claim["epistemic"], dict):
+    if "epistemic" in request.claim:
         from .request import _validate_optional_epistemic_block
 
         _validate_optional_epistemic_block(request.claim)

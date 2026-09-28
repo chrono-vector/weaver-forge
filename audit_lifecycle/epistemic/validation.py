@@ -1,7 +1,22 @@
-"""Validation entry points for R4-A epistemic records."""
+"""Validation entry points for R4-A epistemic records.
+
+Canonical R4 parser/validator boundary:
+
+  parse_optional_epistemic_container(present, value, identity)
+
+Invariant:
+  - key `epistemic` ABSENT  => legacy path
+  - key `epistemic` PRESENT => explicit R4; value MUST be a mapping and MUST
+    pass the complete exact-version R4 claim parser; malformed/partial/
+    unsupported values FAIL CLOSED
+
+Explicit R4 never downgrades to legacy, strips invalid fields, overwrites
+authority, synthesizes missing required fields, or retries through legacy.
+"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .authority import AuthorityViolation, enforce_non_authority
@@ -28,6 +43,14 @@ class EpistemicValidationError(ValueError):
     """Malformed epistemic / relation / provenance record."""
 
 
+@dataclass(frozen=True)
+class OptionalEpistemicParseResult:
+    """Result of the canonical optional-epistemic container parse."""
+
+    mode: str  # "legacy" | "r4"
+    record: EpistemicClaimRecord | None = None
+
+
 def _as_mapping(record: Any) -> Mapping[str, Any]:
     if hasattr(record, "to_dict"):
         return record.to_dict()
@@ -50,6 +73,62 @@ def validate_claim_dict(data: Mapping[str, Any]) -> EpistemicClaimRecord:
         raise EpistemicValidationError(str(e)) from e
 
 
+def parse_optional_epistemic_container(
+    present: bool,
+    value: Any,
+    identity: Mapping[str, Any] | None = None,
+) -> OptionalEpistemicParseResult:
+    """
+    Canonical R4 vs legacy fail-closed parser boundary.
+
+    present=False (key absent) => legacy.
+    present=True  => value must be a non-empty mapping that passes the
+    complete exact-version R4 claim parser. Never downgrades to legacy.
+    """
+    if not present:
+        return OptionalEpistemicParseResult(mode="legacy", record=None)
+
+    if value is None or isinstance(value, (str, bytes, list, tuple, int, float, bool)):
+        raise EpistemicValidationError(
+            "explicit epistemic container must be a mapping; "
+            f"got {type(value).__name__}"
+        )
+    if not isinstance(value, Mapping):
+        raise EpistemicValidationError(
+            "explicit epistemic container must be a mapping; "
+            f"got {type(value).__name__}"
+        )
+    if not value:
+        raise EpistemicValidationError(
+            "explicit epistemic container must not be an empty mapping"
+        )
+
+    payload = dict(value)
+    identity = identity or {}
+    # Identity glue only — never synthesize claim_kind / epistemic_status /
+    # schema_version / authority / provenance.
+    if "claim_id" not in payload:
+        cid = identity.get("claim_id")
+        if cid is None:
+            cid = identity.get("id")
+        if cid is not None:
+            payload["claim_id"] = cid
+    if "statement" not in payload and identity.get("statement") is not None:
+        payload["statement"] = identity.get("statement")
+    if "scope" not in payload:
+        scope = value.get("scope") if isinstance(value, Mapping) else None
+        if scope is None:
+            scope = identity.get("scope")
+        if scope is not None:
+            payload["scope"] = scope
+
+    try:
+        rec = validate_claim_dict(payload)
+    except EpistemicValidationError:
+        raise
+    return OptionalEpistemicParseResult(mode="r4", record=rec)
+
+
 def validate_relation_dict(data: Mapping[str, Any]) -> RelationAsClaim:
     try:
         enforce_non_authority(data)
@@ -57,7 +136,8 @@ def validate_relation_dict(data: Mapping[str, Any]) -> RelationAsClaim:
             raise EpistemicValidationError(
                 "malformed relation: missing required evidence_refs"
             )
-        if not str(data.get("scope") or "").strip():
+        scope = data.get("scope")
+        if not isinstance(scope, str) or not scope.strip():
             raise EpistemicValidationError(
                 "malformed relation: missing required scope"
             )
@@ -85,7 +165,7 @@ def validate_provenance_dict(data: Mapping[str, Any]) -> ProvenanceRecord:
     try:
         enforce_non_authority(data)
         required = ("artifact_id", "digest", "source_id", "lineage_id", "schema_version")
-        missing = [k for k in required if not data.get(k)]
+        missing = [k for k in required if k not in data or data.get(k) in (None, "")]
         if missing:
             raise EpistemicValidationError(
                 f"malformed provenance: missing {missing}"

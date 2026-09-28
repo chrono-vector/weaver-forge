@@ -16,6 +16,7 @@ from .authority import (
 )
 from .compat import legacy_claim_view, read_claim_record
 from .provenance import (
+    INDEPENDENT_EVIDENCE_ADMISSION_STATUS,
     IndependenceBasis,
     IndependentOriginAccounting,
     ProvenanceGraphError,
@@ -46,11 +47,16 @@ from .serialize import (
     canonical_loads,
     normalize_sequences,
 )
-from .validation import EpistemicValidationError, validate_epistemic_record
+from .validation import (
+    EpistemicValidationError,
+    parse_optional_epistemic_container,
+    validate_epistemic_record,
+)
 
 __all__ = [
     "CLAIM_KINDS",
     "EPISTEMIC_STATUSES",
+    "INDEPENDENT_EVIDENCE_ADMISSION_STATUS",
     "ORDERED_SEQUENCE_FIELDS",
     "RELATION_TYPES",
     "SET_LIKE_SEQUENCE_FIELDS",
@@ -78,6 +84,7 @@ __all__ = [
     "canonical_loads",
     "legacy_claim_view",
     "normalize_sequences",
+    "parse_optional_epistemic_container",
     "read_claim_record",
     "validate_epistemic_record",
     "validate_provenance_graph",

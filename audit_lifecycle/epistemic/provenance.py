@@ -1,13 +1,23 @@
-"""Provenance lineage model and qualified independent-origin accounting (R4-A).
+"""Provenance lineage model and independent-origin accounting (R4-A).
 
 ArtifactCount ≠ IndependentEvidenceCount.
-Self-declared independence does not increase IndependentEvidenceCount.
-Derived copies retain lineage.
-Missing provenance must prevent VERIFIED_SCOPE where provenance is required.
 
-Independence qualification requires a known basis_kind AND defensible
-validated basis reference(s) that resolve against the accepted provenance
-graph. basis_kind + nonempty self-asserted strings never qualify.
+IndependentEvidenceCount is gated by a code-defined admission status.
+While INDEPENDENT_EVIDENCE_ADMISSION_STATUS is NOT_CONFIGURED:
+
+  - independent_evidence_count is always 0
+  - zero means "no trusted independent-evidence admission mechanism is
+    configured" — NOT that evidence was disproven, and NOT that independent
+    evidence does not exist in reality
+  - no claimant-controlled value (basis_kind, refs, graph contents, digests,
+    lineage, reciprocal refs, apparently independent roots, Campaign/policy/
+    metadata inputs) may raise the count above zero
+
+IndependenceBasis remains descriptive/advisory metadata only under
+NOT_CONFIGURED; is_qualified() never returns a positive qualification.
+
+Provenance graph validation, derivation, parent typing, cycle detection,
+lineage continuity, and duplicate/source analysis are preserved.
 """
 
 from __future__ import annotations
@@ -21,7 +31,15 @@ from .serialize import canonical_digest, canonical_dumps
 
 SCHEMA_VERSION = "r4.epistemic.provenance.v1"
 
-# Independence bases that may qualify an origin when backed by validated refs.
+# Code-defined — not configurable from claim/provenance/request/Campaign/
+# policy/metadata/graph inputs.
+INDEPENDENT_EVIDENCE_ADMISSION_STATUS = "NOT_CONFIGURED"
+
+PARENT_KIND_ARTIFACT = "ARTIFACT"
+PARENT_KIND_SOURCE = "SOURCE"
+PARENT_KINDS = frozenset({PARENT_KIND_ARTIFACT, PARENT_KIND_SOURCE})
+
+# Independence bases kept as descriptive metadata only under NOT_CONFIGURED.
 QUALIFIED_INDEPENDENCE_BASES = frozenset(
     {
         "DISTINCT_CUSTODY_CHAIN",
@@ -55,6 +73,24 @@ class ProvenanceGraphError(ValueError):
     """Cross-record provenance graph validation failure."""
 
 
+def _require_nonempty_str(value: Any, *, field_name: str) -> str:
+    """R1-N1: structured identifiers must already be nonempty strings."""
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{field_name} must be a nonempty string; got {type(value).__name__}"
+        )
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field_name} must be a nonempty string")
+    return text
+
+
+def _require_optional_nonempty_str(value: Any, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _require_nonempty_str(value, field_name=field_name)
+
+
 def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
     """Reject string-as-iterable and malformed reference collections."""
     if value is None:
@@ -67,12 +103,7 @@ def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
         raise ValueError(f"{field_name} must be a list/tuple of refs")
     out: list[str] = []
     for item in value:
-        if not isinstance(item, str):
-            raise ValueError(f"{field_name} entries must be strings")
-        text = item.strip()
-        if not text:
-            raise ValueError(f"{field_name} entries must be non-empty strings")
-        out.append(text)
+        out.append(_require_nonempty_str(item, field_name=f"{field_name} entry"))
     # Deterministic set-like normalization for stored refs.
     return tuple(sorted(dict.fromkeys(out)))
 
@@ -85,12 +116,12 @@ class ValidatedBasisRef:
     ref_id: str
 
     def __post_init__(self) -> None:
-        if self.ref_kind not in VALIDATED_BASIS_REF_KINDS:
+        if not isinstance(self.ref_kind, str) or self.ref_kind not in VALIDATED_BASIS_REF_KINDS:
             raise ValueError(
                 f"unsupported validated basis ref_kind: {self.ref_kind!r}"
             )
-        if not str(self.ref_id).strip():
-            raise ValueError("validated basis ref_id must be non-empty")
+        if not isinstance(self.ref_id, str) or not self.ref_id.strip():
+            raise ValueError("validated basis ref_id must be non-empty string")
 
     def to_dict(self) -> dict[str, Any]:
         return {"ref_kind": self.ref_kind, "ref_id": self.ref_id}
@@ -103,7 +134,10 @@ class ValidatedBasisRef:
             raise ValueError(
                 "validated basis ref requires ref_kind and ref_id"
             )
-        return cls(ref_kind=str(data["ref_kind"]), ref_id=str(data["ref_id"]).strip())
+        return cls(
+            ref_kind=_require_nonempty_str(data["ref_kind"], field_name="ref_kind"),
+            ref_id=_require_nonempty_str(data["ref_id"], field_name="ref_id"),
+        )
 
 
 def _coerce_basis_refs(value: Any) -> tuple[ValidatedBasisRef, ...]:
@@ -141,16 +175,18 @@ def _coerce_basis_refs(value: Any) -> tuple[ValidatedBasisRef, ...]:
 
 @dataclass(frozen=True)
 class IndependenceBasis:
+    """Descriptive independence metadata. Not an admission signal under NOT_CONFIGURED."""
+
     basis_id: str
     basis_kind: str
     refs: tuple[ValidatedBasisRef, ...] = ()
     notes: str = ""
 
     def __post_init__(self) -> None:
-        if not str(self.basis_id).strip():
-            raise ValueError("independence basis_id must be non-empty")
-        if not str(self.basis_kind).strip():
-            raise ValueError("independence basis_kind must be non-empty")
+        if not isinstance(self.basis_id, str) or not self.basis_id.strip():
+            raise ValueError("independence basis_id must be non-empty string")
+        if not isinstance(self.basis_kind, str) or not self.basis_kind.strip():
+            raise ValueError("independence basis_kind must be non-empty string")
         # Normalize accidental raw tuples of dicts from direct construction.
         if self.refs and not all(isinstance(r, ValidatedBasisRef) for r in self.refs):
             object.__setattr__(self, "refs", _coerce_basis_refs(list(self.refs)))
@@ -168,13 +204,13 @@ class IndependenceBasis:
         claimant: "ProvenanceRecord | None" = None,
     ) -> bool:
         """
-        Qualify only with a known non-self-declared basis_kind AND
-        defensible validated refs that resolve in the provenance graph
-        to entities other than the claimant itself.
+        Positive qualification is disabled while admission status is
+        NOT_CONFIGURED. IndependenceBasis remains descriptive only.
 
-        basis_kind + nonempty self-asserted strings/refs alone never qualify.
-        Without graph resolution context, returns False.
+        Zero admission does not mean evidence was disproven.
         """
+        if INDEPENDENT_EVIDENCE_ADMISSION_STATUS == "NOT_CONFIGURED":
+            return False
         if self.is_self_declared():
             return False
         if self.basis_kind not in QUALIFIED_INDEPENDENCE_BASES:
@@ -198,17 +234,22 @@ class IndependenceBasis:
         if not isinstance(data, Mapping):
             raise ValueError("independence basis must be a mapping")
         try:
-            basis_id = str(data["basis_id"])
-            basis_kind = str(data["basis_kind"])
+            basis_id = data["basis_id"]
+            basis_kind = data["basis_kind"]
         except KeyError as e:
             raise ValueError(
                 f"independence basis missing required field: {e.args[0]}"
             ) from e
+        notes = data.get("notes", "")
+        if notes is None:
+            notes = ""
+        if not isinstance(notes, str):
+            raise ValueError("independence basis notes must be a string when set")
         return cls(
-            basis_id=basis_id,
-            basis_kind=basis_kind,
+            basis_id=_require_nonempty_str(basis_id, field_name="basis_id"),
+            basis_kind=_require_nonempty_str(basis_kind, field_name="basis_kind"),
             refs=_coerce_basis_refs(data.get("refs") or ()),
-            notes=str(data.get("notes") or ""),
+            notes=notes,
         )
 
 
@@ -243,8 +284,21 @@ class ProvenanceRecord:
     def __post_init__(self) -> None:
         if self.authority is not False:
             raise ValueError("authority must be false")
-        if not self.artifact_id or not self.digest or not self.source_id or not self.lineage_id:
-            raise ValueError("provenance requires artifact_id, digest, source_id, lineage_id")
+        for name in ("artifact_id", "digest", "source_id", "lineage_id"):
+            val = getattr(self, name)
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(
+                    "provenance requires nonempty string artifact_id, digest, "
+                    "source_id, lineage_id"
+                )
+        if self.schema_version != SCHEMA_VERSION:
+            raise ValueError(
+                f"provenance schema_version must be {SCHEMA_VERSION!r}"
+            )
+        if self.derived_from is not None and (
+            not isinstance(self.derived_from, str) or not self.derived_from.strip()
+        ):
+            raise ValueError("derived_from must be a nonempty string when set")
         for b in self.independence_basis_refs:
             if not isinstance(b, IndependenceBasis):
                 raise ValueError(
@@ -282,7 +336,11 @@ class ProvenanceRecord:
             raise ValueError(
                 f"provenance schema_version must be {SCHEMA_VERSION!r}"
             )
-        bases_raw = data.get("independence_basis_refs") or ()
+        if "authority" not in data or data["authority"] is not False:
+            raise ValueError("authority must be Boolean false")
+        bases_raw = data["independence_basis_refs"] if "independence_basis_refs" in data else ()
+        if bases_raw is None:
+            bases_raw = ()
         if isinstance(bases_raw, str):
             raise ValueError(
                 "independence_basis_refs must be a list/tuple, not a string"
@@ -292,23 +350,55 @@ class ProvenanceRecord:
                 "independence_basis_refs must be a list/tuple of mappings"
             )
         bases = tuple(_parse_independence_basis_member(b) for b in bases_raw)
+        notes = data.get("notes", "")
+        if notes is None:
+            notes = ""
+        if not isinstance(notes, str):
+            raise ValueError("notes must be a string when set")
+        extra = data["extra"] if "extra" in data else {}
+        if extra is None:
+            extra = {}
+        if not isinstance(extra, Mapping):
+            raise ValueError("extra must be a mapping when set")
+        parent_raw = data["parent_sources"] if "parent_sources" in data else ()
+        if parent_raw is None:
+            parent_raw = ()
         return cls(
-            artifact_id=str(data["artifact_id"]),
-            digest=str(data["digest"]),
-            source_id=str(data["source_id"]),
-            lineage_id=str(data["lineage_id"]),
+            artifact_id=_require_nonempty_str(
+                data["artifact_id"], field_name="artifact_id"
+            ),
+            digest=_require_nonempty_str(data["digest"], field_name="digest"),
+            source_id=_require_nonempty_str(data["source_id"], field_name="source_id"),
+            lineage_id=_require_nonempty_str(
+                data["lineage_id"], field_name="lineage_id"
+            ),
             schema_version=SCHEMA_VERSION,
             authority=False,
             parent_sources=_coerce_str_refs(
-                data.get("parent_sources") or (), field_name="parent_sources"
+                parent_raw, field_name="parent_sources"
             ),
             independence_basis_refs=bases,
-            derived_from=(
-                str(data["derived_from"]) if data.get("derived_from") is not None else None
+            derived_from=_require_optional_nonempty_str(
+                data.get("derived_from"), field_name="derived_from"
             ),
-            notes=str(data.get("notes") or ""),
-            extra=dict(data.get("extra") or {}),
+            notes=notes,
+            extra=dict(extra),
         )
+
+
+@dataclass(frozen=True)
+class ResolvedParentEdge:
+    """One resolved parent edge in the unified provenance graph."""
+
+    from_artifact_id: str
+    parent_kind: str
+    parent_id: str
+
+    def __post_init__(self) -> None:
+        if self.parent_kind not in PARENT_KINDS:
+            raise ProvenanceGraphError(
+                f"unsupported parent_kind: {self.parent_kind!r}"
+            )
 
 
 @dataclass(frozen=True)
@@ -318,6 +408,9 @@ class IndependentOriginAccounting:
     lineage_ids: tuple[str, ...]
     qualified_lineage_ids: tuple[str, ...]
     rejected_self_declared: tuple[str, ...] = ()
+    independent_evidence_admission_status: str = (
+        INDEPENDENT_EVIDENCE_ADMISSION_STATUS
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -326,6 +419,9 @@ class IndependentOriginAccounting:
             "lineage_ids": list(self.lineage_ids),
             "qualified_lineage_ids": list(self.qualified_lineage_ids),
             "rejected_self_declared": list(self.rejected_self_declared),
+            "independent_evidence_admission_status": (
+                self.independent_evidence_admission_status
+            ),
             "authority": False,
         }
 
@@ -339,21 +435,36 @@ class ProvenanceGraphIndex:
     source_ids: frozenset[str]
     digests: frozenset[str]
     by_source: Mapping[str, tuple[str, ...]]
+    resolved_edges: tuple[ResolvedParentEdge, ...]
 
     @classmethod
     def build(cls, records: Sequence[ProvenanceRecord]) -> "ProvenanceGraphIndex":
         by_artifact: dict[str, ProvenanceRecord] = {}
         for r in records:
+            if r.artifact_id in by_artifact:
+                raise ProvenanceGraphError(
+                    f"duplicate artifact_id: {r.artifact_id!r}"
+                )
             by_artifact[r.artifact_id] = r
         by_source: dict[str, list[str]] = {}
         for r in records:
             by_source.setdefault(r.source_id, []).append(r.artifact_id)
-        return cls(
+        index_partial = cls(
             by_artifact=by_artifact,
             artifact_ids=frozenset(by_artifact),
             source_ids=frozenset(r.source_id for r in records),
             digests=frozenset(r.digest for r in records),
             by_source={k: tuple(v) for k, v in by_source.items()},
+            resolved_edges=(),
+        )
+        edges = tuple(resolve_parent_edges(records, index_partial))
+        return cls(
+            by_artifact=index_partial.by_artifact,
+            artifact_ids=index_partial.artifact_ids,
+            source_ids=index_partial.source_ids,
+            digests=index_partial.digests,
+            by_source=index_partial.by_source,
+            resolved_edges=edges,
         )
 
     def claimant_forbidden_ids(self, claimant: ProvenanceRecord) -> frozenset[str]:
@@ -394,92 +505,165 @@ class ProvenanceGraphIndex:
         return True
 
 
-def _derivation_edges(
-    records: Sequence[ProvenanceRecord],
+def _resolve_parent_id(
+    parent_id: str,
     index: ProvenanceGraphIndex,
     *,
-    for_cycles: bool,
-) -> list[tuple[str, str]]:
-    """
-    Edges for cycle detection / origin collapsing.
+    field_name: str,
+) -> tuple[str, str]:
+    """Resolve an untyped parent id to (parent_kind, parent_id). Fail closed."""
+    in_artifacts = parent_id in index.artifact_ids
+    in_sources = parent_id in index.source_ids
+    if in_artifacts and in_sources:
+        raise ProvenanceGraphError(
+            f"ambiguous source parent: {parent_id!r} matches both ARTIFACT and SOURCE"
+        )
+    if in_artifacts:
+        return PARENT_KIND_ARTIFACT, parent_id
+    if in_sources:
+        # SOURCE must resolve to exactly one canonical source component.
+        arts = index.by_source.get(parent_id, ())
+        if not arts:
+            raise ProvenanceGraphError(
+                f"nonexistent parent reference: {parent_id!r}"
+            )
+        return PARENT_KIND_SOURCE, parent_id
+    raise ProvenanceGraphError(
+        f"nonexistent {field_name} reference: {parent_id!r}"
+    )
 
-    - derived_from always participates
-    - parent_sources targeting an artifact_id always participates
-    - parent_sources targeting a source_id collapses origins (union) but does
-      not create sibling cycle edges among co-sourced artifacts
+
+def resolve_parent_edges(
+    records: Sequence[ProvenanceRecord],
+    index: ProvenanceGraphIndex,
+) -> list[ResolvedParentEdge]:
     """
-    edges: list[tuple[str, str]] = []
+    Normalize derived_from + parent_sources into one typed resolved edge set.
+
+    Parent kinds are ARTIFACT or SOURCE. Ambiguous / missing resolution fails.
+    """
+    edges: list[ResolvedParentEdge] = []
     for r in records:
         if r.derived_from is not None:
-            edges.append((r.artifact_id, r.derived_from))
+            kind, pid = _resolve_parent_id(
+                r.derived_from, index, field_name="derived_from"
+            )
+            if kind != PARENT_KIND_ARTIFACT:
+                raise ProvenanceGraphError(
+                    f"derived_from must resolve to ARTIFACT; got SOURCE {pid!r}"
+                )
+            if pid == r.artifact_id:
+                raise ProvenanceGraphError(
+                    f"self-edge forbidden: {r.artifact_id!r}"
+                )
+            edges.append(
+                ResolvedParentEdge(
+                    from_artifact_id=r.artifact_id,
+                    parent_kind=PARENT_KIND_ARTIFACT,
+                    parent_id=pid,
+                )
+            )
         for ps in r.parent_sources:
-            if ps in index.artifact_ids:
-                edges.append((r.artifact_id, ps))
-            elif ps in index.by_source and not for_cycles:
-                for art_id in index.by_source[ps]:
-                    if art_id != r.artifact_id:
-                        edges.append((r.artifact_id, art_id))
+            kind, pid = _resolve_parent_id(ps, index, field_name="parent_sources")
+            if kind == PARENT_KIND_ARTIFACT and pid == r.artifact_id:
+                raise ProvenanceGraphError(
+                    f"self-edge forbidden: {r.artifact_id!r}"
+                )
+            if kind == PARENT_KIND_SOURCE and pid == r.source_id:
+                raise ProvenanceGraphError(
+                    f"self-edge forbidden: {r.artifact_id!r} -> SOURCE {pid!r}"
+                )
+            edges.append(
+                ResolvedParentEdge(
+                    from_artifact_id=r.artifact_id,
+                    parent_kind=kind,
+                    parent_id=pid,
+                )
+            )
     return edges
 
 
-def validate_provenance_graph(records: Sequence[ProvenanceRecord]) -> None:
+def _cycle_nodes_and_adjacency(
+    records: Sequence[ProvenanceRecord],
+    edges: Sequence[ResolvedParentEdge],
+) -> tuple[set[tuple[str, str]], dict[tuple[str, str], list[tuple[str, str]]]]:
+    """
+    Unified directed graph over ARTIFACT and SOURCE nodes for cycle detection.
+
+    Edges from the same resolved parent set:
+      - ARTIFACT parent: ARTIFACT(from) → ARTIFACT(parent)
+      - SOURCE parent:   ARTIFACT(from) → SOURCE(parent)
+      - production:      SOURCE(source_id) → ARTIFACT(artifact_id)
+
+    Production edges expose source cycles and mixed artifact/source cycles.
+    """
+    nodes: set[tuple[str, str]] = set()
+    adjacency: dict[tuple[str, str], list[tuple[str, str]]] = {}
+
+    def add_edge(src: tuple[str, str], dst: tuple[str, str]) -> None:
+        nodes.add(src)
+        nodes.add(dst)
+        adjacency.setdefault(src, []).append(dst)
+
+    for r in records:
+        art = (PARENT_KIND_ARTIFACT, r.artifact_id)
+        src = (PARENT_KIND_SOURCE, r.source_id)
+        nodes.add(art)
+        nodes.add(src)
+        add_edge(src, art)
+
+    for e in edges:
+        src = (PARENT_KIND_ARTIFACT, e.from_artifact_id)
+        dst = (e.parent_kind, e.parent_id)
+        add_edge(src, dst)
+
+    return nodes, adjacency
+
+
+def validate_provenance_graph(records: Sequence[ProvenanceRecord]) -> ProvenanceGraphIndex:
     """
     Bounded cross-record provenance validation (single validated set/graph).
 
-    - derived_from parent must exist
-    - derived artifact cannot manufacture a new lineage_id
-    - parent_sources must resolve to source_id or artifact_id in the graph
-    - cycles across derived_from and parent_sources→artifact edges are rejected
+    Builds ONE resolved edge set used for cycle detection, lineage continuity,
+    root selection, and origin collapse support.
+
+    Rejects: duplicate artifact_id, self-edge, nonexistent parent, ambiguous
+    source parent, artifact/source/mixed cycles of any length, and derived
+    lineage manufacturing.
+
     Does not federate across campaigns (R4-B).
     """
     index = ProvenanceGraphIndex.build(records)
     by_artifact = index.by_artifact
+    edges = index.resolved_edges
 
     for r in records:
         if r.derived_from is not None:
-            if r.derived_from not in by_artifact:
-                raise ProvenanceGraphError(
-                    f"nonexistent parent reference: {r.derived_from!r}"
-                )
             parent = by_artifact[r.derived_from]
             if r.lineage_id != parent.lineage_id:
                 raise ProvenanceGraphError(
                     "derived artifact cannot manufacture a new independent lineage"
                 )
-        for ps in r.parent_sources:
-            if ps not in index.source_ids and ps not in index.artifact_ids:
-                raise ProvenanceGraphError(
-                    f"nonexistent parent_sources reference: {ps!r}"
-                )
-            # parent_sources edges collapse origins during accounting; they do
-            # not permit silent lineage manufacturing via derived_from rules.
-            # Separate claimed lineage_ids linked by parent_sources are unified
-            # rather than counted as independent origins.
 
-    # Cycle detection along derived_from + parent_sources→artifact edges.
-    edges = _derivation_edges(records, index, for_cycles=True)
-    adjacency: dict[str, list[str]] = {r.artifact_id: [] for r in records}
-    for src, dst in edges:
-        if src in adjacency:
-            adjacency[src].append(dst)
+    nodes, adjacency = _cycle_nodes_and_adjacency(records, edges)
+    visiting: set[tuple[str, str]] = set()
+    visited: set[tuple[str, str]] = set()
 
-    visiting: set[str] = set()
-    visited: set[str] = set()
-
-    def dfs(node: str) -> None:
+    def dfs(node: tuple[str, str]) -> None:
         if node in visiting:
             raise ProvenanceGraphError("provenance cycle detected")
         if node in visited:
             return
         visiting.add(node)
         for nxt in adjacency.get(node, ()):
-            if nxt in adjacency or nxt in by_artifact:
-                dfs(nxt)
+            dfs(nxt)
         visiting.remove(node)
         visited.add(node)
 
-    for start in list(adjacency):
+    for start in nodes:
         dfs(start)
+
+    return index
 
 
 def _origin_identity(record: ProvenanceRecord) -> tuple[str, str]:
@@ -491,97 +675,96 @@ def account_independent_origins(
     records: Sequence[ProvenanceRecord],
 ) -> IndependentOriginAccounting:
     """
-    Multiple artifacts from one lineage / identical source identity count as one origin.
-    Self-declared or empty/self-asserted independence does not increase
-    IndependentEvidenceCount.
-    Counting operates only on graph-resolved qualified bases after validation.
-    parent_sources participate in origin collapsing (same as derived_from).
-    """
-    if records:
-        validate_provenance_graph(records)
+    Account artifacts and lineages on the validated provenance graph.
 
-    index = ProvenanceGraphIndex.build(records)
-    by_artifact = index.by_artifact
+    Under NOT_CONFIGURED admission status:
+      independent_evidence_count is always 0
+      qualified_lineage_ids is always ()
+      no claimant-controlled basis/graph value may raise the count
+
+    Zero means admission is not configured — not that evidence was disproven.
+    Graph validation, lineage ids, and self-declared rejection metadata remain.
+    """
+    index: ProvenanceGraphIndex | None = None
+    if records:
+        index = validate_provenance_graph(records)
+
     lineage_ids = tuple(sorted({r.lineage_id for r in records}))
 
-    # Union-find: same lineage_id, same (digest, source_id), derived_from, or
-    # parent_sources edges all collapse to one origin.
-    uf: dict[str, str] = {r.artifact_id: r.artifact_id for r in records}
-
-    def find(x: str) -> str:
-        while uf[x] != x:
-            uf[x] = uf[uf[x]]
-            x = uf[x]
-        return x
-
-    def union(a: str, b: str) -> None:
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            uf[rb] = ra
-
-    by_lineage: dict[str, list[str]] = {}
-    by_identity: dict[tuple[str, str], list[str]] = {}
-    for r in records:
-        by_lineage.setdefault(r.lineage_id, []).append(r.artifact_id)
-        by_identity.setdefault(_origin_identity(r), []).append(r.artifact_id)
-    for ids in by_lineage.values():
-        for other in ids[1:]:
-            union(ids[0], other)
-    for ids in by_identity.values():
-        for other in ids[1:]:
-            union(ids[0], other)
-    for src, dst in _derivation_edges(records, index, for_cycles=False):
-        if src in uf and dst in uf:
-            union(src, dst)
-
-    groups: dict[str, list[ProvenanceRecord]] = {}
-    for r in records:
-        groups.setdefault(find(r.artifact_id), []).append(r)
-
-    qualified_lineages: list[str] = []
     rejected_self: list[str] = []
-    qualified_roots = 0
+    if index is not None and records:
+        # Preserve descriptive self-declared tracking and collapse analysis on
+        # the same resolved edge set — without admitting independent evidence.
+        uf: dict[str, str] = {r.artifact_id: r.artifact_id for r in records}
 
-    for group in groups.values():
-        # Only root-level (non-derived, no parent artifact edge) bases qualify.
-        # Records linked solely via parent_sources source_id still participate
-        # in the collapsed group; roots are those without outbound derivation.
-        root_records = [
-            r
-            for r in group
-            if r.derived_from is None
-            and not any(ps in by_artifact for ps in r.parent_sources)
-        ]
-        if not root_records:
-            # Fully derived group: inherit non-qualification (copies retain lineage).
-            root_records = []
+        def find(x: str) -> str:
+            while uf[x] != x:
+                uf[x] = uf[uf[x]]
+                x = uf[x]
+            return x
 
-        root_bases = [
-            b
-            for r in root_records
-            for b in r.independence_basis_refs
-        ]
-        has_qualified = any(
-            b.is_qualified(graph_index=index, claimant=r)
-            for r in root_records
-            for b in r.independence_basis_refs
-        )
-        has_self = any(b.is_self_declared() for b in root_bases)
-        lineage_labels = sorted({r.lineage_id for r in group})
+        def union(a: str, b: str) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                uf[rb] = ra
 
-        if has_self and not has_qualified:
-            rejected_self.extend(lineage_labels)
-            continue
-        if has_qualified:
-            qualified_roots += 1
-            qualified_lineages.append(lineage_labels[0])
+        by_lineage: dict[str, list[str]] = {}
+        by_identity: dict[tuple[str, str], list[str]] = {}
+        for r in records:
+            by_lineage.setdefault(r.lineage_id, []).append(r.artifact_id)
+            by_identity.setdefault(_origin_identity(r), []).append(r.artifact_id)
+        for ids in by_lineage.values():
+            for other in ids[1:]:
+                union(ids[0], other)
+        for ids in by_identity.values():
+            for other in ids[1:]:
+                union(ids[0], other)
+        for edge in index.resolved_edges:
+            if edge.parent_kind == PARENT_KIND_ARTIFACT:
+                if edge.parent_id in uf:
+                    union(edge.from_artifact_id, edge.parent_id)
+            elif edge.parent_kind == PARENT_KIND_SOURCE:
+                for art_id in index.by_source.get(edge.parent_id, ()):
+                    if art_id in uf:
+                        union(edge.from_artifact_id, art_id)
 
+        groups: dict[str, list[ProvenanceRecord]] = {}
+        for r in records:
+            groups.setdefault(find(r.artifact_id), []).append(r)
+
+        for group in groups.values():
+            root_records = [
+                r
+                for r in group
+                if r.derived_from is None
+                and not any(
+                    e.from_artifact_id == r.artifact_id
+                    and e.parent_kind == PARENT_KIND_ARTIFACT
+                    for e in index.resolved_edges
+                )
+            ]
+            root_bases = [
+                b for r in root_records for b in r.independence_basis_refs
+            ]
+            has_self = any(b.is_self_declared() for b in root_bases)
+            # is_qualified is always False under NOT_CONFIGURED.
+            has_qualified = any(
+                b.is_qualified(graph_index=index, claimant=r)
+                for r in root_records
+                for b in r.independence_basis_refs
+            )
+            lineage_labels = sorted({r.lineage_id for r in group})
+            if has_self and not has_qualified:
+                rejected_self.extend(lineage_labels)
+
+    # Admission gate: code-defined zero-count model.
     return IndependentOriginAccounting(
         artifact_count=len(records),
-        independent_evidence_count=qualified_roots,
+        independent_evidence_count=0,
         lineage_ids=lineage_ids,
-        qualified_lineage_ids=tuple(qualified_lineages),
+        qualified_lineage_ids=(),
         rejected_self_declared=tuple(sorted(set(rejected_self))),
+        independent_evidence_admission_status=INDEPENDENT_EVIDENCE_ADMISSION_STATUS,
     )
 
 

@@ -46,6 +46,18 @@ class EpistemicStatusError(ValueError):
     """Raised on forbidden epistemic status transitions or invalid status values."""
 
 
+def _require_nonempty_str(value: Any, *, field_name: str) -> str:
+    """R1-N1: structured identifiers must already be nonempty strings."""
+    if not isinstance(value, str):
+        raise EpistemicStatusError(
+            f"{field_name} must be a nonempty string; got {type(value).__name__}"
+        )
+    text = value.strip()
+    if not text:
+        raise EpistemicStatusError(f"{field_name} must be a nonempty string")
+    return text
+
+
 def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
     if value is None:
         return ()
@@ -57,12 +69,7 @@ def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
         raise EpistemicStatusError(f"{field_name} must be a list/tuple of refs")
     out: list[str] = []
     for item in value:
-        if not isinstance(item, str):
-            raise EpistemicStatusError(f"{field_name} entries must be strings")
-        text = item.strip()
-        if not text:
-            raise EpistemicStatusError(f"{field_name} entries must be non-empty")
-        out.append(text)
+        out.append(_require_nonempty_str(item, field_name=f"{field_name} entry"))
     return tuple(sorted(dict.fromkeys(out)))
 
 
@@ -128,40 +135,63 @@ class EpistemicClaimRecord:
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "EpistemicClaimRecord":
         enforce_non_authority(data)
-        if data.get("schema_version") not in {SCHEMA_VERSION, None}:
-            # Accept only this version for R4-A parsed records; None rejected below.
-            if data.get("schema_version") != SCHEMA_VERSION:
-                raise EpistemicStatusError(
-                    f"unsupported claim schema_version: {data.get('schema_version')!r}"
-                )
         if data.get("schema_version") != SCHEMA_VERSION:
             raise EpistemicStatusError(
                 f"claim schema_version must be {SCHEMA_VERSION!r}"
             )
+        if "authority" not in data or data["authority"] is not False:
+            raise EpistemicStatusError("authority must be Boolean false")
+        claim_kind = data["claim_kind"]
+        epistemic_status = data["epistemic_status"]
+        if not isinstance(claim_kind, str) or claim_kind not in CLAIM_KINDS:
+            raise EpistemicStatusError(f"unknown claim_kind: {claim_kind!r}")
+        if (
+            not isinstance(epistemic_status, str)
+            or epistemic_status not in EPISTEMIC_STATUSES
+        ):
+            raise EpistemicStatusError(
+                f"unknown epistemic_status: {epistemic_status!r}"
+            )
+        notes = data.get("notes", "")
+        if notes is None:
+            notes = ""
+        if not isinstance(notes, str):
+            raise EpistemicStatusError("notes must be a string when set")
+        workflow_state = data.get("workflow_state")
+        if workflow_state is not None and not isinstance(workflow_state, str):
+            raise EpistemicStatusError("workflow_state must be a string when set")
+        confidence = data.get("confidence")
+        if confidence is not None and not isinstance(confidence, (int, float)):
+            raise EpistemicStatusError("confidence must be a number when set")
+        evidence_raw = data["evidence_refs"] if "evidence_refs" in data else ()
+        if evidence_raw is None:
+            evidence_raw = ()
+        provenance_raw = data["provenance_refs"] if "provenance_refs" in data else ()
+        if provenance_raw is None:
+            provenance_raw = ()
+        extra = data["extra"] if "extra" in data else {}
+        if extra is None:
+            extra = {}
+        if not isinstance(extra, Mapping):
+            raise EpistemicStatusError("extra must be a mapping when set")
         return cls(
-            claim_id=str(data["claim_id"]),
-            statement=str(data["statement"]),
-            claim_kind=str(data["claim_kind"]),
-            epistemic_status=str(data["epistemic_status"]),
-            scope=str(data["scope"]),
+            claim_id=_require_nonempty_str(data["claim_id"], field_name="claim_id"),
+            statement=_require_nonempty_str(data["statement"], field_name="statement"),
+            claim_kind=claim_kind,
+            epistemic_status=epistemic_status,
+            scope=_require_nonempty_str(data["scope"], field_name="scope"),
             schema_version=SCHEMA_VERSION,
             authority=False,
             evidence_refs=_coerce_str_refs(
-                data.get("evidence_refs") or (), field_name="evidence_refs"
+                evidence_raw, field_name="evidence_refs"
             ),
             provenance_refs=_coerce_str_refs(
-                data.get("provenance_refs") or (), field_name="provenance_refs"
+                provenance_raw, field_name="provenance_refs"
             ),
-            confidence=(
-                float(data["confidence"]) if data.get("confidence") is not None else None
-            ),
-            notes=str(data.get("notes") or ""),
-            workflow_state=(
-                str(data["workflow_state"])
-                if data.get("workflow_state") is not None
-                else None
-            ),
-            extra=dict(data.get("extra") or {}),
+            confidence=(float(confidence) if confidence is not None else None),
+            notes=notes,
+            workflow_state=workflow_state,
+            extra=dict(extra),
         )
 
 
