@@ -18,8 +18,10 @@ from .compat import legacy_claim_view, read_claim_record
 from .provenance import (
     IndependenceBasis,
     IndependentOriginAccounting,
+    ProvenanceGraphError,
     ProvenanceRecord,
     account_independent_origins,
+    validate_provenance_graph,
 )
 from .records import (
     CLAIM_KINDS,
@@ -34,19 +36,29 @@ from .relations import (
     RelationSatisfactionError,
     analogous_to_cannot_satisfy_causes,
 )
-from .serialize import canonical_digest, canonical_dumps, canonical_loads
+from .serialize import (
+    ORDERED_SEQUENCE_FIELDS,
+    SET_LIKE_SEQUENCE_FIELDS,
+    canonical_digest,
+    canonical_dumps,
+    canonical_loads,
+    normalize_sequences,
+)
 from .validation import EpistemicValidationError, validate_epistemic_record
 
 __all__ = [
     "CLAIM_KINDS",
     "EPISTEMIC_STATUSES",
+    "ORDERED_SEQUENCE_FIELDS",
     "RELATION_TYPES",
+    "SET_LIKE_SEQUENCE_FIELDS",
     "AuthorityViolation",
     "EpistemicClaimRecord",
     "EpistemicStatusError",
     "EpistemicValidationError",
     "IndependenceBasis",
     "IndependentOriginAccounting",
+    "ProvenanceGraphError",
     "ProvenanceRecord",
     "RelationAsClaim",
     "RelationSatisfactionError",
@@ -61,8 +73,10 @@ __all__ = [
     "canonical_dumps",
     "canonical_loads",
     "legacy_claim_view",
+    "normalize_sequences",
     "read_claim_record",
     "validate_epistemic_record",
+    "validate_provenance_graph",
 ]
 
 SCHEMA_VERSION_CLAIM = "r4.epistemic.claim.v1"

@@ -59,13 +59,19 @@ def read_claim_record(
     """
     Read a claim dict as R4 EpistemicClaimRecord when R4 fields present;
     otherwise return LegacyClaimView without backfill.
+
+    Explicit R4 claim schema records use the complete validator.
     """
     if _has_r4_fields(data) and data.get("schema_version", "").startswith(
         "r4.epistemic.claim"
     ):
-        return EpistemicClaimRecord.from_dict(data)
+        from .validation import validate_claim_dict
+
+        return validate_claim_dict(data)
     # Partial R4-looking fields without schema: still no silent backfill to full record
     # unless schema_version is the claim contract.
     if data.get("schema_version") == "r4.epistemic.claim.v1":
-        return EpistemicClaimRecord.from_dict(data)
+        from .validation import validate_claim_dict
+
+        return validate_claim_dict(data)
     return legacy_claim_view(data)

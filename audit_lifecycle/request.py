@@ -43,12 +43,21 @@ def stable_run_id(prefix: str = "WFA") -> str:
     return f"{prefix}-{stamp}-{nonce}"
 
 
+def _is_explicit_r4_epistemic(epi: dict[str, Any]) -> bool:
+    """True when the block carries explicit R4 epistemic claim metadata."""
+    sv = str(epi.get("schema_version") or "")
+    if sv.startswith("r4.epistemic."):
+        return True
+    return any(k in epi for k in ("claim_kind", "epistemic_status", "provenance_refs"))
+
+
 def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
     """
     R4-A additive hook: optional epistemic metadata on operator claims.
 
     Legacy claims without R4 fields remain valid.
-    When present, authority must be false and fields are not backfilled.
+    Explicit R4 epistemic records must pass the complete R4 validator
+    (same path as validate_claim_dict) — no permissive parse-only bypass.
     Does not change VECTOR/EIG semantics or authorize execution.
     """
     epi = claim.get("epistemic")
@@ -56,9 +65,32 @@ def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
         return
     if not isinstance(epi, dict):
         raise ValueError("claim.epistemic must be a dict when present")
-    if epi.get("authority") is not False:
-        raise ValueError("claim.epistemic.authority must be false when epistemic block present")
-    # Do not synthesize epistemic_status / claim_kind for partial blocks.
+
+    if not _is_explicit_r4_epistemic(epi):
+        # Advisory partial block only: still require authority:false when set.
+        if "authority" in epi and epi.get("authority") is not False:
+            raise ValueError(
+                "claim.epistemic.authority must be false when epistemic block present"
+            )
+        return
+
+    # Explicit R4 path — full validator (unknown kinds, provenance-free
+    # VERIFIED_SCOPE, nested authority, malformed refs all rejected).
+    from audit_lifecycle.epistemic.validation import (
+        EpistemicValidationError,
+        validate_claim_dict,
+    )
+
+    payload = dict(epi)
+    payload.setdefault("claim_id", claim.get("id") or claim.get("claim_id") or "")
+    payload.setdefault("statement", claim.get("statement") or "")
+    payload.setdefault("scope", epi.get("scope") or "")
+    if "schema_version" not in payload:
+        payload["schema_version"] = "r4.epistemic.claim.v1"
+    try:
+        validate_claim_dict(payload)
+    except EpistemicValidationError as e:
+        raise ValueError(f"invalid claim.epistemic: {e}") from e
 
 
 @dataclass

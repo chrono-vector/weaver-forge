@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from .authority import AuthorityViolation, enforce_non_authority
-from .provenance import ProvenanceRecord, require_provenance_for_verified_scope
+from .provenance import (
+    ProvenanceGraphError,
+    ProvenanceRecord,
+    require_provenance_for_verified_scope,
+)
 from .records import (
     CLAIM_KINDS,
     EPISTEMIC_STATUSES,
@@ -87,7 +91,14 @@ def validate_provenance_dict(data: Mapping[str, Any]) -> ProvenanceRecord:
                 f"malformed provenance: missing {missing}"
             )
         return ProvenanceRecord.from_dict(data)
-    except (AuthorityViolation, KeyError, TypeError, ValueError, EpistemicValidationError) as e:
+    except (
+        AuthorityViolation,
+        KeyError,
+        TypeError,
+        ValueError,
+        ProvenanceGraphError,
+        EpistemicValidationError,
+    ) as e:
         if isinstance(e, EpistemicValidationError):
             raise
         raise EpistemicValidationError(str(e)) from e

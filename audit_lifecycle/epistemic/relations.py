@@ -27,9 +27,31 @@ RELATION_TYPES = frozenset(
     }
 )
 
+DIRECTIONALITIES = frozenset({"directed", "bidirectional"})
+
 
 class RelationSatisfactionError(ValueError):
     """Raised when a relation is used to satisfy an incompatible relation type."""
+
+
+def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raise RelationSatisfactionError(
+            f"{field_name} must be a list/tuple of refs, not a string"
+        )
+    if not isinstance(value, (list, tuple)):
+        raise RelationSatisfactionError(f"{field_name} must be a list/tuple of refs")
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise RelationSatisfactionError(f"{field_name} entries must be strings")
+        text = item.strip()
+        if not text:
+            raise RelationSatisfactionError(f"{field_name} entries must be non-empty")
+        out.append(text)
+    return tuple(sorted(dict.fromkeys(out)))
 
 
 @dataclass(frozen=True)
@@ -53,6 +75,12 @@ class RelationAsClaim:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not str(self.relation_id).strip():
+            raise RelationSatisfactionError("relation_id must be non-empty")
+        if not str(self.source_claim_id).strip() or not str(self.target_claim_id).strip():
+            raise RelationSatisfactionError(
+                "source_claim_id and target_claim_id must be non-empty"
+            )
         if self.relation_type not in RELATION_TYPES:
             raise RelationSatisfactionError(
                 f"unknown relation_type: {self.relation_type!r}"
@@ -63,6 +91,10 @@ class RelationAsClaim:
             )
         if self.authority is not False:
             raise RelationSatisfactionError("authority must be false")
+        if self.directionality not in DIRECTIONALITIES:
+            raise RelationSatisfactionError(
+                f"unknown directionality: {self.directionality!r}"
+            )
         if not self.evidence_refs:
             raise RelationSatisfactionError(
                 "relation requires evidence_refs; missing evidence must not promote"
@@ -109,13 +141,14 @@ class RelationAsClaim:
             raise RelationSatisfactionError(
                 f"relation schema_version must be {SCHEMA_VERSION!r}"
             )
-        evidence = data.get("evidence_refs") or ()
         return cls(
             relation_id=str(data["relation_id"]),
             source_claim_id=str(data["source_claim_id"]),
             target_claim_id=str(data["target_claim_id"]),
             relation_type=str(data["relation_type"]),
-            evidence_refs=tuple(evidence),
+            evidence_refs=_coerce_str_refs(
+                data.get("evidence_refs") or (), field_name="evidence_refs"
+            ),
             scope=str(data.get("scope") or ""),
             epistemic_status=str(data["epistemic_status"]),
             schema_version=SCHEMA_VERSION,

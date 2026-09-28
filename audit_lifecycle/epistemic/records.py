@@ -46,6 +46,26 @@ class EpistemicStatusError(ValueError):
     """Raised on forbidden epistemic status transitions or invalid status values."""
 
 
+def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        raise EpistemicStatusError(
+            f"{field_name} must be a list/tuple of refs, not a string"
+        )
+    if not isinstance(value, (list, tuple)):
+        raise EpistemicStatusError(f"{field_name} must be a list/tuple of refs")
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise EpistemicStatusError(f"{field_name} entries must be strings")
+        text = item.strip()
+        if not text:
+            raise EpistemicStatusError(f"{field_name} entries must be non-empty")
+        out.append(text)
+    return tuple(sorted(dict.fromkeys(out)))
+
+
 @dataclass(frozen=True)
 class EpistemicClaimRecord:
     """Additive versioned epistemic claim record. Non-authoritative."""
@@ -65,6 +85,8 @@ class EpistemicClaimRecord:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not str(self.claim_id).strip():
+            raise EpistemicStatusError("claim_id must be non-empty")
         if self.claim_kind not in CLAIM_KINDS:
             raise EpistemicStatusError(f"unknown claim_kind: {self.claim_kind!r}")
         if self.epistemic_status not in EPISTEMIC_STATUSES:
@@ -116,8 +138,6 @@ class EpistemicClaimRecord:
             raise EpistemicStatusError(
                 f"claim schema_version must be {SCHEMA_VERSION!r}"
             )
-        evidence = data.get("evidence_refs") or ()
-        provenance = data.get("provenance_refs") or ()
         return cls(
             claim_id=str(data["claim_id"]),
             statement=str(data["statement"]),
@@ -126,8 +146,12 @@ class EpistemicClaimRecord:
             scope=str(data["scope"]),
             schema_version=SCHEMA_VERSION,
             authority=False,
-            evidence_refs=tuple(evidence),
-            provenance_refs=tuple(provenance),
+            evidence_refs=_coerce_str_refs(
+                data.get("evidence_refs") or (), field_name="evidence_refs"
+            ),
+            provenance_refs=_coerce_str_refs(
+                data.get("provenance_refs") or (), field_name="provenance_refs"
+            ),
             confidence=(
                 float(data["confidence"]) if data.get("confidence") is not None else None
             ),

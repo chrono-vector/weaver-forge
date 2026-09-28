@@ -3,21 +3,28 @@
 Does NOT rewrite Campaign Runner intake.
 Does NOT merge workflow CLAIM_STATES into epistemic_status.
 Does NOT backfill legacy claims with stronger epistemic status.
+
+Explicit R4 epistemic blocks pass through the complete R4 validator
+(validate_claim_dict) — never a permissive from_dict-only path.
 """
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping
 
 from audit_lifecycle.epistemic.compat import LegacyClaimView, read_claim_record
 from audit_lifecycle.epistemic.records import EpistemicClaimRecord
+from audit_lifecycle.epistemic.validation import (
+    EpistemicValidationError,
+    validate_claim_dict,
+)
 
 
 def adapt_campaign_claim(row: Mapping[str, Any]) -> EpistemicClaimRecord | LegacyClaimView:
     """
     Map a campaign claim row to an epistemic view.
 
-    - If an explicit R4 epistemic block with schema + status is present, parse it.
+    - If an explicit R4 epistemic block with schema + status is present, validate it.
     - Otherwise return LegacyClaimView with no synthetic status.
     Workflow state (row['state']) is never copied into epistemic_status.
     """
@@ -34,7 +41,11 @@ def adapt_campaign_claim(row: Mapping[str, Any]) -> EpistemicClaimRecord | Legac
         payload.setdefault("scope", epi.get("scope") or row.get("scope") or "")
         payload["authority"] = False
         # Never pull workflow state into epistemic_status.
-        return EpistemicClaimRecord.from_dict(payload)
+        # Full validator — rejects provenance-free VERIFIED_SCOPE, unknown kinds, etc.
+        try:
+            return validate_claim_dict(payload)
+        except EpistemicValidationError:
+            raise
 
     return read_claim_record(
         {
