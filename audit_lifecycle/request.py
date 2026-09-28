@@ -45,10 +45,9 @@ def stable_run_id(prefix: str = "WFA") -> str:
 
 def _is_explicit_r4_epistemic(epi: dict[str, Any]) -> bool:
     """True when the block carries explicit R4 epistemic claim metadata."""
-    sv = str(epi.get("schema_version") or "")
-    if sv.startswith("r4.epistemic."):
-        return True
-    return any(k in epi for k in ("claim_kind", "epistemic_status", "provenance_refs"))
+    from audit_lifecycle.epistemic.compat import is_explicit_r4_epistemic
+
+    return is_explicit_r4_epistemic(epi)
 
 
 def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
@@ -57,7 +56,8 @@ def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
 
     Legacy claims without R4 fields remain valid.
     Explicit R4 epistemic records must pass the complete R4 validator
-    (same path as validate_claim_dict) — no permissive parse-only bypass.
+    (same path as validate_claim_dict) — no permissive parse-only bypass,
+    no silent downgrade to legacy, no authority:true overwrite.
     Does not change VECTOR/EIG semantics or authorize execution.
     """
     epi = claim.get("epistemic")
@@ -74,8 +74,10 @@ def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
             )
         return
 
-    # Explicit R4 path — full validator (unknown kinds, provenance-free
-    # VERIFIED_SCOPE, nested authority, malformed refs all rejected).
+    # Explicit R4 path — full validator (missing claim_kind, unsupported
+    # schema version, authority:true, provenance-free VERIFIED_SCOPE,
+    # nested authority, malformed refs all rejected). Never synthesize
+    # missing required fields beyond claim_id/statement/scope identity glue.
     from audit_lifecycle.epistemic.validation import (
         EpistemicValidationError,
         validate_claim_dict,
@@ -85,8 +87,10 @@ def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
     payload.setdefault("claim_id", claim.get("id") or claim.get("claim_id") or "")
     payload.setdefault("statement", claim.get("statement") or "")
     payload.setdefault("scope", epi.get("scope") or "")
-    if "schema_version" not in payload:
-        payload["schema_version"] = "r4.epistemic.claim.v1"
+    # Do not invent schema_version for explicit R4 blocks that omitted it
+    # when other R4 fields are present — validator rejects missing/unsupported.
+    # Exception: if schema_version absent but other R4 keys present, still
+    # fail closed via validate_claim_dict (requires schema_version).
     try:
         validate_claim_dict(payload)
     except EpistemicValidationError as e:

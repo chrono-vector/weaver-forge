@@ -28,12 +28,18 @@ class LegacyClaimView:
 
 
 def _has_r4_fields(data: Mapping[str, Any]) -> bool:
-    return bool(
-        data.get("schema_version", "").startswith("r4.epistemic.")
-        or "claim_kind" in data
-        or "epistemic_status" in data
-        or "provenance_refs" in data
+    """True when the payload declares/contains R4 epistemic structure."""
+    sv = str(data.get("schema_version") or "")
+    if sv.startswith("r4.epistemic."):
+        return True
+    return any(
+        k in data for k in ("claim_kind", "epistemic_status", "provenance_refs")
     )
+
+
+def is_explicit_r4_epistemic(data: Mapping[str, Any]) -> bool:
+    """Public helper: explicit R4 epistemic structure (fail-closed path)."""
+    return _has_r4_fields(data)
 
 
 def legacy_claim_view(data: Mapping[str, Any]) -> LegacyClaimView:
@@ -60,17 +66,10 @@ def read_claim_record(
     Read a claim dict as R4 EpistemicClaimRecord when R4 fields present;
     otherwise return LegacyClaimView without backfill.
 
-    Explicit R4 claim schema records use the complete validator.
+    Explicit R4 epistemic structure fails closed on invalid/incomplete records.
+    Legacy compatibility remains only for records with no R4 epistemic contract.
     """
-    if _has_r4_fields(data) and data.get("schema_version", "").startswith(
-        "r4.epistemic.claim"
-    ):
-        from .validation import validate_claim_dict
-
-        return validate_claim_dict(data)
-    # Partial R4-looking fields without schema: still no silent backfill to full record
-    # unless schema_version is the claim contract.
-    if data.get("schema_version") == "r4.epistemic.claim.v1":
+    if _has_r4_fields(data):
         from .validation import validate_claim_dict
 
         return validate_claim_dict(data)

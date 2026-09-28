@@ -32,6 +32,11 @@ _AUTHORITY_LIKE_KEYS = frozenset(
         "promotes_to_human_final",
         "confidence_authorizes",
         "authorized_by_confidence",
+        # Weaver decision assertions (field/key semantics, not prose scanning)
+        "weaver_pass",
+        "weaver_fail",
+        "weaver_status",
+        "final_status",
     }
 )
 
@@ -46,6 +51,10 @@ _AUTHORITY_TRUE_STRINGS = frozenset(
         "HUMAN_FINAL",
         "ACCEPTED",
         "YES",
+        "PASS",
+        "FAIL",
+        "WEAVER_PASS",
+        "WEAVER_FAIL",
     }
 )
 
