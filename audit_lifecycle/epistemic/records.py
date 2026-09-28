@@ -59,14 +59,20 @@ def _require_nonempty_str(value: Any, *, field_name: str) -> str:
 
 
 def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
-    if value is None:
-        return ()
+    """Strict collection typing for present reference fields.
+
+    Present fields must already be list/tuple. Falsey non-collections must
+    not coerce to empty collections.
+    """
     if isinstance(value, str):
         raise EpistemicStatusError(
             f"{field_name} must be a list/tuple of refs, not a string"
         )
     if not isinstance(value, (list, tuple)):
-        raise EpistemicStatusError(f"{field_name} must be a list/tuple of refs")
+        raise EpistemicStatusError(
+            f"{field_name} must be a list/tuple of refs; "
+            f"got {type(value).__name__}"
+        )
     out: list[str] = []
     for item in value:
         out.append(_require_nonempty_str(item, field_name=f"{field_name} entry"))
@@ -92,7 +98,7 @@ class EpistemicClaimRecord:
     extra: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not str(self.claim_id).strip():
+        if not isinstance(self.claim_id, str) or not self.claim_id.strip():
             raise EpistemicStatusError("claim_id must be non-empty")
         if self.claim_kind not in CLAIM_KINDS:
             raise EpistemicStatusError(f"unknown claim_kind: {self.claim_kind!r}")
@@ -102,6 +108,16 @@ class EpistemicClaimRecord:
             )
         if self.authority is not False:
             raise EpistemicStatusError("authority must be false")
+        if not isinstance(self.evidence_refs, tuple):
+            raise EpistemicStatusError(
+                "evidence_refs must be a tuple of strings; "
+                f"got {type(self.evidence_refs).__name__}"
+            )
+        if not isinstance(self.provenance_refs, tuple):
+            raise EpistemicStatusError(
+                "provenance_refs must be a tuple of strings; "
+                f"got {type(self.provenance_refs).__name__}"
+            )
         if self.confidence is not None and not (0.0 <= float(self.confidence) <= 1.0):
             raise EpistemicStatusError("confidence must be in [0.0, 1.0] when set")
 
@@ -163,12 +179,16 @@ class EpistemicClaimRecord:
         confidence = data.get("confidence")
         if confidence is not None and not isinstance(confidence, (int, float)):
             raise EpistemicStatusError("confidence must be a number when set")
-        evidence_raw = data["evidence_refs"] if "evidence_refs" in data else ()
-        if evidence_raw is None:
-            evidence_raw = ()
-        provenance_raw = data["provenance_refs"] if "provenance_refs" in data else ()
-        if provenance_raw is None:
-            provenance_raw = ()
+        evidence_refs = (
+            _coerce_str_refs(data["evidence_refs"], field_name="evidence_refs")
+            if "evidence_refs" in data
+            else ()
+        )
+        provenance_refs = (
+            _coerce_str_refs(data["provenance_refs"], field_name="provenance_refs")
+            if "provenance_refs" in data
+            else ()
+        )
         extra = data["extra"] if "extra" in data else {}
         if extra is None:
             extra = {}
@@ -182,12 +202,8 @@ class EpistemicClaimRecord:
             scope=_require_nonempty_str(data["scope"], field_name="scope"),
             schema_version=SCHEMA_VERSION,
             authority=False,
-            evidence_refs=_coerce_str_refs(
-                evidence_raw, field_name="evidence_refs"
-            ),
-            provenance_refs=_coerce_str_refs(
-                provenance_raw, field_name="provenance_refs"
-            ),
+            evidence_refs=evidence_refs,
+            provenance_refs=provenance_refs,
             confidence=(float(confidence) if confidence is not None else None),
             notes=notes,
             workflow_state=workflow_state,

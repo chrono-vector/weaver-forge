@@ -28,6 +28,7 @@ from audit_lifecycle.epistemic.authority import (
 from audit_lifecycle.epistemic.compat import LegacyClaimView, legacy_claim_view, read_claim_record
 from audit_lifecycle.epistemic.provenance import (
     IndependenceBasis,
+    IndependentOriginAccounting,
     ProvenanceGraphError,
     ProvenanceGraphIndex,
     ProvenanceRecord,
@@ -1660,6 +1661,242 @@ class TestRootM5AdmissionStatusFieldPreserved(unittest.TestCase):
         self.assertEqual(d1["independent_evidence_admission_status"], "NOT_CONFIGURED")
         self.assertEqual(d1["independent_evidence_count"], 0)
         self.assertIn("lineage_ids", SET_LIKE_SEQUENCE_FIELDS)
+
+
+# ---------------------------------------------------------------------------
+# R4-A final strictness remediation: F1 / F2 / F3
+# ---------------------------------------------------------------------------
+
+
+class TestFinalF1SourceResolutionExactlyOne(unittest.TestCase):
+    """F1: SOURCE parent resolution must be exactly one canonical artifact."""
+
+    def test_source_resolves_to_zero_artifacts_rejects(self):
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph(
+                [_prov("a", "L1", parent_sources=["missing-src"])]
+            )
+
+    def test_source_resolves_to_one_artifact_accepts(self):
+        root = _prov("root", "L1", source_id="solo-src", digest="d0")
+        leaf = _prov(
+            "leaf",
+            "L2",
+            parent_sources=["solo-src"],
+            source_id="src-leaf",
+            digest="d1",
+        )
+        index = validate_provenance_graph([root, leaf])
+        self.assertEqual(len(index.resolved_edges), 1)
+        self.assertEqual(index.resolved_edges[0].parent_kind, "SOURCE")
+        self.assertEqual(index.resolved_edges[0].parent_id, "solo-src")
+
+    def test_source_resolves_to_two_artifacts_rejects(self):
+        a = _prov("a", "L1", source_id="dup-src", digest="da")
+        b = _prov("b", "L2", source_id="dup-src", digest="db")
+        leaf = _prov(
+            "leaf",
+            "L3",
+            parent_sources=["dup-src"],
+            source_id="src-leaf",
+            digest="dl",
+        )
+        with self.assertRaises(ProvenanceGraphError) as ctx:
+            validate_provenance_graph([a, b, leaf])
+        self.assertIn("ambiguous SOURCE", str(ctx.exception))
+
+    def test_source_resolves_to_several_artifacts_rejects(self):
+        arts = [
+            _prov(f"a{i}", f"L{i}", source_id="many-src", digest=f"d{i}")
+            for i in range(4)
+        ]
+        leaf = _prov(
+            "leaf",
+            "L9",
+            parent_sources=["many-src"],
+            source_id="src-leaf",
+            digest="dl",
+        )
+        with self.assertRaises(ProvenanceGraphError) as ctx:
+            validate_provenance_graph([*arts, leaf])
+        self.assertIn("ambiguous SOURCE", str(ctx.exception))
+
+    def test_mixed_graph_with_one_ambiguous_source_edge_rejects_entire_graph(self):
+        # Valid ARTIFACT edge + one ambiguous SOURCE edge => whole graph fails.
+        root = _prov("root", "L1", source_id="s0", digest="d0")
+        mid = _prov(
+            "mid", "L1", derived_from="root", source_id="s1", digest="d1"
+        )
+        twin_a = _prov("twin-a", "L2", source_id="ambig-src", digest="dta")
+        twin_b = _prov("twin-b", "L3", source_id="ambig-src", digest="dtb")
+        leaf = _prov(
+            "leaf",
+            "L4",
+            parent_sources=["ambig-src"],
+            source_id="s-leaf",
+            digest="dl",
+        )
+        with self.assertRaises(ProvenanceGraphError):
+            validate_provenance_graph([root, mid, twin_a, twin_b, leaf])
+
+    def test_duplicate_source_ids_without_source_parent_edge_still_ok(self):
+        # Ambiguity applies to SOURCE *references*, not mere co-presence.
+        a = _prov("a", "L1", source_id="shared", digest="da")
+        b = _prov("b", "L2", source_id="shared", digest="db")
+        index = validate_provenance_graph([a, b])
+        self.assertEqual(len(index.resolved_edges), 0)
+
+
+class TestFinalF2NoFalseyCollectionCoercion(unittest.TestCase):
+    """F2: present collection fields must not coerce falsey values to empty."""
+
+    FALSEY_INVALID = (None, False, 0, "", {})
+
+    def _prov_base(self, **overrides):
+        base = {
+            "schema_version": "r4.epistemic.provenance.v1",
+            "artifact_id": "a1",
+            "digest": "d1",
+            "source_id": "s1",
+            "lineage_id": "L1",
+            "authority": False,
+        }
+        base.update(overrides)
+        return base
+
+    def test_refs_absent_defaults_empty_present_falsey_rejects(self):
+        ok = IndependenceBasis.from_dict(
+            {"basis_id": "b1", "basis_kind": "DISTINCT_OBSERVER"}
+        )
+        self.assertEqual(ok.refs, ())
+        empty = IndependenceBasis.from_dict(
+            {"basis_id": "b1", "basis_kind": "DISTINCT_OBSERVER", "refs": []}
+        )
+        self.assertEqual(empty.refs, ())
+        for bad in self.FALSEY_INVALID:
+            with self.assertRaises(ValueError):
+                IndependenceBasis.from_dict(
+                    {
+                        "basis_id": "b1",
+                        "basis_kind": "DISTINCT_OBSERVER",
+                        "refs": bad,
+                    }
+                )
+
+    def test_parent_sources_absent_vs_present_falsey(self):
+        absent = ProvenanceRecord.from_dict(self._prov_base())
+        self.assertEqual(absent.parent_sources, ())
+        empty = ProvenanceRecord.from_dict(self._prov_base(parent_sources=[]))
+        self.assertEqual(empty.parent_sources, ())
+        for bad in self.FALSEY_INVALID:
+            with self.assertRaises(ValueError):
+                ProvenanceRecord.from_dict(self._prov_base(parent_sources=bad))
+
+    def test_independence_basis_refs_absent_vs_present_falsey(self):
+        absent = ProvenanceRecord.from_dict(self._prov_base())
+        self.assertEqual(absent.independence_basis_refs, ())
+        empty = ProvenanceRecord.from_dict(
+            self._prov_base(independence_basis_refs=[])
+        )
+        self.assertEqual(empty.independence_basis_refs, ())
+        for bad in self.FALSEY_INVALID:
+            with self.assertRaises(ValueError):
+                ProvenanceRecord.from_dict(
+                    self._prov_base(independence_basis_refs=bad)
+                )
+
+    def test_claim_provenance_and_evidence_refs_falsey_present_rejects(self):
+        for field in ("evidence_refs", "provenance_refs"):
+            absent_key = _claim()
+            del absent_key[field]
+            ok = EpistemicClaimRecord.from_dict(absent_key)
+            self.assertEqual(getattr(ok, field), ())
+            empty = EpistemicClaimRecord.from_dict(_claim(**{field: []}))
+            self.assertEqual(getattr(empty, field), ())
+            for bad in self.FALSEY_INVALID:
+                with self.assertRaises(EpistemicStatusError):
+                    EpistemicClaimRecord.from_dict(_claim(**{field: bad}))
+
+    def test_relation_evidence_refs_falsey_present_rejects(self):
+        for bad in self.FALSEY_INVALID:
+            with self.assertRaises(
+                (RelationSatisfactionError, EpistemicValidationError)
+            ):
+                RelationAsClaim.from_dict(_relation(evidence_refs=bad))
+
+
+class TestFinalF3NoRelationFieldCoercion(unittest.TestCase):
+    """F3: relation structured fields must already have schema-required types."""
+
+    def test_integer_relation_id_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(relation_id=123))
+
+    def test_boolean_relation_id_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(relation_id=True))
+
+    def test_float_relation_id_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(relation_id=1.5))
+
+    def test_integer_source_claim_id_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(source_claim_id=42))
+
+    def test_boolean_target_claim_id_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(target_claim_id=False))
+
+    def test_numeric_relation_type_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(relation_type=7))
+
+    def test_boolean_directionality_rejects(self):
+        with self.assertRaises(RelationSatisfactionError):
+            RelationAsClaim.from_dict(_relation(directionality=True))
+
+    def test_numeric_epistemic_status_rejects(self):
+        with self.assertRaises((RelationSatisfactionError, EpistemicStatusError)):
+            RelationAsClaim.from_dict(_relation(epistemic_status=1))
+
+    def test_whitespace_only_ids_reject(self):
+        for field in ("relation_id", "source_claim_id", "target_claim_id", "scope"):
+            with self.assertRaises(RelationSatisfactionError):
+                RelationAsClaim.from_dict(_relation(**{field: "   "}))
+
+    def test_valid_relation_still_accepts(self):
+        rel = RelationAsClaim.from_dict(_relation())
+        self.assertEqual(rel.relation_id, "R-1")
+        self.assertEqual(rel.directionality, "directed")
+
+
+class TestOptionalAccountingHardening(unittest.TestCase):
+    """Optional local invariant on IndependentOriginAccounting."""
+
+    def test_positive_count_direct_construction_rejected(self):
+        with self.assertRaises(ValueError):
+            IndependentOriginAccounting(
+                artifact_count=1,
+                independent_evidence_count=1,
+                lineage_ids=("L1",),
+                qualified_lineage_ids=(),
+            )
+
+    def test_alternate_admission_status_rejected(self):
+        with self.assertRaises(ValueError):
+            IndependentOriginAccounting(
+                artifact_count=0,
+                independent_evidence_count=0,
+                lineage_ids=(),
+                qualified_lineage_ids=(),
+                independent_evidence_admission_status="CONFIGURED",
+            )
+
+    def test_canonical_zero_path_still_ok(self):
+        acct = account_independent_origins([])
+        self.assertEqual(acct.independent_evidence_count, 0)
+        self.assertEqual(acct.independent_evidence_admission_status, "NOT_CONFIGURED")
 
 
 if __name__ == "__main__":

@@ -92,15 +92,21 @@ def _require_optional_nonempty_str(value: Any, *, field_name: str) -> str | None
 
 
 def _coerce_str_refs(value: Any, *, field_name: str) -> tuple[str, ...]:
-    """Reject string-as-iterable and malformed reference collections."""
-    if value is None:
-        return ()
+    """Strict collection typing for present reference fields.
+
+    A present field must already be a list/tuple. Falsey non-collections
+    (None / False / 0 / "") are rejected — they must not become ().
+    Absent optional fields are handled by callers via documented defaults.
+    """
     if isinstance(value, str):
         raise ValueError(
             f"{field_name} must be a list/tuple of refs, not a string"
         )
     if not isinstance(value, (list, tuple)):
-        raise ValueError(f"{field_name} must be a list/tuple of refs")
+        raise ValueError(
+            f"{field_name} must be a list/tuple of refs; "
+            f"got {type(value).__name__}"
+        )
     out: list[str] = []
     for item in value:
         out.append(_require_nonempty_str(item, field_name=f"{field_name} entry"))
@@ -145,14 +151,16 @@ def _coerce_basis_refs(value: Any) -> tuple[ValidatedBasisRef, ...]:
     Parse independence basis refs.
 
     Only structured ValidatedBasisRef mappings are accepted.
-    Bare strings / scalars / arrays cannot create a defensible basis.
+    Bare strings / scalars / falsey non-collections cannot create a
+    defensible basis and must not coerce to an empty collection.
     """
-    if value is None:
-        return ()
     if isinstance(value, str):
         raise ValueError("refs must be a list/tuple of validated basis refs, not a string")
     if not isinstance(value, (list, tuple)):
-        raise ValueError("refs must be a list/tuple of validated basis refs")
+        raise ValueError(
+            "refs must be a list/tuple of validated basis refs; "
+            f"got {type(value).__name__}"
+        )
     out: list[ValidatedBasisRef] = []
     seen: set[tuple[str, str]] = set()
     for item in value:
@@ -187,6 +195,11 @@ class IndependenceBasis:
             raise ValueError("independence basis_id must be non-empty string")
         if not isinstance(self.basis_kind, str) or not self.basis_kind.strip():
             raise ValueError("independence basis_kind must be non-empty string")
+        if not isinstance(self.refs, tuple):
+            raise ValueError(
+                "refs must be a tuple of ValidatedBasisRef; "
+                f"got {type(self.refs).__name__}"
+            )
         # Normalize accidental raw tuples of dicts from direct construction.
         if self.refs and not all(isinstance(r, ValidatedBasisRef) for r in self.refs):
             object.__setattr__(self, "refs", _coerce_basis_refs(list(self.refs)))
@@ -245,10 +258,14 @@ class IndependenceBasis:
             notes = ""
         if not isinstance(notes, str):
             raise ValueError("independence basis notes must be a string when set")
+        if "refs" in data:
+            refs = _coerce_basis_refs(data["refs"])
+        else:
+            refs = ()
         return cls(
             basis_id=_require_nonempty_str(basis_id, field_name="basis_id"),
             basis_kind=_require_nonempty_str(basis_kind, field_name="basis_kind"),
-            refs=_coerce_basis_refs(data.get("refs") or ()),
+            refs=refs,
             notes=notes,
         )
 
@@ -299,6 +316,19 @@ class ProvenanceRecord:
             not isinstance(self.derived_from, str) or not self.derived_from.strip()
         ):
             raise ValueError("derived_from must be a nonempty string when set")
+        if not isinstance(self.parent_sources, tuple):
+            raise ValueError(
+                "parent_sources must be a tuple of strings; "
+                f"got {type(self.parent_sources).__name__}"
+            )
+        for ps in self.parent_sources:
+            if not isinstance(ps, str) or not ps.strip():
+                raise ValueError("parent_sources entries must be nonempty strings")
+        if not isinstance(self.independence_basis_refs, tuple):
+            raise ValueError(
+                "independence_basis_refs must be a tuple of IndependenceBasis; "
+                f"got {type(self.independence_basis_refs).__name__}"
+            )
         for b in self.independence_basis_refs:
             if not isinstance(b, IndependenceBasis):
                 raise ValueError(
@@ -338,18 +368,20 @@ class ProvenanceRecord:
             )
         if "authority" not in data or data["authority"] is not False:
             raise ValueError("authority must be Boolean false")
-        bases_raw = data["independence_basis_refs"] if "independence_basis_refs" in data else ()
-        if bases_raw is None:
-            bases_raw = ()
-        if isinstance(bases_raw, str):
-            raise ValueError(
-                "independence_basis_refs must be a list/tuple, not a string"
-            )
-        if not isinstance(bases_raw, (list, tuple)):
-            raise ValueError(
-                "independence_basis_refs must be a list/tuple of mappings"
-            )
-        bases = tuple(_parse_independence_basis_member(b) for b in bases_raw)
+        if "independence_basis_refs" in data:
+            bases_raw = data["independence_basis_refs"]
+            if isinstance(bases_raw, str):
+                raise ValueError(
+                    "independence_basis_refs must be a list/tuple, not a string"
+                )
+            if not isinstance(bases_raw, (list, tuple)):
+                raise ValueError(
+                    "independence_basis_refs must be a list/tuple of mappings; "
+                    f"got {type(bases_raw).__name__}"
+                )
+            bases = tuple(_parse_independence_basis_member(b) for b in bases_raw)
+        else:
+            bases = ()
         notes = data.get("notes", "")
         if notes is None:
             notes = ""
@@ -360,9 +392,12 @@ class ProvenanceRecord:
             extra = {}
         if not isinstance(extra, Mapping):
             raise ValueError("extra must be a mapping when set")
-        parent_raw = data["parent_sources"] if "parent_sources" in data else ()
-        if parent_raw is None:
-            parent_raw = ()
+        if "parent_sources" in data:
+            parent_sources = _coerce_str_refs(
+                data["parent_sources"], field_name="parent_sources"
+            )
+        else:
+            parent_sources = ()
         return cls(
             artifact_id=_require_nonempty_str(
                 data["artifact_id"], field_name="artifact_id"
@@ -374,9 +409,7 @@ class ProvenanceRecord:
             ),
             schema_version=SCHEMA_VERSION,
             authority=False,
-            parent_sources=_coerce_str_refs(
-                parent_raw, field_name="parent_sources"
-            ),
+            parent_sources=parent_sources,
             independence_basis_refs=bases,
             derived_from=_require_optional_nonempty_str(
                 data.get("derived_from"), field_name="derived_from"
@@ -411,6 +444,27 @@ class IndependentOriginAccounting:
     independent_evidence_admission_status: str = (
         INDEPENDENT_EVIDENCE_ADMISSION_STATUS
     )
+
+    def __post_init__(self) -> None:
+        # Local invariant under NOT_CONFIGURED: no alternate admission path.
+        if self.independent_evidence_count != 0:
+            raise ValueError(
+                "independent_evidence_count must be 0 while admission is "
+                "NOT_CONFIGURED"
+            )
+        if self.qualified_lineage_ids != ():
+            raise ValueError(
+                "qualified_lineage_ids must be empty while admission is "
+                "NOT_CONFIGURED"
+            )
+        if (
+            self.independent_evidence_admission_status
+            != INDEPENDENT_EVIDENCE_ADMISSION_STATUS
+        ):
+            raise ValueError(
+                "independent_evidence_admission_status must be "
+                f"{INDEPENDENT_EVIDENCE_ADMISSION_STATUS!r}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -511,7 +565,13 @@ def _resolve_parent_id(
     *,
     field_name: str,
 ) -> tuple[str, str]:
-    """Resolve an untyped parent id to (parent_kind, parent_id). Fail closed."""
+    """Resolve an untyped parent id to (parent_kind, parent_id). Fail closed.
+
+    SOURCE parent resolution requires exactly one canonical artifact:
+      0 matches  => missing
+      1 match    => valid
+      >1 matches => ambiguous (no first/last/arbitrary selection)
+    """
     in_artifacts = parent_id in index.artifact_ids
     in_sources = parent_id in index.source_ids
     if in_artifacts and in_sources:
@@ -521,11 +581,15 @@ def _resolve_parent_id(
     if in_artifacts:
         return PARENT_KIND_ARTIFACT, parent_id
     if in_sources:
-        # SOURCE must resolve to exactly one canonical source component.
         arts = index.by_source.get(parent_id, ())
-        if not arts:
+        if len(arts) == 0:
             raise ProvenanceGraphError(
-                f"nonexistent parent reference: {parent_id!r}"
+                f"nonexistent {field_name} SOURCE reference: {parent_id!r}"
+            )
+        if len(arts) > 1:
+            raise ProvenanceGraphError(
+                f"ambiguous SOURCE parent: {parent_id!r} resolves to "
+                f"{len(arts)} artifacts; exactly one required"
             )
         return PARENT_KIND_SOURCE, parent_id
     raise ProvenanceGraphError(
@@ -779,7 +843,14 @@ def require_provenance_for_verified_scope(
         return
     if not provenance_required:
         return
-    refs = list(provenance_refs or ())
+    if provenance_refs is None:
+        refs: list[str] = []
+    elif isinstance(provenance_refs, str):
+        raise EpistemicStatusError(
+            "provenance_refs must be a list/tuple of refs, not a string"
+        )
+    else:
+        refs = list(provenance_refs)
     if not refs:
         raise EpistemicStatusError(
             "missing required provenance prevents VERIFIED_SCOPE"
