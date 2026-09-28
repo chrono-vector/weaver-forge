@@ -27,6 +27,10 @@ def compile_claim_and_scope(
         "adapter_params": request.claim.get("adapter_params", {}),
         "target_path": str(target),
     }
+    # R4-A additive: pass through optional epistemic block verbatim (no backfill).
+    if "epistemic" in request.claim and isinstance(request.claim["epistemic"], dict):
+        claim_doc["epistemic"] = dict(request.claim["epistemic"])
+        claim_doc["epistemic"]["authority"] = False
     scope_doc = {
         "audit_id": audit_id,
         "target_path": str(target),

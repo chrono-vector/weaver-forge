@@ -43,6 +43,24 @@ def stable_run_id(prefix: str = "WFA") -> str:
     return f"{prefix}-{stamp}-{nonce}"
 
 
+def _validate_optional_epistemic_block(claim: dict[str, Any]) -> None:
+    """
+    R4-A additive hook: optional epistemic metadata on operator claims.
+
+    Legacy claims without R4 fields remain valid.
+    When present, authority must be false and fields are not backfilled.
+    Does not change VECTOR/EIG semantics or authorize execution.
+    """
+    epi = claim.get("epistemic")
+    if epi is None:
+        return
+    if not isinstance(epi, dict):
+        raise ValueError("claim.epistemic must be a dict when present")
+    if epi.get("authority") is not False:
+        raise ValueError("claim.epistemic.authority must be false when epistemic block present")
+    # Do not synthesize epistemic_status / claim_kind for partial blocks.
+
+
 @dataclass
 class AuditRequest:
     """Operator-supplied inputs only (target + claim/question + policy)."""
@@ -60,6 +78,7 @@ class AuditRequest:
         claim = data["claim"]
         if not isinstance(claim, dict) or "id" not in claim or "statement" not in claim:
             raise ValueError("claim must include id and statement")
+        _validate_optional_epistemic_block(claim)
         return cls(
             target_path=str(data["target_path"]),
             claim=claim,
