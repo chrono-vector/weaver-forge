@@ -16,6 +16,10 @@ import hashlib
 import json
 from typing import Any, Mapping
 
+# Shared absent sentinel for optional constructor parameters.
+# Omitted (ABSENT) may default; explicit None / wrong type must reject.
+ABSENT = object()
+
 # Membership collections — order of declaration must not affect digest.
 SET_LIKE_SEQUENCE_FIELDS = frozenset(
     {

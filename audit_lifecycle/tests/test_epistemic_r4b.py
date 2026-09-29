@@ -17,12 +17,20 @@ sys.path.insert(0, str(WF_ROOT))
 from audit_lifecycle.epistemic.authority import AuthorityViolation
 from audit_lifecycle.epistemic.expectation import (
     EXPECTATION_SCHEMA_VERSION,
+    FREEZE_STATE_FROZEN,
+    FREEZE_STATE_INCOMPLETE,
+    FREEZE_STATE_PRE,
+    R4B_CONTRACT_MARKER,
     R4BExpectationError,
     STATE_LEGACY_PRE_R4B,
     STATE_R4_B_ENABLED,
     build_r4b_expectation,
+    classify_frozen_r4b_state,
     classify_package_r4b_state,
+    expectation_digest,
+    strict_parse_legacy_manifest,
     strict_parse_r4b_expectation,
+    validate_freeze_transaction,
 )
 from audit_lifecycle.epistemic.provenance import (
     INDEPENDENT_EVIDENCE_ADMISSION_STATUS,
@@ -132,10 +140,9 @@ def _finalize_r4b_manifest(
         expected_disagreement_chain_heads=heads,
         finalized_for_freeze=True,
     )
+    # Root must NOT claim freeze completion (those fields live only in FREEZE_STATUS).
     manifest = {
         **_legacy_manifest(root.name),
-        "stages_completed_through": "FREEZE",
-        "freeze_performed": True,
         "r4_b": r4_b,
     }
     write_json(root / "EXECUTION_MANIFEST.json", manifest)
@@ -156,9 +163,22 @@ class StatePresenceTests(unittest.TestCase):
             expected_disagreement_chain_heads=[],
         )
         state = classify_package_r4b_state(
-            {**_legacy_manifest(), "r4_b": r4_b, "freeze_performed": True}
+            {**_legacy_manifest(), "r4_b": r4_b}
         )
         self.assertEqual(state.state, STATE_R4_B_ENABLED)
+        self.assertEqual(r4_b["contract_marker"], R4B_CONTRACT_MARKER)
+
+    def test_strict_legacy_rejects_incomplete_subset(self):
+        with self.assertRaises(R4BExpectationError):
+            strict_parse_legacy_manifest({"audit_id": "x", "lifecycle": "weaver_forge_audit_lifecycle_v0"})
+        with self.assertRaises(R4BExpectationError):
+            classify_package_r4b_state({"audit_id": "x"})
+
+    def test_strict_legacy_accepts_genuine_historical(self):
+        parsed = strict_parse_legacy_manifest(_legacy_manifest())
+        self.assertEqual(parsed["lifecycle"], "weaver_forge_audit_lifecycle_v0")
+        state = classify_package_r4b_state(_legacy_manifest())
+        self.assertEqual(state.state, STATE_LEGACY_PRE_R4B)
 
     def test_absence_of_artifacts_does_not_imply_legacy(self):
         with self.assertRaises(R4BExpectationError):
@@ -227,6 +247,10 @@ class StatePresenceTests(unittest.TestCase):
             self.assertFalse(result["ok"])
 
     def test_expectation_removal_fails_closed(self):
+        """Missing r4_b on a non-frozen complete legacy-shaped root is legacy.
+
+        Frozen downgrade resistance is covered by MonotonicR4BStateTests.
+        """
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "WFA-R4B"
             root.mkdir()
@@ -235,9 +259,7 @@ class StatePresenceTests(unittest.TestCase):
             _finalize_r4b_manifest(root, report.report_digest, [])
             manifest = read_json(root / "EXECUTION_MANIFEST.json")
             del manifest["r4_b"]
-            # Still has freeze_performed; allowlisted legacy remains valid shape.
             write_json(root / "EXECUTION_MANIFEST.json", manifest)
-            # Without r4_b this is legacy; report present still verifies optionally.
             result = verify_r4b_at_root(root)
             self.assertTrue(result["ok"])
             self.assertEqual(result["state"], STATE_LEGACY_PRE_R4B)
@@ -1032,28 +1054,396 @@ class FreezeOrderTests(unittest.TestCase):
             )
             result = orch.run_through_decision(req)
             run = Path(result["audit_root"])
-            manifest_before_index = None
-            # After freeze, compare manifest digest to evidence index entry.
             freeze = result.get("freeze") or orch.freeze_run(run, req.policy)
             self.assertTrue(freeze["freeze_performed"])
+            self.assertEqual(freeze["state"], FREEZE_STATE_FROZEN)
+            self.assertEqual(freeze["contract_marker"], R4B_CONTRACT_MARKER)
             manifest_path = run / "EXECUTION_MANIFEST.json"
             manifest = read_json(manifest_path)
             self.assertIn("r4_b", manifest)
             self.assertEqual(
                 manifest["r4_b"]["schema_version"], EXPECTATION_SCHEMA_VERSION
             )
-            self.assertNotIn("freeze", manifest)  # status stays in FREEZE_STATUS
+            self.assertEqual(
+                manifest["r4_b"]["contract_marker"], R4B_CONTRACT_MARKER
+            )
+            self.assertNotIn("freeze", manifest)
+            self.assertNotIn("freeze_performed", manifest)
+            self.assertNotEqual(manifest.get("stages_completed_through"), "FREEZE")
+            status = read_json(run / "FREEZE_STATUS.json")
+            self.assertEqual(status["state"], FREEZE_STATE_FROZEN)
+            self.assertTrue(status["freeze_performed"])
+            self.assertEqual(status["stages_completed_through"], "FREEZE")
+            self.assertTrue((run / "FREEZE_INTENT.json").is_file())
             index = next((run / "freeze").glob("*_FROZEN")) / "FINAL_EVIDENCE_INDEX.json"
             entries = {e["path"]: e["sha256"] for e in read_json(index)["entries"]}
             self.assertIn("EXECUTION_MANIFEST.json", entries)
             self.assertEqual(entries["EXECUTION_MANIFEST.json"], sha256_file(manifest_path))
             self.assertIn(REPORT_FILENAME, entries)
+            frozen_manifest = read_json(
+                next((run / "freeze").glob("*_FROZEN")) / "MANIFEST.json"
+            )
+            self.assertEqual(
+                frozen_manifest["r4_b_expectation_digest"],
+                expectation_digest(manifest["r4_b"]),
+            )
             verify = orch.verify_run(run)
             self.assertTrue(verify["verify_ok"])
             self.assertEqual(
                 verify["semantic_verification"]["r4b_verification"]["state"],
                 STATE_R4_B_ENABLED,
             )
+            self.assertEqual(
+                verify["freeze_transaction"]["state"], FREEZE_STATE_FROZEN
+            )
+
+
+def _frozen_r4b_run(td: Path):
+    """Create a valid frozen R4-B run under td; return (orch, run, req)."""
+    import shutil
+    from audit_lifecycle.orchestrator import AuditOrchestrator
+    from audit_lifecycle.request import AuditRequest, sha256_file
+
+    fresh = ROOT / "fixtures" / "fresh_target" / "README.txt"
+    out = td
+    target = out / "target" / "README.txt"
+    target.parent.mkdir(parents=True)
+    shutil.copy2(fresh, target)
+    digest = sha256_file(target)
+    orch = AuditOrchestrator(out / "runs")
+    req = AuditRequest(
+        target_path=str(target),
+        claim={
+            "id": "C-R4B-MONO",
+            "statement": "digest matches",
+            "adapter": "hash_claim",
+            "adapter_params": {"expected_sha256": digest},
+        },
+        policy={"human_review_required": False},
+    )
+    result = orch.run_through_decision(req)
+    run = Path(result["audit_root"])
+    if not result.get("frozen"):
+        orch.freeze_run(run, req.policy)
+    return orch, run, req
+
+
+class MonotonicR4BStateTests(unittest.TestCase):
+    def test_frozen_r4b_downgrade_by_removing_r4b_report_reviews_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td))
+            verify_ok = orch.verify_run(run)
+            self.assertTrue(verify_ok["verify_ok"])
+
+            # Remove root r4_b, report, reviews; rebind mutable root hashes.
+            manifest = read_json(run / "EXECUTION_MANIFEST.json")
+            del manifest["r4_b"]
+            write_json(run / "EXECUTION_MANIFEST.json", manifest)
+            report = run / REPORT_FILENAME
+            if report.is_file():
+                report.unlink()
+            reviews = run / "reviews"
+            if reviews.is_dir():
+                for p in reviews.glob("*.json"):
+                    p.unlink()
+            from audit_lifecycle.boundary import BoundaryManager
+            from audit_lifecycle.evidence import EvidenceCollector
+
+            EvidenceCollector(BoundaryManager(run, []), run).bind_sha256sums()
+            verify = orch.verify_run(run)
+            self.assertFalse(verify["verify_ok"])
+            r4b = verify["semantic_verification"]["r4b_verification"]
+            self.assertFalse(r4b["ok"])
+
+    def test_r4b_marker_changed_to_legacy_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td))
+            frozen = next((run / "freeze").glob("*_FROZEN"))
+            fm = read_json(frozen / "MANIFEST.json")
+            fm["contract_marker"] = "weaver_forge_audit_lifecycle_v0"
+            write_json(frozen / "MANIFEST.json", fm)
+            # Rebind freeze sums to isolate marker inconsistency (not hash noise).
+            lines = []
+            for p in sorted(frozen.iterdir()):
+                if p.is_file() and p.name != "SHA256SUMS.txt":
+                    from audit_lifecycle.request import sha256_file as _sha
+
+                    lines.append(f"{_sha(p)}  {p.name}")
+            (frozen / "SHA256SUMS.txt").write_text(
+                "\n".join(lines) + "\n", encoding="utf-8"
+            )
+            status = read_json(run / "FREEZE_STATUS.json")
+            from audit_lifecycle.request import sha256_file as _sha
+
+            status["frozen_manifest_digest"] = _sha(frozen / "MANIFEST.json")
+            status["sha256sums_digest"] = _sha(frozen / "SHA256SUMS.txt")
+            # Keep status marker as R4-B → contradictory markers.
+            write_json(run / "FREEZE_STATUS.json", status)
+            verify = orch.verify_run(run)
+            self.assertFalse(verify["verify_ok"])
+
+    def test_incomplete_legacy_masquerade_fails_genuine_passes(self):
+        with self.assertRaises(R4BExpectationError):
+            strict_parse_legacy_manifest(
+                {
+                    "audit_id": "WFA-X",
+                    "lifecycle": "weaver_forge_audit_lifecycle_v0",
+                    # incomplete subset
+                }
+            )
+        state = classify_package_r4b_state(_legacy_manifest())
+        self.assertEqual(state.state, STATE_LEGACY_PRE_R4B)
+
+
+class FreezeTransactionTests(unittest.TestCase):
+    def test_pre_freeze_in_progress_frozen_states(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "WFA-TXN"
+            root.mkdir()
+            write_json(root / "EXECUTION_MANIFEST.json", _legacy_manifest(root.name))
+            txn = validate_freeze_transaction(root)
+            self.assertEqual(txn["state"], FREEZE_STATE_PRE)
+            self.assertTrue(txn["ok"])
+
+            write_json(
+                root / "FREEZE_INTENT.json",
+                {
+                    "audit_id": root.name,
+                    "state": "FREEZE_IN_PROGRESS",
+                    "contract_marker": R4B_CONTRACT_MARKER,
+                    "execution_manifest_digest": "ab" * 32,
+                    "r4_b_expectation_digest": "cd" * 32,
+                },
+            )
+            txn = validate_freeze_transaction(root)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertFalse(txn["verify_ok"])
+
+    def test_incomplete_combinations_fail_closed(self):
+        cases = [
+            "package_absent_status_present",
+            "status_absent_package_present",
+            "manifest_claims_freeze",
+            "partial_temp",
+            "missing_index",
+            "missing_sums",
+            "missing_frozen_manifest",
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td) / "base")
+            # package absent + status present
+            frozen = Path(read_json(run / "FREEZE_STATUS.json")["freeze_directory"])
+            import shutil
+
+            shutil.rmtree(frozen)
+            txn = validate_freeze_transaction(run)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertIn(txn["error"], {"STATUS_WITHOUT_PACKAGE", "FREEZE_INTENT_WITHOUT_COMPLETED_TRANSACTION"})
+
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td) / "base2")
+            (run / "FREEZE_STATUS.json").unlink()
+            txn = validate_freeze_transaction(run)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertFalse(txn["verify_ok"])
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "WFA-CLAIM"
+            root.mkdir()
+            manifest = {
+                **_legacy_manifest(root.name),
+                "freeze_performed": True,
+                "stages_completed_through": "FREEZE",
+            }
+            write_json(root / "EXECUTION_MANIFEST.json", manifest)
+            txn = validate_freeze_transaction(root)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertEqual(
+                txn["error"], "MANIFEST_CLAIMS_FREEZE_WITHOUT_STATUS_OR_PACKAGE"
+            )
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "WFA-TEMP"
+            root.mkdir()
+            write_json(root / "EXECUTION_MANIFEST.json", _legacy_manifest(root.name))
+            tmp = root / "freeze" / f".wf_freeze_tmp_{root.name}_deadbeef"
+            tmp.mkdir(parents=True)
+            (tmp / "MANIFEST.json").write_text("{}", encoding="utf-8")
+            txn = validate_freeze_transaction(root)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertEqual(txn["error"], "PARTIAL_TEMPORARY_PACKAGE")
+
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td) / "base3")
+            frozen = Path(read_json(run / "FREEZE_STATUS.json")["freeze_directory"])
+            (frozen / "FINAL_EVIDENCE_INDEX.json").unlink()
+            txn = validate_freeze_transaction(run)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+            self.assertFalse(txn["verify_ok"])
+
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td) / "base4")
+            frozen = Path(read_json(run / "FREEZE_STATUS.json")["freeze_directory"])
+            (frozen / "SHA256SUMS.txt").unlink()
+            txn = validate_freeze_transaction(run)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+
+        with tempfile.TemporaryDirectory() as td:
+            orch, run, _req = _frozen_r4b_run(Path(td) / "base5")
+            frozen = Path(read_json(run / "FREEZE_STATUS.json")["freeze_directory"])
+            (frozen / "MANIFEST.json").unlink()
+            txn = validate_freeze_transaction(run)
+            self.assertEqual(txn["state"], FREEZE_STATE_INCOMPLETE)
+
+        self.assertEqual(len(cases), 7)  # matrix coverage marker
+
+    def test_no_incomplete_state_verifies_as_frozen(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "WFA-NO-FALSE-FROZEN"
+            root.mkdir()
+            write_json(root / "EXECUTION_MANIFEST.json", _legacy_manifest(root.name))
+            write_json(
+                root / "FREEZE_INTENT.json",
+                {
+                    "audit_id": root.name,
+                    "state": "FREEZE_IN_PROGRESS",
+                    "contract_marker": R4B_CONTRACT_MARKER,
+                    "execution_manifest_digest": "ab" * 32,
+                    "r4_b_expectation_digest": "cd" * 32,
+                },
+            )
+            txn = validate_freeze_transaction(root)
+            self.assertNotEqual(txn["state"], FREEZE_STATE_FROZEN)
+            self.assertFalse(txn.get("verify_ok"))
+
+
+class StrictConstructionCartesianTests(unittest.TestCase):
+    _BAD = (None, False, True, 0, 1, 1.5, "", "   ", "abc", {}, {"a": 1}, ["ok", None])
+
+    def test_evidence_refs_string_and_mapping_rejected_at_constructor(self):
+        with self.assertRaises(ReviewDisagreementError):
+            create_disagreement_record(
+                disagreement_id="D-eref-str",
+                subject_id="S-1",
+                reviewer_positions=_positions(),
+                scope="unit",
+                category="SPEC_AMBIGUITY",
+                evidence_refs="abc",
+            )
+        with self.assertRaises(ReviewDisagreementError):
+            create_disagreement_record(
+                disagreement_id="D-eref-map",
+                subject_id="S-1",
+                reviewer_positions=_positions(),
+                scope="unit",
+                category="SPEC_AMBIGUITY",
+                evidence_refs={},
+            )
+        with self.assertRaises(ReviewDisagreementError):
+            create_disagreement_record(
+                disagreement_id="D-eref-none",
+                subject_id="S-1",
+                reviewer_positions=_positions(),
+                scope="unit",
+                category="SPEC_AMBIGUITY",
+                evidence_refs=None,
+            )
+
+    def test_constructor_collection_fields_cartesian(self):
+        for bad in self._BAD:
+            with self.assertRaises(
+                (ReviewDisagreementError, TypeError, ValueError),
+                msg=f"reviewer_positions={bad!r}",
+            ):
+                create_disagreement_record(
+                    disagreement_id="D-cart",
+                    subject_id="S-1",
+                    reviewer_positions=bad,
+                    scope="unit",
+                    category="SPEC_AMBIGUITY",
+                )
+            if bad == []:
+                continue  # empty evidence_refs is valid when present as list
+            with self.assertRaises(
+                ReviewDisagreementError,
+                msg=f"evidence_refs={bad!r}",
+            ):
+                create_disagreement_record(
+                    disagreement_id="D-cart-e",
+                    subject_id="S-1",
+                    reviewer_positions=_positions(),
+                    scope="unit",
+                    category="SPEC_AMBIGUITY",
+                    evidence_refs=bad,
+                )
+
+        for bad in self._BAD:
+            if bad == []:
+                continue  # empty digest lists are explicitly valid
+            with self.assertRaises(
+                R4BExpectationError,
+                msg=f"expected_disagreement_record_digests={bad!r}",
+            ):
+                build_r4b_expectation(
+                    reconstructability_report_digest="ab" * 32,
+                    expected_disagreement_record_digests=bad,
+                    expected_disagreement_chain_heads=[],
+                )
+            with self.assertRaises(
+                R4BExpectationError,
+                msg=f"expected_disagreement_chain_heads={bad!r}",
+            ):
+                build_r4b_expectation(
+                    reconstructability_report_digest="ab" * 32,
+                    expected_disagreement_record_digests=[],
+                    expected_disagreement_chain_heads=bad,
+                )
+
+    def test_successor_evidence_refs_no_string_coercion(self):
+        prior = create_disagreement_record(
+            disagreement_id="D-prior",
+            subject_id="S-1",
+            reviewer_positions=_positions(),
+            scope="unit",
+            category="SPEC_AMBIGUITY",
+        )
+        with self.assertRaises(ReviewDisagreementError):
+            create_successor_record(
+                prior,
+                disagreement_id="D-succ",
+                status="OPEN",
+                evidence_refs="abc",
+            )
+
+
+class ClassifyFrozenCrossBindTests(unittest.TestCase):
+    def test_classify_frozen_requires_root_r4b_match(self):
+        report = derive_reconstructability_report(_complete_inputs())
+        r4_b = build_r4b_expectation(
+            reconstructability_report_digest=report.report_digest,
+            expected_disagreement_record_digests=[],
+            expected_disagreement_chain_heads=[],
+        )
+        digest = expectation_digest(r4_b)
+        root = {**_legacy_manifest(), "r4_b": r4_b}
+        frozen = {
+            "audit_id": "WFA",
+            "contract_marker": R4B_CONTRACT_MARKER,
+            "r4_b_expectation_digest": digest,
+        }
+        status = {
+            "state": FREEZE_STATE_FROZEN,
+            "freeze_performed": True,
+            "contract_marker": R4B_CONTRACT_MARKER,
+            "r4_b_expectation_digest": digest,
+        }
+        state = classify_frozen_r4b_state(root, frozen, status)
+        self.assertEqual(state.state, STATE_R4_B_ENABLED)
+
+        root_no_r4b = dict(root)
+        del root_no_r4b["r4_b"]
+        with self.assertRaises(R4BExpectationError):
+            classify_frozen_r4b_state(root_no_r4b, frozen, status)
 
 
 if __name__ == "__main__":

@@ -21,10 +21,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .authority import enforce_non_authority
-from .serialize import canonical_digest, canonical_dumps
+from .serialize import ABSENT, canonical_digest, canonical_dumps
 
 SCHEMA_VERSION = "r4.epistemic.review-disagreement.v1"
 REVIEWS_DIRNAME = "reviews"
+
+# Omitted optional constructor values may default; explicit None/wrong type reject.
+_ABSENT = ABSENT
 
 DISAGREEMENT_STATUSES = frozenset(
     {
@@ -276,8 +279,34 @@ class ReviewDisagreementRecord:
             raise ReviewDisagreementError(f"unknown status: {self.status!r}")
         if self.category not in DISAGREEMENT_CATEGORIES:
             raise ReviewDisagreementError(f"unknown category: {self.category!r}")
+        if not isinstance(self.disagreement_id, str) or not self.disagreement_id.strip():
+            raise ReviewDisagreementError("disagreement_id must be a nonempty string")
+        if not isinstance(self.subject_id, str) or not self.subject_id.strip():
+            raise ReviewDisagreementError("subject_id must be a nonempty string")
+        if not isinstance(self.scope, str) or not self.scope.strip():
+            raise ReviewDisagreementError("scope must be a nonempty string")
+        if not isinstance(self.reason, str):
+            raise ReviewDisagreementError("reason must be a string")
+        if not isinstance(self.created_from, str) or not self.created_from.strip():
+            raise ReviewDisagreementError("created_from must be a nonempty string")
+        if not isinstance(self.reviewer_positions, tuple):
+            raise ReviewDisagreementError(
+                "reviewer_positions must be a tuple; "
+                f"got {type(self.reviewer_positions).__name__}"
+            )
         if not self.reviewer_positions:
             raise ReviewDisagreementError("reviewer_positions must be non-empty")
+        if not isinstance(self.evidence_refs, tuple):
+            raise ReviewDisagreementError(
+                f"evidence_refs must be a tuple; got {type(self.evidence_refs).__name__}"
+            )
+        for ref in self.evidence_refs:
+            if not isinstance(ref, str) or not ref.strip():
+                raise ReviewDisagreementError(
+                    "evidence_refs entries must be nonempty strings"
+                )
+        if not isinstance(self.extra, Mapping):
+            raise ReviewDisagreementError("extra must be a mapping")
         has_prior = self.prior_record_digest is not None
         has_succ = self.successor_of is not None
         if has_prior ^ has_succ:
@@ -291,7 +320,20 @@ class ReviewDisagreementRecord:
         if has_prior and self.status in INITIAL_STATUSES:
             # Successor may keep OPEN/AMBIGUOUS/UNRESOLVED; that is allowed.
             pass
-
+        if self.record_digest:
+            _require_sha256(self.record_digest, field_name="record_digest")
+        if self.prior_record_digest is not None:
+            _require_sha256(
+                self.prior_record_digest, field_name="prior_record_digest"
+            )
+        if self.successor_of is not None:
+            _require_nonempty_str(self.successor_of, field_name="successor_of")
+        if self.resolution_note is not None and not isinstance(
+            self.resolution_note, str
+        ):
+            raise ReviewDisagreementError(
+                "resolution_note must be a string when set"
+            )
     def body_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
             "schema_version": self.schema_version,
@@ -452,16 +494,16 @@ def strict_parse_record(data: Any) -> ReviewDisagreementRecord:
 
 def create_disagreement_record(
     *,
-    disagreement_id: str,
-    subject_id: str,
-    reviewer_positions: Sequence[Mapping[str, Any]],
-    scope: str,
-    category: str,
-    status: str = "OPEN",
-    reason: str = "",
-    evidence_refs: Sequence[str] | None = None,
-    created_from: str = "explicit_review",
-    extra: Mapping[str, Any] | None = None,
+    disagreement_id: Any,
+    subject_id: Any,
+    reviewer_positions: Any,
+    scope: Any,
+    category: Any,
+    status: Any = "OPEN",
+    reason: Any = "",
+    evidence_refs: Any = _ABSENT,
+    created_from: Any = "explicit_review",
+    extra: Any = _ABSENT,
 ) -> ReviewDisagreementRecord:
     """ONE constructor for initial disagreement records (no prior digest)."""
     if status not in INITIAL_STATUSES:
@@ -473,16 +515,23 @@ def create_disagreement_record(
         raise ReviewDisagreementError("reason must be a string")
     if category not in DISAGREEMENT_CATEGORIES:
         raise ReviewDisagreementError(f"unknown category: {category!r}")
-    if evidence_refs is None:
+
+    # Absent → default; present invalid (incl. None) → reject. No list() first.
+    if evidence_refs is _ABSENT:
         refs: tuple[str, ...] = ()
     else:
-        refs = _require_str_refs(list(evidence_refs), field_name="evidence_refs")
-    if extra is None:
+        refs = _require_str_refs(evidence_refs, field_name="evidence_refs")
+
+    if extra is _ABSENT:
         extra_map: dict[str, Any] = {}
     else:
         if not isinstance(extra, Mapping):
-            raise ReviewDisagreementError("extra must be a mapping when set")
+            raise ReviewDisagreementError(
+                f"extra must be a mapping when set; got {type(extra).__name__}"
+            )
         extra_map = dict(extra)
+
+    positions = _parse_reviewer_positions(reviewer_positions)
 
     body = ReviewDisagreementRecord(
         schema_version=SCHEMA_VERSION,
@@ -491,7 +540,7 @@ def create_disagreement_record(
             disagreement_id, field_name="disagreement_id"
         ),
         subject_id=_require_nonempty_str(subject_id, field_name="subject_id"),
-        reviewer_positions=_parse_reviewer_positions(list(reviewer_positions)),
+        reviewer_positions=positions,
         scope=_require_nonempty_str(scope, field_name="scope"),
         category=category,
         status=status,
@@ -505,37 +554,23 @@ def create_disagreement_record(
         extra=extra_map,
     )
     digest = body.compute_digest()
-    return ReviewDisagreementRecord(
-        schema_version=SCHEMA_VERSION,
-        authority=False,
-        disagreement_id=body.disagreement_id,
-        subject_id=body.subject_id,
-        reviewer_positions=body.reviewer_positions,
-        scope=body.scope,
-        category=body.category,
-        status=body.status,
-        reason=body.reason,
-        evidence_refs=body.evidence_refs,
-        created_from=body.created_from,
-        prior_record_digest=None,
-        successor_of=None,
-        resolution_note=None,
-        record_digest=digest,
-        extra=body.extra,
-    )
+    payload = body.body_dict()
+    payload["record_digest"] = digest
+    # Factories finish by parsing through the canonical strict parser.
+    return strict_parse_record(payload)
 
 
 def create_successor_record(
     prior: ReviewDisagreementRecord | Mapping[str, Any],
     *,
-    disagreement_id: str,
-    status: str,
-    reason: str = "",
-    resolution_note: str | None = None,
-    reviewer_positions: Sequence[Mapping[str, Any]] | None = None,
-    evidence_refs: Sequence[str] | None = None,
-    created_from: str = "successor_resolution",
-    extra: Mapping[str, Any] | None = None,
+    disagreement_id: Any,
+    status: Any,
+    reason: Any = "",
+    resolution_note: Any = _ABSENT,
+    reviewer_positions: Any = _ABSENT,
+    evidence_refs: Any = _ABSENT,
+    created_from: Any = "successor_resolution",
+    extra: Any = _ABSENT,
 ) -> ReviewDisagreementRecord:
     """
     ONE successor constructor.
@@ -559,8 +594,15 @@ def create_successor_record(
 
     if not isinstance(reason, str):
         raise ReviewDisagreementError("reason must be a string")
-    if resolution_note is not None and not isinstance(resolution_note, str):
-        raise ReviewDisagreementError("resolution_note must be a string when set")
+    if resolution_note is _ABSENT:
+        resolution_note_val: str | None = None
+    else:
+        if not isinstance(resolution_note, str):
+            raise ReviewDisagreementError(
+                "resolution_note must be a string when set; "
+                f"got {type(resolution_note).__name__}"
+            )
+        resolution_note_val = resolution_note
     if status not in DISAGREEMENT_STATUSES:
         raise ReviewDisagreementError(f"unknown status: {status!r}")
 
@@ -570,20 +612,25 @@ def create_successor_record(
             "successor disagreement_id must differ from predecessor"
         )
 
-    positions = (
-        list(reviewer_positions)
-        if reviewer_positions is not None
-        else [dict(p) for p in prior_rec.reviewer_positions]
-    )
-    if evidence_refs is None:
-        refs = list(prior_rec.evidence_refs)
+    if reviewer_positions is _ABSENT:
+        positions = _parse_reviewer_positions(
+            [dict(p) for p in prior_rec.reviewer_positions]
+        )
     else:
-        refs = list(evidence_refs)
-    if extra is None:
+        positions = _parse_reviewer_positions(reviewer_positions)
+
+    if evidence_refs is _ABSENT:
+        refs = prior_rec.evidence_refs
+    else:
+        refs = _require_str_refs(evidence_refs, field_name="evidence_refs")
+
+    if extra is _ABSENT:
         extra_map: dict[str, Any] = {}
     else:
         if not isinstance(extra, Mapping):
-            raise ReviewDisagreementError("extra must be a mapping when set")
+            raise ReviewDisagreementError(
+                f"extra must be a mapping when set; got {type(extra).__name__}"
+            )
         extra_map = dict(extra)
 
     body = ReviewDisagreementRecord(
@@ -591,16 +638,16 @@ def create_successor_record(
         authority=False,
         disagreement_id=new_id,
         subject_id=prior_rec.subject_id,
-        reviewer_positions=_parse_reviewer_positions(positions),
+        reviewer_positions=positions,
         scope=prior_rec.scope,
         category=prior_rec.category,
         status=status,
         reason=reason,
-        evidence_refs=_require_str_refs(refs, field_name="evidence_refs"),
+        evidence_refs=refs,
         created_from=_require_nonempty_str(created_from, field_name="created_from"),
         prior_record_digest=prior_digest,
         successor_of=prior_rec.disagreement_id,
-        resolution_note=resolution_note,
+        resolution_note=resolution_note_val,
         record_digest="",
         extra=extra_map,
     )
@@ -609,24 +656,9 @@ def create_successor_record(
         raise ReviewDisagreementError(
             "successor record_digest must differ from predecessor"
         )
-    return ReviewDisagreementRecord(
-        schema_version=SCHEMA_VERSION,
-        authority=False,
-        disagreement_id=body.disagreement_id,
-        subject_id=body.subject_id,
-        reviewer_positions=body.reviewer_positions,
-        scope=body.scope,
-        category=body.category,
-        status=body.status,
-        reason=body.reason,
-        evidence_refs=body.evidence_refs,
-        created_from=body.created_from,
-        prior_record_digest=body.prior_record_digest,
-        successor_of=body.successor_of,
-        resolution_note=body.resolution_note,
-        record_digest=digest,
-        extra=body.extra,
-    )
+    payload = body.body_dict()
+    payload["record_digest"] = digest
+    return strict_parse_record(payload)
 
 
 def validate_disagreement_record(

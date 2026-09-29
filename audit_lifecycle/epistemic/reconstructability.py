@@ -25,10 +25,12 @@ from .provenance import (
     ProvenanceRecord,
     account_independent_origins,
 )
-from .serialize import canonical_digest, canonical_dumps
+from .serialize import ABSENT, canonical_digest, canonical_dumps
 
 SCHEMA_VERSION = "r4.epistemic.reconstructability.v1"
 REPORT_FILENAME = "RECONSTRUCTABILITY_REPORT.json"
+
+_ABSENT = ABSENT
 
 REQUIRED_INPUT_KEYS = (
     "AUDIT_REQUEST.json",
@@ -334,6 +336,33 @@ class ReconstructabilityInputs:
     execution_manifest: Mapping[str, Any] | None = None
     campaign_id: str | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.audit_id, str) or not self.audit_id.strip():
+            raise ReconstructabilityError("audit_id must be a nonempty string")
+        for name in (
+            "claim",
+            "scope",
+            "audit_request",
+            "provenance_pin",
+            "decision",
+            "execution_manifest",
+        ):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, Mapping):
+                raise ReconstructabilityError(
+                    f"{name} must be a mapping or None; got {type(value).__name__}"
+                )
+        if not isinstance(self.epistemic_provenance_records, tuple):
+            raise ReconstructabilityError(
+                "epistemic_provenance_records must be a tuple; "
+                f"got {type(self.epistemic_provenance_records).__name__}"
+            )
+        if self.campaign_id is not None:
+            if not isinstance(self.campaign_id, str) or not self.campaign_id.strip():
+                raise ReconstructabilityError(
+                    "campaign_id must be a nonempty string when set"
+                )
+
     def present_input_keys(self) -> tuple[str, ...]:
         present: list[str] = []
         if self.audit_request is not None:
@@ -381,6 +410,43 @@ class ReconstructabilityReport:
             raise ReconstructabilityError(
                 f"schema_version must be {SCHEMA_VERSION!r}"
             )
+        if not isinstance(self.audit_id, str) or not self.audit_id.strip():
+            raise ReconstructabilityError("audit_id must be a nonempty string")
+        if not isinstance(self.subject_id, str) or not self.subject_id.strip():
+            raise ReconstructabilityError("subject_id must be a nonempty string")
+        for name in (
+            "input_refs",
+            "required_inputs",
+            "missing_inputs",
+            "unresolved_assumptions",
+            "lineage_ids",
+            "derived_from",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, tuple):
+                raise ReconstructabilityError(
+                    f"{name} must be a tuple; got {type(value).__name__}"
+                )
+            for item in value:
+                if not isinstance(item, str) or not item.strip():
+                    raise ReconstructabilityError(
+                        f"{name} entries must be nonempty strings"
+                    )
+        if not isinstance(self.reproduction_commands, tuple):
+            raise ReconstructabilityError(
+                "reproduction_commands must be a tuple; "
+                f"got {type(self.reproduction_commands).__name__}"
+            )
+        if type(self.artifact_count) is not int:
+            raise ReconstructabilityError("artifact_count must be an int")
+        if type(self.reconstructable) is not bool:
+            raise ReconstructabilityError("reconstructable must be a Boolean")
+        if not isinstance(self.canonical_input_digests, Mapping):
+            raise ReconstructabilityError(
+                "canonical_input_digests must be a mapping"
+            )
+        if not isinstance(self.extra, Mapping):
+            raise ReconstructabilityError("extra must be a mapping")
         if self.independent_evidence_count != 0:
             raise ReconstructabilityError(
                 "independent_evidence_count must be 0 while admission is "
@@ -394,6 +460,25 @@ class ReconstructabilityReport:
                 "independent_evidence_admission_status must be "
                 f"{INDEPENDENT_EVIDENCE_ADMISSION_STATUS!r}"
             )
+        if self.report_digest:
+            if not isinstance(self.report_digest, str):
+                raise ReconstructabilityError("report_digest must be a string")
+            if len(self.report_digest) != 64 or any(
+                c not in _SHA256_HEX for c in self.report_digest
+            ):
+                raise ReconstructabilityError(
+                    "report_digest must be lowercase sha256 hex"
+                )
+        if self.campaign_id is not None:
+            if not isinstance(self.campaign_id, str) or not self.campaign_id.strip():
+                raise ReconstructabilityError(
+                    "campaign_id must be a nonempty string when set"
+                )
+        if self.run_id is not None:
+            if not isinstance(self.run_id, str) or not self.run_id.strip():
+                raise ReconstructabilityError(
+                    "run_id must be a nonempty string when set"
+                )
 
     def body_dict(self) -> dict[str, Any]:
         """Material body excluding report_digest (digest is over this body)."""
@@ -692,28 +777,10 @@ def derive_reconstructability_report(
         run_id=inputs.audit_id,
     )
     digest = body.compute_digest()
-    return ReconstructabilityReport(
-        schema_version=body.schema_version,
-        authority=False,
-        audit_id=body.audit_id,
-        subject_id=body.subject_id,
-        campaign_id=body.campaign_id,
-        input_refs=body.input_refs,
-        required_inputs=body.required_inputs,
-        missing_inputs=body.missing_inputs,
-        reproduction_commands=body.reproduction_commands,
-        unresolved_assumptions=body.unresolved_assumptions,
-        artifact_count=body.artifact_count,
-        lineage_ids=body.lineage_ids,
-        independent_evidence_count=0,
-        independent_evidence_admission_status=INDEPENDENT_EVIDENCE_ADMISSION_STATUS,
-        reconstructable=body.reconstructable,
-        derived_from=body.derived_from,
-        canonical_input_digests=body.canonical_input_digests,
-        report_digest=digest,
-        extra=body.extra,
-        run_id=body.run_id,
-    )
+    payload = body.body_dict()
+    payload["report_digest"] = digest
+    # Factories finish by parsing through the canonical strict parser.
+    return strict_parse_report(payload)
 
 
 def derive_expected_report(

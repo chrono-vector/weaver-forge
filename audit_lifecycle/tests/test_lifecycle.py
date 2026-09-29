@@ -383,6 +383,12 @@ class TestLifecycleE2E(unittest.TestCase):
         (freeze_dir / "SHA256SUMS.txt").write_text(
             "\n".join(freeze_lines) + "\n", encoding="utf-8"
         )
+        # Keep freeze transaction bindings consistent with rebound package hashes
+        # so the failure is semantic (false promotion), not digest-mismatch noise.
+        status = read_json(fixture / "FREEZE_STATUS.json")
+        status["sha256sums_digest"] = sha256_file(freeze_dir / "SHA256SUMS.txt")
+        status["frozen_manifest_digest"] = sha256_file(freeze_dir / "MANIFEST.json")
+        write_json(fixture / "FREEZE_STATUS.json", status)
         EvidenceCollector(BoundaryManager(fixture, []), fixture).bind_sha256sums()
 
         verify = orch.verify_run(fixture)

@@ -9,11 +9,20 @@ from .baseline import snapshot_baseline
 from .boundary import BoundaryManager, BoundaryViolation
 from .claim_scope import compile_claim_and_scope
 from .decision import decide
-from .epistemic.expectation import build_r4b_expectation
+from .epistemic.expectation import (
+    R4B_CONTRACT_MARKER,
+    build_r4b_expectation,
+    expectation_digest,
+    validate_freeze_transaction,
+)
 from .epistemic.reconstructability import emit_reconstructability_report
 from .epistemic.review_disagreement import collect_disagreement_expectation
 from .evidence import EvidenceCollector
-from .freeze import assert_one_shot_freeze_allowed, create_freeze_package
+from .freeze import (
+    assert_one_shot_freeze_allowed,
+    create_freeze_package,
+    write_freeze_intent,
+)
 from .independent_verification import run_independent_verification_hook
 from .pin import pin_target
 from .request import AuditRequest, read_json, sha256_file, stable_run_id, utc_now, write_json
@@ -233,13 +242,10 @@ class AuditOrchestrator:
         # One-shot from FREEZE_STATUS (independent of freeze dir presence) —
         # must run before any SHA rebind or package mutation.
         assert_one_shot_freeze_allowed(audit_root)
-        if decision is None:
-            from .request import read_json
-
-            decision = read_json(audit_root / "DECISION.json")
-
-        # Re-load protected paths from SCOPE if present
         from .request import read_json
+
+        if decision is None:
+            decision = read_json(audit_root / "DECISION.json")
 
         scope = read_json(audit_root / "SCOPE.json")
         boundary = BoundaryManager(
@@ -248,13 +254,14 @@ class AuditOrchestrator:
         )
         review = enforce_human_review_gate(audit_root, policy, decision)
 
-        # R4-B freeze order:
-        # 1) finalize reconstructability + disagreement expectation
-        # 2) finalize EXECUTION_MANIFEST.json (including r4_b)
-        # 3) bind sums
-        # 4) generate frozen evidence index (create_freeze_package)
-        # 5) FREEZE_STATUS.json is the freeze-completion record
-        # After step 4, EXECUTION_MANIFEST.json must not be mutated.
+        # R4-B freeze transaction (normative order):
+        # 1) validate report + complete disagreement graph
+        # 2) finalize EXECUTION_MANIFEST.r4_b (do NOT claim freeze completion)
+        # 3) write durable FREEZE_INTENT.json
+        # 4) bind root evidence
+        # 5-8) temp package → validate → atomic publish
+        # 9) FREEZE_STATUS.json last (only place for freeze completion fields)
+        # 10) rebind root sums; do not mutate execution manifest / package after
         report = emit_reconstructability_report(audit_root)
         disagreement_exp = collect_disagreement_expectation(audit_root)
         r4_b = build_r4b_expectation(
@@ -270,14 +277,30 @@ class AuditOrchestrator:
         manifest = read_json(audit_root / "EXECUTION_MANIFEST.json")
         if not isinstance(manifest, dict):
             raise RuntimeError("EXECUTION_MANIFEST.json must be a mapping")
+        # Strip any premature freeze-completion claims from root manifest.
+        cleaned = {
+            k: v
+            for k, v in manifest.items()
+            if k not in {"freeze_performed", "freeze"}
+        }
+        if cleaned.get("stages_completed_through") == "FREEZE":
+            cleaned["stages_completed_through"] = "DECISION"
         write_json(
             audit_root / "EXECUTION_MANIFEST.json",
             {
-                **manifest,
-                "stages_completed_through": "FREEZE",
-                "freeze_performed": True,
+                **cleaned,
                 "r4_b": r4_b,
             },
+        )
+        manifest_path = audit_root / "EXECUTION_MANIFEST.json"
+        manifest_digest = sha256_file(manifest_path)
+        r4b_digest = expectation_digest(r4_b)
+
+        write_freeze_intent(
+            audit_root,
+            contract_marker=R4B_CONTRACT_MARKER,
+            execution_manifest_digest=manifest_digest,
+            r4_b_expectation_digest=r4b_digest,
         )
 
         evidence = EvidenceCollector(boundary, audit_root)
@@ -297,7 +320,12 @@ class AuditOrchestrator:
             audit_root.name,
             decision,
             review,
+            r4_b=r4_b,
+            execution_manifest_digest=manifest_digest,
         )
+
+        # Step 10: rebind root sums after FREEZE_STATUS; do not mutate manifest/package.
+        evidence.bind_sha256sums()
         return status
 
     def verify_run(self, audit_root: Path) -> dict[str, Any]:
@@ -306,34 +334,32 @@ class AuditOrchestrator:
         audit_root = audit_root.resolve()
         evidence = EvidenceCollector(BoundaryManager(audit_root, []), audit_root)
         sums_verify = evidence.verify_sha256sums()
-        freeze_status = None
-        freeze_sums_ok = None
-        fs = audit_root / "FREEZE_STATUS.json"
-        if fs.is_file():
-            freeze_status = read_json(fs)
-            freeze_dir = Path(freeze_status["freeze_directory"])
-            sums = freeze_dir / "SHA256SUMS.txt"
-            ok = 0
-            fail = 0
-            for line in sums.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                digest, name = line.split(None, 1)
-                p = freeze_dir / name
-                if not p.is_file() or sha256_file(p) != digest.lower():
-                    fail += 1
-                else:
-                    ok += 1
-            freeze_sums_ok = fail == 0
-        decision = read_json(audit_root / "DECISION.json") if (audit_root / "DECISION.json").is_file() else None
+
+        freeze_txn = validate_freeze_transaction(audit_root)
+        freeze_status = freeze_txn.get("freeze_status")
+        freeze_sums_ok: bool | None
+        if freeze_txn.get("state") == "PRE_FREEZE":
+            freeze_sums_ok = None
+        elif freeze_txn.get("ok"):
+            freeze_sums_ok = True
+        else:
+            freeze_sums_ok = False
+
+        decision = (
+            read_json(audit_root / "DECISION.json")
+            if (audit_root / "DECISION.json").is_file()
+            else None
+        )
         semantic = verify_semantics(audit_root)
         hash_ok = bool(sums_verify["ok"]) and (freeze_sums_ok is not False)
-        verify_ok = hash_ok and bool(semantic.get("ok"))
+        txn_ok = bool(freeze_txn.get("verify_ok"))
+        verify_ok = hash_ok and bool(semantic.get("ok")) and txn_ok
         return {
             "audit_root": str(audit_root),
             "sha256sums_ok": sums_verify["ok"],
             "sha256sums": sums_verify,
             "freeze_status": freeze_status,
+            "freeze_transaction": freeze_txn,
             "freeze_sums_ok": freeze_sums_ok,
             "decision": decision,
             "semantic_verification": semantic,
