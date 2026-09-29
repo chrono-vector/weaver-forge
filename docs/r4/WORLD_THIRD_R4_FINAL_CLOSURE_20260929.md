@@ -21,7 +21,7 @@
 | R3 | CLOSED |
 | VECTOR | UNCHANGED |
 | EIG | UNCHANGED |
-| HUMAN_FINAL_STATUS | PENDING |
+| HUMAN_FINAL_STATUS | ACCEPTED |
 | MATERIAL_BLOCKERS | NONE |
 | PUBLIC_PUSHED | NO |
 
@@ -63,14 +63,14 @@ This record closes bounded R4 integrated acceptance documentation only.
 
 It does **not**:
 
-- mark Human Final accepted
 - claim production readiness
 - alter VECTOR or EIG
 - reopen R3
 - authorize public push
 
-Human Final remains the sole final acceptance step. See
-`WORLD_THIRD_R4_HUMAN_FINAL_20260929.md`.
+Human Final acceptance is recorded separately in
+`WORLD_THIRD_R4_HUMAN_FINAL_20260929.md`. Human Final remains the final
+acceptance authority.
 
 Nonclaims and deferred items are preserved in
 `WORLD_THIRD_R4_DEFERRED_ITEMS_20260929.md`.

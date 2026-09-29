@@ -19,12 +19,12 @@
 | A/B integration | ACCEPTED |
 | Frozen package semantics | ACCEPTED |
 | Non-authority | ACCEPTED |
-| Human Final boundary | ACCEPTED (boundary preserved; verdict PENDING) |
+| Human Final boundary | ACCEPTED |
 | Nonclaims preserved as nonclaims | ACCEPTED |
 | R3 | CLOSED |
 | VECTOR | UNCHANGED |
 | EIG | UNCHANGED |
-| Human Final acceptance | PENDING — not accepted by this matrix |
+| Human Final acceptance | ACCEPTED |
 
 ## Automated verification matrix
 
@@ -51,7 +51,7 @@
 |------|--------|
 | Integrated review (`CODEX_R4_INTEGRATED_FINAL_CD25ADD_20260929`) | Recorded against accepted HEAD |
 | Bounded R4 integrated acceptance | YES |
-| Human Final | PENDING — sole final acceptance step |
+| Human Final | ACCEPTED — sole final acceptance authority |
 | Public push | NOT performed |
 
 STOP.
