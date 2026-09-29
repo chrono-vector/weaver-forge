@@ -6,8 +6,7 @@ from typing import Any
 
 from .adapters import AdapterResult, VectorResult
 from .decision import decide
-from .epistemic.reconstructability import verify_reconstructability_at_root
-from .epistemic.review_disagreement import verify_disagreement_records_at_root
+from .epistemic.r4b_verify import verify_r4b_at_root
 from .request import read_json
 
 
@@ -172,11 +171,10 @@ def verify_semantics(audit_root: Path) -> dict[str, Any]:
             "semantic_material_keys": list(_SEMANTIC_MATERIAL_KEYS),
         }
 
-    # R4-B: optional derived reconstructability + disagreement semantic checks.
-    # Absent artifacts remain legacy-compatible; present artifacts must recompute.
-    r4b_recon = verify_reconstructability_at_root(audit_root)
-    r4b_disagree = verify_disagreement_records_at_root(audit_root)
-    r4b_ok = bool(r4b_recon.get("ok")) and bool(r4b_disagree.get("ok"))
+    # R4-B: expectation-first verification (legacy allowlist or explicit r4_b).
+    # Delegates only to canonical reconstructability / disagreement paths.
+    r4b = verify_r4b_at_root(audit_root)
+    r4b_ok = bool(r4b.get("ok"))
     overall_match = match and r4b_ok
 
     return {
@@ -201,8 +199,9 @@ def verify_semantics(audit_root: Path) -> dict[str, Any]:
         "final_decision_path": str(final_decision_path) if final_decision_path else None,
         "final_decision_stored": final_decision_view,
         "semantic_material_keys": list(_SEMANTIC_MATERIAL_KEYS),
-        "reconstructability_verification": r4b_recon,
-        "review_disagreement_verification": r4b_disagree,
+        "r4b_verification": r4b,
+        "reconstructability_verification": r4b.get("reconstructability_verification"),
+        "review_disagreement_verification": r4b.get("review_disagreement_verification"),
     }
 
 

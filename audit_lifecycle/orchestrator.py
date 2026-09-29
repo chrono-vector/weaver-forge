@@ -9,7 +9,9 @@ from .baseline import snapshot_baseline
 from .boundary import BoundaryManager, BoundaryViolation
 from .claim_scope import compile_claim_and_scope
 from .decision import decide
+from .epistemic.expectation import build_r4b_expectation
 from .epistemic.reconstructability import emit_reconstructability_report
+from .epistemic.review_disagreement import collect_disagreement_expectation
 from .evidence import EvidenceCollector
 from .freeze import assert_one_shot_freeze_allowed, create_freeze_package
 from .independent_verification import run_independent_verification_hook
@@ -246,12 +248,39 @@ class AuditOrchestrator:
         )
         review = enforce_human_review_gate(audit_root, policy, decision)
 
-        # R4-B: refresh derived reconstructability before freeze binding.
-        emit_reconstructability_report(audit_root)
+        # R4-B freeze order:
+        # 1) finalize reconstructability + disagreement expectation
+        # 2) finalize EXECUTION_MANIFEST.json (including r4_b)
+        # 3) bind sums
+        # 4) generate frozen evidence index (create_freeze_package)
+        # 5) FREEZE_STATUS.json is the freeze-completion record
+        # After step 4, EXECUTION_MANIFEST.json must not be mutated.
+        report = emit_reconstructability_report(audit_root)
+        disagreement_exp = collect_disagreement_expectation(audit_root)
+        r4_b = build_r4b_expectation(
+            reconstructability_report_digest=report.report_digest,
+            expected_disagreement_record_digests=disagreement_exp[
+                "expected_disagreement_record_digests"
+            ],
+            expected_disagreement_chain_heads=disagreement_exp[
+                "expected_disagreement_chain_heads"
+            ],
+            finalized_for_freeze=True,
+        )
+        manifest = read_json(audit_root / "EXECUTION_MANIFEST.json")
+        if not isinstance(manifest, dict):
+            raise RuntimeError("EXECUTION_MANIFEST.json must be a mapping")
+        write_json(
+            audit_root / "EXECUTION_MANIFEST.json",
+            {
+                **manifest,
+                "stages_completed_through": "FREEZE",
+                "freeze_performed": True,
+                "r4_b": r4_b,
+            },
+        )
 
-        # Re-verify sums before freeze
         evidence = EvidenceCollector(boundary, audit_root)
-        # Refresh sums to include DECISION etc., then verify
         evidence.bind_sha256sums()
         verify = evidence.verify_sha256sums()
         if not verify["ok"]:
@@ -262,7 +291,6 @@ class AuditOrchestrator:
             })
             raise RuntimeError("SHA256SUMS_MISMATCH_BEFORE_FREEZE")
 
-        # Evidence tamper detection support: if policy asks verify_only integrity
         status = create_freeze_package(
             boundary,
             audit_root,
@@ -270,14 +298,6 @@ class AuditOrchestrator:
             decision,
             review,
         )
-        # Update execution manifest BEFORE final SHA binding so verify matches disk.
-        write_json(audit_root / "EXECUTION_MANIFEST.json", {
-            **(read_json(audit_root / "EXECUTION_MANIFEST.json")),
-            "stages_completed_through": "FREEZE",
-            "freeze_performed": True,
-            "freeze": status,
-        })
-        evidence.bind_sha256sums()
         return status
 
     def verify_run(self, audit_root: Path) -> dict[str, Any]:
