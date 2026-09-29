@@ -9,6 +9,7 @@ from .baseline import snapshot_baseline
 from .boundary import BoundaryManager, BoundaryViolation
 from .claim_scope import compile_claim_and_scope
 from .decision import decide
+from .epistemic.reconstructability import emit_reconstructability_report
 from .evidence import EvidenceCollector
 from .freeze import assert_one_shot_freeze_allowed, create_freeze_package
 from .independent_verification import run_independent_verification_hook
@@ -175,6 +176,8 @@ class AuditOrchestrator:
                 "timestamp_utc": utc_now(),
             }
             write_json(audit_root / "EXECUTION_MANIFEST.json", manifest)
+            # R4-B: derived reconstructability evidence (non-authoritative).
+            emit_reconstructability_report(audit_root)
             evidence.bind_sha256sums()
 
             result = {
@@ -242,6 +245,9 @@ class AuditOrchestrator:
             protected_paths=scope.get("protected_paths") or [],
         )
         review = enforce_human_review_gate(audit_root, policy, decision)
+
+        # R4-B: refresh derived reconstructability before freeze binding.
+        emit_reconstructability_report(audit_root)
 
         # Re-verify sums before freeze
         evidence = EvidenceCollector(boundary, audit_root)

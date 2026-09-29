@@ -6,6 +6,8 @@ from typing import Any
 
 from .adapters import AdapterResult, VectorResult
 from .decision import decide
+from .epistemic.reconstructability import verify_reconstructability_at_root
+from .epistemic.review_disagreement import verify_disagreement_records_at_root
 from .request import read_json
 
 
@@ -170,9 +172,18 @@ def verify_semantics(audit_root: Path) -> dict[str, Any]:
             "semantic_material_keys": list(_SEMANTIC_MATERIAL_KEYS),
         }
 
+    # R4-B: optional derived reconstructability + disagreement semantic checks.
+    # Absent artifacts remain legacy-compatible; present artifacts must recompute.
+    r4b_recon = verify_reconstructability_at_root(audit_root)
+    r4b_disagree = verify_disagreement_records_at_root(audit_root)
+    r4b_ok = bool(r4b_recon.get("ok")) and bool(r4b_disagree.get("ok"))
+    overall_match = match and r4b_ok
+
     return {
-        "ok": match,
-        "status": "SEMANTIC_VERIFICATION_PASS" if match else "SEMANTIC_VERIFICATION_FAIL",
+        "ok": overall_match,
+        "status": (
+            "SEMANTIC_VERIFICATION_PASS" if overall_match else "SEMANTIC_VERIFICATION_FAIL"
+        ),
         "adapter": adapter_name,
         "facts": facts,
         "human_review": hr_check,
@@ -184,12 +195,14 @@ def verify_semantics(audit_root: Path) -> dict[str, Any]:
             **expected,
             "reason": recomputed.get("reason"),
         },
-        "match": match,
+        "match": overall_match,
         "decision_match": decision_match,
         "final_decision_match": final_decision_match,
         "final_decision_path": str(final_decision_path) if final_decision_path else None,
         "final_decision_stored": final_decision_view,
         "semantic_material_keys": list(_SEMANTIC_MATERIAL_KEYS),
+        "reconstructability_verification": r4b_recon,
+        "review_disagreement_verification": r4b_disagree,
     }
 
 

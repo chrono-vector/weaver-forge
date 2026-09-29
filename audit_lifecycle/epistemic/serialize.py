@@ -27,12 +27,23 @@ SET_LIKE_SEQUENCE_FIELDS = frozenset(
         "lineage_ids",
         "qualified_lineage_ids",
         "rejected_self_declared",
+        # R4-B reconstructability / disagreement membership fields
+        "input_refs",
+        "required_inputs",
+        "missing_inputs",
+        "unresolved_assumptions",
+        "derived_from",
+        "reviewer_positions",
     }
 )
 
-# Sequences whose order is semantically meaningful (none in R4-A core today).
-# Reserved for future fields (e.g. ordered derivation steps).
-ORDERED_SEQUENCE_FIELDS = frozenset()
+# Sequences whose order is semantically meaningful.
+# R4-B: reproduction_commands are ordered derivation steps.
+ORDERED_SEQUENCE_FIELDS = frozenset(
+    {
+        "reproduction_commands",
+    }
+)
 
 
 def _stable_item_key(item: Any) -> str:

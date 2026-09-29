@@ -1,4 +1,5 @@
-"""R4-A epistemic foundation — non-authoritative claim / relation / provenance contracts.
+"""R4 epistemic foundation — non-authoritative claim / relation / provenance /
+reconstructability / review-disagreement contracts.
 
 All records in this package are advisory metadata only.
 They never authorize execution, change VECTOR/EIG semantics, create Human Final,
@@ -26,6 +27,15 @@ from .provenance import (
     account_independent_origins,
     validate_provenance_graph,
 )
+from .reconstructability import (
+    ReconstructabilityError,
+    ReconstructabilityInputs,
+    ReconstructabilityReport,
+    derive_reconstructability_report,
+    emit_reconstructability_report,
+    verify_reconstructability_at_root,
+    verify_reconstructability_report,
+)
 from .records import (
     CLAIM_KINDS,
     EPISTEMIC_STATUSES,
@@ -38,6 +48,17 @@ from .relations import (
     RelationAsClaim,
     RelationSatisfactionError,
     analogous_to_cannot_satisfy_causes,
+)
+from .review_disagreement import (
+    DISAGREEMENT_CATEGORIES,
+    DISAGREEMENT_STATUSES,
+    ReviewDisagreementError,
+    ReviewDisagreementRecord,
+    create_disagreement_record,
+    create_successor_record,
+    validate_disagreement_record,
+    verify_disagreement_records_at_root,
+    write_disagreement_record,
 )
 from .serialize import (
     ORDERED_SEQUENCE_FIELDS,
@@ -55,6 +76,8 @@ from .validation import (
 
 __all__ = [
     "CLAIM_KINDS",
+    "DISAGREEMENT_CATEGORIES",
+    "DISAGREEMENT_STATUSES",
     "EPISTEMIC_STATUSES",
     "INDEPENDENT_EVIDENCE_ADMISSION_STATUS",
     "ORDERED_SEQUENCE_FIELDS",
@@ -69,8 +92,13 @@ __all__ = [
     "ProvenanceGraphError",
     "ProvenanceGraphIndex",
     "ProvenanceRecord",
+    "ReconstructabilityError",
+    "ReconstructabilityInputs",
+    "ReconstructabilityReport",
     "RelationAsClaim",
     "RelationSatisfactionError",
+    "ReviewDisagreementError",
+    "ReviewDisagreementRecord",
     "ValidatedBasisRef",
     "account_independent_origins",
     "analogous_to_cannot_satisfy_causes",
@@ -82,14 +110,25 @@ __all__ = [
     "canonical_digest",
     "canonical_dumps",
     "canonical_loads",
+    "create_disagreement_record",
+    "create_successor_record",
+    "derive_reconstructability_report",
+    "emit_reconstructability_report",
     "legacy_claim_view",
     "normalize_sequences",
     "parse_optional_epistemic_container",
     "read_claim_record",
+    "validate_disagreement_record",
     "validate_epistemic_record",
     "validate_provenance_graph",
+    "verify_disagreement_records_at_root",
+    "verify_reconstructability_at_root",
+    "verify_reconstructability_report",
+    "write_disagreement_record",
 ]
 
 SCHEMA_VERSION_CLAIM = "r4.epistemic.claim.v1"
 SCHEMA_VERSION_RELATION = "r4.epistemic.relation.v1"
 SCHEMA_VERSION_PROVENANCE = "r4.epistemic.provenance.v1"
+SCHEMA_VERSION_RECONSTRUCTABILITY = "r4.epistemic.reconstructability.v1"
+SCHEMA_VERSION_REVIEW_DISAGREEMENT = "r4.epistemic.review-disagreement.v1"

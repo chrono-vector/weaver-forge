@@ -224,6 +224,10 @@ def _role_for(rel: str) -> str:
         return "decision"
     if rel == "PROVENANCE.json":
         return "provenance"
+    if rel == "RECONSTRUCTABILITY_REPORT.json":
+        return "epistemic_derived"
+    if rel.startswith("reviews/"):
+        return "epistemic_review_disagreement"
     if rel.startswith("pinned_target/"):
         return "pinned_input"
     return "artifact"
