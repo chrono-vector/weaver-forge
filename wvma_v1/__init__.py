@@ -39,6 +39,23 @@ from wvma_v1.state import (
     write_finalize_intent,
 )
 
+# Batch A2 surfaces (confinement / runner / oracle). Imported lazily-safe as
+# modules; symbols re-exported for package discoverability only.
+from wvma_v1.workspace import WorkspaceError  # noqa: E402
+from wvma_v1.mutations import MutationError, apply_mutation  # noqa: E402
+from wvma_v1.runner import (  # noqa: E402
+    InvocationContract,
+    ProcessReceipt,
+    RunnerError,
+    run_baseline,
+    run_mutation_case,
+)
+from wvma_v1.oracle import (  # noqa: E402
+    OracleError,
+    derive_result_class,
+    evaluate_case,
+)
+
 __all__ = [
     "canonical_bytes",
     "canonical_digest",
@@ -68,4 +85,15 @@ __all__ = [
     "verify_attempt",
     "derive_attempt_state",
     "create_recovery_attempt",
+    "WorkspaceError",
+    "MutationError",
+    "apply_mutation",
+    "RunnerError",
+    "InvocationContract",
+    "ProcessReceipt",
+    "run_baseline",
+    "run_mutation_case",
+    "OracleError",
+    "evaluate_case",
+    "derive_result_class",
 ]
