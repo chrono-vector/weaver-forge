@@ -40,6 +40,7 @@ from wvma_v1.models import (
 ATTEMPT_INTENT_SCHEMA_VERSION = "wvma_v1.attempt_intent.v1"
 
 _ATTEMPT_ID_RE = re.compile(r"\AWVMA-([0-9]{8}T[0-9]{6}Z)-([0-9a-f]{8})\Z")
+_SHA256_HEX_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 
 
 class StateError(ValueError):
@@ -88,10 +89,25 @@ def validate_attempt_id(attempt_id: str) -> str:
 
 def make_attempt_id(*, when: datetime | None = None, nonce: str | None = None) -> str:
     ts = (when or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
-    token = nonce or secrets.token_hex(4)
+    # Explicit None only: falsey supplied nonces (e.g. "") must reject.
+    if nonce is None:
+        token = secrets.token_hex(4)
+    else:
+        if not isinstance(nonce, str):
+            raise StateError(
+                f"nonce must be str; got {type(nonce).__name__}"
+            )
+        token = nonce
     if len(token) != 8 or any(c not in "0123456789abcdef" for c in token):
         raise StateError("nonce must be 8 lowercase hex characters")
     return validate_attempt_id(f"WVMA-{ts}-{token}")
+
+
+def _resolve_attempt_id(attempt_id: str | None) -> str:
+    """Resolve optional attempt_id: None generates; any other value validates."""
+    if attempt_id is None:
+        return make_attempt_id()
+    return validate_attempt_id(attempt_id)
 
 
 def _resolve_path(path: Path) -> Path:
@@ -249,6 +265,58 @@ def load_sealed_catalog(out_root: Path, catalog_digest: str) -> Catalog:
     return catalog
 
 
+def validate_recovery_binding(
+    out_root: Path,
+    *,
+    current_attempt_id: str,
+    prior_attempt_id: Any = ABSENT,
+    prior_attempt_root_digest: Any = ABSENT,
+) -> tuple[Any, Any]:
+    """Validate paired recovery binding used at create and read time.
+
+    Exactly one of:
+      A) both ABSENT
+      B) both PRESENT and fully valid
+
+    Explicit None / other non-ABSENT values are PRESENT and must validate;
+    they are never silently normalized to absence.
+    """
+    id_absent = prior_attempt_id is ABSENT
+    digest_absent = prior_attempt_root_digest is ABSENT
+    if id_absent and digest_absent:
+        return ABSENT, ABSENT
+    if id_absent or digest_absent:
+        raise StateError(
+            "recovery binding requires both prior_attempt_id and "
+            "prior_attempt_root_digest, or neither"
+        )
+
+    # Both PRESENT: validate fully before any new-attempt mutation.
+    try:
+        validated_prior_id = validate_attempt_id(prior_attempt_id)
+    except StateError as exc:
+        raise StateError("prior_attempt_id PRESENT-invalid") from exc
+
+    if (
+        not isinstance(prior_attempt_root_digest, str)
+        or _SHA256_HEX_RE.match(prior_attempt_root_digest) is None
+    ):
+        raise StateError("prior_attempt_root_digest PRESENT-invalid")
+
+    if current_attempt_id == validated_prior_id:
+        raise StateError("recovery binding must not reference the current attempt")
+
+    prior_path = assert_attempt_path_confined(out_root, validated_prior_id)
+    if not prior_path.is_dir():
+        raise StateError(f"prior attempt missing: {validated_prior_id}")
+
+    recomputed = compute_attempt_root_digest(out_root, validated_prior_id)
+    if recomputed != prior_attempt_root_digest:
+        raise StateError("prior_attempt_root_digest mismatch")
+
+    return validated_prior_id, prior_attempt_root_digest
+
+
 def _attempt_intent_body(
     *,
     attempt_id: str,
@@ -276,16 +344,15 @@ def _attempt_intent_body(
         "protected_path_inventory_digest": protected_path_inventory_digest,
         "started_at": started_at,
     }
-    if prior_attempt_id is not ABSENT:
-        if not isinstance(prior_attempt_id, str) or not prior_attempt_id:
-            raise StateError("prior_attempt_id PRESENT-invalid")
+    id_absent = prior_attempt_id is ABSENT
+    digest_absent = prior_attempt_root_digest is ABSENT
+    if id_absent != digest_absent:
+        raise StateError(
+            "recovery binding requires both prior_attempt_id and "
+            "prior_attempt_root_digest, or neither"
+        )
+    if not id_absent:
         body["prior_attempt_id"] = prior_attempt_id
-    if prior_attempt_root_digest is not ABSENT:
-        if (
-            not isinstance(prior_attempt_root_digest, str)
-            or len(prior_attempt_root_digest) != 64
-        ):
-            raise StateError("prior_attempt_root_digest PRESENT-invalid")
         body["prior_attempt_root_digest"] = prior_attempt_root_digest
     return body
 
@@ -304,10 +371,18 @@ def create_attempt(
     prior_attempt_root_digest: str | None = ABSENT,
 ) -> dict[str, Any]:
     out_root = Path(out_root)
-    aid = attempt_id or make_attempt_id()
+    # Explicit None only: falsey supplied IDs (e.g. "", False) must reject.
+    aid = _resolve_attempt_id(attempt_id)
     # Grammar + confinement before any attempt filesystem mutation.
-    validate_attempt_id(aid)
     assert_attempt_path_confined(out_root, aid)
+
+    # Recovery binding must pass before creating the new attempt directory.
+    prior_id, prior_digest = validate_recovery_binding(
+        out_root,
+        current_attempt_id=aid,
+        prior_attempt_id=prior_attempt_id,
+        prior_attempt_root_digest=prior_attempt_root_digest,
+    )
 
     catalog = load_sealed_catalog(out_root, catalog_digest)
     root = assert_attempt_path_confined(out_root, aid)
@@ -324,8 +399,8 @@ def create_attempt(
         baseline_receipt_digest=baseline_receipt_digest,
         protected_path_inventory_digest=protected_path_inventory_digest,
         started_at=_utc_now_iso(),
-        prior_attempt_id=prior_attempt_id,
-        prior_attempt_root_digest=prior_attempt_root_digest,
+        prior_attempt_id=prior_id,
+        prior_attempt_root_digest=prior_digest,
     )
     write_exclusive_json(root / "ATTEMPT_INTENT.json", intent)
     return intent
@@ -345,6 +420,20 @@ def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
         raise StateError("ATTEMPT_INTENT authority must be false")
     if data.get("schema_version") != ATTEMPT_INTENT_SCHEMA_VERSION:
         raise StateError("ATTEMPT_INTENT schema_version invalid")
+
+    has_prior_id = "prior_attempt_id" in data
+    has_prior_digest = "prior_attempt_root_digest" in data
+    if has_prior_id or has_prior_digest:
+        prior_id = data["prior_attempt_id"] if has_prior_id else ABSENT
+        prior_digest = (
+            data["prior_attempt_root_digest"] if has_prior_digest else ABSENT
+        )
+        validate_recovery_binding(
+            out_root,
+            current_attempt_id=attempt_id,
+            prior_attempt_id=prior_id,
+            prior_attempt_root_digest=prior_digest,
+        )
     return dict(data)
 
 
@@ -780,11 +869,18 @@ def create_recovery_attempt(
 ) -> dict[str, Any]:
     """Create a NEW attempt bound to the prior attempt's immutable root digest."""
     out_root = Path(out_root)
-    validate_attempt_id(prior_attempt_id)
-    prior_root = attempt_dir(out_root, prior_attempt_id)
-    if not prior_root.is_dir():
-        raise StateError(f"prior attempt missing: {prior_attempt_id}")
+    # Resolve new identity first so recovery binding can reject self-reference
+    # and empty/falsey supplied IDs before any filesystem creation.
+    aid = _resolve_attempt_id(attempt_id)
+    prior_attempt_root = compute_attempt_root_digest(out_root, prior_attempt_id)
+    validate_recovery_binding(
+        out_root,
+        current_attempt_id=aid,
+        prior_attempt_id=prior_attempt_id,
+        prior_attempt_root_digest=prior_attempt_root,
+    )
 
+    prior_root = assert_attempt_path_confined(out_root, prior_attempt_id)
     # Snapshot prior bytes before recovery; recovery must not mutate them.
     prior_files = {
         p.relative_to(prior_root).as_posix(): sha256_file(p)
@@ -792,7 +888,6 @@ def create_recovery_attempt(
         if p.is_file()
     }
     prior_intent = _read_attempt_intent(out_root, prior_attempt_id)
-    prior_attempt_root = compute_attempt_root_digest(out_root, prior_attempt_id)
 
     new_intent = create_attempt(
         out_root,
@@ -804,7 +899,7 @@ def create_recovery_attempt(
         protected_path_inventory_digest=prior_intent[
             "protected_path_inventory_digest"
         ],
-        attempt_id=attempt_id,
+        attempt_id=aid,
         prior_attempt_id=prior_attempt_id,
         prior_attempt_root_digest=prior_attempt_root,
     )

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from wvma_v1.canonical import digest_excluding_field, sha256_file
 from wvma_v1.models import (
+    ABSENT,
     AttemptState,
     AttemptVerdict,
     ResultClass,
@@ -29,6 +30,7 @@ from wvma_v1.state import (
     derive_attempt_state,
     finalize_attempt,
     list_published_results,
+    make_attempt_id,
     publish_case_result,
     recompute_terminal_semantics,
     seal_catalog,
@@ -786,6 +788,307 @@ class DirectAdversarialRetests(unittest.TestCase):
         attempts = self.out / "attempts"
         if attempts.exists():
             self.assertFalse(any(bad in str(p) for p in attempts.rglob("*")))
+
+
+class ResidualA1IdentityAndRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _create_kwargs(self, **overrides):
+        kwargs = {
+            "catalog_digest": self.digest,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+        }
+        kwargs.update(overrides)
+        return kwargs
+
+    def _create(self, attempt_id: str = "WVMA-20260101T000000Z-aaaaaaaa"):
+        return create_attempt(self.out, **self._create_kwargs(attempt_id=attempt_id))
+
+    def _attempt_dirs(self):
+        attempts = self.out / "attempts"
+        if not attempts.is_dir():
+            return set()
+        return {p.name for p in attempts.iterdir() if p.is_dir()}
+
+    def test_create_attempt_empty_id_rejects(self):
+        with self.assertRaises(StateError):
+            create_attempt(self.out, **self._create_kwargs(attempt_id=""))
+
+    def test_create_attempt_false_id_rejects(self):
+        with self.assertRaises(StateError):
+            create_attempt(self.out, **self._create_kwargs(attempt_id=False))
+
+    def test_invalid_explicit_attempt_id_creates_no_directory(self):
+        before = self._attempt_dirs()
+        for bad in ("", False, 0, [], {}):
+            with self.subTest(attempt_id=bad):
+                with self.assertRaises(StateError):
+                    create_attempt(
+                        self.out, **self._create_kwargs(attempt_id=bad)
+                    )
+                self.assertEqual(before, self._attempt_dirs())
+
+    def test_make_attempt_id_empty_nonce_rejects(self):
+        with self.assertRaises(StateError):
+            make_attempt_id(nonce="")
+
+    def test_recovery_empty_new_attempt_id_rejects(self):
+        prior = self._create()
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_recovery_attempt(
+                self.out, prior["attempt_id"], attempt_id=""
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_malformed_prior_attempt_id_rejects(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id="../foreign",
+                    prior_attempt_root_digest=ZERO,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_prior_id_without_digest_rejects(self):
+        prior = self._create()
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id=prior["attempt_id"],
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_prior_digest_without_id_rejects(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_root_digest=ZERO,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_explicit_none_recovery_field_combinations_reject(self):
+        prior = self._create()
+        digest = compute_attempt_root_digest(self.out, prior["attempt_id"])
+        before = self._attempt_dirs()
+        cases = [
+            {"prior_attempt_id": None, "prior_attempt_root_digest": ABSENT},
+            {"prior_attempt_id": ABSENT, "prior_attempt_root_digest": None},
+            {"prior_attempt_id": None, "prior_attempt_root_digest": None},
+            {
+                "prior_attempt_id": None,
+                "prior_attempt_root_digest": digest,
+            },
+            {
+                "prior_attempt_id": prior["attempt_id"],
+                "prior_attempt_root_digest": None,
+            },
+        ]
+        for idx, fields in enumerate(cases):
+            with self.subTest(fields=fields):
+                with self.assertRaises(StateError):
+                    create_attempt(
+                        self.out,
+                        **self._create_kwargs(
+                            attempt_id=f"WVMA-20260101T010000Z-{idx:08x}",
+                            **fields,
+                        ),
+                    )
+                self.assertEqual(before, self._attempt_dirs())
+
+    def test_nonexistent_prior_attempt_rejects(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id="WVMA-20260101T000000Z-deadbeef",
+                    prior_attempt_root_digest=ZERO,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_wrong_prior_root_digest_rejects(self):
+        prior = self._create()
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id=prior["attempt_id"],
+                    prior_attempt_root_digest=ONE,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_self_referencing_recovery_rejects(self):
+        prior = self._create()
+        aid = prior["attempt_id"]
+        digest = compute_attempt_root_digest(self.out, aid)
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id=aid,
+                    prior_attempt_id=aid,
+                    prior_attempt_root_digest=digest,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+        with self.assertRaises(StateError):
+            create_recovery_attempt(self.out, aid, attempt_id=aid)
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_valid_recovery_succeeds_exactly_one_new_and_prior_unchanged(self):
+        prior = self._create()
+        aid = prior["attempt_id"]
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED),
+        )
+        prior_root = self.out / "attempts" / aid
+        before_bytes = {
+            p.relative_to(prior_root).as_posix(): sha256_file(p)
+            for p in sorted(prior_root.rglob("*"))
+            if p.is_file()
+        }
+        prior_digest = compute_attempt_root_digest(self.out, aid)
+        before_dirs = self._attempt_dirs()
+        recovered = create_recovery_attempt(
+            self.out,
+            aid,
+            attempt_id="WVMA-20260101T010000Z-cccccccc",
+        )
+        after_dirs = self._attempt_dirs()
+        self.assertEqual(len(after_dirs - before_dirs), 1)
+        self.assertEqual(recovered["attempt_id"], "WVMA-20260101T010000Z-cccccccc")
+        self.assertEqual(recovered["prior_attempt_id"], aid)
+        self.assertEqual(recovered["prior_attempt_root_digest"], prior_digest)
+        after_bytes = {
+            p.relative_to(prior_root).as_posix(): sha256_file(p)
+            for p in sorted(prior_root.rglob("*"))
+            if p.is_file()
+        }
+        self.assertEqual(before_bytes, after_bytes)
+        self.assertEqual(
+            derive_attempt_state(self.out, recovered["attempt_id"]),
+            AttemptState.RUN_IN_PROGRESS,
+        )
+
+    def test_tampered_persisted_recovery_metadata_derives_run_invalid(self):
+        prior = self._create()
+        recovered = create_recovery_attempt(
+            self.out,
+            prior["attempt_id"],
+            attempt_id="WVMA-20260101T010000Z-dddddddd",
+        )
+        rid = recovered["attempt_id"]
+        intent_path = self.out / "attempts" / rid / "ATTEMPT_INTENT.json"
+        data = json.loads(intent_path.read_text(encoding="utf-8"))
+        data["prior_attempt_root_digest"] = ONE
+        intent_path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(
+            derive_attempt_state(self.out, rid), AttemptState.RUN_INVALID
+        )
+
+    def test_attack_r2_1_empty_attempt_id(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(self.out, **self._create_kwargs(attempt_id=""))
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_attack_r2_2_empty_nonce(self):
+        with self.assertRaises(StateError):
+            make_attempt_id(nonce="")
+
+    def test_attack_r2_3_foreign_prior_id_rejects_before_creation(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id="../foreign",
+                    prior_attempt_root_digest=ZERO,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_attack_r2_4_prior_id_only_rejects_before_creation(self):
+        prior = self._create()
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_id=prior["attempt_id"],
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_attack_r2_5_prior_digest_only_rejects_before_creation(self):
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T000000Z-bbbbbbbb",
+                    prior_attempt_root_digest=ZERO,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+
+    def test_attack_r2_6_valid_recovery_one_new_prior_bytes_unchanged(self):
+        prior = self._create()
+        aid = prior["attempt_id"]
+        prior_root = self.out / "attempts" / aid
+        before_bytes = {
+            p.relative_to(prior_root).as_posix(): sha256_file(p)
+            for p in sorted(prior_root.rglob("*"))
+            if p.is_file()
+        }
+        before_dirs = self._attempt_dirs()
+        recovered = create_recovery_attempt(
+            self.out,
+            aid,
+            attempt_id="WVMA-20260101T020000Z-eeeeeeee",
+        )
+        self.assertEqual(len(self._attempt_dirs() - before_dirs), 1)
+        self.assertIn(recovered["attempt_id"], self._attempt_dirs())
+        after_bytes = {
+            p.relative_to(prior_root).as_posix(): sha256_file(p)
+            for p in sorted(prior_root.rglob("*"))
+            if p.is_file()
+        }
+        self.assertEqual(before_bytes, after_bytes)
 
 
 if __name__ == "__main__":
