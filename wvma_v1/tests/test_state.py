@@ -8,17 +8,21 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wvma_v1.canonical import sha256_file
+from wvma_v1.canonical import digest_excluding_field, sha256_file
 from wvma_v1.models import (
     AttemptState,
     AttemptVerdict,
     ResultClass,
+    SchemaError,
     build_case_result,
     build_oracle_result,
+    build_status,
+    strict_parse_case_result,
 )
 from wvma_v1.state import (
     ReplayError,
     StateError,
+    assert_attempt_path_confined,
     compute_attempt_root_digest,
     create_attempt,
     create_recovery_attempt,
@@ -26,7 +30,9 @@ from wvma_v1.state import (
     finalize_attempt,
     list_published_results,
     publish_case_result,
+    recompute_terminal_semantics,
     seal_catalog,
+    validate_attempt_id,
     verify_attempt,
     write_exclusive_json,
     write_finalize_intent,
@@ -363,5 +369,425 @@ class StateMachineTests(unittest.TestCase):
             finalize_attempt(self.out, aid)
 
 
+class TerminalSemanticsRemediationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _create(self, attempt_id: str = "WVMA-20260101T000000Z-aaaaaaaa"):
+        return create_attempt(
+            self.out,
+            catalog_digest=self.digest,
+            source_revision=ZERO,
+            runner_digest=ONE,
+            oracle_digest=TWO,
+            baseline_receipt_digest=THREE,
+            protected_path_inventory_digest=FOUR,
+            attempt_id=attempt_id,
+        )
+
+    def _publish_pair(self, aid: str, second: ResultClass):
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED),
+        )
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M02", second),
+        )
+
+    def _forge_status(self, aid: str, **overrides):
+        root = self.out / "attempts" / aid
+        results = list_published_results(self.out, aid)
+        refs = [
+            {"case_id": cid, "result_digest": r.result_digest}
+            for cid, r in sorted(results.items())
+        ]
+        kwargs = {
+            "attempt_id": aid,
+            "catalog_digest": self.digest,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "state": AttemptState.RUN_COMPLETE,
+            "verdict": AttemptVerdict.ALL_CRITICAL_DETECTED,
+            "baseline_receipt_digest": THREE,
+            "case_result_digests": refs,
+            "result_counts": {"DETECTED": 2},
+            "blocking_case_ids": [],
+            "attempt_root_digest": compute_attempt_root_digest(self.out, aid),
+            "completed_at": "2026-01-01T00:00:02Z",
+        }
+        kwargs.update(overrides)
+        status = build_status(**kwargs)
+        finalize_path = root / "FINALIZE_INTENT.json"
+        status_path = root / "WVMA_STATUS.json"
+        if finalize_path.exists():
+            finalize_path.unlink()
+        if status_path.exists():
+            status_path.unlink()
+        write_finalize_intent(
+            self.out,
+            aid,
+            intended_status_digest=status.status_digest,
+            result_references=refs,
+            attempt_root_digest=status.attempt_root_digest,
+        )
+        write_exclusive_json(status_path, status.to_dict())
+        return status
+
+    def test_survived_forged_all_critical_detected_is_invalid(self):
+        intent = self._create()
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.SURVIVED)
+        real = finalize_attempt(self.out, aid)
+        self.assertEqual(real.verdict, AttemptVerdict.CRITICAL_SURVIVOR)
+        self._forge_status(aid)
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+        with self.assertRaises(StateError):
+            verify_attempt(self.out, aid)
+
+    def test_forged_result_counts_is_invalid(self):
+        intent = self._create("WVMA-20260101T000000Z-bbbbbbbb")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.DETECTED)
+        finalize_attempt(self.out, aid)
+        self._forge_status(aid, result_counts={"DETECTED": 99})
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+
+    def test_omitted_blocker_is_invalid(self):
+        intent = self._create("WVMA-20260101T000000Z-cccccccc")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.SURVIVED)
+        finalize_attempt(self.out, aid)
+        self._forge_status(
+            aid,
+            verdict=AttemptVerdict.CRITICAL_SURVIVOR,
+            result_counts={"DETECTED": 1, "SURVIVED": 1},
+            blocking_case_ids=[],
+        )
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+
+    def test_extra_blocker_is_invalid(self):
+        intent = self._create("WVMA-20260101T000000Z-dddddddd")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.DETECTED)
+        finalize_attempt(self.out, aid)
+        self._forge_status(
+            aid,
+            verdict=AttemptVerdict.ALL_CRITICAL_DETECTED,
+            result_counts={"DETECTED": 2},
+            blocking_case_ids=["WVMA-S01-M01"],
+        )
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+
+    def test_missing_critical_result_incomplete(self):
+        intent = self._create("WVMA-20260101T000000Z-eeeeeeee")
+        aid = intent["attempt_id"]
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED),
+        )
+        status = finalize_attempt(self.out, aid)
+        self.assertEqual(status.state, AttemptState.RUN_INCOMPLETE)
+        self.assertIsNone(status.verdict)
+        self.assertIn("WVMA-S01-M02", status.blocking_case_ids)
+        self.assertEqual(status.result_counts.get("MISSING_RESULT"), 1)
+        semantics = recompute_terminal_semantics(
+            self.catalog, list_published_results(self.out, aid)
+        )
+        self.assertEqual(semantics.state, AttemptState.RUN_INCOMPLETE)
+
+    def test_foreign_result_invalid(self):
+        intent = self._create("WVMA-20260101T000000Z-ffffffff")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.DETECTED)
+        foreign = _result(aid, self.digest, "WVMA-FOREIGN", ResultClass.DETECTED)
+        # Force foreign case onto disk after catalog-bound publishes.
+        case_dir = self.out / "attempts" / aid / "results" / foreign.case_id
+        case_dir.mkdir(parents=False, exist_ok=False)
+        write_exclusive_json(case_dir / f"{foreign.result_digest}.json", foreign.to_dict())
+        status = finalize_attempt(self.out, aid)
+        self.assertEqual(status.state, AttemptState.RUN_INVALID)
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+
+    def test_valid_recomputed_status(self):
+        intent = self._create("WVMA-20260101T000001Z-aaaaaaaa")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.DETECTED)
+        status = finalize_attempt(self.out, aid)
+        semantics = recompute_terminal_semantics(
+            self.catalog, list_published_results(self.out, aid)
+        )
+        self.assertEqual(semantics.state, AttemptState.RUN_COMPLETE)
+        self.assertEqual(semantics.verdict, AttemptVerdict.ALL_CRITICAL_DETECTED)
+        self.assertEqual(status.verdict, semantics.verdict)
+        self.assertEqual(dict(status.result_counts), dict(semantics.result_counts))
+        self.assertEqual(
+            list(status.blocking_case_ids), list(semantics.blocking_case_ids)
+        )
+        self.assertEqual(verify_attempt(self.out, aid), AttemptState.RUN_COMPLETE)
+
+    def test_stored_recomputed_semantic_mismatch_invalid(self):
+        intent = self._create("WVMA-20260101T000002Z-aaaaaaaa")
+        aid = intent["attempt_id"]
+        self._publish_pair(aid, ResultClass.SURVIVED)
+        finalize_attempt(self.out, aid)
+        self._forge_status(
+            aid,
+            verdict=AttemptVerdict.ALL_CRITICAL_DETECTED,
+            result_counts={"DETECTED": 2},
+            blocking_case_ids=[],
+        )
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+
+
+class AttemptIdConfinementTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _try_create(self, attempt_id: str):
+        return create_attempt(
+            self.out,
+            catalog_digest=self.digest,
+            source_revision=ZERO,
+            runner_digest=ONE,
+            oracle_digest=TWO,
+            baseline_receipt_digest=THREE,
+            protected_path_inventory_digest=FOUR,
+            attempt_id=attempt_id,
+        )
+
+    def test_path_traversal_forms_rejected(self):
+        bad_ids = [
+            "../",
+            "..\\",
+            "WVMA-20260101T000000Z-aaaaaaaa/nested",
+            "WVMA-20260101T000000Z-aaaaaaaa\\nested",
+            "/absolute/path",
+            "C:WVMA-20260101T000000Z-aaaaaaaa",
+            "\\\\server\\share\\WVMA",
+            "WVMA-/../../../escaped-out-root",
+        ]
+        for bad in bad_ids:
+            with self.subTest(attempt_id=bad):
+                with self.assertRaises(StateError):
+                    validate_attempt_id(bad)
+                with self.assertRaises(StateError):
+                    self._try_create(bad)
+
+    def test_invalid_timestamp_rejects(self):
+        bad = "WVMA-20261301T000000Z-aaaaaaaa"
+        with self.assertRaises(StateError):
+            validate_attempt_id(bad)
+
+    def test_unicode_digit_substitution_rejects(self):
+        # Fullwidth digit in timestamp must not pass ASCII grammar.
+        bad = "WVMA-20260101T00000０Z-aaaaaaaa"
+        with self.assertRaises(StateError):
+            validate_attempt_id(bad)
+
+    def test_uppercase_nonce_rejects(self):
+        bad = "WVMA-20260101T000000Z-DEADBEEF"
+        with self.assertRaises(StateError):
+            validate_attempt_id(bad)
+
+    def test_valid_attempt_id_and_direct_child_confinement(self):
+        aid = "WVMA-20260101T000000Z-aaaaaaaa"
+        self.assertEqual(validate_attempt_id(aid), aid)
+        path = assert_attempt_path_confined(self.out, aid)
+        self.assertEqual(path.parent, (self.out / "attempts").resolve())
+        self.assertEqual(path.name, aid)
+        intent = self._try_create(aid)
+        self.assertEqual(intent["attempt_id"], aid)
+
+    def test_no_directory_created_for_invalid_id(self):
+        bad = "WVMA-/../../../escaped-out-root"
+        attempts = self.out / "attempts"
+        before = set(attempts.rglob("*")) if attempts.exists() else set()
+        with self.assertRaises(StateError):
+            self._try_create(bad)
+        after = set(attempts.rglob("*")) if attempts.exists() else set()
+        self.assertEqual(before, after)
+        self.assertFalse((self.out / "escaped-out-root").exists())
+        self.assertFalse(any("escaped-out-root" in str(p) for p in self.out.rglob("*")))
+
+
+class DirectAdversarialRetests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _create(self, attempt_id: str = "WVMA-20260101T000000Z-aaaaaaaa"):
+        return create_attempt(
+            self.out,
+            catalog_digest=self.digest,
+            source_revision=ZERO,
+            runner_digest=ONE,
+            oracle_digest=TWO,
+            baseline_receipt_digest=THREE,
+            protected_path_inventory_digest=FOUR,
+            attempt_id=attempt_id,
+        )
+
+    def test_attack1_false_detected_all_proofs_false(self):
+        oracle = build_oracle_result(
+            case_id="WVMA-S01-M01",
+            mutation_valid=True,
+            property_violated=True,
+            verifier_exercised=True,
+            expected_rejection_observed=True,
+            result_class=ResultClass.DETECTED,
+        )
+        body = {
+            "schema_version": "wvma_v1.result.v1",
+            "authority": False,
+            "attempt_id": "WVMA-20260101T000000Z-aaaaaaaa",
+            "catalog_digest": self.digest,
+            "case_id": "WVMA-S01-M01",
+            "property_id": "WVMA-S01",
+            "result_class": "DETECTED",
+            "mutation_proof": {"applied": False},
+            "violation_proof": {"observed": False},
+            "verifier_exercise_proof": {"invoked": False},
+            "process_observation": {"exit_code": 0},
+            "filesystem_observations": [],
+            "digest_observations": [],
+            "oracle_result": oracle.to_dict(),
+            "started_at": "2026-01-01T00:00:00Z",
+            "completed_at": "2026-01-01T00:00:01Z",
+        }
+        body["result_digest"] = digest_excluding_field(body, "result_digest")
+        with self.assertRaises(SchemaError):
+            strict_parse_case_result(body)
+        intent = self._create()
+        aid = intent["attempt_id"]
+        with self.assertRaises(SchemaError):
+            publish_case_result(self.out, aid, body)
+        # Cannot reach ALL_CRITICAL_DETECTED via false DETECTED proofs.
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M01", ResultClass.SURVIVED),
+        )
+        status = finalize_attempt(self.out, aid)
+        self.assertNotEqual(status.verdict, AttemptVerdict.ALL_CRITICAL_DETECTED)
+
+    def test_attack2_rebound_all_critical_detected_over_survived(self):
+        intent = self._create("WVMA-20260101T000000Z-bbbbbbbb")
+        aid = intent["attempt_id"]
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED),
+        )
+        publish_case_result(
+            self.out,
+            aid,
+            _result(aid, self.digest, "WVMA-S01-M02", ResultClass.SURVIVED),
+        )
+        real = finalize_attempt(self.out, aid)
+        self.assertEqual(real.verdict, AttemptVerdict.CRITICAL_SURVIVOR)
+        results = list_published_results(self.out, aid)
+        refs = [
+            {"case_id": cid, "result_digest": r.result_digest}
+            for cid, r in sorted(results.items())
+        ]
+        forged = build_status(
+            attempt_id=aid,
+            catalog_digest=self.digest,
+            source_revision=ZERO,
+            runner_digest=ONE,
+            oracle_digest=TWO,
+            state=AttemptState.RUN_COMPLETE,
+            verdict=AttemptVerdict.ALL_CRITICAL_DETECTED,
+            baseline_receipt_digest=THREE,
+            case_result_digests=refs,
+            result_counts={"DETECTED": 2},
+            blocking_case_ids=[],
+            attempt_root_digest=compute_attempt_root_digest(self.out, aid),
+            completed_at="2026-01-01T00:00:02Z",
+        )
+        root = self.out / "attempts" / aid
+        (root / "FINALIZE_INTENT.json").unlink()
+        (root / "WVMA_STATUS.json").unlink()
+        write_finalize_intent(
+            self.out,
+            aid,
+            intended_status_digest=forged.status_digest,
+            result_references=refs,
+            attempt_root_digest=forged.attempt_root_digest,
+        )
+        write_exclusive_json(root / "WVMA_STATUS.json", forged.to_dict())
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+        with self.assertRaises(StateError):
+            verify_attempt(self.out, aid)
+
+    def test_attack3_malformed_finalize_intent(self):
+        intent = self._create("WVMA-20260101T000000Z-cccccccc")
+        aid = intent["attempt_id"]
+        for case_id in self.catalog.critical_case_ids:
+            publish_case_result(
+                self.out,
+                aid,
+                _result(aid, self.digest, case_id, ResultClass.DETECTED),
+            )
+        finalize_attempt(self.out, aid)
+        finalize_path = self.out / "attempts" / aid / "FINALIZE_INTENT.json"
+        malformed = {
+            "schema_version": "wvma_v1.finalize_intent.v1",
+            "authority": True,
+            "attempt_id": "WVMA-20260101T000000Z-ffffffff",
+            "attempt_root_digest": "a" * 64,
+            "intended_status_digest": "b" * 64,
+            "result_references": [],
+            "unknown_field": True,
+        }
+        finalize_path.unlink()
+        # Bypass writer to plant adversarial finalize bytes.
+        finalize_path.write_text(json.dumps(malformed), encoding="utf-8")
+        self.assertEqual(derive_attempt_state(self.out, aid), AttemptState.RUN_INVALID)
+        with self.assertRaises(StateError):
+            verify_attempt(self.out, aid)
+
+    def test_attack4_escaped_attempt_id_rejected_before_mkdir(self):
+        bad = "WVMA-/../../../escaped-out-root"
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                catalog_digest=self.digest,
+                source_revision=ZERO,
+                runner_digest=ONE,
+                oracle_digest=TWO,
+                baseline_receipt_digest=THREE,
+                protected_path_inventory_digest=FOUR,
+                attempt_id=bad,
+            )
+        self.assertFalse((self.out / "escaped-out-root").exists())
+        attempts = self.out / "attempts"
+        if attempts.exists():
+            self.assertFalse(any(bad in str(p) for p in attempts.rglob("*")))
+
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import os
+import re
 import secrets
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -17,23 +18,28 @@ from wvma_v1.canonical import (
 )
 from wvma_v1.models import (
     ABSENT,
+    FINALIZE_INTENT_SCHEMA_VERSION,
     AttemptState,
     AttemptVerdict,
     CaseResult,
     Catalog,
     CatalogError,
+    FinalizeIntent,
     ResultClass,
     SchemaError,
     WVMAStatus,
     build_status,
     critical_acceptance_blocks,
+    load_strict_json,
     strict_parse_case_result,
     strict_parse_catalog,
+    strict_parse_finalize_intent,
     strict_parse_status,
 )
 
 ATTEMPT_INTENT_SCHEMA_VERSION = "wvma_v1.attempt_intent.v1"
-FINALIZE_INTENT_SCHEMA_VERSION = "wvma_v1.finalize_intent.v1"
+
+_ATTEMPT_ID_RE = re.compile(r"\AWVMA-([0-9]{8}T[0-9]{6}Z)-([0-9a-f]{8})\Z")
 
 
 class StateError(ValueError):
@@ -57,12 +63,64 @@ def _utc_now_iso() -> str:
     )
 
 
+def validate_attempt_id(attempt_id: str) -> str:
+    """Validate attempt ID grammar and UTC basic timestamp round-trip."""
+    if not isinstance(attempt_id, str):
+        raise StateError(
+            f"attempt_id must be str; got {type(attempt_id).__name__}"
+        )
+    match = _ATTEMPT_ID_RE.match(attempt_id)
+    if match is None:
+        raise StateError(
+            "attempt_id must match WVMA-<UTC_BASIC>-<8_lowercase_hex>"
+        )
+    ts = match.group(1)
+    try:
+        parsed = datetime.strptime(ts, "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=timezone.utc
+        )
+    except ValueError as exc:
+        raise StateError("attempt_id timestamp is not a real UTC basic time") from exc
+    if parsed.strftime("%Y%m%dT%H%M%SZ") != ts:
+        raise StateError("attempt_id timestamp does not round-trip")
+    return attempt_id
+
+
 def make_attempt_id(*, when: datetime | None = None, nonce: str | None = None) -> str:
     ts = (when or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
     token = nonce or secrets.token_hex(4)
     if len(token) != 8 or any(c not in "0123456789abcdef" for c in token):
         raise StateError("nonce must be 8 lowercase hex characters")
-    return f"WVMA-{ts}-{token}"
+    return validate_attempt_id(f"WVMA-{ts}-{token}")
+
+
+def _resolve_path(path: Path) -> Path:
+    return Path(path).resolve(strict=False)
+
+
+def assert_attempt_path_confined(out_root: Path, attempt_id: str) -> Path:
+    """Require candidate attempt path is exactly one direct child of attempts/."""
+    validate_attempt_id(attempt_id)
+    out_root_resolved = _resolve_path(out_root)
+    attempts = _resolve_path(out_root_resolved / "attempts")
+    try:
+        attempts.relative_to(out_root_resolved)
+    except ValueError as exc:
+        raise StateError("attempts directory escapes out_root") from exc
+    if attempts == out_root_resolved:
+        raise StateError("attempts directory escapes out_root")
+
+    # Join using the validated ID only; reject any nested/escaped form.
+    candidate = _resolve_path(attempts / attempt_id)
+    if candidate.parent != attempts:
+        raise StateError("attempt path is not a direct child of attempts")
+    if candidate.name != attempt_id:
+        raise StateError("attempt path name does not match attempt_id")
+    try:
+        candidate.relative_to(attempts)
+    except ValueError as exc:
+        raise StateError("attempt path escapes attempts directory") from exc
+    return candidate
 
 
 def _write_exclusive_bytes(path: Path, data: bytes) -> None:
@@ -140,8 +198,8 @@ def catalog_path(out_root: Path, catalog_digest: str) -> Path:
 
 
 def load_json(path: Path) -> Any:
-    with open(path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+    """Load JSON with duplicate object-key rejection."""
+    return load_strict_json(path)
 
 
 def sealed_catalog_digests(out_root: Path) -> list[str]:
@@ -246,12 +304,16 @@ def create_attempt(
     prior_attempt_root_digest: str | None = ABSENT,
 ) -> dict[str, Any]:
     out_root = Path(out_root)
-    catalog = load_sealed_catalog(out_root, catalog_digest)
     aid = attempt_id or make_attempt_id()
-    if not aid.startswith("WVMA-"):
-        raise StateError("attempt_id must use WVMA-<UTC_BASIC>-<8_HEX_NONCE>")
-    root = attempt_dir(out_root, aid)
+    # Grammar + confinement before any attempt filesystem mutation.
+    validate_attempt_id(aid)
+    assert_attempt_path_confined(out_root, aid)
+
+    catalog = load_sealed_catalog(out_root, catalog_digest)
+    root = assert_attempt_path_confined(out_root, aid)
     _mkdir_exclusive(root)
+    # Re-verify confinement after directory creation, before intent bytes.
+    root = assert_attempt_path_confined(out_root, aid)
     (root / "results").mkdir(parents=False, exist_ok=False)
     intent = _attempt_intent_body(
         attempt_id=aid,
@@ -270,6 +332,7 @@ def create_attempt(
 
 
 def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
+    validate_attempt_id(attempt_id)
     path = attempt_dir(out_root, attempt_id) / "ATTEMPT_INTENT.json"
     if not path.is_file():
         raise StateError(f"ATTEMPT_INTENT missing for {attempt_id}")
@@ -286,6 +349,7 @@ def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
 
 
 def list_published_results(out_root: Path, attempt_id: str) -> dict[str, CaseResult]:
+    validate_attempt_id(attempt_id)
     root = attempt_dir(out_root, attempt_id) / "results"
     published: dict[str, CaseResult] = {}
     if not root.is_dir():
@@ -309,6 +373,7 @@ def list_published_results(out_root: Path, attempt_id: str) -> dict[str, CaseRes
 
 def compute_attempt_root_digest(out_root: Path, attempt_id: str) -> str:
     """Digest over ATTEMPT_INTENT and immutable case-result files only."""
+    validate_attempt_id(attempt_id)
     root = attempt_dir(out_root, attempt_id)
     intent_path = root / "ATTEMPT_INTENT.json"
     if not intent_path.is_file():
@@ -331,6 +396,7 @@ def publish_case_result(
     result: CaseResult | Mapping[str, Any],
 ) -> CaseResult:
     out_root = Path(out_root)
+    validate_attempt_id(attempt_id)
     intent = _read_attempt_intent(out_root, attempt_id)
     if (attempt_dir(out_root, attempt_id) / "FINALIZE_INTENT.json").exists():
         raise StateError("cannot publish results after FINALIZE_INTENT")
@@ -371,13 +437,17 @@ def write_finalize_intent(
     result_references: list[dict[str, str]],
     attempt_root_digest: str,
 ) -> dict[str, Any]:
+    validate_attempt_id(attempt_id)
     root = attempt_dir(out_root, attempt_id)
     if not (root / "ATTEMPT_INTENT.json").is_file():
         raise StateError("FINALIZE_INTENT requires ATTEMPT_INTENT")
     if (root / "WVMA_STATUS.json").exists():
         raise StateError("cannot write FINALIZE_INTENT after WVMA_STATUS")
     refs = sorted(
-        [{"case_id": r["case_id"], "result_digest": r["result_digest"]} for r in result_references],
+        [
+            {"case_id": r["case_id"], "result_digest": r["result_digest"]}
+            for r in result_references
+        ],
         key=lambda x: x["case_id"],
     )
     body = {
@@ -388,14 +458,68 @@ def write_finalize_intent(
         "intended_status_digest": intended_status_digest,
         "result_references": refs,
     }
-    write_exclusive_json(root / "FINALIZE_INTENT.json", body)
-    return body
+    parsed = strict_parse_finalize_intent(body, expected_attempt_id=attempt_id)
+    write_exclusive_json(root / "FINALIZE_INTENT.json", parsed.to_dict())
+    return parsed.to_dict()
 
 
-def _compute_verdict_and_blockers(
+@dataclass(frozen=True)
+class TerminalSemantics:
+    state: AttemptState
+    verdict: AttemptVerdict | None
+    result_counts: dict[str, int]
+    blocking_case_ids: tuple[str, ...]
+    case_result_digests: tuple[dict[str, str], ...]
+
+
+def _invalid_terminal_semantics(
+    results: Mapping[str, CaseResult],
+) -> TerminalSemantics:
+    refs = tuple(
+        {"case_id": case_id, "result_digest": result.result_digest}
+        for case_id, result in sorted(results.items())
+    )
+    return TerminalSemantics(
+        state=AttemptState.RUN_INVALID,
+        verdict=None,
+        result_counts={},
+        blocking_case_ids=(),
+        case_result_digests=refs,
+    )
+
+
+def recompute_terminal_semantics(
     catalog: Catalog,
     results: Mapping[str, CaseResult],
-) -> tuple[AttemptState, AttemptVerdict | None, list[str], dict[str, int]]:
+) -> TerminalSemantics:
+    """Independently recompute terminal state from sealed catalog + results."""
+    mutations = {m.case_id: m for m in catalog.mutations}
+    for case_id, result in results.items():
+        if case_id not in mutations:
+            return _invalid_terminal_semantics(results)
+        mutation = mutations[case_id]
+        if result.case_id != case_id:
+            return _invalid_terminal_semantics(results)
+        if result.property_id != mutation.property_id:
+            return _invalid_terminal_semantics(results)
+        if result.catalog_digest != catalog.catalog_digest:
+            return _invalid_terminal_semantics(results)
+        if result.result_class == ResultClass.DETECTED:
+            if result.mutation_proof != {"applied": True}:
+                return _invalid_terminal_semantics(results)
+            if result.violation_proof != {"observed": True}:
+                return _invalid_terminal_semantics(results)
+            if result.verifier_exercise_proof != {"invoked": True}:
+                return _invalid_terminal_semantics(results)
+            oracle = result.oracle_result
+            if not (
+                oracle.mutation_valid is True
+                and oracle.property_violated is True
+                and oracle.verifier_exercised is True
+                and oracle.expected_rejection_observed is True
+            ):
+                return _invalid_terminal_semantics(results)
+
     counts = {cls.value: 0 for cls in ResultClass}
     blockers: list[str] = []
     missing_critical: list[str] = []
@@ -411,29 +535,62 @@ def _compute_verdict_and_blockers(
         if critical_acceptance_blocks(result.result_class):
             blockers.append(case_id)
 
-    # Non-critical published results still counted.
     for case_id, result in results.items():
         if case_id in catalog.critical_case_ids:
             continue
         counts[result.result_class.value] += 1
 
+    refs = tuple(
+        {"case_id": case_id, "result_digest": result.result_digest}
+        for case_id, result in sorted(results.items())
+    )
+    nonzero_counts = {k: v for k, v in sorted(counts.items()) if v}
+    sorted_blockers = tuple(sorted(set(blockers)))
+
     if missing_critical:
-        # Incomplete critical coverage cannot be COMPLETE.
-        return AttemptState.RUN_INCOMPLETE, None, sorted(set(blockers)), counts
+        return TerminalSemantics(
+            state=AttemptState.RUN_INCOMPLETE,
+            verdict=None,
+            result_counts=nonzero_counts,
+            blocking_case_ids=sorted_blockers,
+            case_result_digests=refs,
+        )
 
     if blockers:
-        return (
-            AttemptState.RUN_COMPLETE,
-            AttemptVerdict.CRITICAL_SURVIVOR,
-            sorted(set(blockers)),
-            counts,
+        return TerminalSemantics(
+            state=AttemptState.RUN_COMPLETE,
+            verdict=AttemptVerdict.CRITICAL_SURVIVOR,
+            result_counts=nonzero_counts,
+            blocking_case_ids=sorted_blockers,
+            case_result_digests=refs,
         )
-    return (
-        AttemptState.RUN_COMPLETE,
-        AttemptVerdict.ALL_CRITICAL_DETECTED,
-        [],
-        counts,
+
+    return TerminalSemantics(
+        state=AttemptState.RUN_COMPLETE,
+        verdict=AttemptVerdict.ALL_CRITICAL_DETECTED,
+        result_counts=nonzero_counts,
+        blocking_case_ids=(),
+        case_result_digests=refs,
     )
+
+
+def _status_semantics_match(
+    status: WVMAStatus,
+    semantics: TerminalSemantics,
+) -> bool:
+    if status.state != semantics.state:
+        return False
+    if status.verdict != semantics.verdict:
+        return False
+    if dict(status.result_counts) != dict(semantics.result_counts):
+        return False
+    if tuple(status.blocking_case_ids) != semantics.blocking_case_ids:
+        return False
+    status_refs = tuple(
+        {"case_id": x["case_id"], "result_digest": x["result_digest"]}
+        for x in status.case_result_digests
+    )
+    return status_refs == semantics.case_result_digests
 
 
 def finalize_attempt(
@@ -441,10 +598,10 @@ def finalize_attempt(
     attempt_id: str,
     *,
     completed_at: str | None = None,
-    force_state: AttemptState | None = None,
 ) -> WVMAStatus:
     """Status-last transaction: FINALIZE_INTENT then WVMA_STATUS."""
     out_root = Path(out_root)
+    validate_attempt_id(attempt_id)
     intent = _read_attempt_intent(out_root, attempt_id)
     root = attempt_dir(out_root, attempt_id)
     if (root / "FINALIZE_INTENT.json").exists() or (root / "WVMA_STATUS.json").exists():
@@ -453,30 +610,25 @@ def finalize_attempt(
     catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
     results = list_published_results(out_root, attempt_id)
     attempt_root = compute_attempt_root_digest(out_root, attempt_id)
-    state, verdict, blockers, counts = _compute_verdict_and_blockers(catalog, results)
-    if force_state is not None:
-        state = force_state
-        if state != AttemptState.RUN_COMPLETE:
-            verdict = None
-    refs = [
-        {"case_id": case_id, "result_digest": result.result_digest}
-        for case_id, result in sorted(results.items())
-    ]
+    semantics = recompute_terminal_semantics(catalog, results)
+    refs = [dict(x) for x in semantics.case_result_digests]
     status = build_status(
         attempt_id=attempt_id,
         catalog_digest=intent["catalog_digest"],
         source_revision=intent["source_revision"],
         runner_digest=intent["runner_digest"],
         oracle_digest=intent["oracle_digest"],
-        state=state,
-        verdict=verdict if verdict is not None else ABSENT,
+        state=semantics.state,
+        verdict=semantics.verdict if semantics.verdict is not None else ABSENT,
         baseline_receipt_digest=intent["baseline_receipt_digest"],
         case_result_digests=refs,
-        result_counts={k: v for k, v in counts.items() if v},
-        blocking_case_ids=blockers,
+        result_counts=dict(semantics.result_counts),
+        blocking_case_ids=list(semantics.blocking_case_ids),
         attempt_root_digest=attempt_root,
         completed_at=completed_at or _utc_now_iso(),
     )
+    if not _status_semantics_match(status, semantics):
+        raise StateError("constructed status diverges from recomputed semantics")
     write_finalize_intent(
         out_root,
         attempt_id,
@@ -490,21 +642,20 @@ def finalize_attempt(
 
 def _status_matches_finalize(
     status: WVMAStatus,
-    finalize: Mapping[str, Any],
+    finalize: FinalizeIntent,
     attempt_root: str,
 ) -> bool:
-    if status.status_digest != finalize.get("intended_status_digest"):
+    if status.status_digest != finalize.intended_status_digest:
         return False
-    if status.attempt_root_digest != finalize.get("attempt_root_digest"):
+    if status.attempt_root_digest != finalize.attempt_root_digest:
         return False
     if attempt_root != status.attempt_root_digest:
         return False
-    refs = [
+    refs = tuple(
         {"case_id": x["case_id"], "result_digest": x["result_digest"]}
         for x in status.case_result_digests
-    ]
-    intent_refs = list(finalize.get("result_references") or [])
-    return refs == intent_refs
+    )
+    return refs == finalize.result_references
 
 
 def derive_attempt_state(
@@ -518,6 +669,11 @@ def derive_attempt_state(
     if attempt_id is None:
         return AttemptState.CATALOG_SEALED
 
+    try:
+        validate_attempt_id(attempt_id)
+    except StateError:
+        return AttemptState.RUN_INVALID
+
     root = attempt_dir(out_root, attempt_id)
     if not root.exists():
         return AttemptState.CATALOG_SEALED
@@ -530,8 +686,8 @@ def derive_attempt_state(
         return AttemptState.RUN_INVALID
 
     try:
-        _read_attempt_intent(out_root, attempt_id)
-    except (StateError, SchemaError, json.JSONDecodeError, OSError):
+        intent = _read_attempt_intent(out_root, attempt_id)
+    except (StateError, SchemaError, OSError):
         return AttemptState.RUN_INVALID
 
     if status_path.is_file() and not finalize_path.is_file():
@@ -539,11 +695,12 @@ def derive_attempt_state(
 
     if finalize_path.is_file():
         try:
-            finalize = load_json(finalize_path)
-            if not isinstance(finalize, Mapping):
-                return AttemptState.RUN_INVALID
+            finalize = strict_parse_finalize_intent(
+                load_json(finalize_path),
+                expected_attempt_id=attempt_id,
+            )
             attempt_root = compute_attempt_root_digest(out_root, attempt_id)
-        except (StateError, SchemaError, json.JSONDecodeError, OSError):
+        except (StateError, SchemaError, OSError):
             return AttemptState.RUN_INVALID
 
         if not status_path.is_file():
@@ -553,25 +710,32 @@ def derive_attempt_state(
 
         try:
             status = strict_parse_status(load_json(status_path))
-            list_published_results(out_root, attempt_id)
-        except (StateError, SchemaError, json.JSONDecodeError, OSError):
+            results = list_published_results(out_root, attempt_id)
+            catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
+            semantics = recompute_terminal_semantics(catalog, results)
+        except (StateError, SchemaError, CatalogError, OSError):
             return AttemptState.RUN_INCOMPLETE
 
         if status.attempt_id != attempt_id:
             return AttemptState.RUN_INVALID
         if not _status_matches_finalize(status, finalize, attempt_root):
             return AttemptState.RUN_INCOMPLETE
-        return status.state
+        if semantics.state == AttemptState.RUN_INVALID:
+            return AttemptState.RUN_INVALID
+        if not _status_semantics_match(status, semantics):
+            return AttemptState.RUN_INVALID
+        return semantics.state
 
     # Intent present, no finalize.
     try:
         list_published_results(out_root, attempt_id)
-    except (StateError, SchemaError, json.JSONDecodeError, OSError):
+    except (StateError, SchemaError, OSError):
         return AttemptState.RUN_INVALID
     return AttemptState.RUN_IN_PROGRESS
 
 
 def verify_attempt(out_root: Path, attempt_id: str) -> AttemptState:
+    validate_attempt_id(attempt_id)
     state = derive_attempt_state(out_root, attempt_id)
     if state == AttemptState.RUN_INVALID:
         raise StateError(f"attempt {attempt_id} is RUN_INVALID")
@@ -581,8 +745,25 @@ def verify_attempt(out_root: Path, attempt_id: str) -> AttemptState:
         raise StateError(f"attempt {attempt_id} is still RUN_IN_PROGRESS")
     if state != AttemptState.RUN_COMPLETE:
         raise StateError(f"attempt {attempt_id} state={state.value}")
+
     root = attempt_dir(out_root, attempt_id)
+    intent = _read_attempt_intent(out_root, attempt_id)
     status = strict_parse_status(load_json(root / "WVMA_STATUS.json"))
+    finalize = strict_parse_finalize_intent(
+        load_json(root / "FINALIZE_INTENT.json"),
+        expected_attempt_id=attempt_id,
+    )
+    catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
+    results = list_published_results(out_root, attempt_id)
+    attempt_root = compute_attempt_root_digest(out_root, attempt_id)
+    semantics = recompute_terminal_semantics(catalog, results)
+
+    if semantics.state != AttemptState.RUN_COMPLETE:
+        raise StateError("recomputed terminal state is not RUN_COMPLETE")
+    if not _status_matches_finalize(status, finalize, attempt_root):
+        raise StateError("status/finalize/root binding failed")
+    if not _status_semantics_match(status, semantics):
+        raise StateError("stored status diverges from recomputed semantics")
     if status.verdict not in {
         AttemptVerdict.ALL_CRITICAL_DETECTED,
         AttemptVerdict.CRITICAL_SURVIVOR,
@@ -599,6 +780,7 @@ def create_recovery_attempt(
 ) -> dict[str, Any]:
     """Create a NEW attempt bound to the prior attempt's immutable root digest."""
     out_root = Path(out_root)
+    validate_attempt_id(prior_attempt_id)
     prior_root = attempt_dir(out_root, prior_attempt_id)
     if not prior_root.is_dir():
         raise StateError(f"prior attempt missing: {prior_attempt_id}")

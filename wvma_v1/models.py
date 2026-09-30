@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any, Mapping
 
 from wvma_v1.canonical import canonical_digest, digest_excluding_field
@@ -16,6 +17,7 @@ CATALOG_SCHEMA_VERSION = "wvma_v1.catalog.v1"
 RESULT_SCHEMA_VERSION = "wvma_v1.result.v1"
 STATUS_SCHEMA_VERSION = "wvma_v1.status.v1"
 ORACLE_SCHEMA_VERSION = "wvma_v1.oracle_result.v1"
+FINALIZE_INTENT_SCHEMA_VERSION = "wvma_v1.finalize_intent.v1"
 
 ALLOWED_OPERATION_ENUMS = frozenset(
     {
@@ -51,6 +53,36 @@ class SchemaError(ValueError):
 
 class CatalogError(SchemaError):
     """Catalog-specific schema or digest rejection."""
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[Any, Any]],
+) -> dict[str, Any]:
+    """object_pairs_hook: reject duplicate JSON object member names."""
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if not isinstance(key, str):
+            raise SchemaError(
+                f"JSON object keys must be str; got {type(key).__name__}"
+            )
+        if key in out:
+            raise SchemaError(f"duplicate JSON object key: {key}")
+        out[key] = value
+    return out
+
+
+def loads_strict_json(text: str) -> Any:
+    """Parse JSON text; duplicate object keys are rejected before mapping use."""
+    try:
+        return json.loads(text, object_pairs_hook=_reject_duplicate_json_keys)
+    except json.JSONDecodeError as exc:
+        raise SchemaError(f"invalid JSON: {exc}") from exc
+
+
+def load_strict_json(path: str | Path) -> Any:
+    """Load JSON from a path with duplicate-key rejection."""
+    with open(path, "r", encoding="utf-8") as fh:
+        return loads_strict_json(fh.read())
 
 
 class ResultClass(str, Enum):
@@ -397,6 +429,26 @@ class WVMAStatus:
         return payload
 
 
+@dataclass(frozen=True)
+class FinalizeIntent:
+    schema_version: str
+    authority: bool
+    attempt_id: str
+    attempt_root_digest: str
+    intended_status_digest: str
+    result_references: tuple[dict[str, str], ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "authority": self.authority,
+            "attempt_id": self.attempt_id,
+            "attempt_root_digest": self.attempt_root_digest,
+            "intended_status_digest": self.intended_status_digest,
+            "result_references": [dict(x) for x in self.result_references],
+        }
+
+
 _PROPERTY_FIELDS = {
     "property_id",
     "invariant",
@@ -491,6 +543,65 @@ _STATUS_FIELDS = {
 }
 
 _STATUS_REQUIRED_ALWAYS = _STATUS_FIELDS - {"verdict"}
+
+_FINALIZE_INTENT_FIELDS = {
+    "schema_version",
+    "authority",
+    "attempt_id",
+    "attempt_root_digest",
+    "intended_status_digest",
+    "result_references",
+}
+
+_MUTATION_PROOF_FIELDS = {"applied"}
+_VIOLATION_PROOF_FIELDS = {"observed"}
+_VERIFIER_EXERCISE_PROOF_FIELDS = {"invoked"}
+
+
+def _parse_exact_bool_proof(
+    value: Any,
+    field: str,
+    required_key: str,
+    allowed: set[str],
+) -> dict[str, bool]:
+    data = _require_mapping(value, field)
+    _reject_unknown(data, allowed, field)
+    _require_keys(data, allowed, field)
+    return {required_key: _require_bool(data[required_key], f"{field}.{required_key}")}
+
+
+def _enforce_detected_proof_invariant(
+    *,
+    result_class: ResultClass,
+    mutation_proof: Mapping[str, Any],
+    violation_proof: Mapping[str, Any],
+    verifier_exercise_proof: Mapping[str, Any],
+    oracle: OracleResult,
+) -> None:
+    if result_class != ResultClass.DETECTED:
+        return
+    if mutation_proof.get("applied") is not True:
+        raise SchemaError("DETECTED requires mutation_proof.applied == True")
+    if violation_proof.get("observed") is not True:
+        raise SchemaError("DETECTED requires violation_proof.observed == True")
+    if verifier_exercise_proof.get("invoked") is not True:
+        raise SchemaError(
+            "DETECTED requires verifier_exercise_proof.invoked == True"
+        )
+    if oracle.mutation_valid is not True:
+        raise SchemaError("DETECTED requires oracle_result.mutation_valid == True")
+    if oracle.property_violated is not True:
+        raise SchemaError(
+            "DETECTED requires oracle_result.property_violated == True"
+        )
+    if oracle.verifier_exercised is not True:
+        raise SchemaError(
+            "DETECTED requires oracle_result.verifier_exercised == True"
+        )
+    if oracle.expected_rejection_observed is not True:
+        raise SchemaError(
+            "DETECTED requires oracle_result.expected_rejection_observed == True"
+        )
 
 
 def _parse_property(value: Any, index: int) -> PropertySpec:
@@ -737,6 +848,31 @@ def strict_parse_case_result(value: Any) -> CaseResult:
         raise SchemaError("oracle_result.case_id must match case_id")
     if oracle.result_class != result_class:
         raise SchemaError("oracle_result.result_class must match result_class")
+    mutation_proof = _parse_exact_bool_proof(
+        data["mutation_proof"],
+        "mutation_proof",
+        "applied",
+        _MUTATION_PROOF_FIELDS,
+    )
+    violation_proof = _parse_exact_bool_proof(
+        data["violation_proof"],
+        "violation_proof",
+        "observed",
+        _VIOLATION_PROOF_FIELDS,
+    )
+    verifier_exercise_proof = _parse_exact_bool_proof(
+        data["verifier_exercise_proof"],
+        "verifier_exercise_proof",
+        "invoked",
+        _VERIFIER_EXERCISE_PROOF_FIELDS,
+    )
+    _enforce_detected_proof_invariant(
+        result_class=result_class,
+        mutation_proof=mutation_proof,
+        violation_proof=violation_proof,
+        verifier_exercise_proof=verifier_exercise_proof,
+        oracle=oracle,
+    )
     stored = _require_sha256(data["result_digest"], "result_digest")
     expected = digest_excluding_field(data, "result_digest")
     if stored != expected:
@@ -749,17 +885,9 @@ def strict_parse_case_result(value: Any) -> CaseResult:
         case_id=_require_str(data["case_id"], "case_id"),
         property_id=_require_str(data["property_id"], "property_id"),
         result_class=result_class,
-        mutation_proof=dict(
-            _require_mapping(data["mutation_proof"], "mutation_proof")
-        ),
-        violation_proof=dict(
-            _require_mapping(data["violation_proof"], "violation_proof")
-        ),
-        verifier_exercise_proof=dict(
-            _require_mapping(
-                data["verifier_exercise_proof"], "verifier_exercise_proof"
-            )
-        ),
+        mutation_proof=dict(mutation_proof),
+        violation_proof=dict(violation_proof),
+        verifier_exercise_proof=dict(verifier_exercise_proof),
         process_observation=dict(
             _require_mapping(data["process_observation"], "process_observation")
         ),
@@ -779,6 +907,67 @@ def strict_parse_case_result(value: Any) -> CaseResult:
         started_at=_require_str(data["started_at"], "started_at"),
         completed_at=_require_str(data["completed_at"], "completed_at"),
         result_digest=stored,
+    )
+
+
+def _parse_finalize_result_references(
+    value: Any,
+) -> tuple[dict[str, str], ...]:
+    items = _require_list(value, "result_references")
+    parsed: list[dict[str, str]] = []
+    seen_cases: set[str] = set()
+    for i, item in enumerate(items):
+        entry = _require_mapping(item, f"result_references[{i}]")
+        allowed = {"case_id", "result_digest"}
+        _reject_unknown(entry, allowed, f"result_references[{i}]")
+        _require_keys(entry, allowed, f"result_references[{i}]")
+        case_id = _require_str(entry["case_id"], f"result_references[{i}].case_id")
+        digest = _require_sha256(
+            entry["result_digest"], f"result_references[{i}].result_digest"
+        )
+        if case_id in seen_cases:
+            raise SchemaError(f"duplicate result_references case_id: {case_id}")
+        seen_cases.add(case_id)
+        parsed.append({"case_id": case_id, "result_digest": digest})
+    expected = sorted(parsed, key=lambda x: x["case_id"])
+    if parsed != expected:
+        raise SchemaError("result_references must be canonically sorted by case_id")
+    return tuple(parsed)
+
+
+def strict_parse_finalize_intent(
+    value: Any,
+    *,
+    expected_attempt_id: str | None = None,
+) -> FinalizeIntent:
+    data = _require_mapping(value, "finalize_intent")
+    _reject_unknown(data, _FINALIZE_INTENT_FIELDS, "finalize_intent")
+    _require_keys(data, _FINALIZE_INTENT_FIELDS, "finalize_intent")
+    schema_version = _require_str(data["schema_version"], "schema_version")
+    if schema_version != FINALIZE_INTENT_SCHEMA_VERSION:
+        raise SchemaError(
+            f"schema_version must be {FINALIZE_INTENT_SCHEMA_VERSION}; "
+            f"got {schema_version}"
+        )
+    authority = _require_authority_false(data["authority"])
+    attempt_id = _require_str(data["attempt_id"], "attempt_id")
+    if expected_attempt_id is not None and attempt_id != expected_attempt_id:
+        raise SchemaError(
+            f"finalize_intent.attempt_id foreign: {attempt_id} != {expected_attempt_id}"
+        )
+    return FinalizeIntent(
+        schema_version=schema_version,
+        authority=authority,
+        attempt_id=attempt_id,
+        attempt_root_digest=_require_sha256(
+            data["attempt_root_digest"], "attempt_root_digest"
+        ),
+        intended_status_digest=_require_sha256(
+            data["intended_status_digest"], "intended_status_digest"
+        ),
+        result_references=_parse_finalize_result_references(
+            data["result_references"]
+        ),
     )
 
 
@@ -942,6 +1131,19 @@ def build_case_result(
     filesystem_observations: list[str] | None = None,
     digest_observations: list[str] | None = None,
 ) -> CaseResult:
+    # Defaults are ABSENT-only; never synthesize via falsey `x or default`.
+    if mutation_proof is None:
+        mutation_proof = {"applied": True}
+    if violation_proof is None:
+        violation_proof = {"observed": True}
+    if verifier_exercise_proof is None:
+        verifier_exercise_proof = {"invoked": True}
+    if process_observation is None:
+        process_observation = {"exit_code": 0}
+    if filesystem_observations is None:
+        filesystem_observations = []
+    if digest_observations is None:
+        digest_observations = []
     body: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA_VERSION,
         "authority": False,
@@ -950,16 +1152,14 @@ def build_case_result(
         "case_id": case_id,
         "property_id": property_id,
         "result_class": result_class.value,
-        "mutation_proof": dict(mutation_proof or {"applied": True}),
-        "violation_proof": dict(violation_proof or {"observed": True}),
-        "verifier_exercise_proof": dict(
-            verifier_exercise_proof or {"invoked": True}
-        ),
-        "process_observation": dict(process_observation or {"exit_code": 0}),
+        "mutation_proof": dict(mutation_proof),
+        "violation_proof": dict(violation_proof),
+        "verifier_exercise_proof": dict(verifier_exercise_proof),
+        "process_observation": dict(process_observation),
         "filesystem_observations": _normalize_set_like(
-            list(filesystem_observations or [])
+            list(filesystem_observations)
         ),
-        "digest_observations": _normalize_set_like(list(digest_observations or [])),
+        "digest_observations": _normalize_set_like(list(digest_observations)),
         "oracle_result": oracle_result.to_dict(),
         "started_at": started_at,
         "completed_at": completed_at,
