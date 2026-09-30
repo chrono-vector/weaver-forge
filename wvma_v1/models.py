@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -18,6 +19,22 @@ RESULT_SCHEMA_VERSION = "wvma_v1.result.v1"
 STATUS_SCHEMA_VERSION = "wvma_v1.status.v1"
 ORACLE_SCHEMA_VERSION = "wvma_v1.oracle_result.v1"
 FINALIZE_INTENT_SCHEMA_VERSION = "wvma_v1.finalize_intent.v1"
+
+# Bounded ASCII grammar for identifiers used as single path components.
+SAFE_PATH_COMPONENT_MAX_LEN = 64
+_SAFE_PATH_COMPONENT_RE = re.compile(
+    rf"\A[A-Za-z0-9_-]{{1,{SAFE_PATH_COMPONENT_MAX_LEN}}}\Z"
+)
+_WINDOWS_RESERVED_DEVICE_NAMES = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
+    }
+)
 
 ALLOWED_OPERATION_ENUMS = frozenset(
     {
@@ -188,6 +205,44 @@ def _require_sha256(value: Any, field: str) -> str:
     if len(text) != 64 or any(c not in "0123456789abcdef" for c in text):
         raise SchemaError(f"{field} must be lowercase sha256 hex")
     return text
+
+
+def validate_safe_path_component(value: Any, field: str = "case_id") -> str:
+    """Validate a closed ASCII identifier safe as one path component.
+
+    Permits only [A-Za-z0-9_-] up to SAFE_PATH_COMPONENT_MAX_LEN.
+    Rejects empty, dot-segments, separators, absolute/drive/UNC/ADS forms,
+    trailing dot/space, controls, Windows reserved device names, Unicode
+    lookalikes, and overlength values.
+    """
+    if value is None:
+        raise SchemaError(f"{field} is PRESENT-invalid: null")
+    if isinstance(value, bool) or not isinstance(value, str):
+        raise SchemaError(
+            f"{field} must be str; got {type(value).__name__}"
+        )
+    if value == "":
+        raise SchemaError(f"{field} must be non-empty str")
+    if value in {".", ".."}:
+        raise SchemaError(f"{field} must not be a dot segment")
+    if len(value) > SAFE_PATH_COMPONENT_MAX_LEN:
+        raise SchemaError(
+            f"{field} exceeds max length {SAFE_PATH_COMPONENT_MAX_LEN}"
+        )
+    if value.endswith(".") or value.endswith(" "):
+        raise SchemaError(f"{field} must not have trailing dot or space")
+    if any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise SchemaError(f"{field} must not contain control characters")
+    if "/" in value or "\\" in value or ":" in value:
+        raise SchemaError(f"{field} must not contain path separators or colon")
+    if _SAFE_PATH_COMPONENT_RE.match(value) is None:
+        raise SchemaError(
+            f"{field} must be ASCII [A-Za-z0-9_-] length 1.."
+            f"{SAFE_PATH_COMPONENT_MAX_LEN}"
+        )
+    if value.upper() in _WINDOWS_RESERVED_DEVICE_NAMES:
+        raise SchemaError(f"{field} must not be a Windows reserved device name")
+    return value
 
 
 def _require_list(value: Any, field: str) -> list[Any]:
@@ -646,7 +701,9 @@ def _parse_mutation(value: Any, index: int) -> MutationSpec:
         data["operation_arguments"], f"mutations[{index}].operation_arguments"
     )
     return MutationSpec(
-        case_id=_require_str(data["case_id"], f"mutations[{index}].case_id"),
+        case_id=validate_safe_path_component(
+            data["case_id"], f"mutations[{index}].case_id"
+        ),
         property_id=_require_str(
             data["property_id"], f"mutations[{index}].property_id"
         ),
@@ -732,6 +789,9 @@ def strict_parse_catalog(value: Any) -> Catalog:
     case_ids = [m.case_id for m in mutations]
     if len(case_ids) != len(set(case_ids)):
         raise CatalogError("duplicate case_id values")
+    case_ids_folded = [c.casefold() for c in case_ids]
+    if len(case_ids_folded) != len(set(case_ids_folded)):
+        raise CatalogError("case_id case-collision alias under casefold policy")
 
     property_id_set = set(property_ids)
     for mutation in mutations:
@@ -741,8 +801,12 @@ def strict_parse_catalog(value: Any) -> Catalog:
                 f"{mutation.property_id}"
             )
 
+    raw_critical = _require_str_list(
+        data["critical_case_ids"], "critical_case_ids", set_like=True
+    )
     critical_case_ids = tuple(
-        _require_str_list(data["critical_case_ids"], "critical_case_ids", set_like=True)
+        validate_safe_path_component(case_id, f"critical_case_ids[{i}]")
+        for i, case_id in enumerate(raw_critical)
     )
     case_id_set = set(case_ids)
     for case_id in critical_case_ids:
@@ -808,7 +872,9 @@ def strict_parse_oracle_result(value: Any) -> OracleResult:
     return OracleResult(
         schema_version=schema_version,
         authority=_require_authority_false(data["authority"]),
-        case_id=_require_str(data["case_id"], "oracle_result.case_id"),
+        case_id=validate_safe_path_component(
+            data["case_id"], "oracle_result.case_id"
+        ),
         mutation_valid=_require_bool(
             data["mutation_valid"], "oracle_result.mutation_valid"
         ),
@@ -844,7 +910,8 @@ def strict_parse_case_result(value: Any) -> CaseResult:
         raise SchemaError(f"schema_version must be {RESULT_SCHEMA_VERSION}")
     result_class = _parse_result_class(data["result_class"], "result_class")
     oracle = strict_parse_oracle_result(data["oracle_result"])
-    if oracle.case_id != _require_str(data["case_id"], "case_id"):
+    case_id = validate_safe_path_component(data["case_id"], "case_id")
+    if oracle.case_id != case_id:
         raise SchemaError("oracle_result.case_id must match case_id")
     if oracle.result_class != result_class:
         raise SchemaError("oracle_result.result_class must match result_class")
@@ -882,7 +949,7 @@ def strict_parse_case_result(value: Any) -> CaseResult:
         authority=_require_authority_false(data["authority"]),
         attempt_id=_require_str(data["attempt_id"], "attempt_id"),
         catalog_digest=_require_sha256(data["catalog_digest"], "catalog_digest"),
-        case_id=_require_str(data["case_id"], "case_id"),
+        case_id=case_id,
         property_id=_require_str(data["property_id"], "property_id"),
         result_class=result_class,
         mutation_proof=dict(mutation_proof),

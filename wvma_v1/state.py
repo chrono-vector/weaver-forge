@@ -35,6 +35,7 @@ from wvma_v1.models import (
     strict_parse_catalog,
     strict_parse_finalize_intent,
     strict_parse_status,
+    validate_safe_path_component,
 )
 
 ATTEMPT_INTENT_SCHEMA_VERSION = "wvma_v1.attempt_intent.v1"
@@ -235,8 +236,22 @@ def attempt_dir(out_root: Path, attempt_id: str) -> Path:
     return attempts_dir(out_root) / attempt_id
 
 
+def _require_path_sha256(value: Any, field: str) -> str:
+    """Require exactly 64 lowercase hex before any digest-bearing path join."""
+    if value is None:
+        raise StateError(f"{field} is PRESENT-invalid: null")
+    if isinstance(value, bool) or not isinstance(value, str):
+        raise StateError(
+            f"{field} must be str; got {type(value).__name__}"
+        )
+    if _SHA256_HEX_RE.match(value) is None:
+        raise StateError(f"{field} must be lowercase sha256 hex")
+    return value
+
+
 def catalog_path(out_root: Path, catalog_digest: str) -> Path:
-    return catalogs_dir(out_root) / f"{catalog_digest}.json"
+    digest = _require_path_sha256(catalog_digest, "catalog_digest")
+    return catalogs_dir(out_root) / f"{digest}.json"
 
 
 def load_json(path: Path) -> Any:
@@ -245,24 +260,39 @@ def load_json(path: Path) -> Any:
 
 
 def sealed_catalog_digests(out_root: Path) -> list[str]:
+    """Return digests of sealed catalogs that parse and match their filename."""
     root = catalogs_dir(out_root)
     if not root.is_dir():
         return []
     digests = []
     for path in sorted(root.glob("*.json")):
-        digests.append(path.stem)
+        stem = path.stem
+        if _SHA256_HEX_RE.match(stem) is None:
+            continue
+        try:
+            catalog = strict_parse_catalog(load_json(path))
+        except (SchemaError, CatalogError, OSError):
+            continue
+        if catalog.catalog_digest != stem:
+            continue
+        digests.append(stem)
     return digests
 
 
 def seal_catalog(out_root: Path, catalog: Catalog | Mapping[str, Any] | Path) -> Catalog:
     """Seal catalog bytes under <out>/catalogs/<catalog_digest>.json."""
+    # Typed Catalog is untrusted: always re-parse from a mapping before write.
     if isinstance(catalog, Path):
         raw = load_json(catalog)
-        parsed = strict_parse_catalog(raw)
     elif isinstance(catalog, Catalog):
-        parsed = catalog
+        raw = catalog.to_dict()
     else:
-        parsed = strict_parse_catalog(catalog)
+        raw = catalog
+    parsed = strict_parse_catalog(raw)
+    if parsed.catalog_digest != digest_excluding_field(
+        parsed.to_dict(), "catalog_digest"
+    ):
+        raise CatalogError("catalog_digest mismatch")
 
     out_root = Path(out_root)
     dest = catalog_path(out_root, parsed.catalog_digest)
@@ -275,11 +305,13 @@ def seal_catalog(out_root: Path, catalog: Catalog | Mapping[str, Any] | Path) ->
 
 
 def load_sealed_catalog(out_root: Path, catalog_digest: str) -> Catalog:
-    path = catalog_path(out_root, catalog_digest)
+    # Always select by validated catalog_digest; never by catalog_id.
+    digest = _require_path_sha256(catalog_digest, "catalog_digest")
+    path = catalog_path(out_root, digest)
     if not path.is_file():
-        raise StateError(f"catalog not sealed: {catalog_digest}")
+        raise StateError(f"catalog not sealed: {digest}")
     catalog = strict_parse_catalog(load_json(path))
-    if catalog.catalog_digest != catalog_digest:
+    if catalog.catalog_digest != digest:
         raise CatalogError("sealed catalog digest mismatch")
     file_digest = sha256_file(path)
     # Path is content-addressed by catalog_digest (self-digest), not raw file hash.
@@ -289,6 +321,59 @@ def load_sealed_catalog(out_root: Path, catalog_digest: str) -> Catalog:
         raise CatalogError("sealed catalog self-digest invalid")
     _ = file_digest
     return catalog
+
+
+def validate_attempt_intent_catalog_binding(
+    intent: Mapping[str, Any],
+    catalog: Catalog,
+) -> None:
+    """Require exact ATTEMPT_INTENT ↔ sealed catalog identity binding."""
+    if not isinstance(intent, Mapping):
+        raise StateError("ATTEMPT_INTENT PRESENT-invalid")
+    for field in ("catalog_digest", "catalog_id", "product_base_sha"):
+        if field not in intent:
+            raise StateError(f"ATTEMPT_INTENT missing fields: ['{field}']")
+    if intent["catalog_digest"] != catalog.catalog_digest:
+        raise StateError("ATTEMPT_INTENT catalog_digest binding mismatch")
+    if intent["catalog_id"] != catalog.catalog_id:
+        raise StateError("ATTEMPT_INTENT catalog_id binding mismatch")
+    if intent["product_base_sha"] != catalog.product_base_sha:
+        raise StateError("ATTEMPT_INTENT product_base_sha binding mismatch")
+
+
+def assert_case_result_path_confined(
+    out_root: Path,
+    attempt_id: str,
+    case_id: str,
+) -> Path:
+    """Require case-result dir is exactly one direct child of attempt results/."""
+    try:
+        validated_case_id = validate_safe_path_component(case_id, "case_id")
+    except SchemaError as exc:
+        raise StateError(f"case_id PRESENT-invalid: {exc}") from exc
+    attempt_root = assert_attempt_path_confined(out_root, attempt_id)
+    results = _resolve_path(attempt_root / "results")
+    if results.parent != attempt_root:
+        raise StateError("results directory is not a direct child of attempt root")
+    try:
+        results.relative_to(attempt_root)
+    except ValueError as exc:
+        raise StateError("results directory escapes attempt root") from exc
+
+    candidate = _resolve_path(results / validated_case_id)
+    if candidate.parent != results:
+        raise StateError("case result path is not a direct child of results")
+    if candidate.name != validated_case_id:
+        raise StateError("case result path name does not match case_id")
+    try:
+        candidate.relative_to(attempt_root)
+    except ValueError as exc:
+        raise StateError("case result path escapes attempt root") from exc
+    try:
+        candidate.relative_to(results)
+    except ValueError as exc:
+        raise StateError("case result path escapes results directory") from exc
+    return candidate
 
 
 def _require_intent_str(value: Any, field: str) -> str:
@@ -467,8 +552,11 @@ def validate_recovery_binding(
         raise StateError("prior_attempt_root_digest mismatch")
 
     # Content-addressing alone is insufficient: prior intent must be a valid
-    # WVMA attempt intent. Structural only — no recursive lineage walk.
-    load_attempt_intent_structure(out_root, validated_prior_id)
+    # WVMA attempt intent. Structural + catalog binding only — no recursive
+    # lineage walk beyond this immediate prior node.
+    prior_intent = load_attempt_intent_structure(out_root, validated_prior_id)
+    prior_catalog = load_sealed_catalog(out_root, prior_intent["catalog_digest"])
+    validate_attempt_intent_catalog_binding(prior_intent, prior_catalog)
 
     return validated_prior_id, prior_attempt_root_digest
 
@@ -540,12 +628,9 @@ def create_attempt(
         prior_attempt_root_digest=prior_attempt_root_digest,
     )
 
+    # Load sealed catalog by validated digest only; never by catalog_id.
     catalog = load_sealed_catalog(out_root, catalog_digest)
-    root = assert_attempt_path_confined(out_root, aid)
-    _mkdir_exclusive(root)
-    # Re-verify confinement after directory creation, before intent bytes.
-    root = assert_attempt_path_confined(out_root, aid)
-    (root / "results").mkdir(parents=False, exist_ok=False)
+    # Construct and fully validate intent in memory before any mkdir/write.
     intent = _attempt_intent_body(
         attempt_id=aid,
         catalog=catalog,
@@ -558,12 +643,25 @@ def create_attempt(
         prior_attempt_id=prior_id,
         prior_attempt_root_digest=prior_digest,
     )
+    intent = validate_attempt_intent_structure(
+        intent,
+        expected_attempt_id=aid,
+    )
+    validate_attempt_intent_catalog_binding(intent, catalog)
+
+    root = assert_attempt_path_confined(out_root, aid)
+    _mkdir_exclusive(root)
+    # Re-verify confinement after directory creation, before intent bytes.
+    root = assert_attempt_path_confined(out_root, aid)
+    (root / "results").mkdir(parents=False, exist_ok=False)
     write_exclusive_json(root / "ATTEMPT_INTENT.json", intent)
     return intent
 
 
 def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
     data = load_attempt_intent_structure(out_root, attempt_id)
+    catalog = load_sealed_catalog(out_root, data["catalog_digest"])
+    validate_attempt_intent_catalog_binding(data, catalog)
 
     has_prior_id = "prior_attempt_id" in data
     has_prior_digest = "prior_attempt_root_digest" in data
@@ -633,16 +731,16 @@ def publish_case_result(
     intent = _read_attempt_intent(out_root, attempt_id)
     if (attempt_dir(out_root, attempt_id) / "FINALIZE_INTENT.json").exists():
         raise StateError("cannot publish results after FINALIZE_INTENT")
-    parsed = (
-        result
-        if isinstance(result, CaseResult)
-        else strict_parse_case_result(result)
-    )
+    # Typed CaseResult is untrusted: always re-parse from a mapping before paths.
+    raw = result.to_dict() if isinstance(result, CaseResult) else result
+    parsed = strict_parse_case_result(raw)
+    result_digest = _require_path_sha256(parsed.result_digest, "result_digest")
     if parsed.attempt_id != attempt_id:
         raise StateError("result attempt_id mismatch")
     if parsed.catalog_digest != intent["catalog_digest"]:
         raise ReplayError("foreign catalog case rejected")
     catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
+    validate_attempt_intent_catalog_binding(intent, catalog)
     try:
         mutation = catalog.mutation_by_case_id(parsed.case_id)
     except CatalogError as exc:
@@ -650,15 +748,23 @@ def publish_case_result(
     if parsed.property_id != mutation.property_id:
         raise StateError("result property_id does not match catalog mutation")
 
-    case_dir = attempt_dir(out_root, attempt_id) / "results" / parsed.case_id
+    case_dir = assert_case_result_path_confined(
+        out_root, attempt_id, parsed.case_id
+    )
+    dest_name = f"{result_digest}.json"
+    dest_candidate = _resolve_path(case_dir / dest_name)
+    if dest_candidate.parent != _resolve_path(case_dir):
+        raise StateError("result digest path escapes case directory")
+    if dest_candidate.name != dest_name or dest_candidate.stem != result_digest:
+        raise StateError("result digest path name does not match result_digest")
+
     try:
         case_dir.mkdir(parents=False, exist_ok=False)
     except FileExistsError as exc:
         raise ReplayError(
             f"duplicate case publication rejected: {parsed.case_id}"
         ) from exc
-    dest = case_dir / f"{parsed.result_digest}.json"
-    write_exclusive_json(dest, parsed.to_dict())
+    write_exclusive_json(dest_candidate, parsed.to_dict())
     return parsed
 
 
@@ -840,11 +946,18 @@ def finalize_attempt(
     if (root / "FINALIZE_INTENT.json").exists() or (root / "WVMA_STATUS.json").exists():
         raise ReplayError("finalize already started or completed")
 
+    # Intent already catalog-bound via _read_attempt_intent; reload by digest.
     catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
+    validate_attempt_intent_catalog_binding(intent, catalog)
     results = list_published_results(out_root, attempt_id)
     attempt_root = compute_attempt_root_digest(out_root, attempt_id)
     semantics = recompute_terminal_semantics(catalog, results)
     refs = [dict(x) for x in semantics.case_result_digests]
+    # Explicit None only: falsey/malformed supplied completed_at must reject.
+    if completed_at is None:
+        resolved_completed_at = _utc_now_iso()
+    else:
+        resolved_completed_at = completed_at
     status = build_status(
         attempt_id=attempt_id,
         catalog_digest=intent["catalog_digest"],
@@ -858,7 +971,7 @@ def finalize_attempt(
         result_counts=dict(semantics.result_counts),
         blocking_case_ids=list(semantics.blocking_case_ids),
         attempt_root_digest=attempt_root,
-        completed_at=completed_at or _utc_now_iso(),
+        completed_at=resolved_completed_at,
     )
     if not _status_semantics_match(status, semantics):
         raise StateError("constructed status diverges from recomputed semantics")
@@ -987,6 +1100,7 @@ def verify_attempt(out_root: Path, attempt_id: str) -> AttemptState:
         expected_attempt_id=attempt_id,
     )
     catalog = load_sealed_catalog(out_root, intent["catalog_digest"])
+    validate_attempt_intent_catalog_binding(intent, catalog)
     results = list_published_results(out_root, attempt_id)
     attempt_root = compute_attempt_root_digest(out_root, attempt_id)
     semantics = recompute_terminal_semantics(catalog, results)
@@ -1031,9 +1145,11 @@ def create_recovery_attempt(
         for p in sorted(prior_root.rglob("*"))
         if p.is_file()
     }
-    # Structural read only: recovery provenance must not recursively walk the
-    # prior attempt's own recovery lineage.
+    # Structural + catalog-binding read only: recovery provenance must not
+    # recursively walk the prior attempt's own recovery lineage.
     prior_intent = load_attempt_intent_structure(out_root, prior_attempt_id)
+    prior_catalog = load_sealed_catalog(out_root, prior_intent["catalog_digest"])
+    validate_attempt_intent_catalog_binding(prior_intent, prior_catalog)
 
     new_intent = create_attempt(
         out_root,

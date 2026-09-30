@@ -9,8 +9,10 @@ from pathlib import Path
 
 from wvma_v1.canonical import digest_excluding_field
 from wvma_v1.models import (
+    SAFE_PATH_COMPONENT_MAX_LEN,
     AttemptState,
     AttemptVerdict,
+    CatalogError,
     ResultClass,
     SchemaError,
     build_case_result,
@@ -22,6 +24,7 @@ from wvma_v1.models import (
     strict_parse_catalog,
     strict_parse_finalize_intent,
     strict_parse_status,
+    validate_safe_path_component,
 )
 
 FIXTURE = (
@@ -395,6 +398,76 @@ class FinalizeIntentStrictTests(unittest.TestCase):
         )
         self.assertEqual(parsed.attempt_id, data["attempt_id"])
         self.assertFalse(parsed.authority)
+
+
+class SafePathComponentAndCatalogCaseIdTests(unittest.TestCase):
+    """A1-M1: bounded ASCII path-component grammar for case_id."""
+
+    def _catalog_with_case_id(self, case_id: str) -> dict:
+        data = _load_catalog_dict()
+        data["mutations"][0]["case_id"] = case_id
+        # Keep critical list consistent when replacing the first critical case.
+        data["critical_case_ids"] = [
+            case_id if cid == "WVMA-S01-M01" else cid
+            for cid in data["critical_case_ids"]
+        ]
+        data["catalog_digest"] = digest_excluding_field(data, "catalog_digest")
+        return data
+
+    def test_validate_safe_path_component_accepts_fixture_ids(self):
+        self.assertEqual(
+            validate_safe_path_component("WVMA-S01-M01"), "WVMA-S01-M01"
+        )
+
+    def test_unsafe_case_id_forms_rejected(self):
+        bad_ids = [
+            "",
+            ".",
+            "..",
+            "../../../../A1_CASE_ESCAPE",
+            "a/b",
+            "a\\b",
+            "/absolute",
+            "C:ADS",
+            "\\\\server\\share\\x",
+            "name:stream",
+            "trailing.",
+            "trailing ",
+            "CON",
+            "con",
+            "COM1",
+            "lpt9",
+            "has\x00null",
+            "WVMA-S01-M0１",  # fullwidth digit lookalike
+            "А",  # Cyrillic A
+            "A" * (SAFE_PATH_COMPONENT_MAX_LEN + 1),
+        ]
+        for bad in bad_ids:
+            with self.subTest(case_id=bad):
+                with self.assertRaises(SchemaError):
+                    validate_safe_path_component(bad)
+                with self.assertRaises((SchemaError, CatalogError)):
+                    strict_parse_catalog(self._catalog_with_case_id(bad))
+
+    def test_case_collision_alias_rejects(self):
+        data = _load_catalog_dict()
+        twin = copy.deepcopy(data["mutations"][0])
+        twin["case_id"] = "wvma-s01-m01"
+        twin["critical"] = False
+        data["mutations"].append(twin)
+        data["catalog_digest"] = digest_excluding_field(data, "catalog_digest")
+        with self.assertRaises(CatalogError):
+            strict_parse_catalog(data)
+
+    def test_self_digested_malicious_catalog_unsafe_case_id_rejects(self):
+        data = self._catalog_with_case_id("../../../../A1_CASE_ESCAPE")
+        # Digest is self-consistent; rejection must still be by grammar.
+        self.assertEqual(
+            data["catalog_digest"],
+            digest_excluding_field(data, "catalog_digest"),
+        )
+        with self.assertRaises((SchemaError, CatalogError)):
+            strict_parse_catalog(data)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import json
 import shutil
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from wvma_v1.canonical import digest_excluding_field, sha256_file
@@ -13,12 +14,14 @@ from wvma_v1.models import (
     ABSENT,
     AttemptState,
     AttemptVerdict,
+    CatalogError,
     ResultClass,
     SchemaError,
     build_case_result,
     build_oracle_result,
     build_status,
     strict_parse_case_result,
+    strict_parse_catalog,
 )
 from wvma_v1.state import (
     ReplayError,
@@ -35,6 +38,7 @@ from wvma_v1.state import (
     recompute_terminal_semantics,
     seal_catalog,
     validate_attempt_id,
+    validate_attempt_intent_catalog_binding,
     verify_attempt,
     write_exclusive_json,
     write_finalize_intent,
@@ -1352,6 +1356,288 @@ class PriorAttemptProvenanceRemediationTests(unittest.TestCase):
         self.assertFalse(
             (self.out / "attempts" / "WVMA-20260101T010000Z-abc0000a").exists()
         )
+
+
+class ConsolidatedA1RemediationTests(unittest.TestCase):
+    """A1-M1/M2/M3 consolidated remediation + direct retests."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _create_kwargs(self, **overrides):
+        kwargs = {
+            "catalog_digest": self.digest,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+        }
+        kwargs.update(overrides)
+        return kwargs
+
+    def _create(self, attempt_id: str = "WVMA-20260101T000000Z-aaaaaaaa"):
+        return create_attempt(self.out, **self._create_kwargs(attempt_id=attempt_id))
+
+    def _snapshot_fs(self) -> set[str]:
+        return {p.as_posix() for p in self.out.rglob("*")}
+
+    def _publish_all_detected(self, aid: str) -> None:
+        for case_id in self.catalog.critical_case_ids:
+            publish_case_result(
+                self.out,
+                aid,
+                _result(aid, self.digest, case_id, ResultClass.DETECTED),
+            )
+
+    def test_m1_traversal_case_id_catalog_rejects_no_escape(self):
+        data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        data["mutations"][0]["case_id"] = "../../../../A1_CASE_ESCAPE"
+        data["critical_case_ids"] = [
+            "../../../../A1_CASE_ESCAPE" if c == "WVMA-S01-M01" else c
+            for c in data["critical_case_ids"]
+        ]
+        data["catalog_digest"] = digest_excluding_field(data, "catalog_digest")
+        with self.assertRaises((SchemaError, CatalogError)):
+            strict_parse_catalog(data)
+        with self.assertRaises((SchemaError, CatalogError, StateError)):
+            seal_catalog(self.out, data)
+        self.assertFalse((self.out / "A1_CASE_ESCAPE").exists())
+        self.assertFalse(
+            any("A1_CASE_ESCAPE" in str(p) for p in self.out.rglob("*"))
+        )
+
+    def test_m2_typed_case_result_malicious_digest_rejects_before_case_dir(self):
+        intent = self._create("WVMA-20260101T000000Z-a2d00001")
+        aid = intent["attempt_id"]
+        good = _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED)
+        evil = replace(good, result_digest="../evil_result_digest")
+        results_root = self.out / "attempts" / aid / "results"
+        before = self._snapshot_fs()
+        with self.assertRaises((SchemaError, StateError)):
+            publish_case_result(self.out, aid, evil)
+        self.assertEqual(before, self._snapshot_fs())
+        self.assertFalse((results_root / "WVMA-S01-M01").exists())
+        self.assertFalse(any("evil_result" in str(p) for p in self.out.rglob("*")))
+
+    def test_m2_typed_case_result_traversal_case_id_rejects_before_case_dir(self):
+        intent = self._create("WVMA-20260101T000000Z-a2d00002")
+        aid = intent["attempt_id"]
+        good = _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED)
+        evil = replace(good, case_id="../../../../A1_CASE_ESCAPE")
+        before = self._snapshot_fs()
+        with self.assertRaises((SchemaError, StateError)):
+            publish_case_result(self.out, aid, evil)
+        self.assertEqual(before, self._snapshot_fs())
+        self.assertFalse((self.out / "A1_CASE_ESCAPE").exists())
+
+    def test_m2_typed_invalid_authority_and_schema_and_proof_reject(self):
+        intent = self._create("WVMA-20260101T000000Z-a2d00003")
+        aid = intent["attempt_id"]
+        good = _result(aid, self.digest, "WVMA-S01-M01", ResultClass.DETECTED)
+        before = self._snapshot_fs()
+        for evil in (
+            replace(good, authority=True),
+            replace(good, schema_version="wvma_v1.result.NOT_A_SCHEMA"),
+            replace(good, mutation_proof={"applied": False}),
+        ):
+            with self.subTest(evil=evil):
+                with self.assertRaises((SchemaError, StateError)):
+                    publish_case_result(self.out, aid, evil)
+                self.assertEqual(before, self._snapshot_fs())
+
+    def test_m2_create_attempt_falsey_digest_fields_create_no_state(self):
+        before_dirs = {
+            p.name
+            for p in (self.out / "attempts").iterdir()
+            if (self.out / "attempts").is_dir() and p.is_dir()
+        } if (self.out / "attempts").exists() else set()
+        before = self._snapshot_fs()
+        for field in (
+            "source_revision",
+            "runner_digest",
+            "oracle_digest",
+            "baseline_receipt_digest",
+            "protected_path_inventory_digest",
+            "catalog_digest",
+        ):
+            for bad in ("", False, "not-hex", "A" * 64):
+                with self.subTest(field=field, bad=bad):
+                    kwargs = self._create_kwargs(
+                        attempt_id="WVMA-20260101T000000Z-a2c00001"
+                    )
+                    kwargs[field] = bad
+                    with self.assertRaises(StateError):
+                        create_attempt(self.out, **kwargs)
+                    after_dirs = {
+                        p.name
+                        for p in (self.out / "attempts").iterdir()
+                        if p.is_dir()
+                    } if (self.out / "attempts").exists() else set()
+                    self.assertEqual(before_dirs, after_dirs)
+                    self.assertEqual(before, self._snapshot_fs())
+
+    def test_m2_typed_catalog_malicious_digest_direct_retest(self):
+        evil = replace(self.catalog, catalog_digest="../../evil_catalog")
+        catalogs = self.out / "catalogs"
+        before = set(catalogs.rglob("*"))
+        with self.assertRaises((CatalogError, SchemaError, StateError)):
+            seal_catalog(self.out, evil)
+        self.assertEqual(before, set(catalogs.rglob("*")))
+
+    def test_m3_catalog_binding_mismatches_fail_finalize_and_verify(self):
+        intent = self._create("WVMA-20260101T000000Z-a3b00001")
+        aid = intent["attempt_id"]
+        self._publish_all_detected(aid)
+        intent_path = self.out / "attempts" / aid / "ATTEMPT_INTENT.json"
+        data = json.loads(intent_path.read_text(encoding="utf-8"))
+        for field, value in (
+            ("catalog_id", "FORGED-CATALOG-ID"),
+            ("product_base_sha", "f" * 64),
+            ("catalog_digest", "e" * 64),
+        ):
+            with self.subTest(field=field):
+                tampered = dict(data)
+                tampered[field] = value
+                intent_path.write_text(
+                    json.dumps(tampered, sort_keys=True, separators=(",", ":")),
+                    encoding="utf-8",
+                )
+                self.assertNotEqual(
+                    derive_attempt_state(self.out, aid),
+                    AttemptState.RUN_COMPLETE,
+                )
+                with self.assertRaises(StateError):
+                    finalize_attempt(self.out, aid)
+                # Restore valid intent bytes for next subtest.
+                intent_path.write_text(
+                    json.dumps(data, sort_keys=True, separators=(",", ":")),
+                    encoding="utf-8",
+                )
+
+    def test_m3_recomputed_digests_cannot_rescue_binding_mismatch(self):
+        intent = self._create("WVMA-20260101T000000Z-a3b00002")
+        aid = intent["attempt_id"]
+        self._publish_all_detected(aid)
+        intent_path = self.out / "attempts" / aid / "ATTEMPT_INTENT.json"
+        data = json.loads(intent_path.read_text(encoding="utf-8"))
+        data["catalog_id"] = "FORGED-CATALOG-ID"
+        data["product_base_sha"] = "f" * 64
+        intent_path.write_text(
+            json.dumps(data, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        with self.assertRaises(StateError):
+            finalize_attempt(self.out, aid)
+        # Even after planting finalize/status with recomputed root digests,
+        # verification and derivation must not reach RUN_COMPLETE.
+        results = list_published_results(self.out, aid)
+        # list_published_results does not require intent binding; forge terminal.
+        refs = [
+            {"case_id": cid, "result_digest": r.result_digest}
+            for cid, r in sorted(results.items())
+        ]
+        # Bypass finalize_attempt: write finalize/status with recomputed root.
+        # Use original sealed digest in status so only intent binding is wrong.
+        attempt_root = compute_attempt_root_digest(self.out, aid)
+        forged_status = build_status(
+            attempt_id=aid,
+            catalog_digest=self.digest,
+            source_revision=ZERO,
+            runner_digest=ONE,
+            oracle_digest=TWO,
+            state=AttemptState.RUN_COMPLETE,
+            verdict=AttemptVerdict.ALL_CRITICAL_DETECTED,
+            baseline_receipt_digest=THREE,
+            case_result_digests=refs,
+            result_counts={"DETECTED": 2},
+            blocking_case_ids=[],
+            attempt_root_digest=attempt_root,
+            completed_at="2026-01-01T00:00:02Z",
+        )
+        root = self.out / "attempts" / aid
+        write_finalize_intent(
+            self.out,
+            aid,
+            intended_status_digest=forged_status.status_digest,
+            result_references=refs,
+            attempt_root_digest=attempt_root,
+        )
+        write_exclusive_json(root / "WVMA_STATUS.json", forged_status.to_dict())
+        self.assertNotEqual(
+            derive_attempt_state(self.out, aid), AttemptState.RUN_COMPLETE
+        )
+        with self.assertRaises(StateError):
+            verify_attempt(self.out, aid)
+
+    def test_m3_immediate_prior_recovery_inconsistent_binding_rejects(self):
+        prior_id = "WVMA-20260101T000000Z-a3c00001"
+        root = assert_attempt_path_confined(self.out, prior_id)
+        root.mkdir(parents=True, exist_ok=False)
+        (root / "results").mkdir(parents=False, exist_ok=False)
+        prior_intent = {
+            "schema_version": "wvma_v1.attempt_intent.v1",
+            "authority": False,
+            "attempt_id": prior_id,
+            "catalog_id": "FORGED-CATALOG-ID",
+            "catalog_digest": self.digest,
+            "product_base_sha": self.catalog.product_base_sha,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        (root / "ATTEMPT_INTENT.json").write_text(
+            json.dumps(prior_intent, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        prior_digest = compute_attempt_root_digest(self.out, prior_id)
+        before = {
+            p.name for p in (self.out / "attempts").iterdir() if p.is_dir()
+        }
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id="WVMA-20260101T010000Z-a3c00002",
+                    prior_attempt_id=prior_id,
+                    prior_attempt_root_digest=prior_digest,
+                ),
+            )
+        after = {
+            p.name for p in (self.out / "attempts").iterdir() if p.is_dir()
+        }
+        self.assertEqual(before, after)
+
+    def test_m3_valid_binding_finalizes_and_verifies(self):
+        intent = self._create("WVMA-20260101T000000Z-a3d00001")
+        aid = intent["attempt_id"]
+        validate_attempt_intent_catalog_binding(intent, self.catalog)
+        self._publish_all_detected(aid)
+        status = finalize_attempt(self.out, aid)
+        self.assertEqual(status.state, AttemptState.RUN_COMPLETE)
+        self.assertEqual(
+            verify_attempt(self.out, aid), AttemptState.RUN_COMPLETE
+        )
+
+    def test_optional_completed_at_falsey_rejects(self):
+        intent = self._create("WVMA-20260101T000000Z-0f700001")
+        aid = intent["attempt_id"]
+        self._publish_all_detected(aid)
+        for bad in ("", False):
+            with self.subTest(completed_at=bad):
+                with self.assertRaises((SchemaError, StateError)):
+                    finalize_attempt(self.out, aid, completed_at=bad)
+        status = finalize_attempt(self.out, aid, completed_at=None)
+        self.assertEqual(status.state, AttemptState.RUN_COMPLETE)
 
 
 if __name__ == "__main__":
