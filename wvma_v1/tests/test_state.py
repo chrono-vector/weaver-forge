@@ -1091,6 +1091,269 @@ class ResidualA1IdentityAndRecoveryTests(unittest.TestCase):
         self.assertEqual(before_bytes, after_bytes)
 
 
+class PriorAttemptProvenanceRemediationTests(unittest.TestCase):
+    """A1-R2-M1: recovery provenance requires strict prior ATTEMPT_INTENT."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.catalog = seal_catalog(self.out, FIXTURE)
+        self.digest = self.catalog.catalog_digest
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _create_kwargs(self, **overrides):
+        kwargs = {
+            "catalog_digest": self.digest,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+        }
+        kwargs.update(overrides)
+        return kwargs
+
+    def _create(self, attempt_id: str = "WVMA-20260101T000000Z-aaaaaaaa"):
+        return create_attempt(self.out, **self._create_kwargs(attempt_id=attempt_id))
+
+    def _attempt_dirs(self):
+        attempts = self.out / "attempts"
+        if not attempts.is_dir():
+            return set()
+        return {p.name for p in attempts.iterdir() if p.is_dir()}
+
+    def _plant_prior_intent(self, attempt_id: str, intent_obj: dict) -> str:
+        """Plant a confined prior attempt directory and return its root digest."""
+        root = assert_attempt_path_confined(self.out, attempt_id)
+        root.mkdir(parents=True, exist_ok=False)
+        (root / "results").mkdir(parents=False, exist_ok=False)
+        intent_path = root / "ATTEMPT_INTENT.json"
+        intent_path.write_text(
+            json.dumps(intent_obj, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        return compute_attempt_root_digest(self.out, attempt_id)
+
+    def _malformed_base(self, attempt_id: str, **overrides) -> dict:
+        body = {
+            "schema_version": "wvma_v1.attempt_intent.v1",
+            "authority": False,
+            "attempt_id": attempt_id,
+            "catalog_id": self.catalog.catalog_id,
+            "catalog_digest": self.digest,
+            "product_base_sha": self.catalog.product_base_sha,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        body.update(overrides)
+        return body
+
+    def _reject_recovery_from_prior(
+        self, prior_id: str, prior_digest: str, successor_id: str
+    ) -> None:
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id=successor_id,
+                    prior_attempt_id=prior_id,
+                    prior_attempt_root_digest=prior_digest,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+        self.assertNotIn(successor_id, self._attempt_dirs())
+
+    def test_prior_authority_true_rejects_before_successor_creation(self):
+        prior_id = "WVMA-20260101T000000Z-bad00001"
+        digest = self._plant_prior_intent(
+            prior_id,
+            self._malformed_base(prior_id, authority=True),
+        )
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00001"
+        )
+
+    def test_prior_foreign_attempt_id_rejects(self):
+        prior_id = "WVMA-20260101T000000Z-bad00002"
+        body = self._malformed_base(prior_id)
+        body["attempt_id"] = "WVMA-20260101T000000Z-f01e1901"
+        digest = self._plant_prior_intent(prior_id, body)
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00002"
+        )
+
+    def test_prior_invalid_schema_rejects(self):
+        prior_id = "WVMA-20260101T000000Z-bad00003"
+        digest = self._plant_prior_intent(
+            prior_id,
+            self._malformed_base(
+                prior_id,
+                schema_version="wvma_v1.attempt_intent.NOT_A_SCHEMA",
+            ),
+        )
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00003"
+        )
+
+    def test_prior_unknown_field_rejects(self):
+        prior_id = "WVMA-20260101T000000Z-bad00004"
+        digest = self._plant_prior_intent(
+            prior_id,
+            self._malformed_base(prior_id, forged_extra="nope"),
+        )
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00004"
+        )
+
+    def test_prior_duplicate_json_key_rejects(self):
+        prior_id = "WVMA-20260101T000000Z-bad00005"
+        root = assert_attempt_path_confined(self.out, prior_id)
+        root.mkdir(parents=True, exist_ok=False)
+        (root / "results").mkdir(parents=False, exist_ok=False)
+        # Duplicate members: second authority must not be accepted via last-wins.
+        raw = (
+            '{"schema_version":"wvma_v1.attempt_intent.v1",'
+            '"authority":false,'
+            '"authority":true,'
+            f'"attempt_id":"{prior_id}",'
+            f'"catalog_id":"{self.catalog.catalog_id}",'
+            f'"catalog_digest":"{self.digest}",'
+            f'"product_base_sha":"{self.catalog.product_base_sha}",'
+            f'"source_revision":"{ZERO}",'
+            f'"runner_digest":"{ONE}",'
+            f'"oracle_digest":"{TWO}",'
+            f'"baseline_receipt_digest":"{THREE}",'
+            f'"protected_path_inventory_digest":"{FOUR}",'
+            '"started_at":"2026-01-01T00:00:00Z"}'
+        )
+        (root / "ATTEMPT_INTENT.json").write_text(raw, encoding="utf-8")
+        digest = compute_attempt_root_digest(self.out, prior_id)
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00005"
+        )
+
+    def test_content_address_exact_digest_of_malformed_still_rejects(self):
+        """Codex attack: exact digest of malformed bytes is not sufficient."""
+        prior_id = "WVMA-20260101T000000Z-bad00006"
+        malformed = {
+            "schema_version": "not-a-valid-wvma-schema",
+            "authority": True,
+            "attempt_id": "WVMA-20260101T000000Z-f01e1909",
+            "catalog_id": self.catalog.catalog_id,
+            "catalog_digest": self.digest,
+            "product_base_sha": self.catalog.product_base_sha,
+            "source_revision": ZERO,
+            "runner_digest": ONE,
+            "oracle_digest": TWO,
+            "baseline_receipt_digest": THREE,
+            "protected_path_inventory_digest": FOUR,
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        digest = self._plant_prior_intent(prior_id, malformed)
+        # Reconfirm digest is exact over planted bytes, then still reject.
+        self.assertEqual(digest, compute_attempt_root_digest(self.out, prior_id))
+        before = self._attempt_dirs()
+        successor = "WVMA-20260101T010000Z-abc00006"
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id=successor,
+                    prior_attempt_id=prior_id,
+                    prior_attempt_root_digest=digest,
+                ),
+            )
+        self.assertEqual(before, self._attempt_dirs())
+        self.assertFalse((self.out / "attempts" / successor).exists())
+
+    def test_valid_immediate_prior_recovery_succeeds(self):
+        prior = self._create()
+        prior_digest = compute_attempt_root_digest(self.out, prior["attempt_id"])
+        successor = "WVMA-20260101T010000Z-abc00007"
+        recovered = create_attempt(
+            self.out,
+            **self._create_kwargs(
+                attempt_id=successor,
+                prior_attempt_id=prior["attempt_id"],
+                prior_attempt_root_digest=prior_digest,
+            ),
+        )
+        self.assertEqual(recovered["attempt_id"], successor)
+        self.assertEqual(recovered["prior_attempt_id"], prior["attempt_id"])
+        self.assertEqual(recovered["prior_attempt_root_digest"], prior_digest)
+        self.assertTrue((self.out / "attempts" / successor).is_dir())
+
+    def test_valid_prior_with_recovery_metadata_no_recursive_lineage_walk(self):
+        base = self._create("WVMA-20260101T000000Z-ba5e0001")
+        mid = create_recovery_attempt(
+            self.out,
+            base["attempt_id"],
+            attempt_id="WVMA-20260101T001000Z-a1d00001",
+        )
+        self.assertIn("prior_attempt_id", mid)
+        # Even if the grandprior directory is removed, immediate prior structural
+        # validation must still allow recovery without walking lineage.
+        shutil.rmtree(self.out / "attempts" / base["attempt_id"])
+        before = self._attempt_dirs()
+        recovered = create_recovery_attempt(
+            self.out,
+            mid["attempt_id"],
+            attempt_id="WVMA-20260101T010000Z-1eaf0001",
+        )
+        self.assertEqual(recovered["prior_attempt_id"], mid["attempt_id"])
+        self.assertEqual(len(self._attempt_dirs() - before), 1)
+
+    def test_malformed_prior_cyclic_lineage_metadata_rejects_without_loop(self):
+        prior_id = "WVMA-20260101T000000Z-cfc11c01"
+        # Malformed (authority:true) plus self-referential prior_* metadata.
+        digest = self._plant_prior_intent(
+            prior_id,
+            self._malformed_base(
+                prior_id,
+                authority=True,
+                prior_attempt_id=prior_id,
+                prior_attempt_root_digest=ZERO,
+            ),
+        )
+        self._reject_recovery_from_prior(
+            prior_id, digest, "WVMA-20260101T010000Z-abc00008"
+        )
+
+    def test_invalid_prior_creates_no_successor_directory(self):
+        prior_id = "WVMA-20260101T000000Z-bad00007"
+        digest = self._plant_prior_intent(
+            prior_id,
+            self._malformed_base(prior_id, authority=True),
+        )
+        successor = "WVMA-20260101T010000Z-abc00009"
+        before = self._attempt_dirs()
+        with self.assertRaises(StateError):
+            create_attempt(
+                self.out,
+                **self._create_kwargs(
+                    attempt_id=successor,
+                    prior_attempt_id=prior_id,
+                    prior_attempt_root_digest=digest,
+                ),
+            )
+        with self.assertRaises(StateError):
+            create_recovery_attempt(
+                self.out, prior_id, attempt_id="WVMA-20260101T010000Z-abc0000a"
+            )
+        self.assertEqual(before, self._attempt_dirs())
+        self.assertFalse((self.out / "attempts" / successor).exists())
+        self.assertFalse(
+            (self.out / "attempts" / "WVMA-20260101T010000Z-abc0000a").exists()
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -42,6 +42,32 @@ ATTEMPT_INTENT_SCHEMA_VERSION = "wvma_v1.attempt_intent.v1"
 _ATTEMPT_ID_RE = re.compile(r"\AWVMA-([0-9]{8}T[0-9]{6}Z)-([0-9a-f]{8})\Z")
 _SHA256_HEX_RE = re.compile(r"\A[0-9a-f]{64}\Z")
 
+_ATTEMPT_INTENT_REQUIRED_FIELDS = frozenset(
+    {
+        "schema_version",
+        "authority",
+        "attempt_id",
+        "catalog_id",
+        "catalog_digest",
+        "product_base_sha",
+        "source_revision",
+        "runner_digest",
+        "oracle_digest",
+        "baseline_receipt_digest",
+        "protected_path_inventory_digest",
+        "started_at",
+    }
+)
+_ATTEMPT_INTENT_OPTIONAL_RECOVERY_FIELDS = frozenset(
+    {
+        "prior_attempt_id",
+        "prior_attempt_root_digest",
+    }
+)
+_ATTEMPT_INTENT_ALLOWED_FIELDS = (
+    _ATTEMPT_INTENT_REQUIRED_FIELDS | _ATTEMPT_INTENT_OPTIONAL_RECOVERY_FIELDS
+)
+
 
 class StateError(ValueError):
     """Invalid attempt/state transition or storage error."""
@@ -265,6 +291,128 @@ def load_sealed_catalog(out_root: Path, catalog_digest: str) -> Catalog:
     return catalog
 
 
+def _require_intent_str(value: Any, field: str) -> str:
+    if value is None:
+        raise StateError(f"ATTEMPT_INTENT {field} is PRESENT-invalid: null")
+    if isinstance(value, bool) or not isinstance(value, str):
+        raise StateError(
+            f"ATTEMPT_INTENT {field} must be str; got {type(value).__name__}"
+        )
+    if value == "":
+        raise StateError(f"ATTEMPT_INTENT {field} must be non-empty str")
+    return value
+
+
+def _require_intent_sha256(value: Any, field: str) -> str:
+    text = _require_intent_str(value, field)
+    if _SHA256_HEX_RE.match(text) is None:
+        raise StateError(f"ATTEMPT_INTENT {field} PRESENT-invalid")
+    return text
+
+
+def validate_attempt_intent_structure(
+    data: Any,
+    *,
+    expected_attempt_id: str,
+) -> dict[str, Any]:
+    """Strict structural ATTEMPT_INTENT validation without recovery lineage walk.
+
+    Validates schema, authority, identity, required fields, unknown fields, and
+    PRESENT-invalid values. Optional prior_* fields are format-checked only;
+    their historical provenance is intentionally not resolved here.
+    """
+    validate_attempt_id(expected_attempt_id)
+    if not isinstance(data, Mapping):
+        raise StateError("ATTEMPT_INTENT PRESENT-invalid")
+
+    keys = set(data.keys())
+    missing = sorted(_ATTEMPT_INTENT_REQUIRED_FIELDS - keys)
+    if missing:
+        raise StateError(f"ATTEMPT_INTENT missing fields: {missing}")
+    unknown = sorted(keys - _ATTEMPT_INTENT_ALLOWED_FIELDS)
+    if unknown:
+        raise StateError(f"ATTEMPT_INTENT has unknown fields: {unknown}")
+
+    schema_version = _require_intent_str(data["schema_version"], "schema_version")
+    if schema_version != ATTEMPT_INTENT_SCHEMA_VERSION:
+        raise StateError("ATTEMPT_INTENT schema_version invalid")
+
+    authority = data["authority"]
+    if authority is None:
+        raise StateError("ATTEMPT_INTENT authority is PRESENT-invalid: null")
+    if not isinstance(authority, bool):
+        raise StateError(
+            f"ATTEMPT_INTENT authority must be bool; got {type(authority).__name__}"
+        )
+    if authority is not False:
+        raise StateError("ATTEMPT_INTENT authority must be false")
+
+    try:
+        intent_attempt_id = validate_attempt_id(
+            _require_intent_str(data["attempt_id"], "attempt_id")
+        )
+    except StateError as exc:
+        raise StateError("ATTEMPT_INTENT attempt_id PRESENT-invalid") from exc
+    if intent_attempt_id != expected_attempt_id:
+        raise StateError("ATTEMPT_INTENT attempt_id mismatch")
+
+    _require_intent_str(data["catalog_id"], "catalog_id")
+    _require_intent_sha256(data["catalog_digest"], "catalog_digest")
+    _require_intent_sha256(data["product_base_sha"], "product_base_sha")
+    _require_intent_sha256(data["source_revision"], "source_revision")
+    _require_intent_sha256(data["runner_digest"], "runner_digest")
+    _require_intent_sha256(data["oracle_digest"], "oracle_digest")
+    _require_intent_sha256(
+        data["baseline_receipt_digest"], "baseline_receipt_digest"
+    )
+    _require_intent_sha256(
+        data["protected_path_inventory_digest"],
+        "protected_path_inventory_digest",
+    )
+    _require_intent_str(data["started_at"], "started_at")
+
+    has_prior_id = "prior_attempt_id" in data
+    has_prior_digest = "prior_attempt_root_digest" in data
+    if has_prior_id != has_prior_digest:
+        raise StateError(
+            "ATTEMPT_INTENT recovery binding requires both prior_attempt_id and "
+            "prior_attempt_root_digest, or neither"
+        )
+    if has_prior_id:
+        try:
+            validate_attempt_id(
+                _require_intent_str(data["prior_attempt_id"], "prior_attempt_id")
+            )
+        except StateError as exc:
+            raise StateError(
+                "ATTEMPT_INTENT prior_attempt_id PRESENT-invalid"
+            ) from exc
+        _require_intent_sha256(
+            data["prior_attempt_root_digest"], "prior_attempt_root_digest"
+        )
+
+    return dict(data)
+
+
+def load_attempt_intent_structure(out_root: Path, attempt_id: str) -> dict[str, Any]:
+    """Load ATTEMPT_INTENT with duplicate-key rejection and structural validation.
+
+    Does not validate recovery lineage of any prior_* provenance fields.
+    """
+    validated_id = validate_attempt_id(attempt_id)
+    path = attempt_dir(out_root, validated_id) / "ATTEMPT_INTENT.json"
+    if not path.is_file():
+        raise StateError(f"ATTEMPT_INTENT missing for {validated_id}")
+    try:
+        raw = load_json(path)
+    except SchemaError as exc:
+        raise StateError("ATTEMPT_INTENT PRESENT-invalid") from exc
+    return validate_attempt_intent_structure(
+        raw,
+        expected_attempt_id=validated_id,
+    )
+
+
 def validate_recovery_binding(
     out_root: Path,
     *,
@@ -280,6 +428,10 @@ def validate_recovery_binding(
 
     Explicit None / other non-ABSENT values are PRESENT and must validate;
     they are never silently normalized to absence.
+
+    When both PRESENT, the prior attempt-root digest must match and the prior
+    ATTEMPT_INTENT must pass structural validation. Historical recovery lineage
+    beyond that immediate prior node is not walked.
     """
     id_absent = prior_attempt_id is ABSENT
     digest_absent = prior_attempt_root_digest is ABSENT
@@ -313,6 +465,10 @@ def validate_recovery_binding(
     recomputed = compute_attempt_root_digest(out_root, validated_prior_id)
     if recomputed != prior_attempt_root_digest:
         raise StateError("prior_attempt_root_digest mismatch")
+
+    # Content-addressing alone is insufficient: prior intent must be a valid
+    # WVMA attempt intent. Structural only — no recursive lineage walk.
+    load_attempt_intent_structure(out_root, validated_prior_id)
 
     return validated_prior_id, prior_attempt_root_digest
 
@@ -407,19 +563,7 @@ def create_attempt(
 
 
 def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
-    validate_attempt_id(attempt_id)
-    path = attempt_dir(out_root, attempt_id) / "ATTEMPT_INTENT.json"
-    if not path.is_file():
-        raise StateError(f"ATTEMPT_INTENT missing for {attempt_id}")
-    data = load_json(path)
-    if not isinstance(data, Mapping):
-        raise StateError("ATTEMPT_INTENT PRESENT-invalid")
-    if data.get("attempt_id") != attempt_id:
-        raise StateError("ATTEMPT_INTENT attempt_id mismatch")
-    if data.get("authority") is not False:
-        raise StateError("ATTEMPT_INTENT authority must be false")
-    if data.get("schema_version") != ATTEMPT_INTENT_SCHEMA_VERSION:
-        raise StateError("ATTEMPT_INTENT schema_version invalid")
+    data = load_attempt_intent_structure(out_root, attempt_id)
 
     has_prior_id = "prior_attempt_id" in data
     has_prior_digest = "prior_attempt_root_digest" in data
@@ -434,7 +578,7 @@ def _read_attempt_intent(out_root: Path, attempt_id: str) -> dict[str, Any]:
             prior_attempt_id=prior_id,
             prior_attempt_root_digest=prior_digest,
         )
-    return dict(data)
+    return data
 
 
 def list_published_results(out_root: Path, attempt_id: str) -> dict[str, CaseResult]:
@@ -887,7 +1031,9 @@ def create_recovery_attempt(
         for p in sorted(prior_root.rglob("*"))
         if p.is_file()
     }
-    prior_intent = _read_attempt_intent(out_root, prior_attempt_id)
+    # Structural read only: recovery provenance must not recursively walk the
+    # prior attempt's own recovery lineage.
+    prior_intent = load_attempt_intent_structure(out_root, prior_attempt_id)
 
     new_intent = create_attempt(
         out_root,
