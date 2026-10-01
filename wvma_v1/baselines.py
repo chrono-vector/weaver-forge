@@ -17,6 +17,7 @@ from audit_lifecycle.epistemic.expectation import (
     LEGACY_LIFECYCLE,
     R4B_CONTRACT_MARKER,
     build_r4b_expectation,
+    expectation_digest,
 )
 from audit_lifecycle.epistemic.reconstructability import (
     REPORT_FILENAME,
@@ -33,6 +34,9 @@ from audit_lifecycle.request import AuditRequest, read_json, sha256_file, write_
 from audit_lifecycle.review_gate import HumanReviewRequired
 
 FIXED_UTC = "2026-01-01T00:00:00.000000Z"
+# Root-independent path prefix for disposable absolute paths in baselines.
+STABLE_ROOT = "WVMA_STABLE_ROOT"
+FIXED_CAMPAIGN_INVOCATION_ID = "INV-WVMA-B1-FIXED-00000000"
 FRESH_TARGET = (
     Path(__file__).resolve().parent.parent
     / "audit_lifecycle"
@@ -91,6 +95,9 @@ def _scrub_timestamps(obj: Any) -> Any:
                 "timestamp_utc",
                 "created_at_utc",
                 "updated_at_utc",
+                "validated_at_utc",
+                "generated_at_utc",
+                "intent_utc",
             }:
                 out[key] = FIXED_UTC
             else:
@@ -101,11 +108,108 @@ def _scrub_timestamps(obj: Any) -> Any:
     return obj
 
 
-def _rewrite_json_scrubbed(path: Path) -> None:
+def _workspace_for_audit(audit_root: Path) -> Path:
+    """runs/<audit_id> → disposable workspace root."""
+    return audit_root.resolve().parent.parent
+
+
+def _path_rewrite_mapping(audit_root: Path) -> list[tuple[str, str]]:
+    workspace = _workspace_for_audit(audit_root)
+    audit = audit_root.resolve()
+    pairs: dict[str, str] = {}
+    for src, dst in (
+        (audit, f"{STABLE_ROOT}/runs/{audit_root.name}"),
+        (workspace.resolve(), STABLE_ROOT),
+    ):
+        text = str(src)
+        pairs[text] = dst
+        pairs[text.replace("\\", "/")] = dst
+    return sorted(pairs.items(), key=lambda item: len(item[0]), reverse=True)
+
+
+def _rewrite_disposable_paths(obj: Any, mapping: list[tuple[str, str]]) -> Any:
+    if isinstance(obj, dict):
+        return {k: _rewrite_disposable_paths(v, mapping) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_rewrite_disposable_paths(x, mapping) for x in obj]
+    if isinstance(obj, str):
+        out = obj
+        for old, new in mapping:
+            if old:
+                out = out.replace(old, new)
+        return out
+    return obj
+
+
+def _rewrite_json_scrubbed(path: Path, mapping: list[tuple[str, str]] | None = None) -> None:
     if not path.is_file():
         return
-    data = read_json(path)
-    write_json(path, _scrub_timestamps(data))
+    data = _scrub_timestamps(read_json(path))
+    if mapping is not None:
+        data = _rewrite_disposable_paths(data, mapping)
+    write_json(path, data)
+
+
+def _stable_freeze_directory(audit_root: Path, package: Path) -> str:
+    return f"{STABLE_ROOT}/runs/{audit_root.name}/freeze/{package.name}"
+
+
+def _stable_sha256sums_path(audit_root: Path, package: Path) -> str:
+    return _stable_freeze_directory(audit_root, package) + "/SHA256SUMS.txt"
+
+
+def _iter_freeze_packages(audit_root: Path) -> list[Path]:
+    freeze_root = audit_root / "freeze"
+    if not freeze_root.is_dir():
+        return []
+    return sorted(
+        p
+        for p in freeze_root.iterdir()
+        if p.is_dir() and p.name.endswith("_FROZEN") and not p.name.startswith(".")
+    )
+
+
+def _step4_sha256sums_digest(audit_root: Path) -> str:
+    """Digest of root sums as bound before freeze package publication."""
+    skip_names = {"SHA256SUMS.txt", "SHA256SUMS_EXECUTION.txt"}
+    lines: list[str] = []
+    for path in sorted(audit_root.rglob("*")):
+        if not path.is_file():
+            continue
+        if path.name in skip_names:
+            continue
+        if path.suffix == ".pyc" or "__pycache__" in path.parts:
+            continue
+        if "freeze" in path.parts:
+            continue
+        if path.name == "FREEZE_STATUS.json":
+            continue
+        rel = path.relative_to(audit_root).as_posix()
+        lines.append(f"{sha256_file(path)}  {rel}")
+    blob = ("\n".join(lines) + "\n").encode("utf-8")
+    return _sha256_bytes(blob)
+
+
+def _refresh_freeze_evidence_index(audit_root: Path, package: Path) -> None:
+    index_path = package / "FINAL_EVIDENCE_INDEX.json"
+    if not index_path.is_file():
+        return
+    index = read_json(index_path)
+    step4_sums = _step4_sha256sums_digest(audit_root)
+    entries = index.get("entries") or []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        rel = entry.get("path")
+        if not isinstance(rel, str):
+            continue
+        if rel == "SHA256SUMS.txt":
+            entry["sha256"] = step4_sums
+            continue
+        candidate = audit_root / rel
+        if candidate.is_file():
+            entry["sha256"] = sha256_file(candidate)
+    write_json(index_path, _scrub_timestamps(index))
 
 
 def rebind_root_sha256sums(audit_root: Path) -> None:
@@ -114,33 +218,155 @@ def rebind_root_sha256sums(audit_root: Path) -> None:
 
 
 def rebind_freeze_package_hashes(audit_root: Path) -> None:
-    """Rebind freeze package SHA256SUMS + FREEZE_STATUS digests after mutation."""
-    freeze_root = audit_root / "freeze"
-    if not freeze_root.is_dir():
-        return
-    packages = sorted(
-        p
-        for p in freeze_root.iterdir()
-        if p.is_dir() and p.name.endswith("_FROZEN") and not p.name.startswith(".")
-    )
+    """Rebind freeze package SHA256SUMS + FREEZE_STATUS digests after mutation.
+
+    Preserves root-independent freeze_directory / sha256sums strings so later
+    rebinds never restore disposable absolute paths.
+    """
+    packages = _iter_freeze_packages(audit_root)
     if not packages:
         return
     package = packages[0]
     lines: list[str] = []
-    for p in sorted(package.iterdir()):
-        if p.is_file() and p.name != "SHA256SUMS.txt":
-            lines.append(f"{sha256_file(p)}  {p.name}")
+    for path in sorted(package.iterdir()):
+        if path.is_file() and path.name != "SHA256SUMS.txt":
+            lines.append(f"{sha256_file(path)}  {path.name}")
     (package / "SHA256SUMS.txt").write_text(
         "\n".join(lines) + "\n", encoding="utf-8"
     )
     status_path = audit_root / "FREEZE_STATUS.json"
     if status_path.is_file():
-        status = read_json(status_path)
+        status = _scrub_timestamps(read_json(status_path))
         status["sha256sums_digest"] = sha256_file(package / "SHA256SUMS.txt")
         status["frozen_manifest_digest"] = sha256_file(package / "MANIFEST.json")
-        status["freeze_directory"] = str(package.resolve())
-        write_json(status_path, _scrub_timestamps(status))
+        status["freeze_directory"] = _stable_freeze_directory(audit_root, package)
+        status["sha256sums"] = _stable_sha256sums_path(audit_root, package)
+        write_json(status_path, status)
     rebind_root_sha256sums(audit_root)
+
+
+def _refresh_recon_and_manifest(audit_root: Path) -> None:
+    if not (audit_root / REPORT_FILENAME).is_file():
+        return
+    report = emit_reconstructability_report(audit_root)
+    em_path = audit_root / "EXECUTION_MANIFEST.json"
+    if not em_path.is_file():
+        return
+    em = _scrub_timestamps(read_json(em_path))
+    r4b = em.get("r4_b")
+    if isinstance(r4b, dict):
+        exp = build_r4b_expectation(
+            reconstructability_report_digest=report.report_digest,
+            expected_disagreement_record_digests=list(
+                r4b.get("expected_disagreement_record_digests") or []
+            ),
+            expected_disagreement_chain_heads=list(
+                r4b.get("expected_disagreement_chain_heads") or []
+            ),
+            finalized_for_freeze=bool(r4b.get("finalized_for_freeze", True)),
+        )
+        em["r4_b"] = exp.to_dict() if hasattr(exp, "to_dict") else dict(exp)
+    write_json(em_path, em)
+
+
+def _rewrite_non_json_disposable_paths(audit_root: Path) -> None:
+    mapping = _path_rewrite_mapping(audit_root)
+    for path in sorted(audit_root.rglob("*")):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".log", ".md", ".txt"}:
+            continue
+        if path.name in {"SHA256SUMS.txt", "SHA256SUMS_EXECUTION.txt"}:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        new = text
+        for old, repl in mapping:
+            new = new.replace(old, repl)
+        if new != text:
+            path.write_text(new, encoding="utf-8", newline="\n")
+
+
+def _sync_frozen_expectation(audit_root: Path) -> None:
+    """Point freeze artifacts at the post-normalization expectation digest."""
+    em_path = audit_root / "EXECUTION_MANIFEST.json"
+    if not em_path.is_file():
+        return
+    em = read_json(em_path)
+    r4b = em.get("r4_b")
+    if not isinstance(r4b, dict):
+        return
+    exp = expectation_digest(r4b)
+    em_digest = sha256_file(em_path)
+    for rel in ("FREEZE_INTENT.json", "FREEZE_STATUS.json"):
+        path = audit_root / rel
+        if not path.is_file():
+            continue
+        doc = _scrub_timestamps(read_json(path))
+        if "r4_b_expectation_digest" in doc:
+            doc["r4_b_expectation_digest"] = exp
+        if "execution_manifest_digest" in doc:
+            doc["execution_manifest_digest"] = em_digest
+        write_json(path, doc)
+    for package in _iter_freeze_packages(audit_root):
+        _refresh_freeze_evidence_index(audit_root, package)
+        man_path = package / "MANIFEST.json"
+        if not man_path.is_file():
+            continue
+        man = _scrub_timestamps(read_json(man_path))
+        man = _rewrite_disposable_paths(man, _path_rewrite_mapping(audit_root))
+        man["freeze_directory"] = _stable_freeze_directory(audit_root, package)
+        if "r4_b_expectation_digest" in man:
+            man["r4_b_expectation_digest"] = exp
+        if "execution_manifest_digest" in man:
+            man["execution_manifest_digest"] = em_digest
+        if (package / "FINAL_DECISION.json").is_file() and "final_decision_sha256" in man:
+            man["final_decision_sha256"] = sha256_file(package / "FINAL_DECISION.json")
+        if (package / "FINAL_EVIDENCE_INDEX.json").is_file() and (
+            "final_evidence_index_sha256" in man
+        ):
+            man["final_evidence_index_sha256"] = sha256_file(
+                package / "FINAL_EVIDENCE_INDEX.json"
+            )
+        refs = man.get("referenced_audit_files")
+        if isinstance(refs, list):
+            for ref in refs:
+                if not isinstance(ref, dict) or "sha256" not in ref:
+                    continue
+                rel = ref.get("relative_path") or ref.get("path")
+                if not isinstance(rel, str):
+                    continue
+                # Root sums are rewritten after FREEZE_STATUS. Bind the
+                # pre-status snapshot so the manifest digest is not circular.
+                if rel == "SHA256SUMS.txt":
+                    ref["sha256"] = _step4_sha256sums_digest(audit_root)
+                    continue
+                candidate = audit_root / rel
+                if candidate.is_file():
+                    ref["sha256"] = sha256_file(candidate)
+        write_json(man_path, man)
+
+
+def _normalize_audit_tree(audit_root: Path) -> None:
+    """Timestamp normalization. Frozen trees also drop disposable absolute paths."""
+    frozen = (audit_root / "FREEZE_STATUS.json").is_file()
+    if frozen:
+        mapping = _path_rewrite_mapping(audit_root)
+        for path in sorted(audit_root.rglob("*.json")):
+            if path.is_file():
+                _rewrite_json_scrubbed(path, mapping)
+        _rewrite_non_json_disposable_paths(audit_root)
+        _refresh_recon_and_manifest(audit_root)
+        _sync_frozen_expectation(audit_root)
+        rebind_freeze_package_hashes(audit_root)
+        return
+    for path in sorted(audit_root.rglob("*.json")):
+        if path.is_file():
+            _rewrite_json_scrubbed(path)
+    if (audit_root / "SHA256SUMS.txt").is_file():
+        rebind_root_sha256sums(audit_root)
 
 
 def _make_request(
@@ -175,17 +401,6 @@ def _make_request(
             ],
         },
     )
-
-
-def _normalize_audit_tree(audit_root: Path) -> None:
-    for path in sorted(audit_root.rglob("*.json")):
-        if path.is_file():
-            _rewrite_json_scrubbed(path)
-    # Keep freeze package digests consistent after scrub.
-    if (audit_root / "FREEZE_STATUS.json").is_file():
-        rebind_freeze_package_hashes(audit_root)
-    elif (audit_root / "SHA256SUMS.txt").is_file():
-        rebind_root_sha256sums(audit_root)
 
 
 def build_audit_r4b_zero_review(
@@ -372,6 +587,47 @@ def build_audit_human_review_frozen(
     return run
 
 
+def _pin_campaign_state(campaign_dir: Path) -> None:
+    """Pin runtime-dependent campaign fields to code-owned constants."""
+    from campaign_runner_v0.state_revalidation import compute_state_integrity_digest
+
+    state_path = campaign_dir / "CAMPAIGN_STATE.json"
+    if not state_path.is_file():
+        raise BaselineError("CAMPAIGN_STATE.json missing after campaign baseline")
+    state = _scrub_timestamps(read_json(state_path))
+    state["workspace"] = "aurora_audit"
+    state["invocation_id"] = FIXED_CAMPAIGN_INVOCATION_ID
+    state["updated_at_utc"] = FIXED_UTC
+    register = state.get("evidence_register")
+    if isinstance(register, dict):
+        register["updated_at_utc"] = FIXED_UTC
+    claims = state.get("claims") or {}
+    if isinstance(claims, dict):
+        for row in claims.values():
+            if isinstance(row, dict):
+                row["updated_at_utc"] = FIXED_UTC
+                if "validated_at_utc" in row:
+                    row["validated_at_utc"] = FIXED_UTC
+    digest = compute_state_integrity_digest(
+        claims if isinstance(claims, dict) else {},
+        register if isinstance(register, dict) else {},
+    )
+    prior = state.get("state_integrity") if isinstance(state.get("state_integrity"), dict) else {}
+    state["state_integrity"] = {
+        "digest": digest,
+        "algorithm": "sha256",
+        "covers": list(prior.get("covers") or ["claims", "evidence_register.entries"]),
+        "note": prior.get("note") or "wvma-deterministic-campaign",
+    }
+    write_json(state_path, state)
+    register_path = campaign_dir / "EVIDENCE_REGISTER.json"
+    if register_path.is_file():
+        reg = _scrub_timestamps(read_json(register_path))
+        if isinstance(reg, dict):
+            reg["updated_at_utc"] = FIXED_UTC
+            write_json(register_path, reg)
+
+
 def build_campaign_test_only(
     workspace: Path,
     *,
@@ -407,6 +663,11 @@ def build_campaign_test_only(
     cdir = dest / "campaigns" / campaign_id
     if not cdir.is_dir():
         raise BaselineError("campaign directory missing after baseline run")
+    _pin_campaign_state(cdir)
+    # The baseline verifier invokes run_campaign again. Pin that revalidation
+    # so the sealed preimage is the post-verifier state, without per-run ids.
+    run_campaign(workspace=dest, campaign_id=campaign_id, policy_path=policy)
+    _pin_campaign_state(cdir)
     return cdir
 
 
@@ -434,6 +695,8 @@ def attempt_freeze(audit_root: Path, policy: dict[str, Any] | None = None) -> di
         pol = read_json(req_path).get("policy") if req_path.is_file() else {}
     try:
         result = orch.freeze_run(audit_root, pol or {})
+        if (audit_root / "FREEZE_STATUS.json").is_file():
+            _normalize_audit_tree(audit_root)
         return {"ok": True, "result": result, "error": None}
     except HumanReviewRequired as exc:
         return {"ok": False, "result": None, "error": f"HumanReviewRequired:{exc}"}
@@ -444,11 +707,13 @@ def attempt_freeze(audit_root: Path, policy: dict[str, Any] | None = None) -> di
 __all__ = [
     "ALLOWED_BASELINE_PROFILES",
     "BaselineError",
+    "FIXED_CAMPAIGN_INVOCATION_ID",
     "FIXED_UTC",
     "PROFILE_AUDIT_HUMAN_REVIEW_PREFREEZE",
     "PROFILE_AUDIT_R4B_REVIEW_CHAIN",
     "PROFILE_AUDIT_R4B_ZERO_REVIEW",
     "PROFILE_CAMPAIGN_TEST_ONLY",
+    "STABLE_ROOT",
     "attempt_freeze",
     "build_audit_human_review_frozen",
     "build_audit_human_review_prefreeze",

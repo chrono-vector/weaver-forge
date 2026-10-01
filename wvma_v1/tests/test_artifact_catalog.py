@@ -16,13 +16,17 @@ from wvma_v1.artifact_cases import (
     apply_case_mutation,
     build_catalog_document,
     case_by_id,
+    load_committed_catalog,
     write_catalog,
 )
 from wvma_v1.baselines import (
+    FIXED_CAMPAIGN_INVOCATION_ID,
+    FIXED_UTC,
     PROFILE_AUDIT_HUMAN_REVIEW_PREFREEZE,
     PROFILE_AUDIT_R4B_REVIEW_CHAIN,
     PROFILE_AUDIT_R4B_ZERO_REVIEW,
     PROFILE_CAMPAIGN_TEST_ONLY,
+    STABLE_ROOT,
     build_audit_human_review_prefreeze,
     build_audit_r4b_review_chain,
     build_audit_r4b_zero_review,
@@ -37,6 +41,24 @@ from wvma_v1.runner import InvocationContract, run_baseline, run_mutation_case
 from wvma_v1.workspace import create_disposable_root
 
 ACTIVE_REPO = Path(__file__).resolve().parents[2]
+_COMMITTED_CATALOG_BYTES: bytes | None = None
+_DUMMY_PREIMAGE = "11" * 32
+_DUMMY_POSTIMAGE = "22" * 32
+
+
+def setUpModule() -> None:
+    global _COMMITTED_CATALOG_BYTES
+    if not CATALOG_PATH.is_file():
+        raise AssertionError(f"committed catalog missing: {CATALOG_PATH}")
+    _COMMITTED_CATALOG_BYTES = CATALOG_PATH.read_bytes()
+
+
+def tearDownModule() -> None:
+    if _COMMITTED_CATALOG_BYTES is None:
+        return
+    current = CATALOG_PATH.read_bytes()
+    if current != _COMMITTED_CATALOG_BYTES:
+        raise AssertionError("tests rewrote WVMA_V1_CATALOG.json")
 
 
 def _inventory_protected(root: Path) -> dict[str, str]:
@@ -139,6 +161,61 @@ def _prepare_c10_expect(workspace: Path, case_id: str, campaign_dir: Path) -> No
     )
 
 
+def _assert_final_target_content(case_id: str, final_path: Path) -> None:
+    """Sealed postimage is the final same-file state the oracle observes."""
+    if case_id not in {"C01-01", "C01-02", "C10-01"}:
+        return
+    data = json.loads(final_path.read_text(encoding="utf-8"))
+    if case_id == "C01-01":
+        assert data["decision"] == "PASS"
+        assert data["claim_result"] == "PASS"
+        assert data["reason"] == "WVMA_FALSE_PASS"
+        return
+    if case_id == "C01-02":
+        decision = data["decision"]
+        assert decision["promoted_to_full"] is True
+        assert decision["broader_classification"] == "CRYPTO_SUPPORTED_E2E_FULL"
+        return
+    claims = data.get("claims") or {}
+    matched = [
+        row
+        for row in claims.values()
+        if isinstance(row, dict)
+        and row.get("state") == "PASS"
+        and row.get("reason") == "WVMA_FALSE_PASS"
+    ]
+    assert matched, "C10-01 final claim state was not sealed"
+    integrity = data.get("state_integrity") or {}
+    assert isinstance(integrity.get("digest"), str) and len(integrity["digest"]) == 64
+
+
+def _measure_case(case_id: str) -> dict[str, object]:
+    case = case_by_id(case_id)
+    with tempfile.TemporaryDirectory(prefix="wvma-b1-det-") as td:
+        workspace = create_disposable_root(
+            parent=Path(td),
+            prefix="ws-",
+            active_repository=ACTIVE_REPO,
+        )
+        target = _build_baseline(case_id, workspace)
+        app, spec, rel = apply_case_mutation(workspace, case, target)
+        final_path = workspace / Path(*rel.split("/"))
+        body = final_path.read_bytes() if final_path.is_file() else b""
+        info: dict[str, object] = {
+            "pre": app.preimage_sha256,
+            "post": app.postimage_sha256,
+            "body": body,
+            "workspace": str(workspace.resolve()),
+            "spec": spec,
+        }
+        if case_id == "C07-04":
+            residue = (
+                target / "freeze" / ".wf_freeze_tmp_WFA-WVMA-B1-ZERO_deadbeef"
+            )
+            info["residue"] = residue.is_dir()
+        return info
+
+
 def _run_case(case_id: str) -> ResultClass:
     case = case_by_id(case_id)
     with tempfile.TemporaryDirectory(prefix="wvma-b1-") as td:
@@ -171,8 +248,23 @@ def _run_case(case_id: str) -> ResultClass:
                 baseline_receipt.stdout_text_preview,
             )
 
-        app, spec, _target_rel = apply_case_mutation(workspace, case, target)
+        app, spec, target_rel = apply_case_mutation(workspace, case, target)
+        sealed = load_committed_catalog().mutation_by_case_id(case_id)
+        assert spec == sealed
+        assert target_rel == sealed.target_relative_path
         assert app.applied is True
+        assert app.preimage_sha256 == sealed.expected_preimage_sha256
+        assert app.postimage_sha256 == sealed.expected_postimage_sha256
+        assert sealed.operation_enum == spec.operation_enum
+        assert spec.operation_arguments == sealed.operation_arguments
+        final_path = workspace / Path(*sealed.target_relative_path.split("/"))
+        if sealed.operation_enum == "DELETE_DECLARED_FILE":
+            assert not final_path.exists()
+        else:
+            assert hashlib.sha256(final_path.read_bytes()).hexdigest() == (
+                sealed.expected_postimage_sha256
+            )
+        _assert_final_target_content(case_id, final_path)
         assert app.preimage_sha256 != app.postimage_sha256 or case.operation_enum == "DELETE_DECLARED_FILE"
         if case.operation_enum != "DELETE_DECLARED_FILE":
             assert app.preimage_sha256 != app.postimage_sha256
@@ -215,12 +307,8 @@ def _run_case(case_id: str) -> ResultClass:
 class TestArtifactCatalogStructure(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Ensure sealed catalog exists and parses.
-        if not CATALOG_PATH.is_file():
-            write_catalog(CATALOG_PATH, build_catalog_document())
-        cls.catalog = strict_parse_catalog(
-            json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
-        )
+        # The committed catalog is the mutation authority. Tests must not write it.
+        cls.catalog = load_committed_catalog()
 
     def test_catalog_parses_and_authority_false(self):
         self.assertFalse(self.catalog.authority)
@@ -242,6 +330,34 @@ class TestArtifactCatalogStructure(unittest.TestCase):
     def test_case_ids_unique(self):
         ids = [c.case_id for c in CASE_DEFS]
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_no_placeholder_paths_or_dummy_digests(self):
+        raw = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+        mutations = raw["mutations"]
+        self.assertEqual(len(mutations), 30)
+        pres = [row["expected_preimage_sha256"] for row in mutations]
+        posts = [row["expected_postimage_sha256"] for row in mutations]
+        self.assertGreater(len(set(pres)), 1)
+        self.assertGreater(len(set(posts)), 1)
+        for row in mutations:
+            path = row["target_relative_path"]
+            self.assertFalse(path.startswith("placeholder/"), row["case_id"])
+            self.assertNotIn("placeholder", path)
+            self.assertNotEqual(row["expected_preimage_sha256"], _DUMMY_PREIMAGE)
+            self.assertNotEqual(row["expected_postimage_sha256"], _DUMMY_POSTIMAGE)
+            self.assertEqual(len(row["expected_preimage_sha256"]), 64)
+            self.assertEqual(len(row["expected_postimage_sha256"]), 64)
+            sealed = self.catalog.mutation_by_case_id(row["case_id"])
+            self.assertEqual(sealed.target_relative_path, path)
+            self.assertEqual(sealed.operation_enum, row["operation_enum"])
+            self.assertEqual(sealed.operation_arguments, row["operation_arguments"])
+
+    def test_builder_does_not_rewrite_committed_catalog(self):
+        before = CATALOG_PATH.read_bytes()
+        doc = build_catalog_document()
+        self.assertEqual(CATALOG_PATH.read_bytes(), before)
+        self.assertEqual(doc["catalog_digest"], json.loads(before)["catalog_digest"])
+        self.assertFalse(doc["authority"])
 
 
 class TestArtifactCases(unittest.TestCase):
@@ -398,6 +514,63 @@ class TestArtifactAdversarialGuards(unittest.TestCase):
         _run_case("C05-01")
         after = _inventory_protected(ACTIVE_REPO / "docs")
         self.assertEqual(before, after)
+
+
+class TestDeterministicFinalArtifacts(unittest.TestCase):
+    def test_c07_04_deterministic_across_roots(self):
+        first = _measure_case("C07-04")
+        second = _measure_case("C07-04")
+        sealed = load_committed_catalog().mutation_by_case_id("C07-04")
+        self.assertEqual(first["pre"], second["pre"])
+        self.assertEqual(first["post"], second["post"])
+        self.assertEqual(first["body"], second["body"])
+        self.assertEqual(first["pre"], sealed.expected_preimage_sha256)
+        self.assertEqual(first["post"], sealed.expected_postimage_sha256)
+        self.assertEqual(sealed.operation_arguments["pointer"], "/state")
+        self.assertEqual(sealed.operation_arguments["value"], "FREEZE_IN_PROGRESS")
+        status = json.loads(first["body"])
+        self.assertEqual(status["state"], "FREEZE_IN_PROGRESS")
+        freeze_directory = status["freeze_directory"]
+        sha_path = status["sha256sums"]
+        self.assertTrue(freeze_directory.startswith(f"{STABLE_ROOT}/"))
+        self.assertTrue(sha_path.startswith(f"{STABLE_ROOT}/"))
+        self.assertNotIn(":", freeze_directory)
+        self.assertNotIn(":", sha_path)
+        workspace = str(first["workspace"])
+        self.assertNotIn(workspace, freeze_directory)
+        self.assertNotIn(workspace, sha_path)
+        self.assertNotIn(workspace, first["body"].decode("utf-8"))
+        self.assertTrue(first["residue"])
+        self.assertTrue(second["residue"])
+
+    def test_c10_02_deterministic_across_roots(self):
+        first = _measure_case("C10-02")
+        second = _measure_case("C10-02")
+        sealed = load_committed_catalog().mutation_by_case_id("C10-02")
+        self.assertEqual(first["pre"], second["pre"])
+        self.assertEqual(first["post"], second["post"])
+        self.assertEqual(first["body"], second["body"])
+        self.assertEqual(first["pre"], sealed.expected_preimage_sha256)
+        self.assertEqual(first["post"], sealed.expected_postimage_sha256)
+        self.assertEqual(
+            sealed.operation_arguments["value"], "reuse:WRONG_AUDIT_ID_WVMA"
+        )
+        state = json.loads(first["body"])
+        self.assertEqual(state["workspace"], "aurora_audit")
+        self.assertEqual(state["invocation_id"], FIXED_CAMPAIGN_INVOCATION_ID)
+        self.assertEqual(state["updated_at_utc"], FIXED_UTC)
+        claims = state["claims"]
+        self.assertEqual(
+            claims["AUR-A-001"]["evidence_id"], "reuse:WRONG_AUDIT_ID_WVMA"
+        )
+        for row in claims.values():
+            if "validated_at_utc" in row:
+                self.assertEqual(row["validated_at_utc"], FIXED_UTC)
+            if "updated_at_utc" in row:
+                self.assertEqual(row["updated_at_utc"], FIXED_UTC)
+        text = first["body"].decode("utf-8")
+        self.assertNotIn(str(first["workspace"]), text)
+        self.assertNotIn(str(second["workspace"]), second["body"].decode("utf-8"))
 
 
 class TestCatalogSealDigest(unittest.TestCase):

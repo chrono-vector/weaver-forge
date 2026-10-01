@@ -17,8 +17,13 @@ from wvma_v1.baselines import (
     PROFILE_AUDIT_R4B_REVIEW_CHAIN,
     PROFILE_AUDIT_R4B_ZERO_REVIEW,
     PROFILE_CAMPAIGN_TEST_ONLY,
+    build_audit_human_review_prefreeze,
+    build_audit_r4b_review_chain,
+    build_audit_r4b_zero_review,
+    build_campaign_test_only,
     rebind_freeze_package_hashes,
     rebind_root_sha256sums,
+    _pin_campaign_state,
 )
 from wvma_v1.canonical import canonical_bytes, digest_excluding_field
 from wvma_v1.models import MutationSpec, strict_parse_catalog
@@ -182,15 +187,16 @@ CASE_DEFS: tuple[CaseDef, ...] = (
         baseline_profile=PROFILE_AUDIT_R4B_ZERO_REVIEW,
         mutation_kind="ARTIFACT",
         target_relative_path="{audit}/DECISION.json",
-        operation_enum="SET_JSON_POINTER",
-        operation_arguments={"pointer": "/decision", "value": "PASS"},
+        # Sealed as one REPLACE producing final DECISION (decision/claim_result/reason).
+        operation_enum="REPLACE_EXACT_BYTES",
+        operation_arguments={},
         mutation_timing="PRE_VERIFY",
         verifier_invocation_id="audit.verify_semantics",
         violation_predicate="decision_mismatch",
         expected_rejection_predicate="semantic_ok_false",
         oracle_observations=("decision_mismatch", "semantic_ok_false"),
         materiality="MATERIAL",
-        followup="c01_01",
+        followup="root_rebind",
     ),
     CaseDef(
         case_id="C01-02",
@@ -199,15 +205,16 @@ CASE_DEFS: tuple[CaseDef, ...] = (
         baseline_profile=PROFILE_AUDIT_R4B_ZERO_REVIEW,
         mutation_kind="ARTIFACT",
         target_relative_path="{freeze}/FINAL_DECISION.json",
-        operation_enum="SET_JSON_POINTER",
-        operation_arguments={"pointer": "/decision/promoted_to_full", "value": True},
+        # Sealed as one REPLACE producing final FINAL_DECISION fields.
+        operation_enum="REPLACE_EXACT_BYTES",
+        operation_arguments={},
         mutation_timing="PRE_VERIFY",
         verifier_invocation_id="audit.verify_semantics",
         violation_predicate="final_decision_mismatch",
         expected_rejection_predicate="semantic_ok_false",
         oracle_observations=("final_decision_mismatch", "semantic_ok_false"),
         materiality="MATERIAL",
-        followup="c01_02",
+        followup="freeze_rebind",
     ),
     CaseDef(
         case_id="C02-01",
@@ -655,15 +662,16 @@ CASE_DEFS: tuple[CaseDef, ...] = (
         baseline_profile=PROFILE_CAMPAIGN_TEST_ONLY,
         mutation_kind="ARTIFACT",
         target_relative_path="{campaign}/CAMPAIGN_STATE.json",
-        operation_enum="SET_JSON_POINTER",
-        operation_arguments={},  # filled: false PASS + digest
+        # Sealed as one REPLACE producing final false-PASS + integrity fields.
+        operation_enum="REPLACE_EXACT_BYTES",
+        operation_arguments={},
         mutation_timing="PRE_VERIFY",
         verifier_invocation_id="campaign.revalidate",
         violation_predicate="terminal_pass_not_retained",
         expected_rejection_predicate="pass_cleared",
         oracle_observations=("false_pass_cleared",),
         materiality="MATERIAL",
-        followup="c10_01_args",
+        followup=None,
     ),
     CaseDef(
         case_id="C10-02",
@@ -689,7 +697,7 @@ CASE_DEFS: tuple[CaseDef, ...] = (
         baseline_profile=PROFILE_CAMPAIGN_TEST_ONLY,
         mutation_kind="ARTIFACT",
         target_relative_path="{campaign}/EVIDENCE_REGISTER.json",
-        operation_enum="SET_JSON_POINTER",
+        operation_enum="REPLACE_EXACT_BYTES",
         operation_arguments={},
         mutation_timing="PRE_VERIFY",
         verifier_invocation_id="campaign.revalidate",
@@ -697,7 +705,7 @@ CASE_DEFS: tuple[CaseDef, ...] = (
         expected_rejection_predicate="no_new_pass",
         oracle_observations=("foreign_evidence",),
         materiality="MATERIAL",
-        followup="c10_03_args",
+        followup=None,
     ),
 )
 
@@ -783,15 +791,41 @@ def build_mutation_spec(
     )
 
 
+def _final_replace_args(pre_bytes: bytes, final_obj: dict[str, Any]) -> dict[str, Any]:
+    """Build REPLACE_EXACT_BYTES args that yield canonical final JSON bytes."""
+    final_bytes = canonical_bytes(final_obj)
+    return {"find_hex": pre_bytes.hex(), "replace_hex": final_bytes.hex()}
+
+
 def prepare_operation_arguments(
     case: CaseDef, workspace: Path, target_rel: str
 ) -> dict[str, Any]:
-    """Fill case-specific operation arguments that depend on baseline bytes."""
+    """Derive sealed operation arguments from a deterministic baseline.
+
+    Runtime application does not call this — the committed catalog is authority.
+    This helper exists only for catalog sealing / tooling.
+    """
     args = dict(case.operation_arguments)
     target = workspace / Path(*target_rel.split("/"))
-    follow = case.followup
 
-    if case.case_id == "C04-02" or follow == "c04_02_content":
+    if case.case_id == "C01-01":
+        pre = target.read_bytes()
+        data = json.loads(pre.decode("utf-8"))
+        data["decision"] = "PASS"
+        data["claim_result"] = "PASS"
+        data["reason"] = "WVMA_FALSE_PASS"
+        return _final_replace_args(pre, data)
+
+    if case.case_id == "C01-02":
+        pre = target.read_bytes()
+        data = json.loads(pre.decode("utf-8"))
+        decision = dict(data.get("decision") or {})
+        decision["promoted_to_full"] = True
+        decision["broader_classification"] = "CRYPTO_SUPPORTED_E2E_FULL"
+        data["decision"] = decision
+        return _final_replace_args(pre, data)
+
+    if case.case_id == "C04-02":
         from audit_lifecycle.epistemic.review_disagreement import create_disagreement_record
         from audit_lifecycle.epistemic.serialize import canonical_dumps
 
@@ -806,176 +840,161 @@ def prepare_operation_arguments(
             category="SPEC_AMBIGUITY",
         )
         content = canonical_dumps(rec.to_dict()).encode("utf-8")
-        args = {"content_hex": content.hex()}
-        return args
+        return {"content_hex": content.hex()}
 
-    if case.case_id == "C08-02" or follow == "c08_02_args":
+    if case.case_id == "C08-02":
         pre = target.read_bytes()
-        # Replace entire file with invalid JSON / non-object.
-        find = pre
-        repl = b"[1,2,3]"
-        args = {"find_hex": find.hex(), "replace_hex": repl.hex()}
-        return args
+        return {"find_hex": pre.hex(), "replace_hex": b"[1,2,3]".hex()}
 
-    if case.case_id == "C09-01" or follow == "c09_01_args":
+    if case.case_id == "C09-01":
         pre = target.read_bytes()
-        # Append unique marker once.
-        marker = b"\nWVMA_TAMPER\n"
-        if marker in pre:
-            raise ValueError("tamper marker already present")
-        # REPLACE requires exact one match of find; use a unique substring.
         find = b"third-party-style"
         if pre.count(find) != 1:
             find = pre[:16]
             if pre.count(find) != 1:
                 raise ValueError("cannot locate unique replace anchor")
-        repl = find + b"X"
-        args = {"find_hex": find.hex(), "replace_hex": repl.hex()}
-        return args
+        return {"find_hex": find.hex(), "replace_hex": (find + b"X").hex()}
 
-    if case.case_id == "C10-01" or follow == "c10_01_args":
+    if case.case_id == "C10-01":
         from campaign_runner_v0.state_revalidation import compute_state_integrity_digest
 
-        data = json.loads(target.read_text(encoding="utf-8"))
+        pre = target.read_bytes()
+        data = json.loads(pre.decode("utf-8"))
         claims = data.get("claims") or {}
-        claim_id = None
-        for cid, row in claims.items():
-            if row.get("state") != "PASS":
-                claim_id = cid
-                break
-        if claim_id is None and claims:
-            claim_id = next(iter(claims))
+        claim_id = next(
+            (cid for cid, row in claims.items() if row.get("state") != "PASS"),
+            next(iter(claims), None),
+        )
         if claim_id is None:
             raise ValueError("no claims in CAMPAIGN_STATE")
-        side = workspace / ".wvma_c10_01_claim.txt"
-        side.write_text(claim_id, encoding="utf-8")
-        args = {"pointer": f"/claims/{claim_id}/state", "value": "PASS"}
-        return args
+        row = dict(claims[claim_id])
+        row["state"] = "PASS"
+        row["reason"] = "WVMA_FALSE_PASS"
+        claims = dict(claims)
+        claims[claim_id] = row
+        data["claims"] = claims
+        digest = compute_state_integrity_digest(
+            claims, data.get("evidence_register") or {}
+        )
+        data["state_integrity"] = {
+            "digest": digest,
+            "algorithm": "sha256",
+            "covers": ["claims", "evidence_register.entries"],
+            "note": "wvma-false-pass",
+        }
+        return _final_replace_args(pre, data)
 
-    if case.case_id == "C10-02" or follow == "c10_02_prepare":
+    if case.case_id == "C10-02":
         data = json.loads(target.read_text(encoding="utf-8"))
         claims = data.get("claims") or {}
         claim_id = next(
-            (c for c, r in claims.items() if r.get("state") == "PASS" and r.get("evidence_id")),
+            (
+                cid
+                for cid, row in claims.items()
+                if row.get("state") == "PASS" and row.get("evidence_id")
+            ),
             None,
         )
         if claim_id is None:
             raise ValueError("no PASS claim with evidence_id for C10-02")
-        # Wrong evidence ID triggers stored_evidence_id_mismatch on revalidation.
-        args = {
+        return {
             "pointer": f"/claims/{claim_id}/evidence_id",
             "value": "reuse:WRONG_AUDIT_ID_WVMA",
         }
-        return args
 
-    if case.case_id == "C10-03" or follow == "c10_03_args":
+    if case.case_id == "C10-03":
         data = json.loads(target.read_text(encoding="utf-8"))
-        entries = data.get("entries") or []
         foreign = {
             "evidence_id": "foreign:WVMA-UNBOUND",
             "claim_id": "FOREIGN-CLAIM-NO-BINDING",
             "kind": "FROZEN_WEAVER_AUDIT_REUSE",
             "package_digest": "aa" * 32,
         }
-        args = {"pointer": f"/entries/{len(entries)}", "value": foreign}
-        # JSON pointer set into list index == len may fail; use append via replace.
-        # Prefer SET on a new last index only if list allows; else replace whole.
         pre = target.read_bytes()
         mutated = json.loads(json.dumps(data))
         mutated.setdefault("entries", []).append(foreign)
-        side = workspace / ".wvma_c10_03_post.json"
-        side.write_bytes(canonical_bytes(mutated))
-        # Switch to REPLACE_EXACT_BYTES for whole-file foreign insert.
-        args = {
+        return {
             "find_hex": pre.hex(),
             "replace_hex": canonical_bytes(mutated).hex(),
         }
-        return args
 
     return args
 
 
-def apply_case_followup(case: CaseDef, workspace: Path, audit_root: Path) -> None:
-    """Code-owned permitted follow-ups (rebind / multi-file isolation)."""
+def apply_case_followup(
+    case: CaseDef,
+    workspace: Path,
+    audit_root: Path,
+    *,
+    sealed_target_rel: str | None = None,
+) -> None:
+    """Code-owned permitted follow-ups (rebind / multi-file isolation).
+
+    Must never rewrite ``sealed_target_rel`` after the sealed final postimage.
+    """
     follow = case.followup
+    target_path = (
+        workspace / Path(*sealed_target_rel.split("/"))
+        if sealed_target_rel
+        else None
+    )
+    target_digest_before = (
+        _sha256_bytes(target_path.read_bytes())
+        if target_path is not None and target_path.is_file()
+        else None
+    )
+
     if follow in {None, "c04_02_content", "c08_02_args", "c09_01_args"}:
         if follow == "c09_01_args" or case.case_id == "C09-01":
             rebind_root_sha256sums(audit_root)
-        return
-    if follow in {"c01_01", "root_rebind"} or case.case_id in {"C01-01", "C09-02"}:
-        # Also flip claim_result for C01-01.
-        if case.case_id == "C01-01":
-            from audit_lifecycle.request import read_json, write_json
-
-            decision = read_json(audit_root / "DECISION.json")
-            decision["claim_result"] = "PASS"
-            decision["reason"] = "WVMA_FALSE_PASS"
-            write_json(audit_root / "DECISION.json", decision)
+    elif follow == "root_rebind" or case.case_id == "C09-02":
         rebind_root_sha256sums(audit_root)
-        return
-    if follow in {"c01_02", "freeze_rebind", "c08_frozen_delete", "c08_frozen_status", "c08_frozen_um"}:
-        if case.case_id == "C01-02":
-            from audit_lifecycle.request import read_json, write_json
-
-            freeze = next((audit_root / "freeze").glob("*_FROZEN"))
-            fd = read_json(freeze / "FINAL_DECISION.json")
-            fd["decision"]["broader_classification"] = "CRYPTO_SUPPORTED_E2E_FULL"
-            write_json(freeze / "FINAL_DECISION.json", fd)
+    elif follow in {
+        "freeze_rebind",
+        "c08_frozen_delete",
+        "c08_frozen_status",
+        "c08_frozen_um",
+    }:
         if case.case_id == "C02-01":
             report = audit_root / "RECONSTRUCTABILITY_REPORT.json"
             if report.is_file():
                 report.unlink()
             reviews = audit_root / "reviews"
             if reviews.is_dir():
-                for p in reviews.glob("*.json"):
-                    p.unlink()
+                for path in reviews.glob("*.json"):
+                    path.unlink()
             rebind_root_sha256sums(audit_root)
-            return
-        rebind_freeze_package_hashes(audit_root)
-        return
-    if follow == "c02_01":
+        else:
+            rebind_freeze_package_hashes(audit_root)
+    elif follow == "c02_01":
         report = audit_root / "RECONSTRUCTABILITY_REPORT.json"
         if report.is_file():
             report.unlink()
         reviews = audit_root / "reviews"
         if reviews.is_dir():
-            for p in reviews.glob("*.json"):
-                p.unlink()
+            for path in reviews.glob("*.json"):
+                path.unlink()
         rebind_root_sha256sums(audit_root)
-        return
-    if follow == "c07_04_temp_residue":
+    elif follow == "c07_04_temp_residue":
         # Owned temp residue (path starts with '.' — not expressible as sealed
         # relative target under A2 path grammar; created as code-owned follow-up).
         tmp = audit_root / "freeze" / f".wf_freeze_tmp_{audit_root.name}_deadbeef"
         tmp.mkdir(parents=True, exist_ok=True)
         (tmp / "residue.txt").write_text("temp\n", encoding="utf-8")
-        return
-    if follow == "c07_01_pre_baseline":
-        return
-    if follow == "c10_02_args" or follow == "c10_02_prepare":
-        return
-    if follow == "c10_01_args":
-        from campaign_runner_v0.state_revalidation import compute_state_integrity_digest
-        from audit_lifecycle.request import read_json, write_json
+    elif follow in {"c07_01_pre_baseline", "c10_02_prepare", "c10_02_args", "c10_03_args"}:
+        pass
 
-        target = audit_root / "CAMPAIGN_STATE.json"
-        st = read_json(target)
-        side = workspace / ".wvma_c10_01_claim.txt"
-        claim_id = side.read_text(encoding="utf-8").strip() if side.is_file() else None
-        if claim_id and claim_id in st.get("claims", {}):
-            st["claims"][claim_id] = dict(st["claims"][claim_id])
-            st["claims"][claim_id]["reason"] = "WVMA_FALSE_PASS"
-        digest = compute_state_integrity_digest(
-            st["claims"], st.get("evidence_register") or {}
-        )
-        st["state_integrity"] = {
-            "digest": digest,
-            "algorithm": "sha256",
-            "covers": ["claims", "evidence_register.entries"],
-            "note": "wvma-false-pass",
-        }
-        write_json(target, st)
-        return
+    if (
+        target_path is not None
+        and target_digest_before is not None
+        and target_path.is_file()
+    ):
+        after = _sha256_bytes(target_path.read_bytes())
+        if after != target_digest_before:
+            raise RuntimeError(
+                f"follow-up rewrote sealed target for {case.case_id}: "
+                f"{sealed_target_rel}"
+            )
 
 
 def compute_digests_for_target(
@@ -998,115 +1017,254 @@ def compute_digests_for_target(
     return pre, post
 
 
-def apply_case_mutation(
-    workspace: Path,
-    case: CaseDef,
-    audit_or_campaign: Path,
-) -> tuple[MutationApplication, MutationSpec, str]:
-    """Resolve paths, apply sealed mutation, run follow-ups. Returns app, spec, target_rel."""
-    # C08 frozen cases need freeze first.
+def load_committed_catalog() -> Any:
+    """Load and strict-parse the committed sealed catalog document."""
+    if not CATALOG_PATH.is_file():
+        raise FileNotFoundError(f"committed catalog missing: {CATALOG_PATH}")
+    raw = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    return strict_parse_catalog(raw)
+
+
+def sealed_mutation_spec(case_id: str) -> MutationSpec:
+    """Return the committed catalog MutationSpec for ``case_id``."""
+    return load_committed_catalog().mutation_by_case_id(case_id)
+
+
+def _baseline_for_case(case: CaseDef, workspace: Path) -> Path:
+    if case.baseline_profile == PROFILE_AUDIT_R4B_ZERO_REVIEW:
+        if case.case_id == "C01-01":
+            return build_audit_r4b_zero_review(
+                workspace,
+                audit_id="WFA-WVMA-B1-ZERO",
+                force_fail=True,
+                freeze=False,
+            )
+        return build_audit_r4b_zero_review(
+            workspace,
+            audit_id="WFA-WVMA-B1-ZERO",
+            force_fail=False,
+            freeze=True,
+        )
+    if case.baseline_profile == PROFILE_AUDIT_R4B_REVIEW_CHAIN:
+        return build_audit_r4b_review_chain(workspace, audit_id="WFA-WVMA-B1-CHAIN")
+    if case.baseline_profile == PROFILE_AUDIT_HUMAN_REVIEW_PREFREEZE:
+        root, _req = build_audit_human_review_prefreeze(
+            workspace, audit_id="WFA-WVMA-B1-HR", with_accepted_review=True
+        )
+        return root
+    if case.baseline_profile == PROFILE_CAMPAIGN_TEST_ONLY:
+        return build_campaign_test_only(
+            workspace,
+            campaign_id=f"wvma_b1_{case.case_id.replace('-', '_').lower()}",
+        )
+    raise ValueError(case.baseline_profile)
+
+
+def _prepare_case_baseline(
+    case: CaseDef, workspace: Path, audit_or_campaign: Path
+) -> Path:
+    """Freeze C08 frozen mutants before sealed path resolution when needed."""
     if case.case_id in {"C08-04", "C08-05", "C08-UM-01"}:
-        from wvma_v1.baselines import attempt_freeze
         from audit_lifecycle.request import read_json
+        from wvma_v1.baselines import attempt_freeze
 
         if not (audit_or_campaign / "FREEZE_STATUS.json").is_file():
             policy = read_json(audit_or_campaign / "AUDIT_REQUEST.json").get("policy") or {}
             outcome = attempt_freeze(audit_or_campaign, policy)
             if not outcome["ok"]:
-                raise RuntimeError(f"baseline freeze failed for {case.case_id}: {outcome['error']}")
-            rebind_freeze_package_hashes(audit_or_campaign)
+                raise RuntimeError(
+                    f"baseline freeze failed for {case.case_id}: {outcome['error']}"
+                )
+    return audit_or_campaign
 
-    # C08-02 / C09 / C10 need dynamic args from baseline bytes; also C04-02.
+
+def apply_case_mutation(
+    workspace: Path,
+    case: CaseDef,
+    audit_or_campaign: Path,
+) -> tuple[MutationApplication, MutationSpec, str]:
+    """Apply the committed sealed catalog mutation; fail closed on any mismatch."""
+    sealed = sealed_mutation_spec(case.case_id)
+    audit_or_campaign = _prepare_case_baseline(case, workspace, audit_or_campaign)
+    if case.baseline_profile == PROFILE_CAMPAIGN_TEST_ONLY:
+        # Baseline campaign.revalidate rewrites invocation, clock, and workspace.
+        # Re-pin before the sealed preimage is read.
+        _pin_campaign_state(audit_or_campaign)
     tokens = resolve_case_paths(workspace, audit_or_campaign, case)
     target_rel = materialize_target_path(case.target_relative_path, tokens)
 
-    # C10-03 switches to REPLACE_EXACT_BYTES via prepare args.
-    op = case.operation_enum
-    args = prepare_operation_arguments(case, workspace, target_rel)
-    if case.case_id == "C10-03":
-        op = "REPLACE_EXACT_BYTES"
-        # Mutate a temporary CaseDef-like apply via direct MutationSpec.
-        pre, post = compute_digests_for_target(workspace, target_rel, op, args)
-        spec = MutationSpec(
-            case_id=case.case_id,
-            property_id=case.property_id,
-            critical=case.critical,
-            mutation_kind=case.mutation_kind,
-            target_relative_path=target_rel,
-            expected_preimage_sha256=pre,
-            operation_enum=op,
-            operation_arguments=args,
-            expected_postimage_sha256=post,
-            mutation_timing=case.mutation_timing,
-            verifier_invocation_id=case.verifier_invocation_id,
-            violation_predicate=case.violation_predicate,
-            expected_rejection_predicate=case.expected_rejection_predicate,
-            oracle_observations=case.oracle_observations,
-            materiality=case.materiality,
+    if target_rel != sealed.target_relative_path:
+        raise RuntimeError(
+            f"{case.case_id} path mismatch: exercised={target_rel!r} "
+            f"sealed={sealed.target_relative_path!r}"
         )
-        app = apply_mutation(workspace, spec)
-        apply_case_followup(case, workspace, audit_or_campaign)
-        return app, spec, target_rel
+    if sealed.operation_enum != case.operation_enum:
+        raise RuntimeError(
+            f"{case.case_id} operation mismatch: case={case.operation_enum} "
+            f"sealed={sealed.operation_enum}"
+        )
 
-    pre, post = compute_digests_for_target(workspace, target_rel, op, args)
-    if op != case.operation_enum:
-        spec = MutationSpec(
-            case_id=case.case_id,
-            property_id=case.property_id,
-            critical=case.critical,
-            mutation_kind=case.mutation_kind,
-            target_relative_path=target_rel,
-            expected_preimage_sha256=pre,
-            operation_enum=op,
-            operation_arguments=args,
-            expected_postimage_sha256=post,
-            mutation_timing=case.mutation_timing,
-            verifier_invocation_id=case.verifier_invocation_id,
-            violation_predicate=case.violation_predicate,
-            expected_rejection_predicate=case.expected_rejection_predicate,
-            oracle_observations=case.oracle_observations,
-            materiality=case.materiality,
+    actual_pre, _preview_post = compute_digests_for_target(
+        workspace,
+        target_rel,
+        sealed.operation_enum,
+        dict(sealed.operation_arguments),
+    )
+    if actual_pre != sealed.expected_preimage_sha256:
+        raise RuntimeError(
+            f"{case.case_id} preimage mismatch: actual={actual_pre} "
+            f"sealed={sealed.expected_preimage_sha256}"
         )
+
+    app = apply_mutation(workspace, sealed)
+    if app.postimage_sha256 != sealed.expected_postimage_sha256:
+        raise RuntimeError(
+            f"{case.case_id} applied postimage mismatch: "
+            f"actual={app.postimage_sha256} sealed={sealed.expected_postimage_sha256}"
+        )
+
+    apply_case_followup(
+        case,
+        workspace,
+        audit_or_campaign,
+        sealed_target_rel=sealed.target_relative_path,
+    )
+
+    # Final target digest must still equal sealed postimage after follow-ups.
+    target = workspace / Path(*sealed.target_relative_path.split("/"))
+    if sealed.operation_enum == "DELETE_DECLARED_FILE":
+        final = EMPTY_SHA256
+        if target.exists():
+            raise RuntimeError(f"{case.case_id} deleted target still present")
     else:
-        spec = build_mutation_spec(
-            case,
-            target_relative_path=target_rel,
-            preimage=pre,
-            postimage=post,
-            operation_arguments=args,
+        if not target.is_file():
+            raise RuntimeError(f"{case.case_id} sealed target missing after apply")
+        final = _sha256_bytes(target.read_bytes())
+    if final != sealed.expected_postimage_sha256:
+        raise RuntimeError(
+            f"{case.case_id} final target digest mismatch: "
+            f"actual={final} sealed={sealed.expected_postimage_sha256}"
         )
-    app = apply_mutation(workspace, spec)
-    apply_case_followup(case, workspace, audit_or_campaign)
-    return app, spec, target_rel
+    return app, sealed, sealed.target_relative_path
+
+
+def compute_sealed_entries() -> dict[str, tuple[str, str, str, dict[str, Any], str]]:
+    """Compute sealed (path, pre, post, args, operation) for every CaseDef."""
+    import tempfile
+
+    sealed: dict[str, tuple[str, str, str, dict[str, Any], str]] = {}
+    for case in CASE_DEFS:
+        with tempfile.TemporaryDirectory(prefix=f"wvma-seal-{case.case_id}-") as td:
+            workspace = Path(td) / "ws"
+            workspace.mkdir()
+            root = _baseline_for_case(case, workspace)
+            root = _prepare_case_baseline(case, workspace, root)
+            tokens = resolve_case_paths(workspace, root, case)
+            target_rel = materialize_target_path(case.target_relative_path, tokens)
+            op = (
+                "REPLACE_EXACT_BYTES"
+                if case.case_id == "C10-03"
+                else case.operation_enum
+            )
+            args = prepare_operation_arguments(case, workspace, target_rel)
+            pre, post = compute_digests_for_target(workspace, target_rel, op, args)
+            # Apply once and confirm final digest equals computed postimage
+            # (no same-file follow-up may alter the sealed target).
+            spec = MutationSpec(
+                case_id=case.case_id,
+                property_id=case.property_id,
+                critical=case.critical,
+                mutation_kind=case.mutation_kind,
+                target_relative_path=target_rel,
+                expected_preimage_sha256=pre,
+                operation_enum=op,
+                operation_arguments=args,
+                expected_postimage_sha256=post,
+                mutation_timing=case.mutation_timing,
+                verifier_invocation_id=case.verifier_invocation_id,
+                violation_predicate=case.violation_predicate,
+                expected_rejection_predicate=case.expected_rejection_predicate,
+                oracle_observations=case.oracle_observations,
+                materiality=case.materiality,
+            )
+            apply_mutation(workspace, spec)
+            apply_case_followup(
+                case, workspace, root, sealed_target_rel=target_rel
+            )
+            target = workspace / Path(*target_rel.split("/"))
+            if op == "DELETE_DECLARED_FILE":
+                final = EMPTY_SHA256
+            else:
+                final = _sha256_bytes(target.read_bytes())
+            if final != post:
+                raise RuntimeError(
+                    f"seal {case.case_id}: final {final} != post {post}"
+                )
+            sealed[case.case_id] = (target_rel, pre, post, args, op)
+    return sealed
 
 
 def build_catalog_document(
     *,
-    sealed_digests: dict[str, tuple[str, str, str, dict[str, Any]]] | None = None,
+    sealed_digests: dict[str, tuple[str, str, str, dict[str, Any], str]]
+    | dict[str, tuple[str, str, str, dict[str, Any]]]
+    | None = None,
 ) -> dict[str, Any]:
-    """Build catalog mapping. sealed_digests: case_id -> (path, pre, post, args)."""
+    """Build catalog mapping from sealed digests (no placeholders).
+
+    When ``sealed_digests`` is omitted, re-emit the committed catalog document
+    if present and free of placeholders; otherwise compute sealed entries.
+    """
+    entries: dict[str, tuple[str, str, str, dict[str, Any], str]]
+    if sealed_digests is None:
+        if CATALOG_PATH.is_file():
+            committed = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+            raw_mutations = committed.get("mutations") or []
+            has_placeholder = any(
+                str(row.get("target_relative_path", "")).startswith("placeholder/")
+                or row.get("expected_preimage_sha256") == "11" * 32
+                or row.get("expected_postimage_sha256") == "22" * 32
+                for row in raw_mutations
+            )
+            if not has_placeholder and raw_mutations:
+                # Recompute digest fields for a deterministic re-emit.
+                entries = {}
+                for row in raw_mutations:
+                    entries[row["case_id"]] = (
+                        row["target_relative_path"],
+                        row["expected_preimage_sha256"],
+                        row["expected_postimage_sha256"],
+                        dict(row["operation_arguments"]),
+                        row["operation_enum"],
+                    )
+            else:
+                entries = compute_sealed_entries()
+        else:
+            entries = compute_sealed_entries()
+    else:
+        entries = {}
+        for case_id, payload in sealed_digests.items():
+            if len(payload) == 5:
+                entries[case_id] = payload  # type: ignore[assignment]
+            else:
+                path, pre, post, args = payload  # type: ignore[misc]
+                case = case_by_id(case_id)
+                op = (
+                    "REPLACE_EXACT_BYTES"
+                    if case_id == "C10-03"
+                    else case.operation_enum
+                )
+                entries[case_id] = (path, pre, post, args, op)
+
     mutations: list[dict[str, Any]] = []
     for case in CASE_DEFS:
-        if sealed_digests and case.case_id in sealed_digests:
-            path, pre, post, args = sealed_digests[case.case_id]
-        else:
-            # Placeholder digests for structure; seal step replaces with exact.
-            path = case.target_relative_path.replace("{", "x").replace("}", "x")
-            # Ensure path is schema-valid relative path characters.
-            path = "placeholder/" + case.case_id + ".json"
-            pre = "11" * 32
-            post = "22" * 32
-            args = dict(case.operation_arguments) or {"pointer": "/x", "value": None}
-            if case.operation_enum == "DELETE_JSON_POINTER":
-                args = {"pointer": "/x"}
-            elif case.operation_enum == "DELETE_DECLARED_FILE":
-                args = {}
-            elif case.operation_enum == "ADD_DECLARED_FILE":
-                args = dict(case.operation_arguments) or {"content_hex": "00"}
-            elif case.operation_enum == "REPLACE_EXACT_BYTES":
-                args = {"find_hex": "00", "replace_hex": "01"}
-            elif case.operation_enum == "SET_JSON_POINTER" and not args:
-                args = {"pointer": "/x", "value": "y"}
+        if case.case_id not in entries:
+            raise ValueError(f"missing sealed entry for {case.case_id}")
+        path, pre, post, args, op = entries[case.case_id]
+        if path.startswith("placeholder/"):
+            raise ValueError(f"placeholder path not allowed: {path}")
+        if pre == "11" * 32 or post == "22" * 32:
+            raise ValueError(f"dummy digest not allowed for {case.case_id}")
         mutations.append(
             {
                 "case_id": case.case_id,
@@ -1115,9 +1273,7 @@ def build_catalog_document(
                 "mutation_kind": case.mutation_kind,
                 "target_relative_path": path,
                 "expected_preimage_sha256": pre,
-                "operation_enum": case.operation_enum
-                if case.case_id != "C10-03"
-                else "REPLACE_EXACT_BYTES",
+                "operation_enum": op,
                 "operation_arguments": args,
                 "expected_postimage_sha256": post,
                 "mutation_timing": case.mutation_timing,
@@ -1128,7 +1284,6 @@ def build_catalog_document(
                 "materiality": case.materiality,
             }
         )
-    critical = [c for c in CRITICAL_CASE_IDS]
     doc: dict[str, Any] = {
         "schema_version": "wvma_v1.catalog.v1",
         "authority": False,
@@ -1139,7 +1294,7 @@ def build_catalog_document(
         "oracle_contract_version": ORACLE_CONTRACT,
         "properties": _props(),
         "mutations": mutations,
-        "critical_case_ids": critical,
+        "critical_case_ids": list(CRITICAL_CASE_IDS),
         "catalog_digest": "00" * 32,
     }
     doc["catalog_digest"] = digest_excluding_field(doc, "catalog_digest")
@@ -1150,6 +1305,13 @@ def write_catalog(path: Path, doc: dict[str, Any] | None = None) -> dict[str, An
     payload = doc if doc is not None else build_catalog_document()
     # Validate before write.
     strict_parse_catalog(payload)
+    for row in payload.get("mutations") or []:
+        if str(row.get("target_relative_path", "")).startswith("placeholder/"):
+            raise ValueError("refusing to write catalog with placeholder paths")
+        if row.get("expected_preimage_sha256") == "11" * 32:
+            raise ValueError("refusing to write catalog with dummy preimage")
+        if row.get("expected_postimage_sha256") == "22" * 32:
+            raise ValueError("refusing to write catalog with dummy postimage")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=True) + "\n",
@@ -1168,5 +1330,8 @@ __all__ = [
     "apply_case_mutation",
     "build_catalog_document",
     "case_by_id",
+    "compute_sealed_entries",
+    "load_committed_catalog",
+    "sealed_mutation_spec",
     "write_catalog",
 ]
