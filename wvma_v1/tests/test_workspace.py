@@ -209,6 +209,24 @@ class TestInventoryAndProtected(unittest.TestCase):
             )
 
 
+def _make_dir_alias(link: Path, target: Path) -> None:
+    """Create a directory symlink or Windows junction; skip-friendly on failure."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except (OSError, NotImplementedError):
+        pass
+    if os.name == "nt":
+        cp = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+            capture_output=True,
+            shell=False,
+        )
+        if cp.returncode == 0:
+            return
+    raise unittest.SkipTest("symlink/junction unavailable")
+
+
 class TestReparseConfinement(unittest.TestCase):
     def test_symlink_component_rejected_when_available(self):
         with tempfile.TemporaryDirectory(prefix="wvma-rp-") as tmp:
@@ -216,21 +234,109 @@ class TestReparseConfinement(unittest.TestCase):
             real = base / "real"
             real.mkdir()
             link = base / "link"
-            try:
-                link.symlink_to(real, target_is_directory=True)
-            except (OSError, NotImplementedError):
-                if os.name == "nt":
-                    cp = subprocess.run(
-                        ["cmd", "/c", "mklink", "/J", str(link), str(real)],
-                        capture_output=True,
-                        shell=False,
-                    )
-                    if cp.returncode != 0:
-                        self.skipTest("symlink/junction unavailable")
-                else:
-                    self.skipTest("symlink unavailable")
+            _make_dir_alias(link, real)
             with self.assertRaises(WorkspaceError):
                 assert_no_reparse_chain(link / "child", field="probe")
+
+
+class TestUnresolvedPathOrdering(unittest.TestCase):
+    """Caller paths must be rejected before resolve follows reparse aliases."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory(prefix="wvma-alias-")
+        self.base = Path(self._tmpdir.name)
+        self.external = self.base / "external_ok"
+        self.external.mkdir()
+        self.repo = self.base / "repo"
+        self.rev = _init_fixture_repo(self.repo)
+        self.active = Path(__file__).resolve().parents[2]
+        self.disp_parent = self.base / "disp_parent"
+        self.disp_parent.mkdir()
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_junction_parent_rejected_before_create(self):
+        alias = self.base / "parent_alias"
+        _make_dir_alias(alias, self.external)
+        before = set(self.external.iterdir())
+        with self.assertRaises(WorkspaceError):
+            create_disposable_root(
+                parent=alias,
+                prefix="rej-",
+                active_repository=self.repo,
+            )
+        self.assertEqual(set(self.external.iterdir()), before)
+        self.assertFalse(any(self.external.glob("rej-*")))
+
+    def test_junction_export_destination_rejected_before_write(self):
+        alias = self.base / "export_alias"
+        _make_dir_alias(alias, self.external)
+        dest = alias / "tree"
+        with self.assertRaises(WorkspaceError):
+            export_tracked_tree(
+                repo_root=self.repo,
+                revision=self.rev,
+                destination=dest,
+                protected_paths=[self.repo],
+            )
+        self.assertFalse(dest.exists())
+        self.assertFalse((self.external / "tree").exists())
+        self.assertEqual(list(self.external.iterdir()), [])
+
+    def test_external_alias_still_rejected(self):
+        """Alias target outside protected paths must still be rejected."""
+        alias = self.base / "external_alias"
+        _make_dir_alias(alias, self.external)
+        with self.assertRaises(WorkspaceError):
+            create_disposable_root(
+                parent=alias,
+                prefix="ext-",
+                protected_paths=[self.repo],
+                active_repository=self.repo,
+            )
+        self.assertFalse(any(self.external.glob("ext-*")))
+
+    def test_protected_alias_still_rejected(self):
+        """Alias pointing at a protected repository must still be rejected."""
+        alias = self.base / "protected_alias"
+        _make_dir_alias(alias, self.repo)
+        with self.assertRaises(WorkspaceError):
+            create_disposable_root(
+                parent=alias,
+                prefix="prot-",
+                active_repository=self.repo,
+            )
+        # No disposable directory created under the real protected repo.
+        self.assertFalse(any(self.repo.glob("prot-*")))
+
+    def test_ordinary_non_reparse_parent_preserved(self):
+        root = create_disposable_root(
+            parent=self.disp_parent,
+            prefix="ok-",
+            active_repository=self.repo,
+        )
+        try:
+            self.assertTrue(root.is_dir())
+            self.assertEqual(root.parent, self.disp_parent.resolve())
+            self.assertTrue(root.name.startswith("ok-"))
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    def test_rejected_export_creates_no_destination_state(self):
+        alias = self.base / "no_state_alias"
+        _make_dir_alias(alias, self.external)
+        dest = alias / "never_created"
+        marker = self.external / "never_created"
+        with self.assertRaises(WorkspaceError):
+            export_tracked_tree(
+                repo_root=self.repo,
+                revision=self.rev,
+                destination=dest,
+                protected_paths=[self.repo, self.active],
+            )
+        self.assertFalse(dest.exists(follow_symlinks=False))
+        self.assertFalse(marker.exists(follow_symlinks=False))
 
 
 if __name__ == "__main__":

@@ -127,6 +127,19 @@ def assert_no_reparse_chain(path: Path | str, *, field: str = "path") -> Path:
     return target
 
 
+def _canonicalize_caller_path(path: Path | str, *, field: str) -> Path:
+    """Reject reparse aliases on the unresolved path, then canonicalize.
+
+    Caller-controlled paths must be inspected before ``Path.resolve()`` so that
+    junction/symlink components are not erased by following them.
+    """
+    raw = Path(path)
+    assert_no_reparse_chain(raw, field=field)
+    resolved = _resolve(raw)
+    assert_no_reparse_chain(resolved, field=field)
+    return resolved
+
+
 def _is_under_or_equal(path: Path, root: Path) -> bool:
     if path == root:
         return True
@@ -191,8 +204,8 @@ def create_disposable_root(
     if prefix.startswith("."):
         raise WorkspaceError("prefix must not be a dot segment")
 
-    parent_path = Path(parent) if parent is not None else Path(tempfile.gettempdir())
-    parent_path = _resolve(parent_path)
+    parent_raw = Path(parent) if parent is not None else Path(tempfile.gettempdir())
+    parent_path = _canonicalize_caller_path(parent_raw, field="disposable parent")
     if not parent_path.is_dir():
         raise WorkspaceError(f"disposable parent is not a directory: {parent_path}")
 
@@ -206,26 +219,24 @@ def create_disposable_root(
         field="disposable parent",
         allow_parent_of_protected=True,
     )
-    assert_no_reparse_chain(parent_path, field="disposable parent")
 
     # mkdtemp is exclusive-create under parent.
     try:
-        created = Path(tempfile.mkdtemp(prefix=prefix, dir=str(parent_path)))
+        created_raw = Path(tempfile.mkdtemp(prefix=prefix, dir=str(parent_path)))
     except OSError as exc:
         raise WorkspaceError(f"exclusive disposable create failed: {exc}") from exc
 
-    created = _resolve(created)
     try:
+        created = _canonicalize_caller_path(created_raw, field="disposable root")
         if created.parent != parent_path:
             raise WorkspaceError("disposable root escaped requested parent")
         if not created.name.startswith(prefix):
             raise WorkspaceError("disposable root name prefix mismatch")
         _assert_outside_protected(created, protected_list, field="disposable root")
-        assert_no_reparse_chain(created, field="disposable root")
     except WorkspaceError:
         # Best-effort cleanup of the exclusive directory we just created.
         try:
-            created.rmdir()
+            created_raw.rmdir()
         except OSError:
             pass
         raise
@@ -250,10 +261,9 @@ def _validate_git_revision(revision: object) -> str:
 
 
 def _validate_repo_root(repo_root: Path) -> Path:
-    root = _resolve(repo_root)
+    root = _canonicalize_caller_path(repo_root, field="repo_root")
     if not (root / ".git").exists():
         raise WorkspaceError(f"repo_root is not a git repository: {root}")
-    assert_no_reparse_chain(root, field="repo_root")
     return root
 
 
@@ -318,15 +328,16 @@ def export_tracked_tree(
     """
     root = _validate_repo_root(Path(repo_root))
     rev = _validate_git_revision(revision)
-    dest = _resolve(Path(destination))
+    # Inspect unresolved destination (and existing parents) before resolve/write.
+    dest_raw = Path(destination)
+    assert_no_reparse_chain(dest_raw, field="export destination")
+    if not dest_raw.exists():
+        assert_no_reparse_chain(dest_raw.parent, field="export destination parent")
+    dest = _canonicalize_caller_path(dest_raw, field="export destination")
     if dest.exists() and any(dest.iterdir()):
         raise WorkspaceError(f"destination is not empty: {dest}")
     # Destination confinement checks before any content write. Directory may be
     # created only after the archive has been fetched and fully validated.
-    if dest.exists():
-        assert_no_reparse_chain(dest, field="export destination")
-    else:
-        assert_no_reparse_chain(dest.parent, field="export destination parent")
     _assert_outside_protected(
         dest,
         [Path(p) for p in protected_paths] + [root],
@@ -369,25 +380,26 @@ def export_tracked_tree(
         planned.append((rel, member))
 
     dest.mkdir(parents=True, exist_ok=True)
-    assert_no_reparse_chain(dest, field="export destination")
+    dest = _canonicalize_caller_path(dest, field="export destination")
 
     # Pass 2: materialize validated members only.
     inventory: dict[str, str] = {}
     for rel, member in planned:
         target = dest / Path(*rel.split("/"))
         # Reject escape even after join (defense in depth).
+        assert_no_reparse_chain(target.parent, field="export parent")
         resolved_target = _resolve(target)
         try:
             resolved_target.relative_to(dest)
         except ValueError as exc:
             raise WorkspaceError(f"archive member escapes destination: {rel}") from exc
-        assert_no_reparse_chain(target.parent, field="export parent")
         if member.isdir():
             target.mkdir(parents=True, exist_ok=True)
             assert_no_reparse_chain(target, field="export dir")
             continue
         # file
         target.parent.mkdir(parents=True, exist_ok=True)
+        assert_no_reparse_chain(target.parent, field="export parent")
         extracted = tar.extractfile(member)
         if extracted is None:
             raise WorkspaceError(f"archive member not readable: {rel}")
@@ -395,7 +407,7 @@ def export_tracked_tree(
         if member.size >= 0 and len(data) != member.size:
             raise WorkspaceError(f"archive member size mismatch: {rel}")
         # Exclusive create: refuse overwrite.
-        if target.exists():
+        if target.exists(follow_symlinks=False):
             raise WorkspaceError(f"export target already exists: {rel}")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
         fd = os.open(str(target), flags, 0o644)
@@ -412,10 +424,9 @@ def export_tracked_tree(
 
 def inventory_tree(root: Path | str) -> dict[str, str]:
     """SHA-256 inventory of regular files under root (relative POSIX paths)."""
-    base = _resolve(Path(root))
+    base = _canonicalize_caller_path(root, field="inventory root")
     if not base.is_dir():
         raise WorkspaceError(f"inventory root is not a directory: {base}")
-    assert_no_reparse_chain(base, field="inventory root")
     out: dict[str, str] = {}
     seen_fold: dict[str, str] = {}
     for dirpath, dirnames, filenames in os.walk(base, followlinks=False):
@@ -455,8 +466,7 @@ def inventory_protected_paths(
     """Byte inventory of protected files/directories (resolved absolute keys)."""
     out: dict[str, str] = {}
     for raw in paths:
-        path = _resolve(Path(raw))
-        assert_no_reparse_chain(path, field="protected path")
+        path = _canonicalize_caller_path(raw, field="protected path")
         key = str(path)
         if path.is_file():
             out[key] = sha256_file(path)
@@ -492,13 +502,14 @@ def assert_protected_unchanged(
 def resolve_under_root(root: Path | str, relative_path: str) -> Path:
     """Resolve ``relative_path`` under ``root`` with full confinement checks."""
     rel = validate_relative_path(relative_path)
-    base = _resolve(Path(root))
+    base = _canonicalize_caller_path(root, field="workspace root")
     if not base.is_dir():
         raise WorkspaceError(f"workspace root is not a directory: {base}")
-    assert_no_reparse_chain(base, field="workspace root")
     candidate = base.joinpath(*rel.split("/"))
-    # Validate parents that exist for reparse before create/read.
+    # Validate parents that exist for reparse before create/read/resolve.
     assert_no_reparse_chain(candidate.parent, field="target parent")
+    if candidate.exists(follow_symlinks=False) and _is_reparse_point(candidate):
+        raise WorkspaceError(f"target is a reparse point: {candidate}")
     resolved = _resolve(candidate)
     try:
         resolved.relative_to(base)
@@ -516,12 +527,15 @@ def ensure_output_root_confined(
     active_repository: Path | str | None = None,
 ) -> Path:
     """Validate an operator output root does not alias protected locations."""
-    out = _resolve(Path(output_root))
+    out_raw = Path(output_root)
+    assert_no_reparse_chain(out_raw, field="output_root")
+    if not out_raw.exists():
+        assert_no_reparse_chain(out_raw.parent, field="output_root")
+    out = _canonicalize_caller_path(out_raw, field="output_root")
     protected = [Path(p) for p in protected_paths]
     if active_repository is not None:
         protected.append(Path(active_repository))
     _assert_outside_protected(out, protected, field="output_root")
-    assert_no_reparse_chain(out if out.exists() else out.parent, field="output_root")
     return out
 
 

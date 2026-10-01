@@ -18,6 +18,7 @@ from wvma_v1.models import (
 from wvma_v1.mutations import MutationApplication
 from wvma_v1.runner import ProcessReceipt, runner_module_origin
 from wvma_v1.target_launcher import module_origin as launcher_module_origin
+from wvma_v1.workspace import WorkspaceError, assert_no_reparse_chain
 
 ORACLE_CONTRACT_VERSION = "wvma_v1.oracle.a2"
 
@@ -62,7 +63,12 @@ def assert_trusted_origins(
     }
     if disposable_workspace is None:
         return origins
-    root = Path(disposable_workspace).resolve()
+    raw = Path(disposable_workspace)
+    try:
+        assert_no_reparse_chain(raw, field="disposable_workspace")
+    except WorkspaceError as exc:
+        raise OracleError(str(exc)) from exc
+    root = raw.resolve()
     for name, origin in origins.items():
         try:
             Path(origin).resolve().relative_to(root)

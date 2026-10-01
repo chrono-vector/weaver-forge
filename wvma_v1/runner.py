@@ -255,10 +255,13 @@ def _launch(
 
 
 def _prepare_workspace(workspace_root: Path | str) -> Path:
-    root = Path(workspace_root).resolve()
-    if not root.is_dir():
-        raise RunnerError(f"workspace_root is not a directory: {root}")
+    raw = Path(workspace_root)
     try:
+        # Reject junction/symlink aliases before resolve erases them.
+        assert_no_reparse_chain(raw, field="workspace_root")
+        root = raw.resolve()
+        if not root.is_dir():
+            raise RunnerError(f"workspace_root is not a directory: {root}")
         assert_no_reparse_chain(root, field="workspace_root")
     except WorkspaceError as exc:
         raise RunnerError(str(exc)) from exc

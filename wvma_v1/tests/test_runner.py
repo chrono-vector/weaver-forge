@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +19,23 @@ from wvma_v1.runner import (
 )
 from wvma_v1.target_launcher import module_origin as launcher_origin
 from wvma_v1.workspace import create_disposable_root
+
+
+def _make_dir_alias(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except (OSError, NotImplementedError):
+        pass
+    if os.name == "nt":
+        cp = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+            capture_output=True,
+            shell=False,
+        )
+        if cp.returncode == 0:
+            return
+    raise unittest.SkipTest("symlink/junction unavailable")
 
 
 class TestRunner(unittest.TestCase):
@@ -98,6 +117,16 @@ class TestRunner(unittest.TestCase):
                 contract=InvocationContract(invocation_id="synthetic.verify"),
                 output_root=self.active / "wvma_v1",
                 protected_paths=[self.active],
+                active_repository=self.active,
+            )
+
+    def test_workspace_alias_rejected(self):
+        alias = Path(self._tmpdir.name) / "ws_alias"
+        _make_dir_alias(alias, self.disp)
+        with self.assertRaises(RunnerError):
+            run_baseline(
+                workspace_root=alias,
+                contract=InvocationContract(invocation_id="synthetic.verify"),
                 active_repository=self.active,
             )
 
