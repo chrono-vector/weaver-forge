@@ -23,6 +23,8 @@ from wvma_v1.models import (
 _REL_COMPONENT_RE = re.compile(
     rf"\A[A-Za-z0-9_][A-Za-z0-9_.-]{{0,{SAFE_PATH_COMPONENT_MAX_LEN - 1}}}\Z"
 )
+# R4 content-addressed disagreement records: <sha256>.json (69 chars).
+_CONTENT_ADDRESSED_JSON_RE = re.compile(r"\A[0-9a-f]{64}\.json\Z")
 _GIT_REV_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 _SHA256_EMPTY = hashlib.sha256(b"").hexdigest()
 
@@ -64,6 +66,9 @@ def validate_relative_path(value: object, field: str = "relative_path") -> str:
             raise WorkspaceError(f"{field} must not contain dot segments")
         if part.endswith(".") or part.endswith(" "):
             raise WorkspaceError(f"{field} component must not trail dot/space")
+        # Allow R4 content-addressed review filenames (<64-hex>.json).
+        if _CONTENT_ADDRESSED_JSON_RE.match(part) is not None:
+            continue
         if len(part) > SAFE_PATH_COMPONENT_MAX_LEN:
             raise WorkspaceError(
                 f"{field} component exceeds max length {SAFE_PATH_COMPONENT_MAX_LEN}"

@@ -1,0 +1,805 @@
+{
+  "authority": false,
+  "catalog_digest": "485a2bd63a2382162b3cf1449aff95237c970cd7328c0e6938b06a6b24878ffd",
+  "catalog_id": "WVMA-V1-ARTIFACT-B1",
+  "catalog_version": "1",
+  "critical_case_ids": [
+    "C01-01",
+    "C01-02",
+    "C02-01",
+    "C02-02",
+    "C03-01",
+    "C04-01",
+    "C04-02",
+    "C04-03",
+    "C04-04",
+    "C05-01",
+    "C05-02",
+    "C05-03",
+    "C06-01",
+    "C06-02",
+    "C06-03",
+    "C07-01",
+    "C07-02",
+    "C07-03",
+    "C07-04",
+    "C08-01",
+    "C08-02",
+    "C08-03",
+    "C08-04",
+    "C08-05",
+    "C09-01",
+    "C09-02",
+    "C10-01",
+    "C10-02",
+    "C10-03"
+  ],
+  "mutations": [
+    {
+      "case_id": "C01-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/decision",
+        "value": "PASS"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "decision_mismatch",
+        "semantic_ok_false"
+      ],
+      "property_id": "WVMA-C01",
+      "target_relative_path": "placeholder/C01-01.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "decision_mismatch"
+    },
+    {
+      "case_id": "C01-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/decision/promoted_to_full",
+        "value": true
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "final_decision_mismatch",
+        "semantic_ok_false"
+      ],
+      "property_id": "WVMA-C01",
+      "target_relative_path": "placeholder/C01-02.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "final_decision_mismatch"
+    },
+    {
+      "case_id": "C02-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/x"
+      },
+      "operation_enum": "DELETE_JSON_POINTER",
+      "oracle_observations": [
+        "r4b_ok_false",
+        "not_legacy_accept"
+      ],
+      "property_id": "WVMA-C02",
+      "target_relative_path": "placeholder/C02-01.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "r4b_downgrade_rejected"
+    },
+    {
+      "case_id": "C02-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/contract_marker",
+        "value": "weaver_forge_audit_lifecycle_v0"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "marker_legacy",
+        "r4b_ok_false"
+      ],
+      "property_id": "WVMA-C02",
+      "target_relative_path": "placeholder/C02-02.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "r4b_classification_fail"
+    },
+    {
+      "case_id": "C03-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "recon_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/reconstructable",
+        "value": false
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "recon_mismatch"
+      ],
+      "property_id": "WVMA-C03",
+      "target_relative_path": "placeholder/C03-01.json",
+      "verifier_invocation_id": "audit.verify_reconstructability",
+      "violation_predicate": "recon_recompute_mismatch"
+    },
+    {
+      "case_id": "C04-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {},
+      "operation_enum": "DELETE_DECLARED_FILE",
+      "oracle_observations": [
+        "expected_set_mismatch"
+      ],
+      "property_id": "WVMA-C04",
+      "target_relative_path": "placeholder/C04-01.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "expected_set_mismatch"
+    },
+    {
+      "case_id": "C04-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "content_hex": "00"
+      },
+      "operation_enum": "ADD_DECLARED_FILE",
+      "oracle_observations": [
+        "extra_record"
+      ],
+      "property_id": "WVMA-C04",
+      "target_relative_path": "placeholder/C04-02.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "extra_record_rejected"
+    },
+    {
+      "case_id": "C04-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/prior_record_digest",
+        "value": "abababababababababababababababababababababababababababababababab"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "chain_fail"
+      ],
+      "property_id": "WVMA-C04",
+      "target_relative_path": "placeholder/C04-03.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "chain_verification_fail"
+    },
+    {
+      "case_id": "C04-04",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/disagreement_id",
+        "value": "D-1"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "duplicate_id"
+      ],
+      "property_id": "WVMA-C04",
+      "target_relative_path": "placeholder/C04-04.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "duplicate_id_rejected"
+    },
+    {
+      "case_id": "C05-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "recon_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/authority",
+        "value": true
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "authority_rejected"
+      ],
+      "property_id": "WVMA-C05",
+      "target_relative_path": "placeholder/C05-01.json",
+      "verifier_invocation_id": "audit.verify_reconstructability",
+      "violation_predicate": "authority_true_rejected"
+    },
+    {
+      "case_id": "C05-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "recon_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/independent_evidence_count",
+        "value": 1
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "independent_count_rejected"
+      ],
+      "property_id": "WVMA-C05",
+      "target_relative_path": "placeholder/C05-02.json",
+      "verifier_invocation_id": "audit.verify_reconstructability",
+      "violation_predicate": "positive_independent_count_rejected"
+    },
+    {
+      "case_id": "C05-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "recon_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/independent_evidence_admission_status",
+        "value": "ADMITTED"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "admission_rejected"
+      ],
+      "property_id": "WVMA-C05",
+      "target_relative_path": "placeholder/C05-03.json",
+      "verifier_invocation_id": "audit.verify_reconstructability",
+      "violation_predicate": "admission_not_configured_required"
+    },
+    {
+      "case_id": "C06-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/r4_b/expected_disagreement_record_digests",
+        "value": "not-a-list"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "parser_reject"
+      ],
+      "property_id": "WVMA-C06",
+      "target_relative_path": "placeholder/C06-01.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "strict_parser_rejects_string_as_list"
+    },
+    {
+      "case_id": "C06-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "recon_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/missing_inputs",
+        "value": true
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "parser_reject"
+      ],
+      "property_id": "WVMA-C06",
+      "target_relative_path": "placeholder/C06-02.json",
+      "verifier_invocation_id": "audit.verify_reconstructability",
+      "violation_predicate": "strict_parser_rejects_bool_collection"
+    },
+    {
+      "case_id": "C06-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "r4b_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/reviewer_positions",
+        "value": {
+          "rev-A": "PASS"
+        }
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "parser_reject"
+      ],
+      "property_id": "WVMA-C06",
+      "target_relative_path": "placeholder/C06-03.json",
+      "verifier_invocation_id": "audit.verify_r4b",
+      "violation_predicate": "strict_parser_rejects_mapping_as_list"
+    },
+    {
+      "case_id": "C07-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "txn_verify_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "content_hex": "7b2261756469745f6964223a225746412d57564d412d42312d434841494e222c22636f6e74726163745f6d61726b6572223a227765617665725f666f7267655f61756469745f6c6966656379636c655f7234625f7631222c22657865637574696f6e5f6d616e69666573745f646967657374223a2261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162222c2272345f625f6578706563746174696f6e5f646967657374223a2263646364636463646364636463646364636463646364636463646364636463646364636463646364636463646364636463646364636463646364636463646364222c227374617465223a22465245455a455f494e5f50524f4752455353227d"
+      },
+      "operation_enum": "ADD_DECLARED_FILE",
+      "oracle_observations": [
+        "freeze_incomplete"
+      ],
+      "property_id": "WVMA-C07",
+      "target_relative_path": "placeholder/C07-01.json",
+      "verifier_invocation_id": "audit.validate_freeze_transaction",
+      "violation_predicate": "freeze_incomplete"
+    },
+    {
+      "case_id": "C07-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "txn_verify_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {},
+      "operation_enum": "DELETE_DECLARED_FILE",
+      "oracle_observations": [
+        "missing_package_file"
+      ],
+      "property_id": "WVMA-C07",
+      "target_relative_path": "placeholder/C07-02.json",
+      "verifier_invocation_id": "audit.validate_freeze_transaction",
+      "violation_predicate": "transaction_incomplete"
+    },
+    {
+      "case_id": "C07-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "txn_verify_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {},
+      "operation_enum": "DELETE_DECLARED_FILE",
+      "oracle_observations": [
+        "status_absent"
+      ],
+      "property_id": "WVMA-C07",
+      "target_relative_path": "placeholder/C07-03.json",
+      "verifier_invocation_id": "audit.validate_freeze_transaction",
+      "violation_predicate": "transaction_incomplete"
+    },
+    {
+      "case_id": "C07-04",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "txn_verify_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/state",
+        "value": "FREEZE_IN_PROGRESS"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "premature_completion"
+      ],
+      "property_id": "WVMA-C07",
+      "target_relative_path": "placeholder/C07-04.json",
+      "verifier_invocation_id": "audit.validate_freeze_transaction",
+      "violation_predicate": "never_classify_frozen"
+    },
+    {
+      "case_id": "C08-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "freeze_not_ok",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_FREEZE",
+      "operation_arguments": {},
+      "operation_enum": "DELETE_DECLARED_FILE",
+      "oracle_observations": [
+        "freeze_rejected"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-01.json",
+      "verifier_invocation_id": "audit.freeze_run",
+      "violation_predicate": "freeze_rejected_missing_review"
+    },
+    {
+      "case_id": "C08-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "freeze_not_ok",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_FREEZE",
+      "operation_arguments": {
+        "find_hex": "00",
+        "replace_hex": "01"
+      },
+      "operation_enum": "REPLACE_EXACT_BYTES",
+      "oracle_observations": [
+        "invalid_json"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-02.json",
+      "verifier_invocation_id": "audit.freeze_run",
+      "violation_predicate": "conservative_failure_invalid_json"
+    },
+    {
+      "case_id": "C08-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "freeze_not_ok",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_FREEZE",
+      "operation_arguments": {
+        "pointer": "/status",
+        "value": "REJECTED"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "status_rejected"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-03.json",
+      "verifier_invocation_id": "audit.freeze_run",
+      "violation_predicate": "freeze_rejected_non_accepted"
+    },
+    {
+      "case_id": "C08-04",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {},
+      "operation_enum": "DELETE_DECLARED_FILE",
+      "oracle_observations": [
+        "review_missing_frozen"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-04.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "semantic_verification_false"
+    },
+    {
+      "case_id": "C08-05",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/status",
+        "value": "REJECTED"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "status_non_accepted_frozen"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-05.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "semantic_verification_false"
+    },
+    {
+      "case_id": "C08-UM-01",
+      "critical": false,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "none",
+      "materiality": "NON_MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/notes",
+        "value": "UNBOUND_METADATA_ONLY"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "unbound_metadata"
+      ],
+      "property_id": "WVMA-C08",
+      "target_relative_path": "placeholder/C08-UM-01.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "unbound_metadata_no_violation"
+    },
+    {
+      "case_id": "C09-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "find_hex": "00",
+        "replace_hex": "01"
+      },
+      "operation_enum": "REPLACE_EXACT_BYTES",
+      "oracle_observations": [
+        "hash_mismatch"
+      ],
+      "property_id": "WVMA-C09",
+      "target_relative_path": "placeholder/C09-01.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "actual_expected_hash_mismatch"
+    },
+    {
+      "case_id": "C09-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "semantic_ok_false",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/adapter_params/expected_sha256",
+        "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "expected_digest_mismatch"
+      ],
+      "property_id": "WVMA-C09",
+      "target_relative_path": "placeholder/C09-02.json",
+      "verifier_invocation_id": "audit.verify_semantics",
+      "violation_predicate": "actual_expected_mismatch"
+    },
+    {
+      "case_id": "C10-01",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "pass_cleared",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/x",
+        "value": null
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "false_pass_cleared"
+      ],
+      "property_id": "WVMA-C10",
+      "target_relative_path": "placeholder/C10-01.json",
+      "verifier_invocation_id": "campaign.revalidate",
+      "violation_predicate": "terminal_pass_not_retained"
+    },
+    {
+      "case_id": "C10-02",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "pass_cleared",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/x",
+        "value": null
+      },
+      "operation_enum": "SET_JSON_POINTER",
+      "oracle_observations": [
+        "wrong_evidence_binding"
+      ],
+      "property_id": "WVMA-C10",
+      "target_relative_path": "placeholder/C10-02.json",
+      "verifier_invocation_id": "campaign.revalidate",
+      "violation_predicate": "reuse_validation_fails"
+    },
+    {
+      "case_id": "C10-03",
+      "critical": true,
+      "expected_postimage_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "expected_preimage_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_rejection_predicate": "no_new_pass",
+      "materiality": "MATERIAL",
+      "mutation_kind": "ARTIFACT",
+      "mutation_timing": "PRE_VERIFY",
+      "operation_arguments": {
+        "pointer": "/x",
+        "value": null
+      },
+      "operation_enum": "REPLACE_EXACT_BYTES",
+      "oracle_observations": [
+        "foreign_evidence"
+      ],
+      "property_id": "WVMA-C10",
+      "target_relative_path": "placeholder/C10-03.json",
+      "verifier_invocation_id": "campaign.revalidate",
+      "violation_predicate": "foreign_entry_no_pass"
+    }
+  ],
+  "oracle_contract_version": "wvma_v1.oracle.a2",
+  "product_base_sha": "1e26e1ca1dff45cbbb0a71f6b818d6bb02f0887dbd9b729e353d7cceb6ba9e95",
+  "properties": [
+    {
+      "invariant": "Stored decision text cannot override recomputed semantics",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C01",
+      "target_entry_points": [
+        "audit.verify_semantics"
+      ],
+      "target_paths": [
+        "audit_lifecycle/semantic_verification.py"
+      ]
+    },
+    {
+      "invariant": "Frozen R4-B cannot downgrade to accepted legacy semantics",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C02",
+      "target_entry_points": [
+        "audit.verify_r4b"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/r4b_verify.py"
+      ]
+    },
+    {
+      "invariant": "Reconstructability is recomputed, not trusted as stored text",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C03",
+      "target_entry_points": [
+        "audit.verify_reconstructability"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/reconstructability.py"
+      ]
+    },
+    {
+      "invariant": "Disagreement records equal the committed complete set and valid chain",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C04",
+      "target_entry_points": [
+        "audit.verify_r4b"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/review_disagreement.py"
+      ]
+    },
+    {
+      "invariant": "R4 artifacts cannot claim authority or fabricate admitted independence",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C05",
+      "target_entry_points": [
+        "audit.verify_reconstructability"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/authority.py"
+      ]
+    },
+    {
+      "invariant": "PRESENT-invalid structured values never receive defaults or coercion",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C06",
+      "target_entry_points": [
+        "audit.verify_r4b"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/expectation.py"
+      ]
+    },
+    {
+      "invariant": "Freeze completion requires a complete transaction",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C07",
+      "target_entry_points": [
+        "audit.validate_freeze_transaction"
+      ],
+      "target_paths": [
+        "audit_lifecycle/epistemic/expectation.py"
+      ]
+    },
+    {
+      "invariant": "When policy requires Human Review, freeze/verify require ACCEPTED status gate",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C08",
+      "target_entry_points": [
+        "audit.freeze_run",
+        "audit.verify_semantics"
+      ],
+      "target_paths": [
+        "audit_lifecycle/review_gate.py"
+      ]
+    },
+    {
+      "invariant": "Source/target identity remains semantically bound",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C09",
+      "target_entry_points": [
+        "audit.verify_semantics"
+      ],
+      "target_paths": [
+        "audit_lifecycle/pin.py",
+        "audit_lifecycle/adapters/hash_claim.py"
+      ]
+    },
+    {
+      "invariant": "Campaign state or foreign evidence cannot create PASS",
+      "materiality": "MATERIAL",
+      "property_id": "WVMA-C10",
+      "target_entry_points": [
+        "campaign.revalidate"
+      ],
+      "target_paths": [
+        "campaign_runner_v0/state_revalidation.py"
+      ]
+    }
+  ],
+  "runner_contract_version": "wvma_v1.runner.a2",
+  "schema_version": "wvma_v1.catalog.v1"
+}

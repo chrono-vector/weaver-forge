@@ -128,7 +128,12 @@ def _bounded_capture(raw: bytes, limit: int) -> tuple[bytes, bool]:
     return raw, False
 
 
-def _build_env(*, home: Path, tmp: Path) -> dict[str, str]:
+def _build_env(
+    *,
+    home: Path,
+    tmp: Path,
+    pythonpath_entries: tuple[str, ...] = (),
+) -> dict[str, str]:
     """Deterministic, network-avoiding environment for child processes."""
     env: dict[str, str] = {
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -147,6 +152,10 @@ def _build_env(*, home: Path, tmp: Path) -> dict[str, str]:
     for key in ("SYSTEMROOT", "WINDIR", "SystemRoot", "COMSPEC", "PATH"):
         if key in os.environ:
             env[key] = os.environ[key]
+    # Trusted product modules (audit_lifecycle / campaign_runner_v0) load from
+    # the active repository only — never from the disposable mutated tree.
+    if pythonpath_entries:
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
     return env
 
 
@@ -176,6 +185,7 @@ def _launch(
     workspace_root: Path,
     isolated_home: Path,
     isolated_tmp: Path,
+    pythonpath_entries: tuple[str, ...] = (),
 ) -> ProcessReceipt:
     python = _absolute_python()
     launcher = Path(launcher_module_origin())
@@ -198,7 +208,11 @@ def _launch(
         "--workspace",
         str(workspace_root),
     ]
-    env = _build_env(home=isolated_home, tmp=isolated_tmp)
+    env = _build_env(
+        home=isolated_home,
+        tmp=isolated_tmp,
+        pythonpath_entries=pythonpath_entries,
+    )
     env_digest = canonical_digest(dict(sorted(env.items())))
     started = _utc_now()
     try:
@@ -292,11 +306,22 @@ def run_baseline(
 
     with tempfile.TemporaryDirectory(prefix="wvma-run-home-") as home:
         with tempfile.TemporaryDirectory(prefix="wvma-run-tmp-") as tmp:
+            pythonpath: tuple[str, ...] = ()
+            if active_repository is not None:
+                try:
+                    assert_no_reparse_chain(
+                        Path(active_repository), field="active_repository"
+                    )
+                    repo = Path(active_repository).resolve()
+                except WorkspaceError as exc:
+                    raise RunnerError(str(exc)) from exc
+                pythonpath = (str(repo),)
             return _launch(
                 contract=contract,
                 workspace_root=root,
                 isolated_home=Path(home),
                 isolated_tmp=Path(tmp),
+                pythonpath_entries=pythonpath,
             )
 
 
