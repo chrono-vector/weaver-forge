@@ -247,11 +247,13 @@ def _families(
     }
     if requested is None:
         return sorted(supported)
-    if not isinstance(requested, tuple):
+    if type(requested) is not tuple:
         _fail("ENVELOPE_FAMILY_UNSUPPORTED", "detector_families must be a tuple")
     chosen: list[str] = []
     for family in requested:
-        if not isinstance(family, str) or family not in supported:
+        if type(family) is not str:
+            _fail("ENVELOPE_FAMILY_UNSUPPORTED", "detector family must be a string")
+        if family not in supported:
             _fail("ENVELOPE_FAMILY_UNSUPPORTED", f"unsupported family {family!r}")
         if family not in chosen:
             chosen.append(family)
@@ -338,7 +340,7 @@ def build_tested_envelope(
     _authority_false_or_absent(pin_map, "provenance")
     _reject_independent_claim(decision_map)
 
-    if scope_note is not None and not isinstance(scope_note, str):
+    if scope_note is not None and type(scope_note) is not str:
         _fail("ENVELOPE_SOURCE_INVALID", "scope_note must be a string")
 
     try:

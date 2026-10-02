@@ -578,6 +578,55 @@ class TestScalarSnapshot(unittest.TestCase):
         self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
 
 
+class _HostileFamily(str):
+    """Text stays an unsupported family. Equality pretends it is supported."""
+
+    def __eq__(self, other: object) -> bool:
+        return other == "digest_match" or str.__eq__(self, other)
+
+    def __hash__(self) -> int:
+        return hash("digest_match")
+
+
+class _FamilyTuple(tuple):
+    """Caller-supplied container subclass."""
+
+
+class _HostileNote(str):
+    """Caller-supplied annotation subclass."""
+
+
+class TestDirectCallerInputs(unittest.TestCase):
+    def test_hostile_family_string_cannot_enter_the_receipt(self):
+        family = _HostileFamily("formal_model")
+        self.assertEqual(family, "digest_match")
+        self.assertFalse(str.__eq__(family, "digest_match"))
+        bundle = _bundle()
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle, detector_families=(family,))
+        self.assertEqual(caught.exception.code, "ENVELOPE_FAMILY_UNSUPPORTED")
+        receipt = _build(bundle, detector_families=("digest_match",))
+        self.assertEqual(receipt["detector_families"], ["digest_match"])
+        self.assertIs(type(receipt["detector_families"][0]), str)
+
+    def test_family_tuple_subclass_is_rejected(self):
+        bundle = _bundle()
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle, detector_families=_FamilyTuple(("digest_match",)))
+        self.assertEqual(caught.exception.code, "ENVELOPE_FAMILY_UNSUPPORTED")
+
+    def test_scope_note_subclass_is_rejected_and_plain_str_remains(self):
+        bundle = _bundle()
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle, scope_note=_HostileNote("narrow annotation"))
+        self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
+        receipt = _build(bundle, scope_note="narrow annotation")
+        self.assertEqual(receipt["annotations"]["scope_note"], "narrow annotation")
+        self.assertIs(type(receipt["annotations"]["scope_note"]), str)
+        self.assertEqual(receipt["result"], "PASS")
+        self.assertNotIn("scope_note", receipt["scope_binding"])
+
+
 class TestNoAcceptedWrites(unittest.TestCase):
     def test_generation_does_not_change_the_worktree(self):
         before = subprocess.check_output(
