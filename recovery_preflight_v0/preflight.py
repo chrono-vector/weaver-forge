@@ -1,0 +1,287 @@
+"""Derive a non-authoritative statement that recovery is not established.
+
+The receipt copies structured source facts. It does not restore, roll back,
+or treat a decision, a digest match, or a resume as recovery.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from audit_lifecycle.epistemic.authority import AuthorityViolation
+from audit_lifecycle.epistemic.reconstructability import (
+    ReconstructabilityError,
+    strict_parse_report,
+)
+from audit_lifecycle.epistemic.serialize import canonical_digest
+
+SCHEMA_VERSION = "recovery_preflight.v0"
+_LEAF_TYPES = (str, bool, int, float)
+_SHA256_WIDTH = 64
+
+_CALLER_ASSERTION_KEYS = frozenset(
+    {
+        "recovered",
+        "restored",
+        "verified_restore",
+        "rollback_complete",
+        "rejected_terminals",
+        "digest_observation",
+        "classification",
+        "revalidation_observation",
+    }
+)
+_EMBEDDED_ASSERTION_KEYS = frozenset(
+    {
+        "recovered",
+        "restored",
+        "verified_restore",
+        "rollback_complete",
+        "digest_observation",
+        "classification",
+        "revalidation_observation",
+    }
+)
+_RESUME_KEYS = frozenset(
+    {
+        "campaign_resume",
+        "resume",
+        "resume_result",
+    }
+)
+_REVALIDATION_REQUIRED = frozenset(
+    {
+        "integrity_digest_matched",
+        "rejected_terminals",
+        "validated_reuse_claims",
+    }
+)
+_REVALIDATION_OPTIONAL = frozenset({"note"})
+_LIMITATIONS = (
+    "restore execution",
+    "verified restore",
+    "rollback completion",
+    "recovered state",
+    "independent reproduction",
+    "operational hardening",
+    "Human Final",
+    "Canonical / Published / Deployed state",
+)
+
+
+class RecoveryError(ValueError):
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(f"{code}: {message}")
+
+
+def _fail(code: str, message: str) -> None:
+    raise RecoveryError(code, message)
+
+
+def _snapshot(value: Any, depth: int = 0) -> Any:
+    """Copy caller values once into exact built-in containers and leaves."""
+    if depth > 32:
+        _fail("RECOVERY_SOURCE_INVALID", "input is nested too deeply")
+    if value is None or type(value) in _LEAF_TYPES:
+        return value
+    if isinstance(value, Mapping):
+        copied: dict[str, Any] = {}
+        for key, item in value.items():
+            if type(key) is not str:
+                _fail("RECOVERY_SOURCE_INVALID", "mapping key must be a string")
+            if key in copied:
+                _fail("RECOVERY_SOURCE_INVALID", "mapping repeats a key")
+            copied[key] = _snapshot(item, depth + 1)
+        return copied
+    if type(value) is list or type(value) is tuple:
+        return [_snapshot(item, depth + 1) for item in value]
+    _fail("RECOVERY_SOURCE_INVALID", "input is not plain JSON data")
+
+
+def _require_mapping(value: Any, label: str) -> Mapping[str, Any]:
+    if isinstance(value, bool) or not isinstance(value, Mapping):
+        _fail("RECOVERY_SOURCE_INVALID", f"{label} must be a mapping")
+    return value
+
+
+def _reject_forbidden(forbidden: Mapping[str, Any]) -> None:
+    if not forbidden:
+        return
+    names = set(forbidden)
+    if names & _CALLER_ASSERTION_KEYS:
+        _fail("RECOVERY_ASSERTION_FORBIDDEN", "caller cannot assert recovery facts")
+    if names & _RESUME_KEYS:
+        _fail("RECOVERY_SCOPE_VIOLATION", "resume is not recovery evidence")
+    _fail("RECOVERY_SOURCE_INVALID", "unexpected recovery input")
+
+
+def _reject_embedded_assertions(record: Mapping[str, Any]) -> None:
+    names = set(record)
+    if names & _EMBEDDED_ASSERTION_KEYS:
+        _fail("RECOVERY_ASSERTION_FORBIDDEN", "caller cannot assert recovery facts")
+    if names & _RESUME_KEYS:
+        _fail("RECOVERY_SCOPE_VIOLATION", "resume is not recovery evidence")
+
+
+def _nonempty_str(value: Any, label: str, code: str) -> str:
+    if type(value) is not str or not value.strip():
+        _fail(code, f"{label} is missing")
+    return value
+
+
+def _bind_decision(decision: Mapping[str, Any], report: Any) -> dict[str, str]:
+    if (
+        report.reconstructable is not True
+        or len(report.missing_inputs) != 0
+        or len(report.unresolved_assumptions) != 0
+    ):
+        _fail("RECOVERY_BINDING_UNAVAILABLE", "decision citation is incomplete")
+    stated = report.canonical_input_digests.get("DECISION.json")
+    if type(stated) is not str or len(stated) != _SHA256_WIDTH:
+        _fail("RECOVERY_BINDING_UNAVAILABLE", "decision digest is not bound")
+    try:
+        actual = canonical_digest(decision)
+    except (TypeError, ValueError) as exc:
+        if isinstance(exc, RecoveryError):
+            raise
+        _fail("RECOVERY_BINDING_UNAVAILABLE", "decision digest is not bound")
+    if actual != stated:
+        _fail("RECOVERY_BINDING_UNAVAILABLE", "decision does not match the cited digest")
+    _reject_embedded_assertions(decision)
+    claim_id = _nonempty_str(decision.get("claim_id"), "claim_id", "RECOVERY_SOURCE_INVALID")
+    token = _nonempty_str(decision.get("decision"), "decision", "RECOVERY_SOURCE_INVALID")
+    cited = {"claim_id": claim_id, "decision": token}
+    if "claim_result" in decision:
+        cited["claim_result"] = _nonempty_str(
+            decision.get("claim_result"),
+            "claim_result",
+            "RECOVERY_SOURCE_INVALID",
+        )
+    return cited
+
+
+def _copy_terminals(raw: Any) -> list[dict[str, str]]:
+    if type(raw) is not list:
+        _fail("RECOVERY_SOURCE_INVALID", "rejected_terminals must be a list")
+    copied: list[dict[str, str]] = []
+    for item in raw:
+        if type(item) is not dict:
+            _fail("RECOVERY_REVALIDATION_UNBOUND", "rejected terminal is not a record")
+        allowed = {"claim_id", "prior_state", "reason"}
+        if set(item) != allowed:
+            _fail("RECOVERY_REVALIDATION_UNBOUND", "rejected terminal is not bound")
+        copied.append(
+            {
+                "claim_id": _nonempty_str(
+                    item.get("claim_id"),
+                    "rejected claim_id",
+                    "RECOVERY_REVALIDATION_UNBOUND",
+                ),
+                "prior_state": _nonempty_str(
+                    item.get("prior_state"),
+                    "prior_state",
+                    "RECOVERY_REVALIDATION_UNBOUND",
+                ),
+                "reason": _nonempty_str(
+                    item.get("reason"),
+                    "rejection reason",
+                    "RECOVERY_REVALIDATION_UNBOUND",
+                ),
+            }
+        )
+    return copied
+
+
+def _copy_reuse(raw: Any) -> list[str]:
+    if type(raw) is not list:
+        _fail("RECOVERY_SOURCE_INVALID", "validated_reuse_claims must be a list")
+    copied: list[str] = []
+    for item in raw:
+        copied.append(
+            _nonempty_str(item, "validated reuse claim", "RECOVERY_REVALIDATION_UNBOUND")
+        )
+    return copied
+
+
+def _bind_revalidation(record: Mapping[str, Any]) -> dict[str, Any]:
+    _reject_embedded_assertions(record)
+    unknown = set(record) - _REVALIDATION_REQUIRED - _REVALIDATION_OPTIONAL
+    if unknown:
+        _fail("RECOVERY_SOURCE_INVALID", "revalidation has an unsupported field")
+    if not _REVALIDATION_REQUIRED <= set(record):
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "revalidation result is not structured")
+    matched = record.get("integrity_digest_matched")
+    if matched is not None and type(matched) is not bool:
+        _fail("RECOVERY_SOURCE_INVALID", "integrity_digest_matched is not a boolean")
+    observation: dict[str, Any] = {
+        "integrity_digest_matched": matched,
+        "validated_reuse_claims": _copy_reuse(record.get("validated_reuse_claims")),
+    }
+    terminals = _copy_terminals(record.get("rejected_terminals"))
+    note = None
+    if "note" in record:
+        note = record.get("note")
+        if type(note) is not str:
+            _fail("RECOVERY_SOURCE_INVALID", "revalidation note must be a string")
+    return {
+        "observation": observation,
+        "rejected_terminals": terminals,
+        "matched": matched,
+        "note": note,
+    }
+
+
+def build_recovery_preflight(
+    decision: Mapping[str, Any],
+    *,
+    reconstructability: Mapping[str, Any],
+    revalidation: Mapping[str, Any] | None = None,
+    annotation: str | None = None,
+    **forbidden: Any,
+) -> dict[str, Any]:
+    """Return a receipt whose classification is NOT_RECOVERED.
+
+    ``annotation`` is stored as text. It does not bind revalidation or recovery.
+    """
+    _reject_forbidden(forbidden)
+    if annotation is not None and type(annotation) is not str:
+        _fail("RECOVERY_SOURCE_INVALID", "annotation must be a string")
+    decision_map = _snapshot(_require_mapping(decision, "decision"))
+    report_map = _snapshot(_require_mapping(reconstructability, "reconstructability"))
+    revalidation_map = None
+    if revalidation is not None:
+        revalidation_map = _snapshot(_require_mapping(revalidation, "revalidation"))
+
+    try:
+        report = strict_parse_report(report_map)
+    except (ReconstructabilityError, AuthorityViolation) as exc:
+        _fail("RECOVERY_SOURCE_INVALID", str(exc))
+
+    cited = _bind_decision(decision_map, report)
+    receipt: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "authority": False,
+        "recovered": False,
+        "classification": "NOT_RECOVERED",
+        "cited_decision": cited,
+        "limitations": list(_LIMITATIONS),
+    }
+    notes: dict[str, Any] = {}
+    if revalidation_map is not None:
+        bound = _bind_revalidation(revalidation_map)
+        receipt["revalidation_observation"] = bound["observation"]
+        receipt["rejected_terminals"] = bound["rejected_terminals"]
+        if type(bound["matched"]) is bool:
+            receipt["digest_observation"] = {
+                "integrity_digest_matched": bound["matched"],
+            }
+        if bound["note"] is not None:
+            notes["revalidation_note"] = bound["note"]
+    if annotation is not None:
+        notes["annotation"] = annotation
+    if notes:
+        notes["authority"] = False
+        receipt["annotations"] = notes
+    return receipt
