@@ -122,6 +122,26 @@ def _require_mapping(value: Any, label: str) -> Mapping[str, Any]:
     return value
 
 
+def _snapshot(value: Any, depth: int = 0) -> Any:
+    """Copy JSON values once. Later reads must not use the caller's mapping."""
+    if depth > 32:
+        _fail("ENVELOPE_SOURCE_INVALID", "input is nested too deeply")
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, Mapping):
+        copied: dict[str, Any] = {}
+        for key, item in value.items():
+            if isinstance(key, bool) or not isinstance(key, str):
+                _fail("ENVELOPE_SOURCE_INVALID", "mapping key must be a string")
+            if key in copied:
+                _fail("ENVELOPE_SOURCE_INVALID", "mapping repeats a key")
+            copied[key] = _snapshot(item, depth + 1)
+        return copied
+    if isinstance(value, (list, tuple)):
+        return [_snapshot(item, depth + 1) for item in value]
+    _fail("ENVELOPE_SOURCE_INVALID", "input is not plain JSON data")
+
+
 def _authority_false_or_absent(record: Mapping[str, Any], label: str) -> None:
     if "authority_before" in record or "authority_after" in record:
         _fail(
@@ -183,8 +203,10 @@ def _digest_matches(record: Mapping[str, Any], stated: Any, label: str, code: st
     if not isinstance(stated, str) or _SHA256_RE.fullmatch(stated) is None:
         _fail(code, f"{label} digest is not bound")
     try:
-        actual = canonical_digest(dict(record))
-    except (TypeError, ValueError):
+        actual = canonical_digest(record)
+    except (TypeError, ValueError) as exc:
+        if isinstance(exc, EnvelopeError):
+            raise
         _fail(code, f"{label} digest is not bound")
     if actual != stated:
         _fail(code, f"{label} does not match the reconstructability digest")
@@ -264,6 +286,15 @@ def _reject_independent_claim(decision: Mapping[str, Any]) -> None:
         )
 
 
+def _require_complete_reconstructability(report: Any) -> None:
+    missing = report.missing_inputs
+    if report.reconstructable is not True or len(missing) != 0:
+        _fail(
+            "ENVELOPE_MISSING_OBSERVATION",
+            "reconstructability evidence is incomplete",
+        )
+
+
 def _counterexample(decision: Mapping[str, Any]) -> int | None:
     if "counterexample_count" not in decision:
         return None
@@ -289,11 +320,11 @@ def build_tested_envelope(
     ``scope_note`` is stored as an annotation. It is not the scope binding.
     """
     _reject_forbidden(forbidden)
-    decision_map = _require_mapping(decision, "decision")
-    claim_map = _require_mapping(claim, "claim")
-    scope_map = _require_mapping(scope, "scope")
-    pin_map = _require_mapping(provenance_pin, "provenance_pin")
-    report_map = _require_mapping(reconstructability, "reconstructability")
+    decision_map = _snapshot(_require_mapping(decision, "decision"))
+    claim_map = _snapshot(_require_mapping(claim, "claim"))
+    scope_map = _snapshot(_require_mapping(scope, "scope"))
+    pin_map = _snapshot(_require_mapping(provenance_pin, "provenance_pin"))
+    report_map = _snapshot(_require_mapping(reconstructability, "reconstructability"))
     _authority_false_or_absent(decision_map, "decision")
     _authority_false_or_absent(claim_map, "claim")
     _authority_false_or_absent(scope_map, "scope")
@@ -304,7 +335,7 @@ def build_tested_envelope(
         _fail("ENVELOPE_SOURCE_INVALID", "scope_note must be a string")
 
     try:
-        report = strict_parse_report(dict(report_map))
+        report = strict_parse_report(report_map)
     except ReconstructabilityError as exc:
         _fail("ENVELOPE_SOURCE_INVALID", str(exc))
 
@@ -312,6 +343,7 @@ def build_tested_envelope(
         _fail("ENVELOPE_AUTHORITY_INVALID", "independent evidence count is not zero")
     if report.independent_evidence_admission_status != "NOT_CONFIGURED":
         _fail("ENVELOPE_AUTHORITY_INVALID", "independent evidence admission is closed")
+    _require_complete_reconstructability(report)
 
     digests = report.canonical_input_digests
     _digest_matches(

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import subprocess
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
 
 from audit_lifecycle.epistemic.reconstructability import (
     ReconstructabilityInputs,
     derive_reconstructability_report,
 )
+from audit_lifecycle.epistemic.serialize import canonical_digest
 from tested_envelope_v0.envelope import EnvelopeError, build_tested_envelope
 
 REPO = Path(__file__).resolve().parents[2]
@@ -37,6 +39,7 @@ def _bundle(
     files: list | None = None,
     scope: dict | None = None,
     assumptions_via_mismatch: bool = False,
+    include_audit_request: bool = True,
 ) -> dict:
     claim = {"claim_id": claim_id, "statement": "document digest matches"}
     if scope is None:
@@ -70,12 +73,17 @@ def _bundle(
     request_id = claim_id if request_claim_id is None else request_claim_id
     if assumptions_via_mismatch:
         request_id = "AUR-A-OTHER"
+    audit_request = None
+    if include_audit_request:
+        audit_request = {
+            "claim": {"id": request_id, "statement": "document digest matches"},
+        }
     report = derive_reconstructability_report(
         ReconstructabilityInputs(
             audit_id="WFA-ENVELOPE",
             claim=claim,
             scope=scope,
-            audit_request={"claim": {"id": request_id, "statement": "document digest matches"}},
+            audit_request=audit_request,
             provenance_pin=pin,
             decision=decision,
         )
@@ -326,15 +334,25 @@ class TestScopeAndPromotion(unittest.TestCase):
 
 class TestAssumptionsCountsAndAuthority(unittest.TestCase):
     def test_assumptions_are_preserved_and_cannot_be_replaced(self):
-        bundle = _bundle(assumptions_via_mismatch=True)
+        bundle = _bundle()
+        report = dict(bundle["reconstructability"])
+        report["unresolved_assumptions"] = ["CLAIM_ID_MISMATCH_REQUEST_VS_CLAIM"]
+        body = dict(report)
+        body.pop("report_digest")
+        report["report_digest"] = canonical_digest(body)
+        bundle["reconstructability"] = report
         receipt = _build(bundle)
         self.assertEqual(
             receipt["unresolved_assumptions"],
             ["CLAIM_ID_MISMATCH_REQUEST_VS_CLAIM"],
         )
+        self.assertEqual(receipt["result"], "PASS")
         with self.assertRaises(EnvelopeError) as caught:
             _build(bundle, unresolved_assumptions=[])
         self.assertEqual(caught.exception.code, "ENVELOPE_ASSUMPTION_DROPPED")
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(_bundle(assumptions_via_mismatch=True))
+        self.assertEqual(caught.exception.code, "ENVELOPE_MISSING_OBSERVATION")
 
     def test_absent_counterexample_count_is_not_zero(self):
         receipt = _build(_bundle())
@@ -381,6 +399,89 @@ class TestAssumptionsCountsAndAuthority(unittest.TestCase):
         with self.assertRaises(EnvelopeError) as caught:
             _build(_bundle(decision=decision))
         self.assertEqual(caught.exception.code, "ENVELOPE_AUTHORITY_INVALID")
+
+
+class _SplitView(Mapping):
+    """Bound iteration is the validated record. Live lookup is the attack."""
+
+    def __init__(self, bound: dict, live: dict, *, index_live: bool = False) -> None:
+        self._bound = bound
+        self._live = live
+        self._index_live = index_live
+
+    def __getitem__(self, key: str):
+        source = self._live if self._index_live else self._bound
+        return source[key]
+
+    def __iter__(self):
+        return iter(self._bound)
+
+    def __len__(self) -> int:
+        return len(self._bound)
+
+    def items(self):
+        return self._bound.items()
+
+    def get(self, key: str, default=None):
+        return self._live.get(key, default)
+
+
+class TestCompletenessAndSnapshot(unittest.TestCase):
+    def test_omitted_audit_request_cannot_become_pass(self):
+        bundle = _bundle(include_audit_request=False)
+        report = bundle["reconstructability"]
+        self.assertIs(report["reconstructable"], False)
+        self.assertEqual(report["missing_inputs"], ["AUDIT_REQUEST.json"])
+        self.assertEqual(report["unresolved_assumptions"], [])
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_MISSING_OBSERVATION")
+
+    def test_live_get_cannot_promote_bound_fail(self):
+        bound = {
+            "decision": "FAIL",
+            "claim_result": "FAIL",
+            "claim_id": "AUR-A-001",
+            "promoted": False,
+            "reason": "REQUIRED_VECTOR_FAIL",
+            "vectors": _vectors("FAIL"),
+        }
+        live = {
+            "decision": "PASS",
+            "claim_result": "PASS",
+            "claim_id": "AUR-A-001",
+            "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+            "promoted": False,
+            "promoted_to_full": False,
+            "reason": "ALL_REQUIRED_VECTORS_PASS",
+            "vectors": _vectors(),
+        }
+        bundle = _bundle(decision=bound)
+        bundle["decision"] = _SplitView(bound, live)
+        receipt = _build(bundle)
+        self.assertEqual(receipt["source_result"], "FAIL")
+        self.assertEqual(receipt["result"], "FAIL")
+        self.assertNotEqual(receipt["result"], "PASS")
+
+    def test_nested_vector_view_cannot_promote_pass(self):
+        fail_vectors = _vectors("FAIL")
+        decision = {
+            "decision": "PASS",
+            "claim_result": "PASS",
+            "claim_id": "AUR-A-001",
+            "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+            "promoted": False,
+            "promoted_to_full": False,
+            "reason": "ALL_REQUIRED_VECTORS_PASS",
+            "vectors": fail_vectors,
+        }
+        bundle = _bundle(decision=decision)
+        wrapped = dict(decision)
+        wrapped["vectors"] = _SplitView(fail_vectors, _vectors(), index_live=True)
+        bundle["decision"] = wrapped
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_PROMOTION")
 
 
 class TestNoAcceptedWrites(unittest.TestCase):
