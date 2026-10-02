@@ -484,6 +484,100 @@ class TestCompletenessAndSnapshot(unittest.TestCase):
         self.assertEqual(caught.exception.code, "ENVELOPE_PROMOTION")
 
 
+class _HostileStr(str):
+    """Text stays FAIL. Equality and hashing pretend the value is PASS."""
+
+    def __eq__(self, other: object) -> bool:
+        return other == "PASS" or str.__eq__(self, other)
+
+    def __hash__(self) -> int:
+        return hash("PASS")
+
+
+class _HostileInt(int):
+    """Underlying value can be negative while comparisons deny that."""
+
+    def __lt__(self, other: object) -> bool:
+        return False
+
+    def __le__(self, other: object) -> bool:
+        return False
+
+    def __gt__(self, other: object) -> bool:
+        return False
+
+    def __ge__(self, other: object) -> bool:
+        return True
+
+    def __eq__(self, other: object) -> bool:
+        return other == 0 or int.__eq__(self, other)
+
+    def __hash__(self) -> int:
+        return hash(0)
+
+
+class _HostileFloat(float):
+    """Equality claims every comparison matches."""
+
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __hash__(self) -> int:
+        return hash(0.0)
+
+
+class TestScalarSnapshot(unittest.TestCase):
+    def test_hostile_str_subclass_cannot_become_pass(self):
+        token = _HostileStr("FAIL")
+        self.assertEqual(token, "PASS")
+        self.assertFalse(str.__eq__(token, "PASS"))
+        decision = {
+            "decision": token,
+            "claim_result": _HostileStr("FAIL"),
+            "claim_id": "AUR-A-001",
+            "broader_classification": "CLAIM_SUPPORTED_PARTIAL",
+            "promoted": False,
+            "promoted_to_full": False,
+            "reason": "REQUIRED_VECTOR_FAIL",
+            "vectors": {name: _HostileStr("FAIL") for name in _vectors()},
+        }
+        bundle = _bundle()
+        bundle["decision"] = decision
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
+
+    def test_hostile_str_key_is_rejected(self):
+        bundle = _bundle()
+        decision = dict(bundle["decision"])
+        decision[_HostileStr("note")] = "ignored"
+        bundle["decision"] = decision
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
+
+    def test_hostile_int_subclass_cannot_hide_a_negative_count(self):
+        count = _HostileInt(-1)
+        self.assertTrue(int.__lt__(count, 0))
+        self.assertFalse(count < 0)
+        bundle = _bundle()
+        decision = dict(bundle["decision"])
+        decision["counterexample_count"] = count
+        bundle["decision"] = decision
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
+
+    def test_hostile_float_subclass_is_rejected(self):
+        bundle = _bundle()
+        decision = dict(bundle["decision"])
+        decision["width"] = _HostileFloat(1.0)
+        bundle["decision"] = decision
+        with self.assertRaises(EnvelopeError) as caught:
+            _build(bundle)
+        self.assertEqual(caught.exception.code, "ENVELOPE_SOURCE_INVALID")
+
+
 class TestNoAcceptedWrites(unittest.TestCase):
     def test_generation_does_not_change_the_worktree(self):
         before = subprocess.check_output(

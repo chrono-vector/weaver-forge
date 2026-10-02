@@ -122,16 +122,23 @@ def _require_mapping(value: Any, label: str) -> Mapping[str, Any]:
     return value
 
 
+_SNAPSHOT_LEAVES = (str, bool, int, float)
+
+
 def _snapshot(value: Any, depth: int = 0) -> Any:
-    """Copy JSON values once. Later reads must not use the caller's mapping."""
+    """Copy JSON values once. Later reads must not use the caller's mapping.
+
+    Leaves must be exact built-ins. ``bool`` is listed separately because it
+    is a subclass of ``int``. ``None`` is the JSON null leaf.
+    """
     if depth > 32:
         _fail("ENVELOPE_SOURCE_INVALID", "input is nested too deeply")
-    if value is None or isinstance(value, (str, bool, int, float)):
+    if value is None or type(value) in _SNAPSHOT_LEAVES:
         return value
     if isinstance(value, Mapping):
         copied: dict[str, Any] = {}
         for key, item in value.items():
-            if isinstance(key, bool) or not isinstance(key, str):
+            if type(key) is not str:
                 _fail("ENVELOPE_SOURCE_INVALID", "mapping key must be a string")
             if key in copied:
                 _fail("ENVELOPE_SOURCE_INVALID", "mapping repeats a key")
