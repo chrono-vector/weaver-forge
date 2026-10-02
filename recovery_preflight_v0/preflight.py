@@ -57,7 +57,19 @@ _REVALIDATION_REQUIRED = frozenset(
         "validated_reuse_claims",
     }
 )
-_REVALIDATION_OPTIONAL = frozenset({"note"})
+_REVALIDATION_OPTIONAL = frozenset(
+    {
+        "note",
+        "prior_integrity_digest",
+        "state_integrity",
+    }
+)
+# revalidate_prior_claim_states records prior_state only for these
+# evidence-backed terminals. Recovery-success tokens are not in that set.
+_PRIOR_STATES = frozenset({"PASS", "FAIL"})
+_INTEGRITY_ALGORITHM = "sha256"
+_INTEGRITY_COVERS = ("claims", "evidence_register.entries")
+_HEX = frozenset("0123456789abcdef")
 _LIMITATIONS = (
     "restore execution",
     "verified restore",
@@ -162,28 +174,50 @@ def _bind_decision(decision: Mapping[str, Any], report: Any) -> dict[str, str]:
     return cited
 
 
-def _copy_terminals(raw: Any) -> list[dict[str, str]]:
+def _sha256_hex(value: Any) -> str:
+    if type(value) is not str or len(value) != _SHA256_WIDTH:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest is not bound")
+    if any(char not in _HEX for char in value):
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest is not bound")
+    return value
+
+
+def _claim_in_scope(value: str, claim_id: str, label: str) -> None:
+    if value != claim_id:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", f"{label} is outside the cited claim")
+
+
+def _copy_terminals(raw: Any, claim_id: str) -> list[dict[str, str]]:
     if type(raw) is not list:
         _fail("RECOVERY_SOURCE_INVALID", "rejected_terminals must be a list")
     copied: list[dict[str, str]] = []
+    seen: set[str] = set()
     for item in raw:
         if type(item) is not dict:
             _fail("RECOVERY_REVALIDATION_UNBOUND", "rejected terminal is not a record")
         allowed = {"claim_id", "prior_state", "reason"}
         if set(item) != allowed:
             _fail("RECOVERY_REVALIDATION_UNBOUND", "rejected terminal is not bound")
+        terminal_claim = _nonempty_str(
+            item.get("claim_id"),
+            "rejected claim_id",
+            "RECOVERY_REVALIDATION_UNBOUND",
+        )
+        _claim_in_scope(terminal_claim, claim_id, "rejected terminal")
+        if terminal_claim in seen:
+            _fail("RECOVERY_REVALIDATION_UNBOUND", "rejected terminal repeats a claim")
+        seen.add(terminal_claim)
+        prior_state = _nonempty_str(
+            item.get("prior_state"),
+            "prior_state",
+            "RECOVERY_REVALIDATION_UNBOUND",
+        )
+        if prior_state not in _PRIOR_STATES:
+            _fail("RECOVERY_REVALIDATION_UNBOUND", "prior_state is not a revalidated terminal")
         copied.append(
             {
-                "claim_id": _nonempty_str(
-                    item.get("claim_id"),
-                    "rejected claim_id",
-                    "RECOVERY_REVALIDATION_UNBOUND",
-                ),
-                "prior_state": _nonempty_str(
-                    item.get("prior_state"),
-                    "prior_state",
-                    "RECOVERY_REVALIDATION_UNBOUND",
-                ),
+                "claim_id": terminal_claim,
+                "prior_state": prior_state,
                 "reason": _nonempty_str(
                     item.get("reason"),
                     "rejection reason",
@@ -194,18 +228,56 @@ def _copy_terminals(raw: Any) -> list[dict[str, str]]:
     return copied
 
 
-def _copy_reuse(raw: Any) -> list[str]:
+def _copy_reuse(raw: Any, claim_id: str) -> list[str]:
     if type(raw) is not list:
         _fail("RECOVERY_SOURCE_INVALID", "validated_reuse_claims must be a list")
     copied: list[str] = []
+    seen: set[str] = set()
     for item in raw:
-        copied.append(
-            _nonempty_str(item, "validated reuse claim", "RECOVERY_REVALIDATION_UNBOUND")
+        reuse_claim = _nonempty_str(
+            item,
+            "validated reuse claim",
+            "RECOVERY_REVALIDATION_UNBOUND",
         )
+        _claim_in_scope(reuse_claim, claim_id, "validated reuse claim")
+        if reuse_claim in seen:
+            _fail("RECOVERY_REVALIDATION_UNBOUND", "validated reuse repeats a claim")
+        seen.add(reuse_claim)
+        copied.append(reuse_claim)
     return copied
 
 
-def _bind_revalidation(record: Mapping[str, Any]) -> dict[str, Any]:
+def _bind_digest_evidence(record: Mapping[str, Any], matched: Any) -> dict[str, Any] | None:
+    """Emit a digest observation only from a bound subject and both digests."""
+    has_prior = "prior_integrity_digest" in record
+    has_state = "state_integrity" in record
+    if not has_prior and not has_state:
+        return None
+    if has_prior is not has_state:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest evidence is incomplete")
+    state = record.get("state_integrity")
+    if type(state) is not dict or set(state) != {"algorithm", "covers", "digest"}:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest subject is not bound")
+    if state.get("algorithm") != _INTEGRITY_ALGORITHM:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest subject is not bound")
+    covers = state.get("covers")
+    if type(covers) is not list or covers != list(_INTEGRITY_COVERS):
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest subject is not bound")
+    expected = _sha256_hex(record.get("prior_integrity_digest"))
+    actual = _sha256_hex(state.get("digest"))
+    recomputed = expected == actual
+    if type(matched) is not bool or matched is not recomputed:
+        _fail("RECOVERY_REVALIDATION_UNBOUND", "integrity digest match is not bound")
+    return {
+        "algorithm": _INTEGRITY_ALGORITHM,
+        "covers": list(_INTEGRITY_COVERS),
+        "prior_integrity_digest": expected,
+        "digest": actual,
+        "integrity_digest_matched": recomputed,
+    }
+
+
+def _bind_revalidation(record: Mapping[str, Any], claim_id: str) -> dict[str, Any]:
     _reject_embedded_assertions(record)
     unknown = set(record) - _REVALIDATION_REQUIRED - _REVALIDATION_OPTIONAL
     if unknown:
@@ -215,20 +287,23 @@ def _bind_revalidation(record: Mapping[str, Any]) -> dict[str, Any]:
     matched = record.get("integrity_digest_matched")
     if matched is not None and type(matched) is not bool:
         _fail("RECOVERY_SOURCE_INVALID", "integrity_digest_matched is not a boolean")
-    observation: dict[str, Any] = {
-        "integrity_digest_matched": matched,
-        "validated_reuse_claims": _copy_reuse(record.get("validated_reuse_claims")),
-    }
-    terminals = _copy_terminals(record.get("rejected_terminals"))
+    digest_observation = _bind_digest_evidence(record, matched)
+    terminals = _copy_terminals(record.get("rejected_terminals"), claim_id)
+    reuse = _copy_reuse(record.get("validated_reuse_claims"), claim_id)
+    if {item["claim_id"] for item in terminals} & set(reuse):
+        _fail(
+            "RECOVERY_REVALIDATION_UNBOUND",
+            "a claim cannot be both rejected and reused",
+        )
     note = None
     if "note" in record:
         note = record.get("note")
         if type(note) is not str:
             _fail("RECOVERY_SOURCE_INVALID", "revalidation note must be a string")
     return {
-        "observation": observation,
+        "observation": {"validated_reuse_claims": reuse},
         "rejected_terminals": terminals,
-        "matched": matched,
+        "digest_observation": digest_observation,
         "note": note,
     }
 
@@ -270,13 +345,11 @@ def build_recovery_preflight(
     }
     notes: dict[str, Any] = {}
     if revalidation_map is not None:
-        bound = _bind_revalidation(revalidation_map)
+        bound = _bind_revalidation(revalidation_map, cited["claim_id"])
         receipt["revalidation_observation"] = bound["observation"]
         receipt["rejected_terminals"] = bound["rejected_terminals"]
-        if type(bound["matched"]) is bool:
-            receipt["digest_observation"] = {
-                "integrity_digest_matched": bound["matched"],
-            }
+        if bound["digest_observation"] is not None:
+            receipt["digest_observation"] = bound["digest_observation"]
         if bound["note"] is not None:
             notes["revalidation_note"] = bound["note"]
     if annotation is not None:

@@ -16,7 +16,10 @@ from recovery_preflight_v0 import RecoveryError, build_recovery_preflight
 
 REPO = Path(__file__).resolve().parents[2]
 _SHA = "ab" * 32
+_PRIOR = "ab" * 32
+_OTHER = "cd" * 32
 _NOTE = "STATE≠EVIDENCE; digest alone never restores PASS/FAIL"
+_COVERS = ["claims", "evidence_register.entries"]
 _LIMITATIONS = [
     "restore execution",
     "verified restore",
@@ -111,6 +114,28 @@ def _revalidation(
     if include_note and note is not None:
         record["note"] = note
     return record
+
+
+def _state_integrity(digest: str = _PRIOR) -> dict:
+    return {
+        "digest": digest,
+        "algorithm": "sha256",
+        "covers": list(_COVERS),
+    }
+
+
+def _with_digest(
+    record: dict,
+    *,
+    expected: str = _PRIOR,
+    actual: str = _PRIOR,
+    matched: bool | None = None,
+) -> dict:
+    bound = dict(record)
+    bound["prior_integrity_digest"] = expected
+    bound["state_integrity"] = _state_integrity(actual)
+    bound["integrity_digest_matched"] = expected == actual if matched is None else matched
+    return bound
 
 
 def _build(bundle: dict | None = None, **kwargs):
@@ -343,49 +368,80 @@ class TestBoundDecisions(unittest.TestCase):
 
 
 class TestRevalidation(unittest.TestCase):
-    def test_digest_match_is_copied_and_is_not_recovery(self):
-        bundle = _bundle()
-        receipt = _build(bundle, revalidation=_revalidation(matched=True))
+    def test_bound_digest_match_is_copied_and_is_not_recovery(self):
+        receipt = _build(revalidation=_with_digest(_revalidation(matched=True, terminals=[])))
         _assert_not_recovered(self, receipt)
-        self.assertIs(receipt["digest_observation"]["integrity_digest_matched"], True)
-        self.assertIs(
-            receipt["revalidation_observation"]["integrity_digest_matched"],
-            True,
+        self.assertEqual(
+            receipt["digest_observation"],
+            {
+                "algorithm": "sha256",
+                "covers": _COVERS,
+                "prior_integrity_digest": _PRIOR,
+                "digest": _PRIOR,
+                "integrity_digest_matched": True,
+            },
         )
+        self.assertNotIn("integrity_digest_matched", receipt["revalidation_observation"])
         self.assertEqual(receipt["cited_decision"]["decision"], "PASS")
         self.assertNotIn("note", receipt["revalidation_observation"])
 
-    def test_digest_mismatch_is_an_observation_only(self):
-        receipt = _build(revalidation=_revalidation(matched=False, terminals=[]))
+    def test_bound_digest_mismatch_is_an_observation_only(self):
+        receipt = _build(
+            revalidation=_with_digest(
+                _revalidation(matched=False, terminals=[]),
+                expected=_PRIOR,
+                actual=_OTHER,
+            )
+        )
         _assert_not_recovered(self, receipt)
         self.assertIs(receipt["digest_observation"]["integrity_digest_matched"], False)
+        self.assertEqual(receipt["digest_observation"]["prior_integrity_digest"], _PRIOR)
+        self.assertEqual(receipt["digest_observation"]["digest"], _OTHER)
         self.assertEqual(receipt["rejected_terminals"], [])
 
-    def test_absent_digest_observation_is_omitted(self):
-        receipt = _build(revalidation=_revalidation(matched=None, terminals=[]))
-        _assert_not_recovered(self, receipt)
-        self.assertIsNone(receipt["revalidation_observation"]["integrity_digest_matched"])
-        self.assertNotIn("digest_observation", receipt)
+    def test_bare_digest_flag_is_not_emitted(self):
+        for matched in (True, False, None):
+            with self.subTest(matched=matched):
+                receipt = _build(revalidation=_revalidation(matched=matched, terminals=[]))
+                _assert_not_recovered(self, receipt)
+                self.assertNotIn("digest_observation", receipt)
+                self.assertNotIn(
+                    "integrity_digest_matched",
+                    receipt["revalidation_observation"],
+                )
 
     def test_rejected_terminal_is_copied_without_becoming_recovery(self):
-        terminals = [
-            {"claim_id": "AUR-A-001", "prior_state": "PASS", "reason": "missing_plan"},
-            {"claim_id": "AUR-A-002", "prior_state": "FAIL", "reason": "tampered"},
-        ]
-        receipt = _build(revalidation=_revalidation(matched=True, terminals=terminals))
+        terminal = {
+            "claim_id": "AUR-A-001",
+            "prior_state": "PASS",
+            "reason": "missing_plan",
+        }
+        receipt = _build(revalidation=_revalidation(matched=True, terminals=[terminal]))
         _assert_not_recovered(self, receipt)
-        self.assertEqual(receipt["rejected_terminals"], terminals)
-        self.assertEqual(receipt["rejected_terminals"][0]["prior_state"], "PASS")
+        self.assertEqual(receipt["rejected_terminals"], [terminal])
+        self.assertEqual(receipt["cited_decision"]["claim_id"], "AUR-A-001")
+        self.assertNotIn("digest_observation", receipt)
+
+    def test_same_claim_fail_terminal_is_copied(self):
+        terminal = {
+            "claim_id": "AUR-A-001",
+            "prior_state": "FAIL",
+            "reason": "FAIL_without_validated_evidence_path",
+        }
+        receipt = _build(revalidation=_revalidation(terminals=[terminal], reuse=[]))
+        _assert_not_recovered(self, receipt)
+        self.assertEqual(receipt["rejected_terminals"], [terminal])
 
     def test_reuse_claims_do_not_recover(self):
         receipt = _build(
-            revalidation=_revalidation(matched=False, terminals=[], reuse=["AUR-A-009"])
+            revalidation=_revalidation(matched=False, terminals=[], reuse=["AUR-A-001"])
         )
         _assert_not_recovered(self, receipt)
         self.assertEqual(
             receipt["revalidation_observation"]["validated_reuse_claims"],
-            ["AUR-A-009"],
+            ["AUR-A-001"],
         )
+        self.assertNotIn("digest_observation", receipt)
 
     def test_note_text_does_not_change_structured_facts(self):
         first = _build(revalidation=_revalidation(note=_NOTE))
@@ -394,7 +450,8 @@ class TestRevalidation(unittest.TestCase):
         _assert_not_recovered(self, second)
         self.assertEqual(first["revalidation_observation"], second["revalidation_observation"])
         self.assertEqual(first["rejected_terminals"], second["rejected_terminals"])
-        self.assertEqual(first["digest_observation"], second["digest_observation"])
+        self.assertNotIn("digest_observation", first)
+        self.assertNotIn("digest_observation", second)
         self.assertEqual(first["annotations"]["revalidation_note"], _NOTE)
         self.assertEqual(second["annotations"]["revalidation_note"], "RECOVERED")
         self.assertIs(first["annotations"]["authority"], False)
@@ -483,6 +540,111 @@ class TestRevalidation(unittest.TestCase):
                 with self.assertRaises(RecoveryError) as caught:
                     _build(revalidation=record)
                 self.assertEqual(caught.exception.code, code)
+
+
+class TestRevalidationBinding(unittest.TestCase):
+    def test_unrelated_terminal_claim_is_rejected(self):
+        record = _revalidation(
+            terminals=[
+                {"claim_id": "AUR-A-002", "prior_state": "FAIL", "reason": "missing_plan"},
+            ]
+        )
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_unrelated_reuse_claim_is_rejected(self):
+        record = _revalidation(terminals=[], reuse=["AUR-A-009"])
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_same_claim_cannot_be_rejected_and_reused(self):
+        record = _revalidation(
+            terminals=[
+                {"claim_id": "AUR-A-001", "prior_state": "PASS", "reason": "missing_plan"},
+            ],
+            reuse=["AUR-A-001"],
+        )
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_recovery_like_prior_state_is_rejected(self):
+        for token in ("RECOVERED", "RESTORED", "VERIFIED_RESTORE", "ROLLBACK_COMPLETE", "NEW"):
+            with self.subTest(token=token):
+                record = _revalidation(
+                    terminals=[
+                        {
+                            "claim_id": "AUR-A-001",
+                            "prior_state": token,
+                            "reason": "missing_plan",
+                        },
+                    ]
+                )
+                with self.assertRaises(RecoveryError) as caught:
+                    _build(revalidation=record)
+                self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_asserted_match_with_unequal_digests_is_rejected(self):
+        record = _with_digest(
+            _revalidation(terminals=[]),
+            expected=_PRIOR,
+            actual=_OTHER,
+            matched=True,
+        )
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+        record = _with_digest(
+            _revalidation(terminals=[]),
+            expected=_PRIOR,
+            actual=_PRIOR,
+            matched=False,
+        )
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_partial_digest_evidence_is_rejected(self):
+        prior_only = _revalidation(terminals=[])
+        prior_only["prior_integrity_digest"] = _PRIOR
+        state_only = _revalidation(terminals=[])
+        state_only["state_integrity"] = _state_integrity()
+        noted = _with_digest(_revalidation(terminals=[]))
+        noted["state_integrity"]["note"] = _NOTE
+        shifted = _with_digest(_revalidation(terminals=[]))
+        shifted["state_integrity"]["covers"] = ["AUR-A-001"]
+        for record in (prior_only, state_only, noted, shifted):
+            with self.subTest(record=sorted(record)):
+                with self.assertRaises(RecoveryError) as caught:
+                    _build(revalidation=record)
+                self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_mixed_scope_terminals_fail_closed(self):
+        record = _revalidation(
+            terminals=[
+                {"claim_id": "AUR-A-001", "prior_state": "PASS", "reason": "missing_plan"},
+                {"claim_id": "AUR-A-002", "prior_state": "FAIL", "reason": "missing_plan"},
+            ]
+        )
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=record)
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+
+    def test_duplicate_claim_rows_fail_closed(self):
+        repeated = {
+            "claim_id": "AUR-A-001",
+            "prior_state": "PASS",
+            "reason": "missing_plan",
+        }
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=_revalidation(terminals=[repeated, dict(repeated)]))
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
+        with self.assertRaises(RecoveryError) as caught:
+            _build(revalidation=_revalidation(terminals=[], reuse=["AUR-A-001", "AUR-A-001"]))
+        self.assertEqual(caught.exception.code, "RECOVERY_REVALIDATION_UNBOUND")
 
 
 class TestCallerAssertions(unittest.TestCase):
@@ -589,7 +751,19 @@ class TestSnapshotBoundary(unittest.TestCase):
         live = _revalidation(matched=True, terminals=[])
         receipt = _build(revalidation=_SplitView(bound, live))
         _assert_not_recovered(self, receipt)
-        self.assertIs(receipt["digest_observation"]["integrity_digest_matched"], False)
+        self.assertNotIn("digest_observation", receipt)
+
+    def test_split_view_cannot_replace_bound_digest_evidence(self):
+        bound = _with_digest(_revalidation(matched=True, terminals=[]))
+        live = _with_digest(
+            _revalidation(matched=False, terminals=[]),
+            expected=_PRIOR,
+            actual=_OTHER,
+        )
+        receipt = _build(revalidation=_SplitView(bound, live))
+        _assert_not_recovered(self, receipt)
+        self.assertIs(receipt["digest_observation"]["integrity_digest_matched"], True)
+        self.assertEqual(receipt["digest_observation"]["digest"], _PRIOR)
 
     def test_scalar_subclasses_are_rejected(self):
         hostile_decision = _decision()
@@ -647,12 +821,12 @@ class TestSnapshotBoundary(unittest.TestCase):
 
     def test_exact_tuple_is_copied_into_a_plain_list(self):
         record = _revalidation(terminals=[])
-        record["validated_reuse_claims"] = ("AUR-A-009",)
+        record["validated_reuse_claims"] = ("AUR-A-001",)
         receipt = _build(revalidation=record)
         _assert_not_recovered(self, receipt)
         self.assertEqual(
             receipt["revalidation_observation"]["validated_reuse_claims"],
-            ["AUR-A-009"],
+            ["AUR-A-001"],
         )
         self.assertIs(
             type(receipt["revalidation_observation"]["validated_reuse_claims"]),
@@ -695,7 +869,7 @@ class TestSnapshotBoundary(unittest.TestCase):
         self.assertEqual(receipt["cited_decision"]["decision"], "PASS")
         self.assertEqual(len(receipt["rejected_terminals"]), 1)
         self.assertEqual(receipt["rejected_terminals"][0]["prior_state"], "PASS")
-        self.assertIs(receipt["digest_observation"]["integrity_digest_matched"], True)
+        self.assertNotIn("digest_observation", receipt)
         _assert_plain(self, receipt)
 
 
