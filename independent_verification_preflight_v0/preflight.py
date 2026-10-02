@@ -6,6 +6,7 @@ Execution ids, observer labels, and provider names do not establish independence
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Mapping
 from typing import Any
 
@@ -45,13 +46,11 @@ _DESCRIPTIVE_BASES = frozenset(
         "SELF_DECLARED",
     }
 )
-_ENV_FIELDS = frozenset(
-    {"runner", "os", "runtime", "backend", "dependency_manifest_digest"}
-)
-_ENV_STRINGS = frozenset({"runner", "os", "runtime", "backend"})
-# runner and backend are caller labels. They stay in the integrity fingerprint
-# and never count as an execution-context difference.
-_SUBSTANTIVE_ENV_FIELDS = frozenset({"os", "runtime", "dependency_manifest_digest"})
+_ENV_FIELDS = frozenset({"runner", "os", "runtime", "backend", "dependency_manifest"})
+_ENV_OPTIONAL = frozenset({"dependency_manifest_digest"})
+_MANIFEST_REQUIRED = frozenset({"components"})
+_MANIFEST_OPTIONAL = frozenset({"annotation", "nonce"})
+_COMPONENT_FIELDS = frozenset({"name", "version"})
 _EVIDENCE_BODY_REQUIRED = frozenset(
     {"claim_id", "input_digest", "result_token", "observation"}
 )
@@ -295,13 +294,97 @@ def _bind_evidence(record: Any, code: str) -> tuple[str, dict[str, Any]]:
     return recomputed, body
 
 
-def _substantive_text(value: str) -> str:
-    """Collapse case and surrounding whitespace for the independence predicate."""
-    return value.strip().casefold()
+def _reject_noncanonical(value: Any, code: str, label: str) -> str:
+    """Reject format characters and compatibility spellings. Do not equate them."""
+    if type(value) is not str or not value.strip():
+        _fail(code, f"{label} is missing")
+    if unicodedata.normalize("NFKC", value) != value:
+        _fail(code, f"{label} is not canonical")
+    if any(unicodedata.category(char) == "Cf" for char in value):
+        _fail(code, f"{label} is not canonical")
+    return value
 
 
-def _bind_environment(record: Any) -> tuple[str, str]:
-    """Return the integrity fingerprint and the substantive-environment digest."""
+def _identifier_token(token: str) -> bool:
+    if not token.isascii() or not token[0].isalnum() or token[0].isupper():
+        return False
+    previous_separator = False
+    for char in token:
+        if char.isascii() and char.islower() or char.isascii() and char.isdigit():
+            previous_separator = False
+            continue
+        if char in "._+-" and not previous_separator:
+            previous_separator = True
+            continue
+        return False
+    return not previous_separator
+
+
+def _version_token(token: str) -> bool:
+    parts = token.split(".")
+    if len(parts) != 3:
+        return False
+    return all(part.isascii() and part.isdigit() and part == str(int(part)) for part in parts)
+
+
+def _canonical_os(value: Any) -> str:
+    raw = _reject_noncanonical(value, "IVP_ENVIRONMENT_UNBOUND", "os")
+    token = raw.strip().casefold()
+    if not _identifier_token(token):
+        _fail("IVP_ENVIRONMENT_UNBOUND", "os is not canonical")
+    return token
+
+
+def _canonical_runtime(value: Any) -> str:
+    raw = _reject_noncanonical(value, "IVP_ENVIRONMENT_UNBOUND", "runtime")
+    token = raw.strip()
+    if not _version_token(token):
+        _fail("IVP_ENVIRONMENT_UNBOUND", "runtime is not canonical")
+    return token
+
+
+def _canonical_label(value: Any, label: str) -> str:
+    raw = _reject_noncanonical(value, "IVP_ENVIRONMENT_UNBOUND", label)
+    return raw.strip().casefold()
+
+
+def _bind_manifest(value: Any, supplied_digest: str | None) -> str:
+    """Return the recomputed digest of the structured manifest body."""
+    code = "IVP_ENVIRONMENT_UNBOUND"
+    if type(value) is not dict or not value:
+        _fail(code, "dependency manifest is not a structured body")
+    _keys(value, _MANIFEST_REQUIRED, _MANIFEST_OPTIONAL, code)
+    for key in _MANIFEST_OPTIONAL:
+        if key in value and type(value.get(key)) is not str:
+            _fail(code, "dependency manifest metadata is not a string")
+    components = value.get("components")
+    if type(components) is not list or not components:
+        _fail(code, "dependency manifest has no components")
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in components:
+        if type(item) is not dict:
+            _fail(code, "dependency manifest component is not a record")
+        _keys(item, _COMPONENT_FIELDS, frozenset(), code)
+        name = _reject_noncanonical(item.get("name"), code, "component name")
+        version = _reject_noncanonical(item.get("version"), code, "component version")
+        name_token = name.strip()
+        version_token = version.strip()
+        if not _identifier_token(name_token) or not _version_token(version_token):
+            _fail(code, "dependency manifest component is not canonical")
+        if name_token in seen:
+            _fail(code, "dependency manifest repeats a component")
+        seen.add(name_token)
+        normalized.append({"name": name_token, "version": version_token})
+    normalized.sort(key=lambda item: item["name"])
+    recomputed = _digest({"components": normalized}, code)
+    if supplied_digest is not None and supplied_digest != recomputed:
+        _fail(code, "dependency manifest digest does not match the body")
+    return recomputed
+
+
+def _bind_environment(record: Any) -> tuple[str, str, str]:
+    """Return fingerprint, substantive digest, and recomputed manifest digest."""
     if type(record) is not dict:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment is not a record")
     _keys(
@@ -313,27 +396,58 @@ def _bind_environment(record: Any) -> tuple[str, str]:
     env = record.get("record")
     if type(env) is not dict or not env:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment record is not structured")
-    if set(env) - _ENV_FIELDS:
+    if set(env) - _ENV_FIELDS - _ENV_OPTIONAL:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment record has an unsupported field")
     if not _ENV_FIELDS <= set(env):
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment record is missing a required field")
     if "label" in record and type(record.get("label")) is not str:
         _fail("IVP_SOURCE_INVALID", "environment label is not a string")
-    normalized: dict[str, str] = {}
-    for key, value in env.items():
-        if key in _ENV_STRINGS:
-            normalized[key] = _nonempty(value, "IVP_ENVIRONMENT_UNBOUND", key)
-        elif key == "dependency_manifest_digest":
-            normalized[key] = _sha256(value, "IVP_ENVIRONMENT_UNBOUND")
-    recomputed = _digest(normalized, "IVP_ENVIRONMENT_UNBOUND")
-    if "fingerprint" in record and record.get("fingerprint") != recomputed:
-        _fail("IVP_ENVIRONMENT_UNBOUND", "fingerprint does not match the environment record")
-    substantive = {
-        "dependency_manifest_digest": normalized["dependency_manifest_digest"],
-        "os": _substantive_text(normalized["os"]),
-        "runtime": _substantive_text(normalized["runtime"]),
+    supplied = None
+    if "dependency_manifest_digest" in env:
+        supplied = _sha256(env.get("dependency_manifest_digest"), "IVP_ENVIRONMENT_UNBOUND")
+    manifest_digest = _bind_manifest(env.get("dependency_manifest"), supplied)
+    normalized = {
+        "backend": _canonical_label(env.get("backend"), "backend"),
+        "dependency_manifest_digest": manifest_digest,
+        "os": _canonical_os(env.get("os")),
+        "runner": _canonical_label(env.get("runner"), "runner"),
+        "runtime": _canonical_runtime(env.get("runtime")),
     }
-    return recomputed, _digest(substantive, "IVP_ENVIRONMENT_UNBOUND")
+    fingerprint = _digest(normalized, "IVP_ENVIRONMENT_UNBOUND")
+    if "fingerprint" in record and record.get("fingerprint") != fingerprint:
+        _fail("IVP_ENVIRONMENT_UNBOUND", "fingerprint does not match the environment record")
+    substantive = _digest(
+        {
+            "dependency_manifest_digest": manifest_digest,
+            "os": normalized["os"],
+            "runtime": normalized["runtime"],
+        },
+        "IVP_ENVIRONMENT_UNBOUND",
+    )
+    return fingerprint, substantive, manifest_digest
+
+
+def _expected_measurement(claim: Mapping[str, Any], revision: Mapping[str, Any]) -> str:
+    """Return the cited content digest a reproduction is required to measure.
+
+    Only pin.expected_sha256 and claim.adapter_params.expected_sha256 are
+    accepted. A decision token is not treated as a hash claim.
+    """
+    cited: list[str] = []
+    if "expected_sha256" in revision:
+        cited.append(_sha256(revision.get("expected_sha256"), "IVP_BINDING_UNAVAILABLE"))
+    if "adapter_params" in claim:
+        params = claim.get("adapter_params")
+        if type(params) is not dict:
+            _fail("IVP_BINDING_UNAVAILABLE", "adapter_params is not a record")
+        if "expected_sha256" in params:
+            cited.append(_sha256(params.get("expected_sha256"), "IVP_BINDING_UNAVAILABLE"))
+    if not cited:
+        _fail("IVP_BINDING_UNAVAILABLE", "measured result is not bound to a cited digest")
+    expected = cited[0]
+    if any(item != expected for item in cited):
+        _fail("IVP_BINDING_UNAVAILABLE", "cited expected digests disagree")
+    return expected
 
 
 def _bind_reproduction_evidence(
@@ -342,11 +456,13 @@ def _bind_reproduction_evidence(
     claim_id: str,
     input_digest: str,
     cited_result: str,
+    expected: str,
 ) -> tuple[str, str]:
     """Return the evidence-core digest and the execution result token.
 
-    Annotation and nonce are stored only as caller metadata. They are not part
-    of the digest that independence compares.
+    measured_sha256 must equal the cited expected content digest. Agreement is
+    required for a reproduction and is not independence evidence. Annotation
+    and nonce are caller metadata and are not part of the result core.
     """
     code = "IVP_EVIDENCE_DIGEST_INVALID"
     if type(record) is not dict:
@@ -379,6 +495,8 @@ def _bind_reproduction_evidence(
     )
     if evidence_result != cited_result:
         _fail("IVP_BINDING_UNAVAILABLE", "evidence result_token does not match the cited decision")
+    if measured != expected:
+        _fail("IVP_BINDING_UNAVAILABLE", "measured result does not match the cited digest")
     core = {
         "claim_id": evidence_claim,
         "input_digest": evidence_input,
@@ -397,6 +515,7 @@ def _bind_execution(
     claim_id: str,
     input_digest: str,
     cited_result: str,
+    expected: str,
 ) -> dict[str, str]:
     if type(record) is not dict:
         _fail("IVP_EXECUTION_INVALID", "execution is not a record")
@@ -411,18 +530,21 @@ def _bind_execution(
         "IVP_EXECUTION_INVALID",
         "execution_id",
     )
-    fingerprint, substantive = _bind_environment(record.get("environment"))
+    fingerprint, substantive, manifest_digest = _bind_environment(record.get("environment"))
     evidence_digest, result_token = _bind_reproduction_evidence(
         record.get("evidence"),
         claim_id=claim_id,
         input_digest=input_digest,
         cited_result=cited_result,
+        expected=expected,
     )
     record_digest = _digest(
         {
             "execution_id": execution_id,
-            "environment_fingerprint": fingerprint,
-            "evidence_digest": evidence_digest,
+            "substantive_environment": substantive,
+            "dependency_manifest_digest": manifest_digest,
+            "input_digest": input_digest,
+            "result_core": evidence_digest,
         },
         "IVP_EXECUTION_INVALID",
     )
@@ -436,7 +558,7 @@ def _bind_execution(
     }
 
 
-def _bind_input(candidate: Mapping[str, Any], revision: Mapping[str, Any]) -> str:
+def _bind_input(candidate: Mapping[str, Any], revision: Mapping[str, Any]) -> tuple[str, str]:
     record = candidate.get("input_record")
     if type(record) is not dict or not record:
         _fail("IVP_BINDING_UNAVAILABLE", "input record is not bound")
@@ -458,7 +580,7 @@ def _bind_input(candidate: Mapping[str, Any], revision: Mapping[str, Any]) -> st
     )
     if "input_digest" in candidate and candidate.get("input_digest") != recomputed:
         _fail("IVP_BINDING_UNAVAILABLE", "input digest does not match the input record")
-    return recomputed
+    return recomputed, digest
 
 
 def _package_digests(raw: Any) -> list[str]:
@@ -477,18 +599,16 @@ def _reproduction_outcome(
     cited_result: str,
     package: list[str],
 ) -> tuple[str, bool]:
-    evidence = [source["evidence_digest"], independent["evidence_digest"], *package]
     replay = (
         source["execution_id"] == independent["execution_id"]
-        or source["evidence_digest"] == independent["evidence_digest"]
-        or source["environment_fingerprint"] == independent["environment_fingerprint"]
+        or source["substantive_environment"] == independent["substantive_environment"]
         or source["record_digest"] == independent["record_digest"]
-        or len(evidence) != len(set(evidence))
+        or len(package) != len(set(package))
     )
     if replay:
         return "DUPLICATE", False
-    if source["substantive_environment"] == independent["substantive_environment"]:
-        return "NOT_INDEPENDENT", False
+    if source["evidence_digest"] != independent["evidence_digest"]:
+        _fail("IVP_BINDING_UNAVAILABLE", "semantic result cores do not agree")
     if result_token != cited_result:
         _fail("IVP_BINDING_UNAVAILABLE", "result_token does not match the cited decision")
     return "BOUND_CANDIDATE", True
@@ -683,18 +803,26 @@ def build_independent_verification_preflight(
         if len(report.unresolved_assumptions) != 0:
             _fail("IVP_BINDING_UNAVAILABLE", "unresolved assumptions block reproduction")
         _keys(candidate_map, _REPRODUCTION_REQUIRED, _REPRODUCTION_OPTIONAL, "IVP_SOURCE_INVALID")
-        input_digest = _bind_input(candidate_map, revision)
+        input_digest, content_sha = _bind_input(candidate_map, revision)
+        expected = _expected_measurement(claim_map, revision)
+        if expected != content_sha:
+            _fail(
+                "IVP_BINDING_UNAVAILABLE",
+                "expected measurement does not match the bound input",
+            )
         source = _bind_execution(
             candidate_map.get("source_execution"),
             claim_id=claim_id,
             input_digest=input_digest,
             cited_result=cited_result,
+            expected=expected,
         )
         independent = _bind_execution(
             candidate_map.get("independent_execution"),
             claim_id=claim_id,
             input_digest=input_digest,
             cited_result=cited_result,
+            expected=expected,
         )
         result_token = _nonempty(
             candidate_map.get("result_token"),

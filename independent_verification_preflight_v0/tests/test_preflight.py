@@ -26,11 +26,9 @@ from independent_verification_preflight_v0 import preflight as preflight_module
 CLAIM_ID = "AUR-A-001"
 _SHA = "ab" * 32
 _OTHER = "cd" * 32
-_MANIFEST_A = "11" * 32
-_MANIFEST_B = "22" * 32
 _MEASURED_LEFT = "33" * 32
 _MEASURED_RIGHT = "44" * 32
-_MEASURED = {"left": _MEASURED_LEFT, "right": _MEASURED_RIGHT}
+_MEASURED = {"left": _SHA, "right": _SHA}
 _LIMITATIONS = [
     "admitted independent evidence",
     "accepted independent reproduction",
@@ -163,7 +161,7 @@ def _decision(claim_id: str = CLAIM_ID, token: str = "PASS") -> dict:
 def _pin(sha: str = _SHA, relative: str = "payload.txt") -> dict:
     return {
         "classification": "PINNED_INPUT",
-        "expected_sha256": None,
+        "expected_sha256": sha,
         "files": [{"relative_path": relative, "sha256": sha, "bytes": 4}],
         "modified": False,
         "origin_absolute": r"C:\dev\Weaver\weaver-forge\phase6_third_party_target",
@@ -220,21 +218,65 @@ def _input_digest() -> str:
     return canonical_digest(_input_record())
 
 
+def _manifest_body(*pairs: tuple[str, str], **meta: str) -> dict:
+    body: dict = {
+        "components": [{"name": name, "version": version} for name, version in pairs]
+    }
+    body.update(meta)
+    return body
+
+
+def _manifest_digest(body: dict) -> str:
+    components = [
+        {"name": item["name"].strip(), "version": item["version"].strip()}
+        for item in body["components"]
+    ]
+    components.sort(key=lambda item: item["name"])
+    return canonical_digest({"components": components})
+
+
+def _env_fingerprint(
+    runner: str = "alpha",
+    *,
+    backend: str = "local",
+    os_name: str = "linux",
+    runtime: str = "3.12.1",
+    manifest: dict | None = None,
+) -> str:
+    if manifest is None:
+        manifest = _manifest_body(("hasher", "1.0.0"))
+    return canonical_digest(
+        {
+            "backend": backend.strip().casefold(),
+            "dependency_manifest_digest": _manifest_digest(manifest),
+            "os": os_name.strip().casefold(),
+            "runner": runner.strip().casefold(),
+            "runtime": runtime.strip(),
+        }
+    )
+
+
 def _complete_env(
     runner: str = "alpha",
     *,
     backend: str = "local",
     os_name: str = "linux",
     runtime: str = "3.12.1",
-    manifest: str = _MANIFEST_A,
+    manifest: dict | None = None,
+    manifest_digest: str | None = None,
 ) -> dict:
-    return {
+    if manifest is None:
+        manifest = _manifest_body(("hasher", "1.0.0"))
+    record = {
         "runner": runner,
         "os": os_name,
         "runtime": runtime,
         "backend": backend,
-        "dependency_manifest_digest": manifest,
+        "dependency_manifest": manifest,
     }
+    if manifest_digest is not None:
+        record["dependency_manifest_digest"] = manifest_digest
+    return record
 
 
 def _evidence_core(
@@ -301,7 +343,7 @@ def _execution(
     env_label: str | None = None,
     digest: str | None = None,
     fingerprint: str | None = None,
-    manifest: str = _MANIFEST_A,
+    manifest: dict | None = None,
     backend: str = "local",
     os_name: str = "linux",
     runtime: str = "3.12.1",
@@ -336,12 +378,12 @@ def _reproduction(**overrides) -> dict:
         "claim_id": CLAIM_ID,
         "input_record": _input_record(),
         "result_token": "PASS",
-        "source_execution": _execution("run-source", "alpha", "left", manifest=_MANIFEST_A),
+        "source_execution": _execution("run-source", "alpha", "left"),
         "independent_execution": _execution(
             "run-independent",
             "beta",
             "right",
-            manifest=_MANIFEST_B,
+            manifest=_manifest_body(("hasher", "1.0.1")),
         ),
     }
     candidate.update(overrides)
@@ -523,7 +565,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 return "attack"
 
             def items(self):
-                return list(_evidence_body(_MEASURED_LEFT).items())
+                return list(_evidence_body(_SHA).items())
 
         attacked = _reproduction(
             source_execution=_execution(
@@ -545,7 +587,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
         receipt = _build(neutralized)
         self.assertEqual(
             receipt["source_execution_summary"]["evidence_digest"],
-            _core_digest(_MEASURED_LEFT),
+            _core_digest(_SHA),
         )
         self.assertNotEqual(
             receipt["source_execution_summary"]["evidence_digest"],
@@ -635,7 +677,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
             env={"runner": _EnvList(["alpha"])},
         )
         _expect(self, "IVP_SOURCE_INVALID", lambda: _build(_reproduction(source_execution=nested)))
-        bound = _complete_env("alpha", manifest=_MANIFEST_A)
+        bound = _complete_env("alpha")
         live = dict(bound)
         live["runner"] = "attacker"
         live["machine"] = "different machine"
@@ -644,12 +686,12 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
             "alpha",
             "left",
             env=_SplitView(bound, live),
-            fingerprint=canonical_digest(bound),
+            fingerprint=_env_fingerprint("alpha"),
         )
         receipt = _build(_reproduction(source_execution=split))
         self.assertEqual(
             receipt["source_execution_summary"]["environment_fingerprint"],
-            canonical_digest(bound),
+            _env_fingerprint("alpha"),
         )
 
     def test_12_execution_ids_alone_insufficient(self) -> None:
@@ -701,28 +743,24 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
         self.assertEqual(first["claim_id"], CLAIM_ID)
         self.assertEqual(
             first["artifact_revision_binding"],
-            {"files": [{"relative_path": "payload.txt", "sha256": _SHA}]},
+            {
+                "expected_sha256": _SHA,
+                "files": [{"relative_path": "payload.txt", "sha256": _SHA}],
+            },
         )
         blob = json.dumps(first)
         self.assertNotIn("phase6_third_party_target", blob)
         self.assertNotIn("pinned_root", blob)
-        self.assertNotIn("expected_sha256", blob)
         source = first["source_execution_summary"]
         independent = first["independent_execution_summary"]
         self.assertEqual(source["execution_id"], "run-source")
         self.assertEqual(independent["execution_id"], "run-independent")
-        self.assertEqual(source["evidence_digest"], _core_digest(_MEASURED_LEFT))
-        self.assertEqual(
-            independent["evidence_digest"],
-            _core_digest(_MEASURED_RIGHT),
-        )
-        self.assertEqual(
-            source["environment_fingerprint"],
-            canonical_digest(_complete_env("alpha", manifest=_MANIFEST_A)),
-        )
+        self.assertEqual(source["evidence_digest"], _core_digest(_SHA))
+        self.assertEqual(independent["evidence_digest"], _core_digest(_SHA))
+        self.assertEqual(source["environment_fingerprint"], _env_fingerprint("alpha"))
         self.assertEqual(
             independent["environment_fingerprint"],
-            canonical_digest(_complete_env("beta", manifest=_MANIFEST_B)),
+            _env_fingerprint("beta", manifest=_manifest_body(("hasher", "1.0.1"))),
         )
         self.assertEqual(source["input_digest"], _input_digest())
         self.assertEqual(source["result_token"], "PASS")
@@ -774,12 +812,12 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
         )
         receipt = _build(candidate)
         self.assertIs(receipt["structural_candidate"], False)
-        self.assertEqual(receipt["classification"], "NOT_INDEPENDENT")
+        self.assertEqual(receipt["classification"], "DUPLICATE")
         self.assertEqual(receipt["descriptive"]["backend_provider"], "other-provider")
         self.assertEqual(receipt["descriptive"]["model"], "other-model")
         self.assertIs(receipt["descriptive"]["authority"], False)
         self.assertIs(receipt["observer"]["authority"], False)
-        self.assertNotEqual(
+        self.assertEqual(
             receipt["source_execution_summary"]["evidence_digest"],
             receipt["independent_execution_summary"]["evidence_digest"],
         )
@@ -977,13 +1015,13 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "run-source",
                 "alpha",
                 "left",
-                digest=_core_digest(_MEASURED_LEFT),
+                digest=_core_digest(_SHA),
             ),
             independent_execution=_execution(
                 "run-independent",
                 "beta",
                 "left",
-                digest=_core_digest(_MEASURED_LEFT),
+                digest=_core_digest(_SHA),
             ),
         )
         receipt = _build(candidate)
@@ -1015,10 +1053,11 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
         self.assertNotIn("independent_evidence_count", receipt)
         self.assertNotIn("package_entries", receipt)
         overlaps_source = _reproduction(
-            package_entries=[{"body": _evidence_core(_MEASURED_LEFT), "label": "copied"}]
+            package_entries=[{"body": _evidence_core(_SHA), "label": "copied"}]
         )
         overlap = _build(overlaps_source)
-        self.assertEqual(overlap["classification"], "DUPLICATE")
+        self.assertEqual(overlap["classification"], "BOUND_CANDIDATE")
+        self.assertIs(overlap["structural_candidate"], True)
         self.assertNotIn("independent_evidence_count", overlap)
         unique = _reproduction(package_entries=[{"body": {"payload": "extra"}}])
         unique_receipt = _build(unique)
@@ -1089,10 +1128,10 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
 
     def test_37_caller_containers_do_not_survive(self) -> None:
         cited = _cited()
-        source_body = _evidence_body(_MEASURED_LEFT)
-        independent_body = _evidence_body(_MEASURED_RIGHT)
-        source_env = _complete_env("alpha", manifest=_MANIFEST_A)
-        independent_env = _complete_env("beta", manifest=_MANIFEST_B)
+        source_body = _evidence_body(_SHA)
+        independent_body = _evidence_body(_SHA)
+        source_env = _complete_env("alpha")
+        independent_env = _complete_env("beta", manifest=_manifest_body(("hasher", "1.0.1")))
         input_record = _input_record()
         candidate = _reproduction(
             input_record=input_record,
@@ -1123,11 +1162,11 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
         self.assertEqual(receipt["classification"], "BOUND_CANDIDATE")
         self.assertEqual(
             receipt["source_execution_summary"]["evidence_digest"],
-            _core_digest(_MEASURED_LEFT),
+            _core_digest(_SHA),
         )
         self.assertEqual(
             receipt["source_execution_summary"]["environment_fingerprint"],
-            canonical_digest(_complete_env("alpha", manifest=_MANIFEST_A)),
+            _env_fingerprint("alpha"),
         )
         self.assertEqual(
             receipt["source_execution_summary"]["input_digest"],
@@ -1358,14 +1397,14 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
             )
             receipt = _build(candidate)
             self.assertIs(receipt["structural_candidate"], False)
-            self.assertEqual(receipt["classification"], "NOT_INDEPENDENT")
+            self.assertEqual(receipt["classification"], "DUPLICATE")
         substantive = _reproduction(
-            source_execution=_execution("run-source", "alpha", "left", manifest=_MANIFEST_A),
+            source_execution=_execution("run-source", "alpha", "left", manifest=_manifest_body(("hasher", "1.0.0"))),
             independent_execution=_execution(
                 "run-independent",
                 "alpha",
                 "right",
-                manifest=_MANIFEST_B,
+                manifest=_manifest_body(("hasher", "1.0.1")),
             ),
         )
         bound = _build(substantive)
@@ -1378,7 +1417,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "alpha",
                 "right",
                 runtime="3.12.2",
-                manifest=_MANIFEST_A,
+                manifest=_manifest_body(("hasher", "1.0.0")),
             ),
         )
         runtime_receipt = _build(runtime_difference)
@@ -1405,7 +1444,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                         "beta",
                         "right",
                         body={},
-                        manifest=_MANIFEST_B,
+                        manifest=_manifest_body(("hasher", "1.0.1")),
                     )
                 )
             ),
@@ -1415,24 +1454,24 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "run-source",
                 "alpha",
                 "left",
-                body=_evidence_body(_MEASURED_LEFT, nonce="n-1"),
+                body=_evidence_body(_SHA, nonce="n-1"),
             ),
             independent_execution=_execution(
                 "run-independent",
                 "beta",
                 "left",
-                manifest=_MANIFEST_B,
-                body=_evidence_body(_MEASURED_LEFT, nonce="n-2"),
+                manifest=_manifest_body(("hasher", "1.0.1")),
+                body=_evidence_body(_SHA, nonce="n-2"),
             ),
         )
         nonce_receipt = _build(nonce)
-        self.assertIs(nonce_receipt["structural_candidate"], False)
-        self.assertEqual(nonce_receipt["classification"], "DUPLICATE")
+        self.assertIs(nonce_receipt["structural_candidate"], True)
+        self.assertEqual(nonce_receipt["classification"], "BOUND_CANDIDATE")
         self.assertEqual(
             nonce_receipt["source_execution_summary"]["evidence_digest"],
             nonce_receipt["independent_execution_summary"]["evidence_digest"],
         )
-        fail_body = _evidence_body(_MEASURED_LEFT, result="FAIL")
+        fail_body = _evidence_body(_SHA, result="FAIL")
         _expect(
             self,
             "IVP_BINDING_UNAVAILABLE",
@@ -1442,7 +1481,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 )
             ),
         )
-        independent_fail = _evidence_body(_MEASURED_RIGHT, result="FAIL")
+        independent_fail = _evidence_body(_SHA, result="FAIL")
         _expect(
             self,
             "IVP_BINDING_UNAVAILABLE",
@@ -1452,7 +1491,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                         "run-independent",
                         "beta",
                         "right",
-                        manifest=_MANIFEST_B,
+                        manifest=_manifest_body(("hasher", "1.0.1")),
                         body=independent_fail,
                     )
                 )
@@ -1467,7 +1506,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                         "run-source",
                         "alpha",
                         "left",
-                        body=_evidence_body(_MEASURED_LEFT, claim_id="AUR-A-002"),
+                        body=_evidence_body(_SHA, claim_id="AUR-A-002"),
                     )
                 )
             ),
@@ -1481,7 +1520,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                         "run-source",
                         "alpha",
                         "left",
-                        body=_evidence_body(_MEASURED_LEFT, input_digest=_OTHER),
+                        body=_evidence_body(_SHA, input_digest=_OTHER),
                     )
                 )
             ),
@@ -1491,25 +1530,40 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "run-source",
                 "alpha",
                 "left",
-                body=_evidence_body(_MEASURED_LEFT, annotation="source-note"),
+                body=_evidence_body(_SHA, annotation="source-note"),
             ),
             independent_execution=_execution(
                 "run-independent",
                 "alpha",
                 "left",
-                body=_evidence_body(_MEASURED_LEFT, annotation="other-note"),
+                body=_evidence_body(_SHA, annotation="other-note"),
             ),
         )
         annotated_receipt = _build(annotated)
         self.assertIs(annotated_receipt["structural_candidate"], False)
         self.assertEqual(annotated_receipt["classification"], "DUPLICATE")
-        distinct_core = _reproduction(
+        same_environment = _reproduction(
             source_execution=_execution("run-source", "alpha", "left"),
             independent_execution=_execution("run-independent", "beta", "right"),
         )
-        distinct_receipt = _build(distinct_core)
-        self.assertIs(distinct_receipt["structural_candidate"], False)
-        self.assertEqual(distinct_receipt["classification"], "NOT_INDEPENDENT")
+        same_environment_receipt = _build(same_environment)
+        self.assertIs(same_environment_receipt["structural_candidate"], False)
+        self.assertEqual(same_environment_receipt["classification"], "DUPLICATE")
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(
+                _reproduction(
+                    independent_execution=_execution(
+                        "run-independent",
+                        "beta",
+                        "right",
+                        manifest=_manifest_body(("hasher", "1.0.1")),
+                        body=_evidence_body(_MEASURED_RIGHT),
+                    )
+                )
+            ),
+        )
         counted = _build(
             _reproduction(
                 source_execution=_execution(
@@ -1596,12 +1650,12 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
 
     def test_f_cross_removed_predicate_is_not_candidate(self) -> None:
         same_id = _reproduction(
-            source_execution=_execution("same-run", "alpha", "left", manifest=_MANIFEST_A),
+            source_execution=_execution("same-run", "alpha", "left", manifest=_manifest_body(("hasher", "1.0.0"))),
             independent_execution=_execution(
                 "same-run",
                 "beta",
                 "right",
-                manifest=_MANIFEST_B,
+                manifest=_manifest_body(("hasher", "1.0.1")),
             ),
         )
         same_evidence = _reproduction(
@@ -1609,7 +1663,7 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "run-independent",
                 "beta",
                 "left",
-                manifest=_MANIFEST_B,
+                manifest=_manifest_body(("hasher", "1.0.1")),
             )
         )
         same_environment = _reproduction(
@@ -1617,12 +1671,15 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                 "run-independent",
                 "beta",
                 "right",
-                manifest=_MANIFEST_A,
+                manifest=_manifest_body(("hasher", "1.0.0")),
             )
         )
-        for candidate in (same_id, same_evidence, same_environment):
+        for candidate in (same_id, same_environment):
             receipt = _build(candidate)
             self.assertIs(receipt["structural_candidate"], False)
+        reproduced = _build(same_evidence)
+        self.assertEqual(reproduced["classification"], "BOUND_CANDIDATE")
+        self.assertIs(reproduced["structural_candidate"], True)
         _expect(
             self,
             "IVP_EVIDENCE_DIGEST_INVALID",
@@ -1636,6 +1693,317 @@ class IndependentVerificationPreflightTests(unittest.TestCase):
                     )
                 )
             ),
+        )
+
+    def test_r2_result_agreement_is_not_independence(self) -> None:
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(
+                _reproduction(
+                    source_execution=_execution(
+                        "run-source",
+                        "alpha",
+                        "left",
+                        body=_evidence_body(_MEASURED_LEFT),
+                    )
+                )
+            ),
+        )
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(
+                _reproduction(
+                    independent_execution=_execution(
+                        "run-independent",
+                        "beta",
+                        "right",
+                        manifest=_manifest_body(("hasher", "1.0.1")),
+                        body=_evidence_body(_MEASURED_RIGHT),
+                    )
+                )
+            ),
+        )
+        agreed = _build()
+        self.assertEqual(agreed["classification"], "BOUND_CANDIDATE")
+        self.assertIs(agreed["structural_candidate"], True)
+        self.assertEqual(
+            agreed["source_execution_summary"]["evidence_digest"],
+            agreed["independent_execution_summary"]["evidence_digest"],
+        )
+        self.assertNotEqual(
+            agreed["source_execution_summary"]["environment_fingerprint"],
+            agreed["independent_execution_summary"]["environment_fingerprint"],
+        )
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(
+                _reproduction(
+                    source_execution=_execution("run-source", "alpha", "left"),
+                    independent_execution=_execution(
+                        "run-independent",
+                        "alpha",
+                        "right",
+                        body=_evidence_body(_OTHER),
+                    ),
+                )
+            ),
+        )
+        same_core = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left"),
+                independent_execution=_execution(
+                    "run-independent",
+                    "alpha",
+                    "right",
+                    os_name="windows",
+                ),
+            )
+        )
+        self.assertEqual(same_core["classification"], "BOUND_CANDIDATE")
+        self.assertEqual(
+            same_core["source_execution_summary"]["evidence_digest"],
+            same_core["independent_execution_summary"]["evidence_digest"],
+        )
+
+    def test_r2_structured_manifest_binding(self) -> None:
+        bare = _complete_env()
+        bare["dependency_manifest"] = _OTHER
+        _expect(
+            self,
+            "IVP_ENVIRONMENT_UNBOUND",
+            lambda: _build(
+                _reproduction(
+                    source_execution=_execution("run-source", "alpha", "left", env=bare)
+                )
+            ),
+        )
+        digest_only = _complete_env()
+        del digest_only["dependency_manifest"]
+        digest_only["dependency_manifest_digest"] = _OTHER
+        _expect(
+            self,
+            "IVP_ENVIRONMENT_UNBOUND",
+            lambda: _build(
+                _reproduction(
+                    source_execution=_execution(
+                        "run-source",
+                        "alpha",
+                        "left",
+                        env=digest_only,
+                    )
+                )
+            ),
+        )
+        body = _manifest_body(("hasher", "1.0.0"))
+        mismatched = _complete_env(manifest=body, manifest_digest=_OTHER)
+        _expect(
+            self,
+            "IVP_ENVIRONMENT_UNBOUND",
+            lambda: _build(
+                _reproduction(
+                    source_execution=_execution(
+                        "run-source",
+                        "alpha",
+                        "left",
+                        env=mismatched,
+                    )
+                )
+            ),
+        )
+        for empty in ({}, _manifest_body(), {"annotation": "only"}, {"nonce": "only"}):
+            _expect(
+                self,
+                "IVP_ENVIRONMENT_UNBOUND",
+                lambda empty=empty: _build(
+                    _reproduction(
+                        source_execution=_execution(
+                            "run-source",
+                            "alpha",
+                            "left",
+                            env=_complete_env(manifest=empty),
+                        )
+                    )
+                ),
+            )
+        annotated = _manifest_body(("hasher", "1.0.0"), annotation="source")
+        noted = _manifest_body(("hasher", "1.0.0"), nonce="other")
+        cosmetic_manifest = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left", manifest=annotated),
+                independent_execution=_execution(
+                    "run-independent",
+                    "alpha",
+                    "right",
+                    manifest=noted,
+                ),
+            )
+        )
+        self.assertEqual(cosmetic_manifest["classification"], "DUPLICATE")
+        self.assertEqual(
+            cosmetic_manifest["source_execution_summary"]["environment_fingerprint"],
+            cosmetic_manifest["independent_execution_summary"]["environment_fingerprint"],
+        )
+        ordered = _build(
+            _reproduction(
+                source_execution=_execution(
+                    "run-source",
+                    "alpha",
+                    "left",
+                    manifest=_manifest_body(("zlib", "1.2.3"), ("hasher", "1.0.0")),
+                ),
+                independent_execution=_execution(
+                    "run-independent",
+                    "beta",
+                    "right",
+                    manifest=_manifest_body(("hasher", "1.0.0"), ("zlib", "1.2.3")),
+                ),
+            )
+        )
+        self.assertEqual(ordered["classification"], "DUPLICATE")
+        checked = _complete_env(manifest=body, manifest_digest=_manifest_digest(body))
+        checked_receipt = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left", env=checked),
+                independent_execution=_execution(
+                    "run-independent",
+                    "alpha",
+                    "right",
+                    manifest=_manifest_body(("hasher", "1.0.1")),
+                ),
+            )
+        )
+        self.assertEqual(checked_receipt["classification"], "BOUND_CANDIDATE")
+        self.assertEqual(
+            checked_receipt["source_execution_summary"]["environment_fingerprint"],
+            _env_fingerprint("alpha"),
+        )
+
+    def test_r2_os_runtime_normalization(self) -> None:
+        for os_name, runtime in (
+            ("win\u200bdows", "3.12.1"),
+            ("Ｗｉｎｄｏｗｓ", "3.12.1"),
+            ("linux", "3\u200b.12.1"),
+            ("linux", "３.１２.１"),
+            ("linux", "v3.12.1"),
+            ("different machine", "3.12.1"),
+        ):
+            _expect(
+                self,
+                "IVP_ENVIRONMENT_UNBOUND",
+                lambda os_name=os_name, runtime=runtime: _build(
+                    _reproduction(
+                        independent_execution=_execution(
+                            "run-independent",
+                            "beta",
+                            "right",
+                            os_name=os_name,
+                            runtime=runtime,
+                            manifest=_manifest_body(("hasher", "1.0.1")),
+                        )
+                    )
+                ),
+            )
+        case_only = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left", os_name="Windows"),
+                independent_execution=_execution(
+                    "run-independent",
+                    "ALPHA",
+                    "right",
+                    os_name=" windows ",
+                    runtime=" 3.12.1 ",
+                ),
+            )
+        )
+        self.assertEqual(case_only["classification"], "DUPLICATE")
+        self.assertEqual(
+            case_only["source_execution_summary"]["environment_fingerprint"],
+            case_only["independent_execution_summary"]["environment_fingerprint"],
+        )
+        versions = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left", runtime="3.12.1"),
+                independent_execution=_execution(
+                    "run-independent",
+                    "alpha",
+                    "right",
+                    runtime="3.12.2",
+                ),
+            )
+        )
+        self.assertEqual(versions["classification"], "BOUND_CANDIDATE")
+        self.assertIs(versions["structural_candidate"], True)
+
+    def test_r2_replay_uses_execution_not_result(self) -> None:
+        distinct = _build()
+        self.assertEqual(distinct["classification"], "BOUND_CANDIDATE")
+        self.assertEqual(
+            distinct["source_execution_summary"]["evidence_digest"],
+            distinct["independent_execution_summary"]["evidence_digest"],
+        )
+        self.assertNotEqual(
+            distinct["source_execution_summary"]["execution_id"],
+            distinct["independent_execution_summary"]["execution_id"],
+        )
+        replay = _build(
+            _reproduction(
+                source_execution=_execution("same-run", "alpha", "left"),
+                independent_execution=_execution(
+                    "same-run",
+                    "beta",
+                    "right",
+                    manifest=_manifest_body(("hasher", "1.0.1")),
+                ),
+            )
+        )
+        self.assertEqual(replay["classification"], "DUPLICATE")
+        self.assertIs(replay["structural_candidate"], False)
+        same_environment = _build(
+            _reproduction(
+                source_execution=_execution("run-source", "alpha", "left"),
+                independent_execution=_execution(
+                    "run-independent",
+                    "different machine",
+                    "right",
+                ),
+            )
+        )
+        self.assertEqual(same_environment["classification"], "DUPLICATE")
+        repeated_core = _build(
+            _reproduction(
+                package_entries=[
+                    {"body": _evidence_core(_SHA)},
+                    {"body": _evidence_core(_SHA), "label": "copied-again"},
+                ]
+            )
+        )
+        self.assertEqual(repeated_core["classification"], "DUPLICATE")
+        unbound_pin = _pin()
+        unbound_pin["expected_sha256"] = None
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(cited=_cited(pin=unbound_pin)),
+        )
+        claim = {
+            "claim_id": CLAIM_ID,
+            "statement": "document digest matches",
+            "adapter_params": {"mode": "verify_digest", "expected_sha256": _SHA},
+        }
+        bound_claim = _build(cited=_cited(pin=unbound_pin, claim=claim))
+        self.assertEqual(bound_claim["classification"], "BOUND_CANDIDATE")
+        disagreed = {
+            "claim_id": CLAIM_ID,
+            "statement": "document digest matches",
+            "adapter_params": {"expected_sha256": _OTHER},
+        }
+        _expect(
+            self,
+            "IVP_BINDING_UNAVAILABLE",
+            lambda: _build(cited=_cited(claim=disagreed)),
         )
 
     def test_same_class_output_has_no_unbound_classification(self) -> None:
