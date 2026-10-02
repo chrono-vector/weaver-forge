@@ -49,6 +49,15 @@ _ENV_FIELDS = frozenset(
     {"runner", "os", "runtime", "backend", "dependency_manifest_digest"}
 )
 _ENV_STRINGS = frozenset({"runner", "os", "runtime", "backend"})
+# runner and backend are caller labels. They stay in the integrity fingerprint
+# and never count as an execution-context difference.
+_SUBSTANTIVE_ENV_FIELDS = frozenset({"os", "runtime", "dependency_manifest_digest"})
+_EVIDENCE_BODY_REQUIRED = frozenset(
+    {"claim_id", "input_digest", "result_token", "observation"}
+)
+_EVIDENCE_BODY_OPTIONAL = frozenset({"annotation", "nonce"})
+_OBSERVATION_FIELDS = frozenset({"measured_sha256"})
+_INPUT_FIELDS = frozenset({"relative_path", "sha256"})
 _SCOPE_KEYS = frozenset(
     {
         "structural_candidate",
@@ -286,7 +295,13 @@ def _bind_evidence(record: Any, code: str) -> tuple[str, dict[str, Any]]:
     return recomputed, body
 
 
-def _bind_environment(record: Any) -> str:
+def _substantive_text(value: str) -> str:
+    """Collapse case and surrounding whitespace for the independence predicate."""
+    return value.strip().casefold()
+
+
+def _bind_environment(record: Any) -> tuple[str, str]:
+    """Return the integrity fingerprint and the substantive-environment digest."""
     if type(record) is not dict:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment is not a record")
     _keys(
@@ -296,10 +311,12 @@ def _bind_environment(record: Any) -> str:
         "IVP_ENVIRONMENT_UNBOUND",
     )
     env = record.get("record")
-    if type(env) is not dict:
+    if type(env) is not dict or not env:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment record is not structured")
     if set(env) - _ENV_FIELDS:
         _fail("IVP_ENVIRONMENT_UNBOUND", "environment record has an unsupported field")
+    if not _ENV_FIELDS <= set(env):
+        _fail("IVP_ENVIRONMENT_UNBOUND", "environment record is missing a required field")
     if "label" in record and type(record.get("label")) is not str:
         _fail("IVP_SOURCE_INVALID", "environment label is not a string")
     normalized: dict[str, str] = {}
@@ -311,10 +328,76 @@ def _bind_environment(record: Any) -> str:
     recomputed = _digest(normalized, "IVP_ENVIRONMENT_UNBOUND")
     if "fingerprint" in record and record.get("fingerprint") != recomputed:
         _fail("IVP_ENVIRONMENT_UNBOUND", "fingerprint does not match the environment record")
-    return recomputed
+    substantive = {
+        "dependency_manifest_digest": normalized["dependency_manifest_digest"],
+        "os": _substantive_text(normalized["os"]),
+        "runtime": _substantive_text(normalized["runtime"]),
+    }
+    return recomputed, _digest(substantive, "IVP_ENVIRONMENT_UNBOUND")
 
 
-def _bind_execution(record: Any) -> dict[str, str]:
+def _bind_reproduction_evidence(
+    record: Any,
+    *,
+    claim_id: str,
+    input_digest: str,
+    cited_result: str,
+) -> tuple[str, str]:
+    """Return the evidence-core digest and the execution result token.
+
+    Annotation and nonce are stored only as caller metadata. They are not part
+    of the digest that independence compares.
+    """
+    code = "IVP_EVIDENCE_DIGEST_INVALID"
+    if type(record) is not dict:
+        _fail(code, "evidence is not a record")
+    _keys(record, frozenset({"body"}), frozenset({"digest", "label"}), code)
+    body = record.get("body")
+    if type(body) is not dict or not body:
+        _fail(code, "evidence body is not a record")
+    _keys(body, _EVIDENCE_BODY_REQUIRED, _EVIDENCE_BODY_OPTIONAL, code)
+    for key in _EVIDENCE_BODY_OPTIONAL:
+        if key in body and type(body.get(key)) is not str:
+            _fail(code, "evidence metadata is not a string")
+    if "label" in record and type(record.get("label")) is not str:
+        _fail("IVP_SOURCE_INVALID", "evidence label is not a string")
+    observation = body.get("observation")
+    if type(observation) is not dict or not observation:
+        _fail(code, "evidence observation is not a record")
+    _keys(observation, _OBSERVATION_FIELDS, frozenset(), code)
+    measured = _sha256(observation.get("measured_sha256"), code)
+    evidence_claim = _nonempty(body.get("claim_id"), "IVP_CLAIM_MISMATCH", "claim_id")
+    if evidence_claim != claim_id:
+        _fail("IVP_CLAIM_MISMATCH", "evidence claim_id does not match the cited claim")
+    evidence_input = _sha256(body.get("input_digest"), "IVP_BINDING_UNAVAILABLE")
+    if evidence_input != input_digest:
+        _fail("IVP_BINDING_UNAVAILABLE", "evidence input_digest does not match the input record")
+    evidence_result = _nonempty(
+        body.get("result_token"),
+        "IVP_BINDING_UNAVAILABLE",
+        "result_token",
+    )
+    if evidence_result != cited_result:
+        _fail("IVP_BINDING_UNAVAILABLE", "evidence result_token does not match the cited decision")
+    core = {
+        "claim_id": evidence_claim,
+        "input_digest": evidence_input,
+        "result_token": evidence_result,
+        "observation": {"measured_sha256": measured},
+    }
+    recomputed = _digest(core, code)
+    if "digest" in record and record.get("digest") != recomputed:
+        _fail(code, "evidence digest does not match the body")
+    return recomputed, evidence_result
+
+
+def _bind_execution(
+    record: Any,
+    *,
+    claim_id: str,
+    input_digest: str,
+    cited_result: str,
+) -> dict[str, str]:
     if type(record) is not dict:
         _fail("IVP_EXECUTION_INVALID", "execution is not a record")
     _keys(
@@ -328,29 +411,51 @@ def _bind_execution(record: Any) -> dict[str, str]:
         "IVP_EXECUTION_INVALID",
         "execution_id",
     )
-    fingerprint = _bind_environment(record.get("environment"))
-    evidence_digest, body = _bind_evidence(record.get("evidence"), "IVP_EVIDENCE_DIGEST_INVALID")
+    fingerprint, substantive = _bind_environment(record.get("environment"))
+    evidence_digest, result_token = _bind_reproduction_evidence(
+        record.get("evidence"),
+        claim_id=claim_id,
+        input_digest=input_digest,
+        cited_result=cited_result,
+    )
     record_digest = _digest(
         {
             "execution_id": execution_id,
             "environment_fingerprint": fingerprint,
-            "evidence": body,
+            "evidence_digest": evidence_digest,
         },
         "IVP_EXECUTION_INVALID",
     )
     return {
         "execution_id": execution_id,
         "environment_fingerprint": fingerprint,
+        "substantive_environment": substantive,
         "evidence_digest": evidence_digest,
         "record_digest": record_digest,
+        "result_token": result_token,
     }
 
 
-def _bind_input(candidate: Mapping[str, Any]) -> str:
+def _bind_input(candidate: Mapping[str, Any], revision: Mapping[str, Any]) -> str:
     record = candidate.get("input_record")
-    if type(record) is not dict:
+    if type(record) is not dict or not record:
         _fail("IVP_BINDING_UNAVAILABLE", "input record is not bound")
-    recomputed = _digest(record, "IVP_BINDING_UNAVAILABLE")
+    _keys(record, _INPUT_FIELDS, frozenset(), "IVP_BINDING_UNAVAILABLE")
+    relative = record.get("relative_path")
+    if type(relative) is not str or not relative.strip():
+        _fail("IVP_BINDING_UNAVAILABLE", "input record is not bound")
+    digest = _sha256(record.get("sha256"), "IVP_BINDING_UNAVAILABLE")
+    matched = False
+    for entry in revision["files"]:
+        if entry["relative_path"] == relative and entry["sha256"] == digest:
+            matched = True
+            break
+    if not matched:
+        _fail("IVP_BINDING_UNAVAILABLE", "input record is not a cited pin file")
+    recomputed = _digest(
+        {"relative_path": relative, "sha256": digest},
+        "IVP_BINDING_UNAVAILABLE",
+    )
     if "input_digest" in candidate and candidate.get("input_digest") != recomputed:
         _fail("IVP_BINDING_UNAVAILABLE", "input digest does not match the input record")
     return recomputed
@@ -382,8 +487,10 @@ def _reproduction_outcome(
     )
     if replay:
         return "DUPLICATE", False
-    if result_token != cited_result:
+    if source["substantive_environment"] == independent["substantive_environment"]:
         return "NOT_INDEPENDENT", False
+    if result_token != cited_result:
+        _fail("IVP_BINDING_UNAVAILABLE", "result_token does not match the cited decision")
     return "BOUND_CANDIDATE", True
 
 
@@ -573,15 +680,36 @@ def build_independent_verification_preflight(
     if candidate_map.get("claim_id") != claim_id:
         _fail("IVP_CLAIM_MISMATCH", "candidate claim_id does not match the cited claim")
     if kind == "REPRODUCTION":
+        if len(report.unresolved_assumptions) != 0:
+            _fail("IVP_BINDING_UNAVAILABLE", "unresolved assumptions block reproduction")
         _keys(candidate_map, _REPRODUCTION_REQUIRED, _REPRODUCTION_OPTIONAL, "IVP_SOURCE_INVALID")
-        source = _bind_execution(candidate_map.get("source_execution"))
-        independent = _bind_execution(candidate_map.get("independent_execution"))
-        input_digest = _bind_input(candidate_map)
+        input_digest = _bind_input(candidate_map, revision)
+        source = _bind_execution(
+            candidate_map.get("source_execution"),
+            claim_id=claim_id,
+            input_digest=input_digest,
+            cited_result=cited_result,
+        )
+        independent = _bind_execution(
+            candidate_map.get("independent_execution"),
+            claim_id=claim_id,
+            input_digest=input_digest,
+            cited_result=cited_result,
+        )
         result_token = _nonempty(
             candidate_map.get("result_token"),
             "IVP_SOURCE_INVALID",
             "result_token",
         )
+        if (
+            result_token != cited_result
+            or result_token != source["result_token"]
+            or result_token != independent["result_token"]
+        ):
+            _fail(
+                "IVP_BINDING_UNAVAILABLE",
+                "result_token does not match the cited decision",
+            )
         package = []
         if "package_entries" in candidate_map:
             package = _package_digests(candidate_map.get("package_entries"))
