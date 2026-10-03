@@ -332,6 +332,11 @@ def _contiguous(orders: list[int], code: str, label: str) -> None:
         _fail(code, f"{label} repeats an order")
 
 
+def _bound_created_order(orders: list[int], code: str, label: str) -> None:
+    if orders != list(range(len(orders))):
+        _fail(code, f"{label} is not bound to event_order")
+
+
 def _rationale(value: Any) -> dict[str, Any]:
     mapping = _require_mapping(value, "rationale")
     _reject_record_forbidden(mapping, "CONDUCTING_SCOPE_VIOLATION")
@@ -562,6 +567,11 @@ def _bind_revision(
         _fail("CONDUCTING_REPLAY", "revision_id repeats")
     created_order = _order(raw.get("created_order"), "CONDUCTING_LINEAGE_INVALID", "created_order")
     event_order = _order(raw.get("event_order"), "CONDUCTING_LINEAGE_INVALID", "event_order")
+    if created_order != len(known):
+        _fail(
+            "CONDUCTING_LINEAGE_INVALID",
+            "created_order is not bound to event_order",
+        )
     agent_id = _nonempty(raw.get("agent_id"), "CONDUCTING_SOURCE_INVALID", "agent_id")
     role = raw.get("agent_role")
     content = raw.get("content")
@@ -602,6 +612,11 @@ def _bind_revision(
         parent_state = known[parent_id]
         if parent_state["event_order"] >= event_order:
             _fail("CONDUCTING_LINEAGE_INVALID", "parent is not earlier than the revision")
+        if created_order <= parent_state["created_order"]:
+            _fail(
+                "CONDUCTING_LINEAGE_INVALID",
+                "child created_order is not later than parent",
+            )
         parent_digest = _sha256(
             raw.get("parent_content_digest"),
             "CONDUCTING_REVISION_UNBOUND",
@@ -692,6 +707,11 @@ def _bind_challenge(
     )
     created_order = _order(raw.get("created_order"), "CONDUCTING_LINEAGE_INVALID", "created_order")
     event_order = _order(raw.get("event_order"), "CONDUCTING_LINEAGE_INVALID", "event_order")
+    if created_order != len(challenge_digests):
+        _fail(
+            "CONDUCTING_LINEAGE_INVALID",
+            "created_order is not bound to event_order",
+        )
     target_id = _identity(
         raw.get("target_revision_id"),
         "CONDUCTING_CHALLENGE_UNBOUND",
@@ -866,22 +886,78 @@ def _counterexample_status(
     return "COUNTEREXAMPLE_OPEN"
 
 
-def _assumption_history(
-    revisions: list[Mapping[str, Any]],
-) -> tuple[list[dict[str, Any]], list[str]]:
-    latest: dict[str, dict[str, Any]] = {}
-    order: list[str] = []
-    for revision in revisions:
-        for item in revision["assumptions"]:
-            digest = item["assumption_digest"]
-            if digest not in latest:
-                order.append(digest)
-            latest[digest] = dict(item)
-    records = [latest[digest] for digest in order]
+def _lineage_state(revision: Mapping[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
+    records = [dict(item) for item in revision["assumptions"]]
     unresolved = [
         item["assumption_digest"] for item in records if item["status"] == "OPEN"
     ]
     return records, unresolved
+
+
+def _terminal_revisions(
+    revisions: Mapping[str, Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    parents_with_children = {
+        item.get("parent_revision_id")
+        for item in revisions.values()
+        if item.get("parent_revision_id") is not None
+    }
+    terminals = [
+        item
+        for item in revisions.values()
+        if item["revision_id"] not in parents_with_children
+    ]
+    return sorted(terminals, key=lambda item: item["event_order"])
+
+
+def _aggregate_terminal_assumptions(
+    terminals: list[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    by_digest: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for terminal in terminals:
+        for item in terminal["assumptions"]:
+            digest = item["assumption_digest"]
+            if digest not in by_digest:
+                order.append(digest)
+                by_digest[digest] = []
+            by_digest[digest].append(dict(item))
+    records: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    for digest in order:
+        versions = by_digest[digest]
+        base = {
+            "statement": versions[0]["statement"],
+            "assumption_digest": digest,
+            "introduced_in_revision": versions[0]["introduced_in_revision"],
+        }
+        if any(item["status"] == "OPEN" for item in versions):
+            base["status"] = "OPEN"
+            unresolved.append(digest)
+        else:
+            base["status"] = "RESOLVED"
+            resolvers = {item.get("resolved_by_revision") for item in versions}
+            refs = {item.get("resolution_ref") for item in versions}
+            if len(resolvers) == 1:
+                resolver = next(iter(resolvers))
+                if resolver is not None:
+                    base["resolved_by_revision"] = resolver
+            if len(refs) == 1:
+                ref = next(iter(refs))
+                if ref is not None:
+                    base["resolution_ref"] = ref
+        records.append(base)
+    return records, unresolved
+
+
+def _assumption_summary(
+    revisions: Mapping[str, Mapping[str, Any]],
+    selection: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    if selection.get("selection_present") is True:
+        selected = revisions[selection["selected_revision_id"]]
+        return _lineage_state(selected)
+    return _aggregate_terminal_assumptions(_terminal_revisions(revisions))
 
 
 def _emit_challenge(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -988,18 +1064,18 @@ def build_conducting_receipt(exchange: Mapping[str, Any], **forbidden: Any) -> d
             if bound_c["challenge_id"] in bound_challenges:
                 _fail("CONDUCTING_REPLAY", "challenge_id repeats")
             bound_challenges[bound_c["challenge_id"]] = bound_c
-    revision_list = sorted(bound_revisions.values(), key=lambda item: item["created_order"])
+    revision_list = sorted(bound_revisions.values(), key=lambda item: item["event_order"])
     challenge_list = sorted(
         bound_challenges.values(),
-        key=lambda item: item["created_order"],
+        key=lambda item: item["event_order"],
     )
-    _contiguous(
+    _bound_created_order(
         [item["created_order"] for item in revision_list],
         "CONDUCTING_LINEAGE_INVALID",
         "revision created_order",
     )
     if challenge_list:
-        _contiguous(
+        _bound_created_order(
             [item["created_order"] for item in challenge_list],
             "CONDUCTING_LINEAGE_INVALID",
             "challenge created_order",
@@ -1010,7 +1086,7 @@ def build_conducting_receipt(exchange: Mapping[str, Any], **forbidden: Any) -> d
         mapping.get("human_selection"),
         bound_revisions,
     )
-    assumption_records, unresolved = _assumption_history(revision_list)
+    assumption_records, unresolved = _assumption_summary(bound_revisions, selection)
     emitted_challenges = [_emit_challenge(item) for item in challenge_list]
     receipt: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,

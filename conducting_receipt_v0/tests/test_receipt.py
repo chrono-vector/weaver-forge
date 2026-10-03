@@ -182,6 +182,117 @@ def _c1(target_digest: str, *, kind: str = "COUNTEREXAMPLE", present: bool = Tru
     return record
 
 
+def _c2(target_digest: str, **over: object) -> dict:
+    record = {
+        "challenge_id": "c2",
+        "target_revision_id": "r0",
+        "target_content_digest": target_digest,
+        "challenger_id": "agent-c",
+        "agent_role": "CHALLENGER",
+        "challenge_kind": "WEAKENING",
+        "rationale": {
+            "claim": "sibling challenge",
+            "assumptions": [_STATEMENT],
+            "attack": "a different attack from c1",
+        },
+        "counterexample_present": False,
+        "assumptions_attacked": [_stmt_digest()],
+        "created_order": 1,
+        "event_order": 3,
+    }
+    record.update(over)
+    return record
+
+
+def _r_sibling(
+    parent_digest: str,
+    *,
+    revision_id: str,
+    payload: str,
+    created_order: int,
+    event_order: int,
+    responds_to: list[str],
+    assumptions: list[dict] | None = None,
+    parent_revision_id: str = "r0",
+    **over: object,
+) -> dict:
+    record = {
+        "revision_id": revision_id,
+        "content": _content(payload),
+        "created_order": created_order,
+        "event_order": event_order,
+        "agent_id": "agent-a",
+        "agent_role": "REVISER",
+        "parent_revision_id": parent_revision_id,
+        "parent_content_digest": parent_digest,
+        "responds_to": responds_to,
+        "assumptions": assumptions if assumptions is not None else [_open_assumption()],
+    }
+    record.update(over)
+    return record
+
+
+def _select(revision_id: str, content: Mapping[str, object]) -> dict:
+    return {
+        "selected_revision_id": revision_id,
+        "selected_content_digest": canonical_digest(content),
+        "selector_is_human": True,
+        "authority": False,
+    }
+
+
+def _branch_family(*, select: str | None = None, extra_sibling: bool = False) -> dict:
+    r0 = _r0()
+    digest = canonical_digest(r0["content"])
+    r1 = _r1(digest)
+    r2 = _r_sibling(
+        digest,
+        revision_id="r2",
+        payload="sibling-resolved",
+        created_order=2,
+        event_order=4,
+        responds_to=["c2"],
+        assumptions=[_resolved_assumption(resolver="r2")],
+    )
+    challenges = [_c1(digest), _c2(digest)]
+    revisions = [r0, r1, r2]
+    if extra_sibling:
+        challenges.append(
+            _c2(
+                digest,
+                challenge_id="c3",
+                created_order=2,
+                event_order=5,
+                rationale={
+                    "claim": "third sibling challenge",
+                    "assumptions": [_STATEMENT],
+                    "attack": "another distinct attack",
+                },
+            )
+        )
+        revisions.append(
+            _r_sibling(
+                digest,
+                revision_id="r3",
+                payload="third-resolved",
+                created_order=3,
+                event_order=6,
+                responds_to=["c3"],
+                assumptions=[_resolved_assumption(resolver="r3")],
+            )
+        )
+    exchange: dict[str, object] = {
+        "session_id": "session-1",
+        "revisions": revisions,
+        "challenges": challenges,
+    }
+    if select == "r1":
+        exchange["human_selection"] = _select("r1", r1["content"])
+    elif select == "r2":
+        exchange["human_selection"] = _select("r2", r2["content"])
+    return exchange
+
+
 def _r1(parent_digest: str, *, payload: str = "revised", **over: object) -> dict:
     record = {
         "revision_id": "r1",
@@ -1262,6 +1373,257 @@ class TestSameClassReview(unittest.TestCase):
                 }
             ),
         )
+
+
+class TestBranchAssumptionState(unittest.TestCase):
+    def test_br2_selected_open_branch_keeps_unresolved(self) -> None:
+        receipt = _build(_branch_family(select="r1"))
+        digest = _stmt_digest()
+        self.assertIn(digest, receipt["unresolved_assumptions"])
+        selected = {
+            item["assumption_digest"]: item for item in receipt["assumption_records"]
+        }
+        self.assertEqual(selected[digest]["status"], "OPEN")
+        self.assertNotIn("resolved_by_revision", selected[digest])
+        r2 = next(item for item in receipt["revisions"] if item["revision_id"] == "r2")
+        r2_state = {item["assumption_digest"]: item for item in r2["assumptions"]}
+        self.assertEqual(r2_state[digest]["status"], "RESOLVED")
+
+    def test_br3_later_sibling_events_cannot_hide_selected_open(self) -> None:
+        receipt = _build(_branch_family(select="r1", extra_sibling=True))
+        digest = _stmt_digest()
+        self.assertIn(digest, receipt["unresolved_assumptions"])
+        self.assertEqual(receipt["assumption_records"][0]["status"], "OPEN")
+        self.assertEqual(
+            {item["revision_id"] for item in receipt["revisions"]},
+            {"r0", "r1", "r2", "r3"},
+        )
+
+    def test_branch_selection_inverse_uses_resolved_lineage(self) -> None:
+        receipt = _build(_branch_family(select="r2"))
+        digest = _stmt_digest()
+        self.assertNotIn(digest, receipt["unresolved_assumptions"])
+        self.assertEqual(receipt["assumption_records"][0]["status"], "RESOLVED")
+        self.assertEqual(
+            receipt["assumption_records"][0]["resolved_by_revision"],
+            "r2",
+        )
+        r1 = next(item for item in receipt["revisions"] if item["revision_id"] == "r1")
+        r1_state = {item["assumption_digest"]: item for item in r1["assumptions"]}
+        self.assertEqual(r1_state[digest]["status"], "OPEN")
+
+    def test_no_selection_union_keeps_open_terminal(self) -> None:
+        receipt = _build(_branch_family())
+        self.assertIn(_stmt_digest(), receipt["unresolved_assumptions"])
+        self.assertEqual(receipt["assumption_records"][0]["status"], "OPEN")
+        self.assertNotIn("resolved_by_revision", receipt["assumption_records"][0])
+
+    def test_all_terminal_branches_resolved_omits_assumption(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(digest, assumptions=[_resolved_assumption(resolver="r1")])
+        r2 = _r_sibling(
+            digest,
+            revision_id="r2",
+            payload="sibling-resolved",
+            created_order=2,
+            event_order=4,
+            responds_to=["c2"],
+            assumptions=[_resolved_assumption(resolver="r2")],
+        )
+        receipt = _build(
+            {
+                "session_id": "session-1",
+                "revisions": [r0, r1, r2],
+                "challenges": [_c1(digest), _c2(digest)],
+            }
+        )
+        self.assertNotIn(_stmt_digest(), receipt["unresolved_assumptions"])
+        self.assertEqual(receipt["assumption_records"][0]["status"], "RESOLVED")
+        self.assertNotIn("resolved_by_revision", receipt["assumption_records"][0])
+
+    def test_branch_local_introduction_does_not_leak_sideways(self) -> None:
+        r0 = _r0(assumptions=[])
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(
+            digest,
+            assumptions=[_open_assumption(introduced="r1")],
+        )
+        r2 = _r_sibling(
+            digest,
+            revision_id="r2",
+            payload="sibling-without-a",
+            created_order=2,
+            event_order=4,
+            responds_to=["c2"],
+            assumptions=[],
+        )
+        c1 = _c1(digest, assumptions_attacked=[])
+        c2 = _c2(digest, assumptions_attacked=[])
+        unsigned = _build(
+            {
+                "session_id": "session-1",
+                "revisions": [r0, r1, r2],
+                "challenges": [c1, c2],
+            }
+        )
+        self.assertIn(_stmt_digest(), unsigned["unresolved_assumptions"])
+        selected = _build(
+            {
+                "session_id": "session-1",
+                "revisions": [r0, r1, r2],
+                "challenges": [c1, c2],
+                "human_selection": _select("r2", r2["content"]),
+            }
+        )
+        self.assertNotIn(_stmt_digest(), selected["unresolved_assumptions"])
+        r1_bound = next(item for item in selected["revisions"] if item["revision_id"] == "r1")
+        self.assertEqual(r1_bound["assumptions"][0]["introduced_in_revision"], "r1")
+        self.assertEqual(r1_bound["assumptions"][0]["status"], "OPEN")
+
+
+class TestCreatedOrderBinding(unittest.TestCase):
+    def test_br4b_linear_created_order_disagrees_with_event_order(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(digest, created_order=2)
+        r2 = _r_sibling(
+            canonical_digest(r1["content"]),
+            revision_id="r2",
+            payload="grandchild",
+            created_order=1,
+            event_order=4,
+            responds_to=["c2"],
+            parent_revision_id="r1",
+        )
+        c2 = _c2(
+            canonical_digest(r1["content"]),
+            target_revision_id="r1",
+            assumptions_attacked=[_stmt_digest()],
+        )
+        _expect(
+            self,
+            "CONDUCTING_LINEAGE_INVALID",
+            lambda: _build(
+                {
+                    "session_id": "session-1",
+                    "revisions": [r0, r1, r2],
+                    "challenges": [_c1(digest), c2],
+                }
+            ),
+        )
+
+    def test_l5c_child_created_order_lower_than_parent(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(digest, created_order=2)
+        r1_digest = canonical_digest(r1["content"])
+        r2 = _r_sibling(
+            r1_digest,
+            revision_id="r2",
+            payload="earlier-child-order",
+            created_order=1,
+            event_order=4,
+            responds_to=["c2"],
+            parent_revision_id="r1",
+        )
+        c2 = _c2(r1_digest, target_revision_id="r1")
+        _expect(
+            self,
+            "CONDUCTING_LINEAGE_INVALID",
+            lambda: _build(
+                {
+                    "session_id": "session-1",
+                    "revisions": [r0, r1, r2],
+                    "challenges": [_c1(digest), c2],
+                }
+            ),
+        )
+
+    def test_child_created_order_equal_to_parent_rejected(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(digest, created_order=1)
+        r2 = _r_sibling(
+            canonical_digest(r1["content"]),
+            revision_id="r2",
+            payload="same-order-child",
+            created_order=1,
+            event_order=4,
+            responds_to=["c2"],
+            parent_revision_id="r1",
+        )
+        c2 = _c2(
+            canonical_digest(r1["content"]),
+            target_revision_id="r1",
+        )
+        _expect(
+            self,
+            "CONDUCTING_LINEAGE_INVALID",
+            lambda: _build(
+                {
+                    "session_id": "session-1",
+                    "revisions": [r0, r1, r2],
+                    "challenges": [_c1(digest), c2],
+                }
+            ),
+        )
+
+    def test_revision_created_order_gap_rejected(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        r1 = _r1(digest, created_order=2)
+        _expect(
+            self,
+            "CONDUCTING_LINEAGE_INVALID",
+            lambda: _build(
+                {
+                    "session_id": "session-1",
+                    "revisions": [r0, r1],
+                    "challenges": [_c1(digest)],
+                }
+            ),
+        )
+
+    def test_challenge_created_order_disagrees_with_event_order(self) -> None:
+        r0 = _r0()
+        digest = canonical_digest(r0["content"])
+        c1 = _c1(digest, created_order=1)
+        c2 = _c2(digest, created_order=0)
+        r1 = _r1(digest)
+        r2 = _r_sibling(
+            digest,
+            revision_id="r2",
+            payload="sibling-resolved",
+            created_order=2,
+            event_order=4,
+            responds_to=["c2"],
+            assumptions=[_resolved_assumption(resolver="r2")],
+        )
+        _expect(
+            self,
+            "CONDUCTING_LINEAGE_INVALID",
+            lambda: _build(
+                {
+                    "session_id": "session-1",
+                    "revisions": [r0, r1, r2],
+                    "challenges": [c1, c2],
+                }
+            ),
+        )
+
+    def test_valid_branched_tree_with_event_consistent_created_order(self) -> None:
+        receipt = _build(_branch_family())
+        orders = [
+            (item["event_order"], item["created_order"], item["revision_id"])
+            for item in receipt["revisions"]
+        ]
+        self.assertEqual(
+            orders,
+            [(0, 0, "r0"), (2, 1, "r1"), (4, 2, "r2")],
+        )
+        self.assertEqual(len(receipt["revisions"]), 3)
+        self.assertIn(_stmt_digest(), receipt["unresolved_assumptions"])
 
 
 class TestNoAcceptedWrites(unittest.TestCase):
