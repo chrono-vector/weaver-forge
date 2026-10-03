@@ -14,6 +14,9 @@ from conducting_receipt_v0.tests.test_receipt import _build as _cr_build
 from evidence_binding_dag_v0 import EvidenceBindingDagError, build_evidence_binding_dag
 from independent_verification_preflight_v0.tests.test_preflight import (
     _build as _ivp_build,
+    _challenge as _ivp_challenge,
+    _cited as _ivp_cited,
+    _report_with_assumption as _ivp_report_with_assumption,
 )
 from recovery_execution_receipt_v0.tests.test_receipt import _build as _rer_build
 from recovery_preflight_v0.tests.test_preflight import _build as _rp_build
@@ -262,6 +265,80 @@ def _hand_rer(
     sealed = {key: value for key, value in body.items() if key != "receipt_digest"}
     body["receipt_digest"] = canonical_digest(sealed)
     return body
+
+
+def _hand_challenge(
+    *,
+    evidence_digest: str,
+    assumption_digest: str,
+    file_digest: str,
+    present: bool = False,
+    counter_body: dict | None = None,
+    **over: object,
+) -> dict:
+    independent: dict[str, object] = {"counterexample_present": present}
+    if present:
+        body = {"payload": "counter"} if counter_body is None else counter_body
+        independent["counterexample_body"] = body
+        independent["counterexample_digest"] = canonical_digest(body)
+    record = {
+        "schema_version": "independent_verification_preflight.v0",
+        "authority": False,
+        "admission_status": "NOT_CONFIGURED",
+        "verification_kind": "CHALLENGE",
+        "claim_id": "AUR-A-001",
+        "artifact_revision_binding": {
+            "files": [{"relative_path": "payload.txt", "sha256": file_digest}]
+        },
+        "classification": "CHALLENGE_RECORDED",
+        "structural_candidate": False,
+        "source_execution_summary": {
+            "claim_id": "AUR-A-001",
+            "evidence_digest": evidence_digest,
+            "assumptions_attacked": [assumption_digest],
+        },
+        "independent_execution_summary": independent,
+        "limitations": ["admitted independent evidence"],
+    }
+    record.update(over)
+    return record
+
+
+def _challenge_receipts() -> list[dict]:
+    cited = _ivp_cited()
+    present_true = _ivp_build(
+        _ivp_challenge(cited, present=True, counterexample={"body": {"payload": "counter"}}),
+        cited,
+    )
+    described = _ivp_challenge(cited, present=True, counterexample={"body": {"payload": "counter"}})
+    described["observer_basis"] = "INDEPENDENT_REPRODUCTION"
+    described["model"] = "other-model"
+    claim_digest = cited["report"]["canonical_input_digests"]["CLAIM.json"]
+    decision_digest = cited["report"]["canonical_input_digests"]["DECISION.json"]
+    pin_digest = cited["report"]["canonical_input_digests"]["PROVENANCE.json"]
+    entry_digest = canonical_digest({"relative_path": "payload.txt", "sha256": "ab" * 32})
+    multi = _ivp_build(
+        _ivp_challenge(
+            cited,
+            present=True,
+            assumptions=[claim_digest, decision_digest, pin_digest, entry_digest],
+            counterexample={"body": {"payload": "counter", "claims_iw_acceptance": True}, "label": "counter-label"},
+        ),
+        cited,
+    )
+    assumed = dict(cited)
+    assumed["report"] = _ivp_report_with_assumption(cited["report"], "pinned-assumption")
+    assumed_receipt = _ivp_build(
+        _ivp_challenge(assumed, assumptions=[canonical_digest("pinned-assumption")]),
+        assumed,
+    )
+    return [
+        _ivp_build(_ivp_challenge(cited), cited),
+        present_true,
+        _ivp_build(described, cited),
+        multi,
+        assumed_receipt,
+    ]
 
 
 def _claim_body(claim_id: str = "CLAIM-1", **over: object) -> dict:
@@ -1761,6 +1838,409 @@ class TestDigestLabelShadow(unittest.TestCase):
         self.assertEqual(len(cites), 1)
         self.assertEqual(cites[0]["source_digest"], real_digest)
         self.assertNotEqual(cites[0]["source_digest"], canonical_digest(shadow_body))
+
+
+class TestR2IvpChallenge(unittest.TestCase):
+    def test_c1_valid_challenge_without_counterexample_accepted(self) -> None:
+        cited = _ivp_cited()
+        receipt = _ivp_build(_ivp_challenge(cited), cited)
+        dag = _build([_receipt_node("ivp-1", receipt)])
+        node = dag["nodes"][0]
+        self.assertEqual(node["kind"], "RECEIPT")
+        self.assertEqual(node["body"]["verification_kind"], "CHALLENGE")
+        self.assertEqual(node["body"]["classification"], "CHALLENGE_RECORDED")
+        self.assertIs(node["body"]["structural_candidate"], False)
+
+    def test_c2_valid_challenge_with_counterexample_accepted(self) -> None:
+        cited = _ivp_cited()
+        receipt = _ivp_build(
+            _ivp_challenge(cited, present=True, counterexample={"body": {"payload": "counter"}}),
+            cited,
+        )
+        dag = _build([_receipt_node("ivp-1", receipt)])
+        self.assertEqual(dag["nodes"][0]["kind"], "RECEIPT")
+        self.assertIs(
+            dag["nodes"][0]["body"]["independent_execution_summary"]["counterexample_present"],
+            True,
+        )
+
+    def test_c3_sampled_challenge_builder_outputs_accepted(self) -> None:
+        receipts = _challenge_receipts()
+        self.assertEqual(len(receipts), 5)
+        for index, receipt in enumerate(receipts):
+            dag = _build([_receipt_node(f"ivp-{index}", receipt)])
+            self.assertEqual(dag["nodes"][0]["kind"], "RECEIPT")
+            self.assertEqual(dag["nodes"][0]["body"]["verification_kind"], "CHALLENGE")
+
+    def test_c4_challenge_structural_candidate_true_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            structural_candidate=True,
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c5_challenge_bound_candidate_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            classification="BOUND_CANDIDATE",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c6_challenge_admitted_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            admission_status="ADMITTED",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c7_challenge_authority_true_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            authority=True,
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c8_missing_evidence_digest_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        del body["source_execution_summary"]["evidence_digest"]
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c9_bad_evidence_digest_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="not-a-digest",
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c10_assumptions_attacked_missing_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        del body["source_execution_summary"]["assumptions_attacked"]
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c11_assumptions_attacked_empty_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        body["source_execution_summary"]["assumptions_attacked"] = []
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c12_assumptions_attacked_wrong_type_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        body["source_execution_summary"]["assumptions_attacked"] = "cd" * 32
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c13_invalid_assumption_digest_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="HEAD",
+            file_digest="11" * 32,
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c14_counterexample_present_wrong_type_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+        )
+        body["independent_execution_summary"]["counterexample_present"] = "YES"
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c15_present_true_missing_digest_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            present=True,
+        )
+        del body["independent_execution_summary"]["counterexample_digest"]
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c16_present_true_missing_body_rejected(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            present=True,
+        )
+        del body["independent_execution_summary"]["counterexample_body"]
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_c17_valid_present_true_shape_accepted(self) -> None:
+        counter = {"payload": "counter"}
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            present=True,
+            counter_body=counter,
+        )
+        dag = _build([_receipt_node("ivp-1", body)])
+        self.assertEqual(dag["nodes"][0]["kind"], "RECEIPT")
+        self.assertEqual(
+            dag["nodes"][0]["body"]["independent_execution_summary"]["counterexample_digest"],
+            canonical_digest(counter),
+        )
+
+    def test_c18_valid_present_false_shape_accepted(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            present=False,
+        )
+        dag = _build([_receipt_node("ivp-1", body)])
+        summary = dag["nodes"][0]["body"]["independent_execution_summary"]
+        self.assertIs(summary["counterexample_present"], False)
+        self.assertNotIn("counterexample_digest", summary)
+
+    def test_c19_challenge_evidence_digest_missing_is_incomplete(self) -> None:
+        evidence = canonical_digest({"payload": "challenge"})
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest="cd" * 32,
+            file_digest=evidence,
+        )
+        dag = _build([_receipt_node("ivp-1", body)])
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        paths = {item["source_path"] for item in dag["unresolved_references"]}
+        self.assertIn("source_execution_summary.evidence_digest", paths)
+        self.assertTrue(
+            any(
+                item["source_path"] == "source_execution_summary.evidence_digest"
+                and item["reason"] == "MISSING"
+                for item in dag["unresolved_references"]
+            )
+        )
+
+    def test_c20_challenge_evidence_digest_body_backed_resolves(self) -> None:
+        evidence_body = {"payload": "challenge"}
+        evidence = canonical_digest(evidence_body)
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest="cd" * 32,
+            file_digest=evidence,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", body),
+                _artifact_node("ev-1", evidence_body),
+            ]
+        )
+        paths = {item["source_path"] for item in dag["unresolved_references"]}
+        self.assertNotIn("source_execution_summary.evidence_digest", paths)
+        depends = [
+            item
+            for item in dag["edges"]
+            if item["relation"] == "DEPENDS_ON" and item["target_digest"] == evidence
+        ]
+        self.assertTrue(depends)
+        self.assertEqual(dag["structure_status"], "GRAPH_COMPLETE")
+
+    def test_c21_challenge_evidence_digest_external_ref_incomplete(self) -> None:
+        evidence_body = {"payload": "challenge"}
+        evidence = canonical_digest(evidence_body)
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest="cd" * 32,
+            file_digest=evidence,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", body),
+                _external("ext-1", evidence),
+            ]
+        )
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        self.assertTrue(
+            any(
+                item["source_path"] == "source_execution_summary.evidence_digest"
+                and item["reason"] == "DIGEST_ONLY_EXTERNAL"
+                for item in dag["unresolved_references"]
+            )
+        )
+
+    def test_c22_cites_does_not_resolve_challenge_evidence(self) -> None:
+        evidence = canonical_digest({"payload": "challenge"})
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest="cd" * 32,
+            file_digest=evidence,
+        )
+        note = _artifact_node("note-1", {"note": "citation"})
+        dag = _build(
+            [_receipt_node("ivp-1", body), note],
+            [
+                {
+                    "edge_id": "cite-1",
+                    "relation": "CITES",
+                    "basis": "CALLER_DECLARED",
+                    "source_node_id": "ivp-1",
+                    "target_node_id": "note-1",
+                }
+            ],
+        )
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        self.assertTrue(
+            any(
+                item["source_path"] == "source_execution_summary.evidence_digest"
+                and item["reason"] == "MISSING"
+                for item in dag["unresolved_references"]
+            )
+        )
+
+    def test_c23_assumptions_attacked_are_not_nodes(self) -> None:
+        evidence = canonical_digest({"payload": "challenge"})
+        assumption_body = {"assumption": "internal"}
+        assumption = canonical_digest(assumption_body)
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest=assumption,
+            file_digest=evidence,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", body),
+                _artifact_node("ev-1", {"payload": "challenge"}),
+                _artifact_node("assume-1", assumption_body),
+            ]
+        )
+        kinds = {item["kind"] for item in dag["nodes"]}
+        self.assertEqual(kinds, {"RECEIPT", "ARTIFACT"})
+        self.assertEqual(len(dag["nodes"]), 3)
+
+    def test_c24_assumptions_attacked_do_not_create_depends_on(self) -> None:
+        evidence = canonical_digest({"payload": "challenge"})
+        assumption_body = {"assumption": "internal"}
+        assumption = canonical_digest(assumption_body)
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest=assumption,
+            file_digest=evidence,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", body),
+                _artifact_node("ev-1", {"payload": "challenge"}),
+                _artifact_node("assume-1", assumption_body),
+            ]
+        )
+        targets = {item["target_digest"] for item in dag["edges"] if item["relation"] == "DEPENDS_ON"}
+        self.assertNotIn(assumption, targets)
+        self.assertIn(evidence, targets)
+
+    def test_c25_challenge_claim_id_is_label_only(self) -> None:
+        evidence = canonical_digest({"payload": "challenge"})
+        body = _hand_challenge(
+            evidence_digest=evidence,
+            assumption_digest="cd" * 32,
+            file_digest=evidence,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", body),
+                _claim_node("claim-1", _claim_body("AUR-A-001")),
+            ]
+        )
+        labels = [item["label"] for item in dag["label_only_refs"]]
+        self.assertIn("AUR-A-001", labels)
+        relations = {item["relation"] for item in dag["edges"]}
+        self.assertNotIn("BOUNDS", relations)
+
+    def test_c26_reproduction_builder_outputs_still_accepted(self) -> None:
+        receipt = _ivp_build()
+        dag = _build([_receipt_node("ivp-1", receipt)])
+        self.assertEqual(dag["nodes"][0]["kind"], "RECEIPT")
+        self.assertEqual(dag["nodes"][0]["body"]["verification_kind"], "REPRODUCTION")
+
+    def test_c27_challenge_downgrade_to_artifact_rejected(self) -> None:
+        cited = _ivp_cited()
+        receipt = _ivp_build(_ivp_challenge(cited), cited)
+        _expect(self, "DAG_NODE_INVALID", lambda: _build([_artifact_node("ivp-as-artifact", receipt)]))
+
+    def test_c28_ivp_admitted_still_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+            admission_status="ADMITTED",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+        challenge = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            admission_status="ADMITTED",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ch-1", challenge)]))
+
+    def test_c29_digest_label_shadow_guard_closed(self) -> None:
+        real_body = {"payload": "real"}
+        real_digest = canonical_digest(real_body)
+        dag = _build(
+            [
+                {"node_id": real_digest, "kind": "ARTIFACT", "body": {"payload": "shadow"}},
+                _artifact_node("real-a", real_body),
+                _artifact_node("other", {"payload": "other"}),
+            ],
+            [
+                {
+                    "edge_id": "cite-1",
+                    "relation": "CITES",
+                    "basis": "CALLER_DECLARED",
+                    "source_digest": real_digest,
+                    "target_node_id": "other",
+                }
+            ],
+        )
+        cites = [item for item in dag["edges"] if item["relation"] == "CITES"]
+        self.assertEqual(cites[0]["source_digest"], real_digest)
+        self.assertNotEqual(cites[0]["source_digest"], canonical_digest({"payload": "shadow"}))
+
+    def test_reproduction_cannot_use_challenge_summary_shape(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            verification_kind="REPRODUCTION",
+            classification="DUPLICATE",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
+
+    def test_false_present_rejects_counterexample_fields(self) -> None:
+        body = _hand_challenge(
+            evidence_digest="ab" * 32,
+            assumption_digest="cd" * 32,
+            file_digest="11" * 32,
+            present=False,
+        )
+        body["independent_execution_summary"]["counterexample_digest"] = "ab" * 32
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", body)]))
 
 
 class TestNoAcceptedWrites(unittest.TestCase):

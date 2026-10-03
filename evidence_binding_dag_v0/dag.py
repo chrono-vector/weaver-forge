@@ -177,6 +177,14 @@ _IVP_SUMMARY_REQUIRED = frozenset(
         "result_token",
     }
 )
+_IVP_REPRO_CLASSIFICATIONS = frozenset({"BOUND_CANDIDATE", "DUPLICATE"})
+_IVP_CHALLENGE_SOURCE_REQUIRED = frozenset(
+    {"claim_id", "evidence_digest", "assumptions_attacked"}
+)
+_IVP_CHALLENGE_INDEPENDENT_REQUIRED = frozenset({"counterexample_present"})
+_IVP_CHALLENGE_INDEPENDENT_OPTIONAL = frozenset(
+    {"counterexample_digest", "counterexample_body"}
+)
 _IVP_FILE_REQUIRED = frozenset({"relative_path", "sha256"})
 _IVP_REVISION_REQUIRED = frozenset({"files"})
 _IVP_REVISION_OPTIONAL = frozenset({"expected_sha256"})
@@ -725,6 +733,71 @@ def _validate_ivp_summary(summary: Any, label: str) -> None:
     _nonempty(record.get("result_token"), "DAG_RECEIPT_INVALID", f"{label}.result_token")
 
 
+def _validate_ivp_challenge_source(summary: Any, claim_id: str) -> None:
+    record = _exact_dict(summary, "DAG_RECEIPT_INVALID", "source_execution_summary")
+    _keys(record, _IVP_CHALLENGE_SOURCE_REQUIRED, frozenset(), "DAG_RECEIPT_INVALID")
+    source_claim = _nonempty(
+        record.get("claim_id"),
+        "DAG_RECEIPT_INVALID",
+        "source_execution_summary.claim_id",
+    )
+    if source_claim != claim_id:
+        _fail("DAG_RECEIPT_INVALID", "challenge claim_id does not match")
+    _sha256(
+        record.get("evidence_digest"),
+        "DAG_RECEIPT_INVALID",
+        "source_execution_summary.evidence_digest",
+    )
+    attacked = _exact_list(
+        record.get("assumptions_attacked"),
+        "DAG_RECEIPT_INVALID",
+        "assumptions_attacked",
+    )
+    if not attacked:
+        _fail("DAG_RECEIPT_INVALID", "assumptions_attacked is empty")
+    seen: set[str] = set()
+    for item in attacked:
+        digest = _sha256(item, "DAG_RECEIPT_INVALID", "assumptions_attacked digest")
+        if digest in seen:
+            _fail("DAG_RECEIPT_INVALID", "assumptions_attacked repeats a digest")
+        seen.add(digest)
+
+
+def _validate_ivp_challenge_independent(summary: Any) -> None:
+    record = _exact_dict(summary, "DAG_RECEIPT_INVALID", "independent_execution_summary")
+    _keys(
+        record,
+        _IVP_CHALLENGE_INDEPENDENT_REQUIRED,
+        _IVP_CHALLENGE_INDEPENDENT_OPTIONAL,
+        "DAG_RECEIPT_INVALID",
+    )
+    present = _exact_bool(
+        record.get("counterexample_present"),
+        "DAG_RECEIPT_INVALID",
+        "counterexample_present",
+    )
+    has_digest = "counterexample_digest" in record
+    has_body = "counterexample_body" in record
+    if present is True:
+        if not has_digest or not has_body:
+            _fail("DAG_RECEIPT_INVALID", "counterexample object is required")
+        digest = _sha256(
+            record.get("counterexample_digest"),
+            "DAG_RECEIPT_INVALID",
+            "counterexample_digest",
+        )
+        body = _exact_dict(
+            record.get("counterexample_body"),
+            "DAG_RECEIPT_INVALID",
+            "counterexample_body",
+        )
+        if digest != _digest(body, "DAG_RECEIPT_INVALID"):
+            _fail("DAG_RECEIPT_INVALID", "counterexample digest does not match the body")
+        return
+    if has_digest or has_body:
+        _fail("DAG_RECEIPT_INVALID", "counterexample object is not allowed")
+
+
 def _validate_ivp(body: Mapping[str, Any]) -> None:
     _keys(body, _IVP_REQUIRED, _IVP_OPTIONAL, "DAG_RECEIPT_INVALID")
     if type(body.get("schema_version")) is not str or body.get("schema_version") != "independent_verification_preflight.v0":
@@ -738,14 +811,14 @@ def _validate_ivp(body: Mapping[str, Any]) -> None:
     for field in _IVP_FORBIDDEN_PROMOTION:
         if field in body:
             _fail("DAG_RECEIPT_INVALID", "independent admission fields are not admitted")
-    _nonempty(body.get("claim_id"), "DAG_RECEIPT_INVALID", "claim_id")
+    claim_id = _nonempty(body.get("claim_id"), "DAG_RECEIPT_INVALID", "claim_id")
     _exact_enum(
         body.get("admission_status"),
         frozenset({_IVP_ADMISSION}),
         "DAG_RECEIPT_INVALID",
         "admission_status",
     )
-    _exact_enum(body.get("verification_kind"), _IVP_KINDS, "DAG_RECEIPT_INVALID", "verification_kind")
+    kind = _exact_enum(body.get("verification_kind"), _IVP_KINDS, "DAG_RECEIPT_INVALID", "verification_kind")
     classification = _exact_enum(
         body.get("classification"),
         _IVP_CLASSIFICATIONS,
@@ -757,10 +830,6 @@ def _validate_ivp(body: Mapping[str, Any]) -> None:
         "DAG_RECEIPT_INVALID",
         "structural_candidate",
     )
-    if candidate is True and classification != "BOUND_CANDIDATE":
-        _fail("DAG_RECEIPT_INVALID", "structural candidate is not bound")
-    if candidate is not True and classification == "BOUND_CANDIDATE":
-        _fail("DAG_RECEIPT_INVALID", "bound candidate flag is inconsistent")
     _exact_list(body.get("limitations"), "DAG_RECEIPT_INVALID", "limitations")
     revision = _exact_dict(
         body.get("artifact_revision_binding"),
@@ -768,6 +837,20 @@ def _validate_ivp(body: Mapping[str, Any]) -> None:
         "artifact_revision_binding",
     )
     _validate_ivp_files(revision)
+    if kind == "CHALLENGE":
+        if candidate is not False:
+            _fail("DAG_RECEIPT_INVALID", "a challenge cannot be a reproduction candidate")
+        if classification != "CHALLENGE_RECORDED":
+            _fail("DAG_RECEIPT_INVALID", "challenge classification is not closed")
+        _validate_ivp_challenge_source(body.get("source_execution_summary"), claim_id)
+        _validate_ivp_challenge_independent(body.get("independent_execution_summary"))
+        return
+    if classification not in _IVP_REPRO_CLASSIFICATIONS:
+        _fail("DAG_RECEIPT_INVALID", "reproduction classification is not closed")
+    if candidate is True and classification != "BOUND_CANDIDATE":
+        _fail("DAG_RECEIPT_INVALID", "structural candidate is not bound")
+    if candidate is not True and classification == "BOUND_CANDIDATE":
+        _fail("DAG_RECEIPT_INVALID", "bound candidate flag is inconsistent")
     _validate_ivp_summary(body.get("source_execution_summary"), "source_execution_summary")
     _validate_ivp_summary(
         body.get("independent_execution_summary"),
@@ -1090,6 +1173,17 @@ def _extract_ivp(
     revision = body.get("artifact_revision_binding") or {}
     for path, digest in _file_digests(revision, "artifact_revision_binding"):
         _add_digest_ref(refs, seen, node.node_digest, path, digest, ("DEPENDS_ON",))
+    if body.get("verification_kind") == "CHALLENGE":
+        summary = body.get("source_execution_summary") or {}
+        _add_digest_ref(
+            refs,
+            seen,
+            node.node_digest,
+            "source_execution_summary.evidence_digest",
+            summary.get("evidence_digest"),
+            ("DEPENDS_ON",),
+        )
+        return
     for key in ("source_execution_summary", "independent_execution_summary"):
         summary = body.get(key) or {}
         _add_digest_ref(
