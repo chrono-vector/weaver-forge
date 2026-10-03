@@ -531,10 +531,7 @@ def _bind_restore_target(raw: Any, orders: set[int]) -> dict[str, Any]:
             bound["body"] = body
             bound["expected_digest"] = digest
         elif "expected_digest" in mapping:
-            bound["expected_digest"] = _sha256(
-                mapping.get("expected_digest"),
-                "RER_UNBOUND",
-            )
+            _fail("RER_UNBOUND", "expected_digest requires a body")
     else:
         bound["binding_value"] = _identity(
             mapping.get("binding_value"),
@@ -550,11 +547,54 @@ def _bind_restore_target(raw: Any, orders: set[int]) -> dict[str, Any]:
             bound["body"] = body
             bound["expected_digest"] = digest
         elif "expected_digest" in mapping:
-            bound["expected_digest"] = _sha256(
-                mapping.get("expected_digest"),
-                "RER_UNBOUND",
-            )
+            _fail("RER_UNBOUND", "expected_digest requires a body")
     return bound
+
+
+def _target_content_digest(restore_target: Mapping[str, Any] | None) -> str | None:
+    if restore_target is None or "body" not in restore_target:
+        return None
+    digest = restore_target.get("expected_digest")
+    if type(digest) is not str:
+        return None
+    return digest
+
+
+def _custody_pin(restore_target: Mapping[str, Any] | None) -> str | None:
+    if restore_target is None:
+        return None
+    ref = restore_target.get("approval_ref")
+    if type(ref) is not str:
+        return None
+    try:
+        return _sha256(ref, "RER_UNBOUND")
+    except RecoveryExecutionError:
+        return None
+
+
+def _signature_bound(check: Mapping[str, Any], restore_target: Mapping[str, Any] | None) -> bool:
+    pin = _custody_pin(restore_target)
+    if pin is None:
+        return False
+    return check.get("evidence_digest") == pin and check.get("expected") == pin
+
+
+def _qualifying_custody_digests(
+    checks: list[Mapping[str, Any]],
+    restore_target: Mapping[str, Any] | None,
+) -> set[str]:
+    digests: set[str] = set()
+    for item in checks:
+        if item["check_kind"] != "SIGNATURE_CHECK":
+            continue
+        if item["result"] != "OBSERVED_PASS" or item["critical"] is not True:
+            continue
+        if not _signature_bound(item, restore_target):
+            continue
+        digest = item.get("evidence_digest")
+        if type(digest) is str:
+            digests.add(digest)
+    return digests
 
 
 def _derive_check_result(
@@ -565,6 +605,7 @@ def _derive_check_result(
     body: Any,
     stated_result: str,
     pre_digests: set[str],
+    restore_target: Mapping[str, Any] | None,
 ) -> tuple[str, Any, Any, str | None]:
     if kind == "AUTHORITY_BOUNDARY_CHECK":
         derived_observed = dict(_AUTHORITY_FACTS)
@@ -591,27 +632,77 @@ def _derive_check_result(
         evidence_digest = _digest(body, "RER_UNBOUND")
         if evidence_digest in pre_digests:
             _fail("RER_LINEAGE_INVALID", "pre-state evidence cannot be reused as post-check")
-    if kind in _DIGEST_CHECKS:
+    if kind == "SIGNATURE_CHECK":
+        pin = _custody_pin(restore_target)
+        bound_expected = pin
+        if pin is None:
+            if type(expected) is str:
+                bound_expected = _sha256(expected, "RER_UNBOUND")
+            else:
+                _fail("RER_UNBOUND", "digest check expected must be sha256")
+        elif type(expected) is str:
+            stated_expected = _sha256(expected, "RER_UNBOUND")
+            if stated_expected != pin:
+                _fail(
+                    "RER_UNBOUND",
+                    "SIGNATURE_CHECK expected is not the restore-target custody pin",
+                )
+        else:
+            _fail("RER_UNBOUND", "digest check expected must be sha256")
         if body is None:
             if stated_result == "OBSERVED_PASS":
                 _fail("RER_UNBOUND", "digest check PASS requires a body")
-            return stated_result, expected, observed, evidence_digest
+            return stated_result, bound_expected, observed, evidence_digest
         actual = evidence_digest
-        expected_digest = expected
-        if type(expected) is str:
-            expected_digest = _sha256(expected, "RER_UNBOUND")
-        else:
-            _fail("RER_UNBOUND", "digest check expected must be sha256")
         if observed is not None:
             stated_obs = _sha256(observed, "RER_UNBOUND")
             if stated_obs != actual:
                 _fail("RER_UNBOUND", "observed digest does not match body")
-        derived = "OBSERVED_PASS" if actual == expected_digest else "OBSERVED_FAIL"
+        derived = "OBSERVED_PASS" if actual == bound_expected else "OBSERVED_FAIL"
         if stated_result == "OBSERVED_PASS" and derived != "OBSERVED_PASS":
             _fail("RER_UNBOUND", "caller cannot force OBSERVED_PASS")
         if stated_result in {"NOT_OBSERVED", "NOT_APPLICABLE"}:
-            return stated_result, expected_digest, actual, evidence_digest
-        return derived, expected_digest, actual, evidence_digest
+            return stated_result, bound_expected, actual, evidence_digest
+        return derived, bound_expected, actual, evidence_digest
+    if kind in {"CONTENT_DIGEST_MATCH", "CONFIG_DIGEST_MATCH", "DATA_INTEGRITY"}:
+        target_digest = _target_content_digest(restore_target)
+        if target_digest is None:
+            if stated_result == "OBSERVED_PASS":
+                _fail("RER_UNBOUND", "digest check is not bound to restore target")
+            if body is None:
+                return stated_result, expected, observed, evidence_digest
+            actual = evidence_digest
+            if type(expected) is str:
+                expected_digest = _sha256(expected, "RER_UNBOUND")
+            else:
+                _fail("RER_UNBOUND", "digest check expected must be sha256")
+            if stated_result in {"NOT_OBSERVED", "NOT_APPLICABLE"}:
+                return stated_result, expected_digest, actual, evidence_digest
+            return "OBSERVED_FAIL", expected_digest, actual, evidence_digest
+        if type(expected) is str:
+            stated_expected = _sha256(expected, "RER_UNBOUND")
+            if stated_expected != target_digest:
+                _fail(
+                    "RER_UNBOUND",
+                    "digest check expected is not the restore target digest",
+                )
+        else:
+            _fail("RER_UNBOUND", "digest check expected must be sha256")
+        if body is None:
+            if stated_result == "OBSERVED_PASS":
+                _fail("RER_UNBOUND", "digest check PASS requires a body")
+            return stated_result, target_digest, observed, evidence_digest
+        actual = evidence_digest
+        if observed is not None:
+            stated_obs = _sha256(observed, "RER_UNBOUND")
+            if stated_obs != actual:
+                _fail("RER_UNBOUND", "observed digest does not match body")
+        derived = "OBSERVED_PASS" if actual == target_digest else "OBSERVED_FAIL"
+        if stated_result == "OBSERVED_PASS" and derived != "OBSERVED_PASS":
+            _fail("RER_UNBOUND", "caller cannot force OBSERVED_PASS")
+        if stated_result in {"NOT_OBSERVED", "NOT_APPLICABLE"}:
+            return stated_result, target_digest, actual, evidence_digest
+        return derived, target_digest, actual, evidence_digest
     if kind in _RUNTIME_CHECKS:
         if stated_result == "OBSERVED_PASS":
             if body is None:
@@ -634,6 +725,7 @@ def _bind_check(
     pre_digests: set[str],
     orders: set[int],
     known_digests: set[str],
+    restore_target: Mapping[str, Any],
 ) -> dict[str, Any]:
     _reject_record_forbidden(raw)
     _keys(raw, _CHECK_REQUIRED, _CHECK_OPTIONAL, "RER_SOURCE_INVALID")
@@ -659,6 +751,7 @@ def _bind_check(
         body=body,
         stated_result=stated,
         pre_digests=pre_digests,
+        restore_target=restore_target,
     )
     if "evidence_digest" in raw:
         stated_digest = _sha256(raw.get("evidence_digest"), "RER_UNBOUND")
@@ -694,6 +787,7 @@ def _bind_risk(
     known_digests: set[str],
     prior_open: Mapping[str, Mapping[str, Any]],
     attempt_order: int,
+    custody_digests: set[str],
 ) -> dict[str, Any]:
     _reject_record_forbidden(raw)
     _keys(raw, _RISK_REQUIRED, _RISK_OPTIONAL, "RER_SOURCE_INVALID")
@@ -712,9 +806,18 @@ def _bind_risk(
         "RER_LINEAGE_INVALID",
         "introduced_event_order",
     )
+    statement = _nonempty(raw.get("statement"), "RER_SOURCE_INVALID", "statement")
+    if risk_id in prior_open:
+        prior = prior_open[risk_id]
+        if (
+            statement != prior["statement"]
+            or severity != prior["severity"]
+            or introduced != prior["introduced_event_order"]
+        ):
+            _fail("RER_UNBOUND", "inherited risk metadata is immutable")
     record: dict[str, Any] = {
         "risk_id": risk_id,
-        "statement": _nonempty(raw.get("statement"), "RER_SOURCE_INVALID", "statement"),
+        "statement": statement,
         "severity": severity,
         "status": status,
         "introduced_event_order": introduced,
@@ -730,6 +833,11 @@ def _bind_risk(
         ref = _sha256(raw.get("resolution_ref"), "RER_UNBOUND")
         if ref not in known_digests:
             _fail("RER_UNBOUND", "resolution_ref is not a known digest")
+        if risk_id == "custody-gap" and ref not in custody_digests:
+            _fail(
+                "RER_UNBOUND",
+                "custody-gap resolution is not a qualifying signature digest",
+            )
         record["resolved_event_order"] = resolved
         record["resolution_ref"] = ref
         if risk_id not in prior_open and introduced == resolved:
@@ -867,10 +975,12 @@ def _bind_attempt(
                 pre_digests=pre_digests,
                 orders=orders,
                 known_digests=known_digests,
+                restore_target=restore_target,
             )
         )
     checks.sort(key=lambda item: item["event_order"])
     bound["verification_checks"] = checks
+    custody_digests = _qualifying_custody_digests(checks, restore_target)
     risk_rows = []
     if "unresolved_risks" in raw:
         risk_rows = _plain_list(
@@ -887,6 +997,7 @@ def _bind_attempt(
             known_digests=known_digests,
             prior_open=prior_open,
             attempt_order=event_order,
+            custody_digests=custody_digests,
         )
         risks[record["risk_id"]] = record
     _carry_risks(risks, prior_open)
@@ -944,28 +1055,47 @@ def _required_kinds(scope: str) -> set[str]:
     return required
 
 
-def _runtime_satisfied(checks: list[Mapping[str, Any]]) -> str | None:
-    for item in checks:
-        if (
-            item["check_kind"] in _RUNTIME_CHECKS
-            and item["critical"] is True
-            and item["result"] == "OBSERVED_PASS"
-        ):
-            return "PASS"
-        if (
-            item["check_kind"] in _RUNTIME_CHECKS
-            and item["critical"] is True
-            and item["result"] == "OBSERVED_FAIL"
-        ):
-            return "FAIL"
+def _runtime_state(checks: list[Mapping[str, Any]]) -> str | None:
+    rows = [item for item in checks if item["check_kind"] in _RUNTIME_CHECKS]
+    if not rows:
+        return None
+    if any(item["result"] == "OBSERVED_FAIL" for item in rows):
+        return "FAIL"
+    if any(
+        item["critical"] is True and item["result"] == "NOT_OBSERVED" for item in rows
+    ):
+        return "NOT_OBSERVED"
+    if any(
+        item["critical"] is True and item["result"] == "OBSERVED_PASS" for item in rows
+    ):
+        return "PASS"
     return None
 
 
-def _signature_state(checks: list[Mapping[str, Any]]) -> str | None:
-    for item in checks:
-        if item["check_kind"] == "SIGNATURE_CHECK":
-            return item["result"]
-    return None
+def _signature_state(
+    checks: list[Mapping[str, Any]],
+    restore_target: Mapping[str, Any] | None,
+) -> str | None:
+    rows = [item for item in checks if item["check_kind"] == "SIGNATURE_CHECK"]
+    if not rows:
+        return None
+    if any(item["result"] == "OBSERVED_FAIL" for item in rows):
+        return "OBSERVED_FAIL"
+    if any(
+        item["critical"] is True
+        and item["result"] == "NOT_OBSERVED"
+        and _signature_bound(item, restore_target)
+        for item in rows
+    ):
+        return "NOT_OBSERVED"
+    if any(
+        item["critical"] is True
+        and item["result"] == "OBSERVED_PASS"
+        and _signature_bound(item, restore_target)
+        for item in rows
+    ):
+        return "OBSERVED_PASS"
+    return "NOT_OBSERVED"
 
 
 def _open_risks(attempts: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -985,12 +1115,52 @@ def _classify(
     stop: Mapping[str, Any],
     isolation: Mapping[str, Any],
     attempts: list[Mapping[str, Any]],
+    restore_target: Mapping[str, Any],
 ) -> str:
     if not pre_state or not attempts:
         return "NOT_RECOVERED"
     latest = attempts[-1]
     if latest["action_result"] != "OBSERVED_PASS":
         return "RESTORE_ATTEMPTED"
+    checks = latest["verification_checks"]
+    by_kind: dict[str, list[Mapping[str, Any]]] = {}
+    for item in checks:
+        by_kind.setdefault(item["check_kind"], []).append(item)
+    required = _required_kinds(scope)
+    for kind in required:
+        rows = by_kind.get(kind) or []
+        if any(item["result"] == "OBSERVED_FAIL" for item in rows):
+            return "VERIFICATION_FAILED"
+    if scope == "SERVICE_RUNTIME":
+        runtime = _runtime_state(checks)
+        if runtime == "FAIL":
+            return "VERIFICATION_FAILED"
+        signature = _signature_state(checks, restore_target)
+        if signature == "OBSERVED_FAIL":
+            return "VERIFICATION_FAILED"
+    if any(
+        item["critical"] is True and item["result"] == "OBSERVED_FAIL" for item in checks
+    ):
+        return "VERIFICATION_FAILED"
+    for kind in required:
+        rows = by_kind.get(kind) or []
+        critical_rows = [item for item in rows if item["critical"] is True]
+        if not critical_rows or any(
+            item["result"] != "OBSERVED_PASS" for item in critical_rows
+        ):
+            return "RESTORED_UNVERIFIED"
+    if scope == "SERVICE_RUNTIME":
+        runtime = _runtime_state(checks)
+        if runtime != "PASS":
+            return "RESTORED_UNVERIFIED"
+    if any(
+        item["critical"] is True and item["result"] == "NOT_OBSERVED" for item in checks
+    ):
+        return "RESTORED_UNVERIFIED"
+    if any(
+        item["critical"] is True and item["result"] == "NOT_APPLICABLE" for item in checks
+    ):
+        return "RESTORED_UNVERIFIED"
     if stop["result"] == "OBSERVED_FAIL" or isolation["result"] == "OBSERVED_FAIL":
         return "VERIFICATION_FAILED"
     if stop["result"] != "OBSERVED_PASS":
@@ -1000,33 +1170,8 @@ def _classify(
             return "RESTORED_UNVERIFIED"
     elif isolation["result"] not in {"OBSERVED_PASS", "NOT_APPLICABLE"}:
         return "RESTORED_UNVERIFIED"
-    checks = latest["verification_checks"]
-    by_kind: dict[str, list[Mapping[str, Any]]] = {}
-    for item in checks:
-        by_kind.setdefault(item["check_kind"], []).append(item)
-    required = _required_kinds(scope)
-    for kind in required:
-        rows = by_kind.get(kind) or []
-        critical_rows = [item for item in rows if item["critical"] is True]
-        if any(item["result"] == "OBSERVED_FAIL" for item in critical_rows):
-            return "VERIFICATION_FAILED"
-        if not critical_rows or any(
-            item["result"] != "OBSERVED_PASS" for item in critical_rows
-        ):
-            return "RESTORED_UNVERIFIED"
-    if any(
-        item["critical"] is True and item["result"] == "OBSERVED_FAIL" for item in checks
-    ):
-        return "VERIFICATION_FAILED"
     if scope == "SERVICE_RUNTIME":
-        runtime = _runtime_satisfied(checks)
-        if runtime == "FAIL":
-            return "VERIFICATION_FAILED"
-        if runtime != "PASS":
-            return "RESTORED_UNVERIFIED"
-        signature = _signature_state(checks)
-        if signature == "OBSERVED_FAIL":
-            return "VERIFICATION_FAILED"
+        signature = _signature_state(checks, restore_target)
         if signature != "OBSERVED_PASS":
             if not any(
                 item["severity"] == "CRITICAL" and item["status"] == "OPEN"
@@ -1209,7 +1354,7 @@ def build_recovery_execution_receipt(
             known_digests=known_digests,
         )
         if scope == "SERVICE_RUNTIME" and bound["action_result"] == "OBSERVED_PASS":
-            if _signature_state(bound["verification_checks"]) != "OBSERVED_PASS":
+            if _signature_state(bound["verification_checks"], restore_target) != "OBSERVED_PASS":
                 has_critical_open = any(
                     risk["severity"] == "CRITICAL" and risk["status"] == "OPEN"
                     for risk in bound["unresolved_risks"]
@@ -1242,6 +1387,7 @@ def build_recovery_execution_receipt(
         stop=stop,
         isolation=isolation,
         attempts=attempts,
+        restore_target=restore_target,
     )
     latest = attempts[-1] if attempts else None
     open_all = _open_risks(attempts)
@@ -1269,6 +1415,12 @@ def build_recovery_execution_receipt(
             note = f"noncritical open risk: {item['statement']}"
             if note not in limitations:
                 limitations.append(note)
+    if latest is not None:
+        for item in latest["verification_checks"]:
+            if item["critical"] is False and item["result"] == "OBSERVED_FAIL":
+                note = f"noncritical observed fail: {item['check_id']}"
+                if note not in limitations:
+                    limitations.append(note)
     receipt: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "authority": False,

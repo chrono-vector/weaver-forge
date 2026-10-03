@@ -276,7 +276,7 @@ def _config(**over: object) -> dict:
         _digest_check(
             "chk-config",
             "CONFIG_DIGEST_MATCH",
-            {"config": "pinned-config"},
+            {"artifact": "pinned-v1"},
             7,
         )
     )
@@ -288,13 +288,15 @@ def _runtime(**over: object) -> dict:
     record = _artifact()
     record["target_scope"] = "SERVICE_RUNTIME"
     record["isolation"] = _isolation_pass()
+    signature = {"signature": "detached-sig"}
+    record["restore_target"]["approval_ref"] = canonical_digest(signature)
     record["attempts"][0]["verification_checks"].extend(
         [
             _health_check(7),
             _digest_check(
                 "chk-sig",
                 "SIGNATURE_CHECK",
-                {"signature": "detached-sig"},
+                signature,
                 8,
             ),
         ]
@@ -1192,6 +1194,346 @@ class TestHumanReview(unittest.TestCase):
         self.assertIn("human_review", material)
 
 
+class TestRemediationR1F1F4(unittest.TestCase):
+    def test_f1a_unrelated_post_body_cannot_pass(self) -> None:
+        record = _artifact()
+        unrelated = {"artifact": "unrelated-B"}
+        record["attempts"][0]["verification_checks"][0] = _digest_check(
+            "chk-content",
+            "CONTENT_DIGEST_MATCH",
+            unrelated,
+            5,
+        )
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f1b_unrelated_config_cannot_pass(self) -> None:
+        record = _config()
+        record["attempts"][0]["verification_checks"][-1] = _digest_check(
+            "chk-config",
+            "CONFIG_DIGEST_MATCH",
+            {"config": "unrelated-B"},
+            7,
+        )
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f1e_git_commit_without_content_digest_cannot_fake_match(self) -> None:
+        record = _artifact()
+        record["restore_target"] = {
+            "target_id": "restore-target-1",
+            "binding_kind": "git_commit",
+            "binding_value": _GIT,
+            "source": "git",
+            "event_order": 3,
+        }
+        record["attempts"][0]["target_binding_kind"] = "git_commit"
+        record["attempts"][0]["target_binding_value"] = _GIT
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f1_valid_bound_target_digest_still_passes(self) -> None:
+        receipt = _build()
+        self.assertEqual(receipt["classification"], "RECOVERED_BOUNDED")
+        self.assertIs(receipt["recovered"], False)
+
+    def test_k2_inherited_critical_cannot_become_noncritical(self) -> None:
+        record = _artifact()
+        first = copy.deepcopy(record["attempts"][0])
+        first["verification_checks"] = []
+        first["result_token"] = "exit-0-first"
+        first["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "unsigned artifact",
+                "severity": "CRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        second = copy.deepcopy(record["attempts"][0])
+        second["attempt_id"] = "att-2"
+        second["event_order"] = 5
+        second["result_token"] = "exit-0-retry"
+        second["verification_checks"][0]["event_order"] = 6
+        second["verification_checks"][1]["event_order"] = 7
+        second["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "unsigned artifact",
+                "severity": "NONCRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        record["attempts"] = [first, second]
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f2_statement_rewrite_rejected(self) -> None:
+        record = _artifact()
+        first = copy.deepcopy(record["attempts"][0])
+        first["verification_checks"] = []
+        first["result_token"] = "exit-0-first"
+        first["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "unsigned artifact",
+                "severity": "CRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        second = copy.deepcopy(record["attempts"][0])
+        second["attempt_id"] = "att-2"
+        second["event_order"] = 5
+        second["result_token"] = "exit-0-retry"
+        second["verification_checks"][0]["event_order"] = 6
+        second["verification_checks"][1]["event_order"] = 7
+        second["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "rewritten statement",
+                "severity": "CRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        record["attempts"] = [first, second]
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f2_introduced_event_order_rewrite_rejected(self) -> None:
+        record = _artifact()
+        first = copy.deepcopy(record["attempts"][0])
+        first["verification_checks"] = []
+        first["result_token"] = "exit-0-first"
+        first["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "unsigned artifact",
+                "severity": "CRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        second = copy.deepcopy(record["attempts"][0])
+        second["attempt_id"] = "att-2"
+        second["event_order"] = 5
+        second["result_token"] = "exit-0-retry"
+        second["verification_checks"][0]["event_order"] = 6
+        second["verification_checks"][1]["event_order"] = 7
+        second["unresolved_risks"] = [
+            {
+                "risk_id": "risk-1",
+                "statement": "unsigned artifact",
+                "severity": "CRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 5,
+            }
+        ]
+        record["attempts"] = [first, second]
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_cg1_custody_gap_cannot_be_downgraded(self) -> None:
+        record = _runtime()
+        first = copy.deepcopy(record["attempts"][0])
+        first["verification_checks"] = [
+            item
+            for item in first["verification_checks"]
+            if item["check_kind"] != "SIGNATURE_CHECK"
+        ]
+        first["result_token"] = "exit-0-first"
+        second = copy.deepcopy(record["attempts"][0])
+        second["attempt_id"] = "att-2"
+        second["event_order"] = 8
+        second["result_token"] = "exit-0-retry"
+        second["verification_checks"][0]["event_order"] = 9
+        second["verification_checks"][1]["event_order"] = 10
+        second["verification_checks"][2]["event_order"] = 11
+        second["verification_checks"][3]["event_order"] = 12
+        second["unresolved_risks"] = [
+            {
+                "risk_id": "custody-gap",
+                "statement": "key custody / ACL / signing not established",
+                "severity": "NONCRITICAL",
+                "status": "OPEN",
+                "introduced_event_order": 4,
+            }
+        ]
+        record["attempts"] = [first, second]
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_f2_custody_gap_cannot_resolve_with_restore_target_digest(self) -> None:
+        record = _runtime()
+        target_digest = record["restore_target"]["binding_value"]
+        first = copy.deepcopy(record["attempts"][0])
+        first["verification_checks"] = [
+            item
+            for item in first["verification_checks"]
+            if item["check_kind"] != "SIGNATURE_CHECK"
+        ]
+        first["result_token"] = "exit-0-first"
+        second = copy.deepcopy(record["attempts"][0])
+        second["attempt_id"] = "att-2"
+        second["event_order"] = 8
+        second["result_token"] = "exit-0-retry"
+        second["verification_checks"][0]["event_order"] = 9
+        second["verification_checks"][1]["event_order"] = 10
+        second["verification_checks"][2]["event_order"] = 11
+        second["verification_checks"][3]["event_order"] = 12
+        second["unresolved_risks"] = [
+            {
+                "risk_id": "custody-gap",
+                "statement": "key custody / ACL / signing not established",
+                "severity": "CRITICAL",
+                "status": "RESOLVED",
+                "introduced_event_order": 4,
+                "resolved_event_order": 8,
+                "resolution_ref": target_digest,
+            }
+        ]
+        record["attempts"] = [first, second]
+        _expect(self, "RER_UNBOUND", lambda: _build(record))
+
+    def test_o3_critical_data_integrity_not_observed_blocks(self) -> None:
+        record = _artifact()
+        record["attempts"][0]["verification_checks"].append(
+            {
+                "check_id": "chk-data",
+                "check_kind": "DATA_INTEGRITY",
+                "target": "restore-target-1",
+                "expected": canonical_digest({"artifact": "pinned-v1"}),
+                "result": "NOT_OBSERVED",
+                "critical": True,
+                "event_order": 7,
+            }
+        )
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "RESTORED_UNVERIFIED")
+        self.assertIs(receipt["recovered"], False)
+
+    def test_o3b_artifact_critical_service_health_not_observed_blocks(self) -> None:
+        record = _artifact()
+        record["attempts"][0]["verification_checks"].append(
+            {
+                "check_id": "chk-health",
+                "check_kind": "SERVICE_HEALTH",
+                "target": "svc-1",
+                "expected": {"healthy": True},
+                "result": "NOT_OBSERVED",
+                "critical": True,
+                "event_order": 7,
+            }
+        )
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "RESTORED_UNVERIFIED")
+
+    def test_o3c_runtime_critical_functional_probe_not_observed_blocks(self) -> None:
+        record = _runtime()
+        record["attempts"][0]["verification_checks"].append(
+            {
+                "check_id": "chk-probe",
+                "check_kind": "FUNCTIONAL_PROBE",
+                "target": "svc-1",
+                "expected": {"ok": True},
+                "result": "NOT_OBSERVED",
+                "critical": True,
+                "event_order": 9,
+            }
+        )
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "RESTORED_UNVERIFIED")
+        self.assertIs(receipt["recovered"], False)
+
+    def test_o4_required_content_fail_critical_false_still_blocks(self) -> None:
+        record = _artifact()
+        wrong = {"artifact": "not-the-target"}
+        record["attempts"][0]["verification_checks"].insert(
+            0,
+            {
+                "check_id": "chk-content-fail",
+                "check_kind": "CONTENT_DIGEST_MATCH",
+                "target": "restore-target-1",
+                "expected": canonical_digest({"artifact": "pinned-v1"}),
+                "result": "OBSERVED_FAIL",
+                "critical": False,
+                "event_order": 7,
+            },
+        )
+        record["attempts"][0]["verification_checks"][0]["evidence_body"] = wrong
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "VERIFICATION_FAILED")
+
+    def test_f1c_noncritical_signature_pass_does_not_close_custody(self) -> None:
+        record = _runtime()
+        sig = [
+            item
+            for item in record["attempts"][0]["verification_checks"]
+            if item["check_kind"] == "SIGNATURE_CHECK"
+        ][0]
+        sig["critical"] = False
+        receipt = _build(record)
+        self.assertNotEqual(receipt["classification"], "RECOVERED_BOUNDED")
+        self.assertEqual(receipt["classification"], "RESTORED_UNVERIFIED")
+        self.assertTrue(
+            any(item["risk_id"] == "custody-gap" for item in receipt["unresolved_risks"])
+        )
+
+    def test_f1d_signature_pass_then_fail_does_not_recover(self) -> None:
+        record = _runtime()
+        fail_body = {"signature": "bad-sig"}
+        record["attempts"][0]["verification_checks"].append(
+            {
+                "check_id": "chk-sig-fail",
+                "check_kind": "SIGNATURE_CHECK",
+                "target": "restore-target-1",
+                "expected": canonical_digest({"signature": "detached-sig"}),
+                "result": "OBSERVED_FAIL",
+                "critical": False,
+                "event_order": 9,
+                "evidence_body": fail_body,
+            }
+        )
+        receipt = _build(record)
+        self.assertNotEqual(receipt["classification"], "RECOVERED_BOUNDED")
+        self.assertEqual(receipt["classification"], "VERIFICATION_FAILED")
+
+    def test_f4_signature_fail_then_pass_still_fails(self) -> None:
+        record = _runtime()
+        fail_body = {"signature": "bad-sig"}
+        record["attempts"][0]["verification_checks"].insert(
+            -1,
+            {
+                "check_id": "chk-sig-fail",
+                "check_kind": "SIGNATURE_CHECK",
+                "target": "restore-target-1",
+                "expected": canonical_digest({"signature": "detached-sig"}),
+                "result": "OBSERVED_FAIL",
+                "critical": True,
+                "event_order": 9,
+                "evidence_body": fail_body,
+            },
+        )
+        record["attempts"][0]["verification_checks"][-1]["event_order"] = 8
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "VERIFICATION_FAILED")
+
+    def test_f4_multiple_content_checks_fail_wins(self) -> None:
+        record = _artifact()
+        wrong = {"artifact": "not-the-target"}
+        record["attempts"][0]["verification_checks"].insert(
+            0,
+            {
+                "check_id": "chk-content-fail",
+                "check_kind": "CONTENT_DIGEST_MATCH",
+                "target": "restore-target-1",
+                "expected": canonical_digest({"artifact": "pinned-v1"}),
+                "result": "OBSERVED_FAIL",
+                "critical": True,
+                "event_order": 7,
+                "evidence_body": wrong,
+            },
+        )
+        receipt = _build(record)
+        self.assertEqual(receipt["classification"], "VERIFICATION_FAILED")
+
+
 class TestSameClassReview(unittest.TestCase):
     def test_split_dict_lookup_cannot_replace_session(self) -> None:
         bound = _artifact()
@@ -1253,11 +1595,15 @@ class TestSameClassReview(unittest.TestCase):
         _expect(self, "RER_LINEAGE_INVALID", lambda: _build(record))
 
     def test_git_commit_target_accepted(self) -> None:
+        body = {"artifact": "pinned-v1"}
+        digest = canonical_digest(body)
         record = _artifact()
         record["restore_target"] = {
             "target_id": "restore-target-1",
             "binding_kind": "git_commit",
             "binding_value": _GIT,
+            "body": body,
+            "expected_digest": digest,
             "source": "git",
             "event_order": 3,
         }
