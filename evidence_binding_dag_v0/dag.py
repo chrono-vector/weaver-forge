@@ -106,6 +106,29 @@ _TE_REQUIRED = frozenset(
 _TE_OPTIONAL = frozenset(
     {"broader_classification", "counterexample_count", "annotations"}
 )
+_TE_RESULTS = frozenset(
+    {
+        "PASS",
+        "INCONCLUSIVE",
+        "BLOCKED",
+        "FAIL",
+        "UNKNOWN",
+        "INCOMPLETE",
+        "NOT_CLAIMED",
+        "UNSUPPORTED",
+        "MISSING_RESULT",
+        "RUN_INCOMPLETE",
+        "RUN_INVALID",
+        "PARTIAL",
+        "DETECTED",
+        "SURVIVED",
+    }
+)
+_TE_BROADER = frozenset({"CLAIM_SUPPORTED_PARTIAL"})
+_TE_SCOPE_REQUIRED = frozenset({"claim_id", "scope_digest"})
+_TE_FILE_REQUIRED = frozenset({"relative_path", "sha256"})
+_TE_REVISION_REQUIRED = frozenset({"files"})
+_TE_REVISION_OPTIONAL = frozenset({"expected_sha256"})
 _RP_REQUIRED = frozenset(
     {
         "schema_version",
@@ -140,6 +163,30 @@ _IVP_REQUIRED = frozenset(
     }
 )
 _IVP_OPTIONAL = frozenset({"observer", "descriptive", "annotations"})
+_IVP_ADMISSION = "NOT_CONFIGURED"
+_IVP_KINDS = frozenset({"REPRODUCTION", "CHALLENGE"})
+_IVP_CLASSIFICATIONS = frozenset(
+    {"BOUND_CANDIDATE", "DUPLICATE", "CHALLENGE_RECORDED"}
+)
+_IVP_SUMMARY_REQUIRED = frozenset(
+    {
+        "execution_id",
+        "environment_fingerprint",
+        "evidence_digest",
+        "input_digest",
+        "result_token",
+    }
+)
+_IVP_FILE_REQUIRED = frozenset({"relative_path", "sha256"})
+_IVP_REVISION_REQUIRED = frozenset({"files"})
+_IVP_REVISION_OPTIONAL = frozenset({"expected_sha256"})
+_IVP_FORBIDDEN_PROMOTION = frozenset(
+    {
+        "independent_evidence_count",
+        "claims_iw_acceptance",
+        "claims_independent_witness",
+    }
+)
 _CR_REQUIRED = frozenset(
     {
         "schema_version",
@@ -159,6 +206,11 @@ _CR_REQUIRED = frozenset(
     }
 )
 _CR_OPTIONAL = frozenset({"target_claim_id", "target_artifact_digest"})
+_CR_SEQUENCE = frozenset({"INCOMPLETE_SEQUENCE", "COMPLETE_SEQUENCE"})
+_CR_COUNTEREXAMPLE = frozenset(
+    {"NO_COUNTEREXAMPLE", "COUNTEREXAMPLE_ADDRESSED", "COUNTEREXAMPLE_OPEN"}
+)
+_CR_SELECTION = frozenset({"NO_HUMAN_SELECTION", "REVISION_SELECTED"})
 _RER_REQUIRED = frozenset(
     {
         "schema_version",
@@ -181,6 +233,34 @@ _RER_REQUIRED = frozenset(
     }
 )
 _RER_OPTIONAL = frozenset({"human_review"})
+_RER_CLASSIFICATIONS = frozenset(
+    {
+        "NOT_RECOVERED",
+        "RESTORE_ATTEMPTED",
+        "RESTORED_UNVERIFIED",
+        "VERIFICATION_FAILED",
+        "RECOVERED_BOUNDED",
+    }
+)
+_RER_BINDING_KINDS = frozenset(
+    {"content_digest", "git_commit", "immutable_version"}
+)
+_RER_SCOPES = frozenset({"ARTIFACT_ONLY", "CONFIG", "SERVICE_RUNTIME"})
+_RER_TARGET_REQUIRED = frozenset(
+    {"target_id", "binding_kind", "binding_value", "source", "event_order"}
+)
+_RER_TARGET_OPTIONAL = frozenset(
+    {"body", "expected_digest", "approval_ref", "independent_verification_ref"}
+)
+_RER_IV_REQUIRED = frozenset({"ref_id", "source_kind", "claim"})
+_RER_IV_OPTIONAL = frozenset({"receipt_digest", "evidence_digest"})
+_RER_IV_SOURCE_KINDS = frozenset(
+    {
+        "INDEPENDENT_VERIFICATION_PREFLIGHT",
+        "EXTERNAL_WITNESS",
+        "OTHER_BOUNDED",
+    }
+)
 _CLAIM_REQUIRED = frozenset(
     {
         "schema_version",
@@ -377,6 +457,46 @@ def _authority_false(record: Mapping[str, Any], code: str) -> None:
         _fail(code, "authority must be boolean false")
 
 
+def _exact_false(value: Any, code: str, label: str) -> None:
+    if type(value) is not bool or value is not False:
+        _fail(code, f"{label} must be boolean false")
+
+
+def _exact_bool(value: Any, code: str, label: str) -> bool:
+    if type(value) is not bool:
+        _fail(code, f"{label} must be a boolean")
+    return value
+
+
+def _exact_enum(value: Any, allowed: frozenset[str], code: str, label: str) -> str:
+    if type(value) is not str or value not in allowed:
+        _fail(code, f"{label} is not a closed value")
+    return value
+
+
+def _exact_list(value: Any, code: str, label: str) -> list[Any]:
+    if type(value) is not list:
+        _fail(code, f"{label} must be a list")
+    return value
+
+
+def _exact_dict(value: Any, code: str, label: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _fail(code, f"{label} must be a mapping")
+    return value
+
+
+def _recognized_receipt_schema(body: Any) -> str | None:
+    if type(body) is not dict:
+        return None
+    schema = body.get("schema_version")
+    if type(schema) is not str:
+        return None
+    if schema in RECEIPT_SCHEMAS:
+        return schema
+    return None
+
+
 def _reject_forbidden(forbidden: Mapping[str, Any]) -> None:
     if not forbidden:
         return
@@ -483,93 +603,176 @@ class _LabelRef:
 
 def _validate_te(body: Mapping[str, Any]) -> None:
     _keys(body, _TE_REQUIRED, _TE_OPTIONAL, "DAG_RECEIPT_INVALID")
+    if type(body.get("schema_version")) is not str or body.get("schema_version") != "tested_envelope.v0":
+        _fail("DAG_RECEIPT_INVALID", "schema_version is not closed")
     _authority_false(body, "DAG_RECEIPT_INVALID")
     if "receipt_digest" in body:
         _fail("DAG_RECEIPT_INVALID", "tested_envelope.v0 cannot carry receipt_digest")
-    if type(body.get("claim_id")) is not str or not body["claim_id"].strip():
-        _fail("DAG_RECEIPT_INVALID", "claim_id is missing")
-    revision = body.get("artifact_revision")
-    if type(revision) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "artifact_revision is not a record")
-    files = revision.get("files")
-    if type(files) is not list or not files:
+    _nonempty(body.get("claim_id"), "DAG_RECEIPT_INVALID", "claim_id")
+    _exact_enum(body.get("result"), _TE_RESULTS, "DAG_RECEIPT_INVALID", "result")
+    _exact_enum(
+        body.get("source_result"),
+        _TE_RESULTS,
+        "DAG_RECEIPT_INVALID",
+        "source_result",
+    )
+    if "broader_classification" in body:
+        _exact_enum(
+            body.get("broader_classification"),
+            _TE_BROADER,
+            "DAG_RECEIPT_INVALID",
+            "broader_classification",
+        )
+    families = _exact_list(body.get("detector_families"), "DAG_RECEIPT_INVALID", "detector_families")
+    for item in families:
+        if type(item) is not str or not item.strip():
+            _fail("DAG_RECEIPT_INVALID", "detector family must be a string")
+    _exact_list(body.get("exclusions"), "DAG_RECEIPT_INVALID", "exclusions")
+    _exact_list(
+        body.get("unresolved_assumptions"),
+        "DAG_RECEIPT_INVALID",
+        "unresolved_assumptions",
+    )
+    _exact_list(
+        body.get("missing_observations"),
+        "DAG_RECEIPT_INVALID",
+        "missing_observations",
+    )
+    revision = _exact_dict(body.get("artifact_revision"), "DAG_RECEIPT_INVALID", "artifact_revision")
+    _keys(revision, _TE_REVISION_REQUIRED, _TE_REVISION_OPTIONAL, "DAG_RECEIPT_INVALID")
+    files = _exact_list(revision.get("files"), "DAG_RECEIPT_INVALID", "artifact_revision.files")
+    if not files:
         _fail("DAG_RECEIPT_INVALID", "artifact_revision files are missing")
     for item in files:
-        if type(item) is not dict:
-            _fail("DAG_RECEIPT_INVALID", "artifact_revision file is not a record")
-        _sha256(item.get("sha256"), "DAG_RECEIPT_INVALID", "file sha256")
-        if type(item.get("relative_path")) is not str or not item["relative_path"].strip():
-            _fail("DAG_RECEIPT_INVALID", "file relative_path is missing")
-    if "expected_sha256" in revision and revision.get("expected_sha256") is not None:
+        file_map = _exact_dict(item, "DAG_RECEIPT_INVALID", "artifact_revision file")
+        _keys(file_map, _TE_FILE_REQUIRED, frozenset(), "DAG_RECEIPT_INVALID")
+        _sha256(file_map.get("sha256"), "DAG_RECEIPT_INVALID", "file sha256")
+        _nonempty(file_map.get("relative_path"), "DAG_RECEIPT_INVALID", "file relative_path")
+    if "expected_sha256" in revision:
         _sha256(revision.get("expected_sha256"), "DAG_RECEIPT_INVALID", "expected_sha256")
-    binding = body.get("scope_binding")
-    if type(binding) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "scope_binding is not a record")
-    if type(binding.get("claim_id")) is not str or not binding["claim_id"].strip():
-        _fail("DAG_RECEIPT_INVALID", "scope_binding.claim_id is missing")
+    binding = _exact_dict(body.get("scope_binding"), "DAG_RECEIPT_INVALID", "scope_binding")
+    _keys(binding, _TE_SCOPE_REQUIRED, frozenset(), "DAG_RECEIPT_INVALID")
+    _nonempty(binding.get("claim_id"), "DAG_RECEIPT_INVALID", "scope_binding.claim_id")
     _sha256(binding.get("scope_digest"), "DAG_RECEIPT_INVALID", "scope_digest")
-    if type(body.get("detector_families")) is not list:
-        _fail("DAG_RECEIPT_INVALID", "detector_families must be a list")
-    if type(body.get("result")) is not str:
-        _fail("DAG_RECEIPT_INVALID", "result is missing")
 
 
 def _validate_rp(body: Mapping[str, Any]) -> None:
     _keys(body, _RP_REQUIRED, _RP_OPTIONAL, "DAG_RECEIPT_INVALID")
+    if type(body.get("schema_version")) is not str or body.get("schema_version") != "recovery_preflight.v0":
+        _fail("DAG_RECEIPT_INVALID", "schema_version is not closed")
     _authority_false(body, "DAG_RECEIPT_INVALID")
     if "receipt_digest" in body:
         _fail("DAG_RECEIPT_INVALID", "recovery_preflight.v0 cannot carry receipt_digest")
-    if body.get("recovered") is not False or type(body.get("recovered")) is not bool:
-        _fail("DAG_RECEIPT_INVALID", "recovered must remain false")
-    cited = body.get("cited_decision")
-    if type(cited) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "cited_decision is not a record")
-    if type(cited.get("claim_id")) is not str or not cited["claim_id"].strip():
-        _fail("DAG_RECEIPT_INVALID", "cited_decision.claim_id is missing")
+    _exact_false(body.get("recovered"), "DAG_RECEIPT_INVALID", "recovered")
+    _exact_enum(
+        body.get("classification"),
+        frozenset({"NOT_RECOVERED"}),
+        "DAG_RECEIPT_INVALID",
+        "classification",
+    )
+    _exact_list(body.get("limitations"), "DAG_RECEIPT_INVALID", "limitations")
+    cited = _exact_dict(body.get("cited_decision"), "DAG_RECEIPT_INVALID", "cited_decision")
+    _nonempty(cited.get("claim_id"), "DAG_RECEIPT_INVALID", "cited_decision.claim_id")
+    _nonempty(cited.get("decision"), "DAG_RECEIPT_INVALID", "cited_decision.decision")
+    if "claim_result" in cited and type(cited.get("claim_result")) is not str:
+        _fail("DAG_RECEIPT_INVALID", "cited_decision.claim_result must be a string")
+    if "revalidation_observation" in body:
+        _exact_dict(
+            body.get("revalidation_observation"),
+            "DAG_RECEIPT_INVALID",
+            "revalidation_observation",
+        )
+    if "rejected_terminals" in body:
+        _exact_list(body.get("rejected_terminals"), "DAG_RECEIPT_INVALID", "rejected_terminals")
     observation = body.get("digest_observation")
     if observation is not None:
-        if type(observation) is not dict:
-            _fail("DAG_RECEIPT_INVALID", "digest_observation is not a record")
-        if "prior_integrity_digest" in observation:
-            _sha256(
-                observation.get("prior_integrity_digest"),
-                "DAG_RECEIPT_INVALID",
-                "prior_integrity_digest",
-            )
-        if "digest" in observation:
-            _sha256(observation.get("digest"), "DAG_RECEIPT_INVALID", "digest")
+        record = _exact_dict(observation, "DAG_RECEIPT_INVALID", "digest_observation")
+        if "prior_integrity_digest" not in record or "digest" not in record:
+            _fail("DAG_RECEIPT_INVALID", "digest_observation is incomplete")
+        _sha256(
+            record.get("prior_integrity_digest"),
+            "DAG_RECEIPT_INVALID",
+            "prior_integrity_digest",
+        )
+        _sha256(record.get("digest"), "DAG_RECEIPT_INVALID", "digest")
+
+
+def _validate_ivp_files(revision: Mapping[str, Any]) -> None:
+    _keys(revision, _IVP_REVISION_REQUIRED, _IVP_REVISION_OPTIONAL, "DAG_RECEIPT_INVALID")
+    files = _exact_list(revision.get("files"), "DAG_RECEIPT_INVALID", "artifact_revision_binding.files")
+    if not files:
+        _fail("DAG_RECEIPT_INVALID", "artifact_revision_binding files are missing")
+    for item in files:
+        file_map = _exact_dict(item, "DAG_RECEIPT_INVALID", "revision file")
+        _keys(file_map, _IVP_FILE_REQUIRED, frozenset(), "DAG_RECEIPT_INVALID")
+        _sha256(file_map.get("sha256"), "DAG_RECEIPT_INVALID", "file sha256")
+        _nonempty(file_map.get("relative_path"), "DAG_RECEIPT_INVALID", "file relative_path")
+    if "expected_sha256" in revision:
+        _sha256(revision.get("expected_sha256"), "DAG_RECEIPT_INVALID", "expected_sha256")
+
+
+def _validate_ivp_summary(summary: Any, label: str) -> None:
+    record = _exact_dict(summary, "DAG_RECEIPT_INVALID", label)
+    _keys(record, _IVP_SUMMARY_REQUIRED, frozenset(), "DAG_RECEIPT_INVALID")
+    _nonempty(record.get("execution_id"), "DAG_RECEIPT_INVALID", f"{label}.execution_id")
+    _nonempty(
+        record.get("environment_fingerprint"),
+        "DAG_RECEIPT_INVALID",
+        f"{label}.environment_fingerprint",
+    )
+    _sha256(record.get("evidence_digest"), "DAG_RECEIPT_INVALID", f"{label}.evidence_digest")
+    _sha256(record.get("input_digest"), "DAG_RECEIPT_INVALID", f"{label}.input_digest")
+    _nonempty(record.get("result_token"), "DAG_RECEIPT_INVALID", f"{label}.result_token")
 
 
 def _validate_ivp(body: Mapping[str, Any]) -> None:
     _keys(body, _IVP_REQUIRED, _IVP_OPTIONAL, "DAG_RECEIPT_INVALID")
+    if type(body.get("schema_version")) is not str or body.get("schema_version") != "independent_verification_preflight.v0":
+        _fail("DAG_RECEIPT_INVALID", "schema_version is not closed")
     _authority_false(body, "DAG_RECEIPT_INVALID")
     if "receipt_digest" in body:
         _fail(
             "DAG_RECEIPT_INVALID",
             "independent_verification_preflight.v0 cannot carry receipt_digest",
         )
-    if type(body.get("claim_id")) is not str or not body["claim_id"].strip():
-        _fail("DAG_RECEIPT_INVALID", "claim_id is missing")
-    revision = body.get("artifact_revision_binding")
-    if type(revision) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "artifact_revision_binding is not a record")
-    files = revision.get("files")
-    if type(files) is not list or not files:
-        _fail("DAG_RECEIPT_INVALID", "artifact_revision_binding files are missing")
-    for item in files:
-        if type(item) is not dict:
-            _fail("DAG_RECEIPT_INVALID", "revision file is not a record")
-        _sha256(item.get("sha256"), "DAG_RECEIPT_INVALID", "file sha256")
-    if "expected_sha256" in revision and revision.get("expected_sha256") is not None:
-        _sha256(revision.get("expected_sha256"), "DAG_RECEIPT_INVALID", "expected_sha256")
-    for key in ("source_execution_summary", "independent_execution_summary"):
-        summary = body.get(key)
-        if type(summary) is not dict:
-            _fail("DAG_RECEIPT_INVALID", f"{key} is not a record")
-        if "evidence_digest" in summary:
-            _sha256(summary.get("evidence_digest"), "DAG_RECEIPT_INVALID", "evidence_digest")
-        if "input_digest" in summary:
-            _sha256(summary.get("input_digest"), "DAG_RECEIPT_INVALID", "input_digest")
+    for field in _IVP_FORBIDDEN_PROMOTION:
+        if field in body:
+            _fail("DAG_RECEIPT_INVALID", "independent admission fields are not admitted")
+    _nonempty(body.get("claim_id"), "DAG_RECEIPT_INVALID", "claim_id")
+    _exact_enum(
+        body.get("admission_status"),
+        frozenset({_IVP_ADMISSION}),
+        "DAG_RECEIPT_INVALID",
+        "admission_status",
+    )
+    _exact_enum(body.get("verification_kind"), _IVP_KINDS, "DAG_RECEIPT_INVALID", "verification_kind")
+    classification = _exact_enum(
+        body.get("classification"),
+        _IVP_CLASSIFICATIONS,
+        "DAG_RECEIPT_INVALID",
+        "classification",
+    )
+    candidate = _exact_bool(
+        body.get("structural_candidate"),
+        "DAG_RECEIPT_INVALID",
+        "structural_candidate",
+    )
+    if candidate is True and classification != "BOUND_CANDIDATE":
+        _fail("DAG_RECEIPT_INVALID", "structural candidate is not bound")
+    if candidate is not True and classification == "BOUND_CANDIDATE":
+        _fail("DAG_RECEIPT_INVALID", "bound candidate flag is inconsistent")
+    _exact_list(body.get("limitations"), "DAG_RECEIPT_INVALID", "limitations")
+    revision = _exact_dict(
+        body.get("artifact_revision_binding"),
+        "DAG_RECEIPT_INVALID",
+        "artifact_revision_binding",
+    )
+    _validate_ivp_files(revision)
+    _validate_ivp_summary(body.get("source_execution_summary"), "source_execution_summary")
+    _validate_ivp_summary(
+        body.get("independent_execution_summary"),
+        "independent_execution_summary",
+    )
 
 
 def _validate_self_digest(body: Mapping[str, Any], schema: str) -> str:
@@ -585,13 +788,49 @@ def _validate_self_digest(body: Mapping[str, Any], schema: str) -> str:
 
 def _validate_cr(body: Mapping[str, Any]) -> str:
     _keys(body, _CR_REQUIRED, _CR_OPTIONAL, "DAG_RECEIPT_INVALID")
+    if type(body.get("schema_version")) is not str or body.get("schema_version") != "conducting_receipt.v0":
+        _fail("DAG_RECEIPT_INVALID", "schema_version is not closed")
     _authority_false(body, "DAG_RECEIPT_INVALID")
-    if type(body.get("proposal")) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "proposal must remain inside the receipt body")
-    if type(body.get("challenges")) is not list:
-        _fail("DAG_RECEIPT_INVALID", "challenges must remain inside the receipt body")
-    if type(body.get("revisions")) is not list:
-        _fail("DAG_RECEIPT_INVALID", "revisions must remain inside the receipt body")
+    _nonempty(body.get("session_id"), "DAG_RECEIPT_INVALID", "session_id")
+    _exact_dict(body.get("proposal"), "DAG_RECEIPT_INVALID", "proposal")
+    challenges = _exact_list(body.get("challenges"), "DAG_RECEIPT_INVALID", "challenges")
+    for item in challenges:
+        _exact_dict(item, "DAG_RECEIPT_INVALID", "challenge")
+    revisions = _exact_list(body.get("revisions"), "DAG_RECEIPT_INVALID", "revisions")
+    if not revisions:
+        _fail("DAG_RECEIPT_INVALID", "revisions are missing")
+    for item in revisions:
+        _exact_dict(item, "DAG_RECEIPT_INVALID", "revision")
+    _exact_dict(body.get("human_selection"), "DAG_RECEIPT_INVALID", "human_selection")
+    records = _exact_list(body.get("assumption_records"), "DAG_RECEIPT_INVALID", "assumption_records")
+    for item in records:
+        _exact_dict(item, "DAG_RECEIPT_INVALID", "assumption_record")
+    _exact_list(
+        body.get("unresolved_assumptions"),
+        "DAG_RECEIPT_INVALID",
+        "unresolved_assumptions",
+    )
+    _exact_list(body.get("limitations"), "DAG_RECEIPT_INVALID", "limitations")
+    _exact_enum(
+        body.get("sequence_status"),
+        _CR_SEQUENCE,
+        "DAG_RECEIPT_INVALID",
+        "sequence_status",
+    )
+    _exact_enum(
+        body.get("counterexample_status"),
+        _CR_COUNTEREXAMPLE,
+        "DAG_RECEIPT_INVALID",
+        "counterexample_status",
+    )
+    _exact_enum(
+        body.get("selection_status"),
+        _CR_SELECTION,
+        "DAG_RECEIPT_INVALID",
+        "selection_status",
+    )
+    if "target_claim_id" in body:
+        _nonempty(body.get("target_claim_id"), "DAG_RECEIPT_INVALID", "target_claim_id")
     if "target_artifact_digest" in body:
         _sha256(
             body.get("target_artifact_digest"),
@@ -601,31 +840,94 @@ def _validate_cr(body: Mapping[str, Any]) -> str:
     return _validate_self_digest(body, "conducting_receipt.v0")
 
 
+def _validate_rer_restore(restore: Mapping[str, Any]) -> None:
+    _keys(restore, _RER_TARGET_REQUIRED, _RER_TARGET_OPTIONAL, "DAG_RECEIPT_INVALID")
+    kind = _exact_enum(
+        restore.get("binding_kind"),
+        _RER_BINDING_KINDS,
+        "DAG_RECEIPT_INVALID",
+        "binding_kind",
+    )
+    _nonempty(restore.get("target_id"), "DAG_RECEIPT_INVALID", "target_id")
+    _nonempty(restore.get("source"), "DAG_RECEIPT_INVALID", "source")
+    if type(restore.get("event_order")) is not int:
+        _fail("DAG_RECEIPT_INVALID", "event_order must be an integer")
+    if kind == "content_digest":
+        if "body" not in restore:
+            _fail("DAG_RECEIPT_INVALID", "content_digest target requires a body")
+        if "expected_digest" not in restore:
+            _fail("DAG_RECEIPT_INVALID", "content_digest target requires expected_digest")
+        _sha256(restore.get("expected_digest"), "DAG_RECEIPT_INVALID", "expected_digest")
+        _sha256(restore.get("binding_value"), "DAG_RECEIPT_INVALID", "binding_value")
+    elif "expected_digest" in restore:
+        if "body" not in restore:
+            _fail("DAG_RECEIPT_INVALID", "expected_digest requires a body")
+        _sha256(restore.get("expected_digest"), "DAG_RECEIPT_INVALID", "expected_digest")
+    if "approval_ref" in restore and type(restore.get("approval_ref")) is not str:
+        _fail("DAG_RECEIPT_INVALID", "approval_ref must be a string")
+    if "independent_verification_ref" in restore:
+        _nonempty(
+            restore.get("independent_verification_ref"),
+            "DAG_RECEIPT_INVALID",
+            "independent_verification_ref",
+        )
+
+
+def _validate_rer_iv_refs(refs: Any) -> None:
+    rows = _exact_list(refs, "DAG_RECEIPT_INVALID", "independent_verification_refs")
+    for item in rows:
+        record = _exact_dict(item, "DAG_RECEIPT_INVALID", "independent verification ref")
+        _keys(record, _RER_IV_REQUIRED, _RER_IV_OPTIONAL, "DAG_RECEIPT_INVALID")
+        _nonempty(record.get("ref_id"), "DAG_RECEIPT_INVALID", "ref_id")
+        _exact_enum(
+            record.get("source_kind"),
+            _RER_IV_SOURCE_KINDS,
+            "DAG_RECEIPT_INVALID",
+            "source_kind",
+        )
+        _nonempty(record.get("claim"), "DAG_RECEIPT_INVALID", "claim")
+        if "receipt_digest" not in record and "evidence_digest" not in record:
+            _fail("DAG_RECEIPT_INVALID", "independent verification label is not a bound digest")
+        if "receipt_digest" in record:
+            _sha256(record.get("receipt_digest"), "DAG_RECEIPT_INVALID", "receipt_digest")
+        if "evidence_digest" in record:
+            _sha256(record.get("evidence_digest"), "DAG_RECEIPT_INVALID", "evidence_digest")
+
+
 def _validate_rer(body: Mapping[str, Any]) -> str:
     _keys(body, _RER_REQUIRED, _RER_OPTIONAL, "DAG_RECEIPT_INVALID")
+    if type(body.get("schema_version")) is not str or body.get("schema_version") != "recovery_execution_receipt.v0":
+        _fail("DAG_RECEIPT_INVALID", "schema_version is not closed")
     _authority_false(body, "DAG_RECEIPT_INVALID")
-    if body.get("recovered") is not False or type(body.get("recovered")) is not bool:
-        _fail("DAG_RECEIPT_INVALID", "recovered must remain false")
-    restore = body.get("restore_target")
-    if type(restore) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "restore_target is not a record")
-    if "expected_digest" in restore:
-        _sha256(restore.get("expected_digest"), "DAG_RECEIPT_INVALID", "expected_digest")
-    env = body.get("target_environment")
-    if type(env) is not dict:
-        _fail("DAG_RECEIPT_INVALID", "target_environment is not a record")
-    if "environment_digest" in env:
-        _sha256(env.get("environment_digest"), "DAG_RECEIPT_INVALID", "environment_digest")
-    refs = body.get("independent_verification_refs")
-    if type(refs) is not list:
-        _fail("DAG_RECEIPT_INVALID", "independent_verification_refs must be a list")
-    for item in refs:
-        if type(item) is not dict:
-            _fail("DAG_RECEIPT_INVALID", "independent verification ref is not a record")
-        if "receipt_digest" in item:
-            _sha256(item.get("receipt_digest"), "DAG_RECEIPT_INVALID", "receipt_digest")
-        if "evidence_digest" in item:
-            _sha256(item.get("evidence_digest"), "DAG_RECEIPT_INVALID", "evidence_digest")
+    _exact_false(body.get("recovered"), "DAG_RECEIPT_INVALID", "recovered")
+    _exact_enum(
+        body.get("classification"),
+        _RER_CLASSIFICATIONS,
+        "DAG_RECEIPT_INVALID",
+        "classification",
+    )
+    _exact_enum(body.get("target_scope"), _RER_SCOPES, "DAG_RECEIPT_INVALID", "target_scope")
+    _nonempty(body.get("recovery_session_id"), "DAG_RECEIPT_INVALID", "recovery_session_id")
+    _nonempty(body.get("target_artifact_id"), "DAG_RECEIPT_INVALID", "target_artifact_id")
+    _exact_list(body.get("limitations"), "DAG_RECEIPT_INVALID", "limitations")
+    attempts = _exact_list(body.get("attempts"), "DAG_RECEIPT_INVALID", "attempts")
+    for item in attempts:
+        _exact_dict(item, "DAG_RECEIPT_INVALID", "attempt")
+    risks = _exact_list(body.get("unresolved_risks"), "DAG_RECEIPT_INVALID", "unresolved_risks")
+    for item in risks:
+        _exact_dict(item, "DAG_RECEIPT_INVALID", "unresolved_risk")
+    _exact_list(body.get("pre_state"), "DAG_RECEIPT_INVALID", "pre_state")
+    _exact_dict(body.get("stop"), "DAG_RECEIPT_INVALID", "stop")
+    _exact_dict(body.get("isolation"), "DAG_RECEIPT_INVALID", "isolation")
+    restore = _exact_dict(body.get("restore_target"), "DAG_RECEIPT_INVALID", "restore_target")
+    _validate_rer_restore(restore)
+    env = _exact_dict(body.get("target_environment"), "DAG_RECEIPT_INVALID", "target_environment")
+    if "environment_digest" not in env:
+        _fail("DAG_RECEIPT_INVALID", "target_environment requires environment_digest")
+    _sha256(env.get("environment_digest"), "DAG_RECEIPT_INVALID", "environment_digest")
+    _validate_rer_iv_refs(body.get("independent_verification_refs"))
+    if "human_review" in body:
+        _exact_dict(body.get("human_review"), "DAG_RECEIPT_INVALID", "human_review")
     return _validate_self_digest(body, "recovery_execution_receipt.v0")
 
 
@@ -790,26 +1092,22 @@ def _extract_ivp(
         _add_digest_ref(refs, seen, node.node_digest, path, digest, ("DEPENDS_ON",))
     for key in ("source_execution_summary", "independent_execution_summary"):
         summary = body.get(key) or {}
-        if type(summary) is not dict:
-            continue
-        if "evidence_digest" in summary:
-            _add_digest_ref(
-                refs,
-                seen,
-                node.node_digest,
-                f"{key}.evidence_digest",
-                summary.get("evidence_digest"),
-                ("DEPENDS_ON",),
-            )
-        if "input_digest" in summary:
-            _add_digest_ref(
-                refs,
-                seen,
-                node.node_digest,
-                f"{key}.input_digest",
-                summary.get("input_digest"),
-                ("DEPENDS_ON",),
-            )
+        _add_digest_ref(
+            refs,
+            seen,
+            node.node_digest,
+            f"{key}.evidence_digest",
+            summary.get("evidence_digest"),
+            ("DEPENDS_ON",),
+        )
+        _add_digest_ref(
+            refs,
+            seen,
+            node.node_digest,
+            f"{key}.input_digest",
+            summary.get("input_digest"),
+            ("DEPENDS_ON",),
+        )
 
 
 def _extract_cr(
@@ -854,7 +1152,7 @@ def _extract_rer(
 ) -> None:
     body = node.body or {}
     restore = body.get("restore_target") or {}
-    if type(restore) is dict and "expected_digest" in restore:
+    if restore.get("binding_kind") == "content_digest" or "expected_digest" in restore:
         _add_digest_ref(
             refs,
             seen,
@@ -873,15 +1171,14 @@ def _extract_rer(
             ("DEPENDS_ON",),
         )
     env = body.get("target_environment") or {}
-    if type(env) is dict and "environment_digest" in env:
-        _add_digest_ref(
-            refs,
-            seen,
-            node.node_digest,
-            "target_environment.environment_digest",
-            env.get("environment_digest"),
-            ("DEPENDS_ON",),
-        )
+    _add_digest_ref(
+        refs,
+        seen,
+        node.node_digest,
+        "target_environment.environment_digest",
+        env.get("environment_digest"),
+        ("DEPENDS_ON",),
+    )
     refs_raw = body.get("independent_verification_refs") or []
     if type(refs_raw) is list:
         for index, item in enumerate(refs_raw):
@@ -977,6 +1274,9 @@ def _parse_node(raw: Mapping[str, Any]) -> _Node:
     if type(body) is not dict:
         _fail("DAG_NODE_INVALID", "body must be a mapping")
     node.body = body
+    recognized = _recognized_receipt_schema(body)
+    if recognized is not None and kind != "RECEIPT":
+        _fail("DAG_NODE_INVALID", "recognized receipt schema cannot be downgraded")
     if kind == "RECEIPT":
         node.source_reported_digest = _validate_receipt(body)
         node.schema_version = body.get("schema_version")
@@ -987,8 +1287,6 @@ def _parse_node(raw: Mapping[str, Any]) -> _Node:
         node.node_digest = _digest(body, "DAG_NODE_INVALID")
     else:
         node.node_digest = _digest(body, "DAG_NODE_INVALID")
-        if type(body.get("schema_version")) is str:
-            node.schema_version = body.get("schema_version")
     if "digest" in raw:
         _fail("DAG_NODE_INVALID", "body-backed node cannot be digest-only")
     if "node_digest" in raw:
@@ -1016,14 +1314,11 @@ def _finish_edge(edge: _Edge) -> None:
     edge.edge_digest = _digest(_edge_payload(edge), "DAG_EDGE_INVALID")
 
 
-def _lookup_node(
+def _lookup_digest(
     token: str,
-    by_id: Mapping[str, _Node],
     by_digest: Mapping[str, _Node],
     by_reported: Mapping[str, _Node],
 ) -> _Node | None:
-    if token in by_id:
-        return by_id[token]
     if token in by_digest:
         return by_digest[token]
     if token in by_reported:
@@ -1070,7 +1365,7 @@ def _parse_caller_edge(
             _fail("DAG_EDGE_INVALID", "target_node_id does not resolve")
     if "source_digest" in raw:
         source_digest = _sha256(raw.get("source_digest"), "DAG_EDGE_INVALID", "source_digest")
-        found = _lookup_node(source_digest, by_id, by_digest, by_reported)
+        found = _lookup_digest(source_digest, by_digest, by_reported)
         if found is None:
             _fail("DAG_EDGE_INVALID", "source_digest does not resolve")
         if source_node is not None and found.node_digest != source_node.node_digest:
@@ -1078,7 +1373,7 @@ def _parse_caller_edge(
         source_node = found
     if "target_digest" in raw:
         target_digest = _sha256(raw.get("target_digest"), "DAG_EDGE_INVALID", "target_digest")
-        found = _lookup_node(target_digest, by_id, by_digest, by_reported)
+        found = _lookup_digest(target_digest, by_digest, by_reported)
         if found is None:
             _fail("DAG_EDGE_INVALID", "target_digest does not resolve")
         if target_node is not None and found.node_digest != target_node.node_digest:

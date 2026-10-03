@@ -176,6 +176,94 @@ def _hand_te(*, scope_digest: str, file_digest: str, claim_id: str = "AUR-A-001"
     return body
 
 
+def _hand_ivp(
+    *,
+    file_digest: str,
+    source_evidence: str,
+    source_input: str,
+    independent_evidence: str,
+    independent_input: str,
+    **over: object,
+) -> dict:
+    body = {
+        "schema_version": "independent_verification_preflight.v0",
+        "authority": False,
+        "admission_status": "NOT_CONFIGURED",
+        "verification_kind": "REPRODUCTION",
+        "claim_id": "AUR-A-001",
+        "artifact_revision_binding": {
+            "files": [{"relative_path": "payload.txt", "sha256": file_digest}]
+        },
+        "classification": "BOUND_CANDIDATE",
+        "structural_candidate": True,
+        "source_execution_summary": {
+            "execution_id": "run-source",
+            "environment_fingerprint": "aa" * 32,
+            "evidence_digest": source_evidence,
+            "input_digest": source_input,
+            "result_token": "PASS",
+        },
+        "independent_execution_summary": {
+            "execution_id": "run-independent",
+            "environment_fingerprint": "bb" * 32,
+            "evidence_digest": independent_evidence,
+            "input_digest": independent_input,
+            "result_token": "PASS",
+        },
+        "limitations": ["admitted independent evidence"],
+    }
+    body.update(over)
+    return body
+
+
+def _hand_rer(
+    *,
+    expected_digest: str,
+    environment_digest: str,
+    iv_digest: str | None = None,
+    **over: object,
+) -> dict:
+    body: dict[str, object] = {
+        "schema_version": "recovery_execution_receipt.v0",
+        "authority": False,
+        "recovered": False,
+        "recovery_session_id": "rec-1",
+        "target_scope": "ARTIFACT_ONLY",
+        "target_artifact_id": "artifact-1",
+        "target_environment": {"name": "lab", "environment_digest": environment_digest},
+        "pre_state": [],
+        "stop": {"stop_id": "stop-1", "result": "OBSERVED_PASS"},
+        "isolation": {"isolation_id": "iso-1", "result": "NOT_APPLICABLE"},
+        "restore_target": {
+            "target_id": "restore-target-1",
+            "binding_kind": "content_digest",
+            "binding_value": expected_digest,
+            "source": "pinned-artifact-store",
+            "event_order": 3,
+            "body": {"artifact": "pinned-v1"},
+            "expected_digest": expected_digest,
+        },
+        "attempts": [],
+        "independent_verification_refs": [],
+        "unresolved_risks": [],
+        "classification": "NOT_RECOVERED",
+        "limitations": ["restore execution"],
+    }
+    if iv_digest is not None:
+        body["independent_verification_refs"] = [
+            {
+                "ref_id": "iv-1",
+                "source_kind": "INDEPENDENT_VERIFICATION_PREFLIGHT",
+                "claim": "independent package cited",
+                "receipt_digest": iv_digest,
+            }
+        ]
+    body.update(over)
+    sealed = {key: value for key, value in body.items() if key != "receipt_digest"}
+    body["receipt_digest"] = canonical_digest(sealed)
+    return body
+
+
 def _claim_body(claim_id: str = "CLAIM-1", **over: object) -> dict:
     body = {
         "schema_version": "r4.epistemic.claim.v1",
@@ -1362,6 +1450,317 @@ class TestSameClassReview(unittest.TestCase):
             ],
         )
         self.assertEqual({item["relation"] for item in dag["edges"]}, {"CITES", "SUCCESSOR_OF"})
+
+
+class TestR1F1ReceiptDowngrade(unittest.TestCase):
+    def test_f1a_ivp_receipt_incomplete_same_body_artifact_rejected(self) -> None:
+        target = canonical_digest({"blob": "ivp-target"})
+        ivp = _hand_ivp(
+            file_digest=target,
+            source_evidence=target,
+            source_input=target,
+            independent_evidence=target,
+            independent_input=target,
+        )
+        dag = _build([_receipt_node("ivp-1", ivp)])
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        paths = {item["source_path"] for item in dag["unresolved_references"]}
+        self.assertIn("artifact_revision_binding.files[0].sha256", paths)
+        self.assertIn("source_execution_summary.evidence_digest", paths)
+        _expect(self, "DAG_NODE_INVALID", lambda: _build([_artifact_node("ivp-as-artifact", ivp)]))
+
+    def test_f1b_invalid_ivp_as_artifact_rejected_for_schema_downgrade(self) -> None:
+        body = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+            authority=True,
+            admission_status="ADMITTED",
+        )
+        _expect(self, "DAG_NODE_INVALID", lambda: _build([_artifact_node("ivp-bad", body)]))
+
+    def test_f1c_cr_bad_digest_as_artifact_rejected(self) -> None:
+        receipt = dict(_cr_build())
+        receipt["receipt_digest"] = "ab" * 32
+        _expect(self, "DAG_NODE_INVALID", lambda: _build([_artifact_node("cr-bad", receipt)]))
+
+    def test_f1d_rer_bad_digest_as_artifact_rejected(self) -> None:
+        receipt = dict(_rer_build())
+        receipt["receipt_digest"] = "cd" * 32
+        _expect(self, "DAG_NODE_INVALID", lambda: _build([_artifact_node("rer-bad", receipt)]))
+
+    def test_f1e_recognized_receipt_schema_under_claim_rejected(self) -> None:
+        bodies = [
+            _hand_te(scope_digest="ab" * 32, file_digest="cd" * 32),
+            _hand_rp(),
+            _hand_ivp(
+                file_digest="ab" * 32,
+                source_evidence="cd" * 32,
+                source_input="11" * 32,
+                independent_evidence="22" * 32,
+                independent_input="33" * 32,
+            ),
+            _cr_build(),
+            _rer_build(),
+        ]
+        for body in bodies:
+            _expect(
+                self,
+                "DAG_NODE_INVALID",
+                lambda body=body: _build([_claim_node("claim-1", body)]),
+            )
+
+    def test_f1f_unknown_schema_artifact_allowed_without_node_schema(self) -> None:
+        body = {"schema_version": "unknown.v9", "authority": False, "payload": "x"}
+        dag = _build([_artifact_node("a-1", body)])
+        node = dag["nodes"][0]
+        self.assertEqual(node["kind"], "ARTIFACT")
+        self.assertNotIn("schema_version", node)
+        self.assertEqual(node["body"]["schema_version"], "unknown.v9")
+        self.assertEqual(dag["structure_status"], "GRAPH_COMPLETE")
+
+
+class TestR1F2SchemaHardening(unittest.TestCase):
+    def test_te_verified_result_rejected(self) -> None:
+        te = _hand_te(scope_digest="ab" * 32, file_digest="cd" * 32, result="VERIFIED")
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("te-1", te)]))
+
+    def test_rp_recovered_classification_rejected(self) -> None:
+        rp = _hand_rp(classification="RECOVERED")
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("rp-1", rp)]))
+
+    def test_ivp_admitted_status_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+            admission_status="ADMITTED",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_ivp_structural_candidate_string_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+            structural_candidate="YES",
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_ivp_authority_true_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+            authority=True,
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_ivp_missing_evidence_digest_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+        )
+        del ivp["source_execution_summary"]["evidence_digest"]
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_ivp_empty_files_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+        )
+        ivp["artifact_revision_binding"]["files"] = []
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_ivp_files_scalar_rejected(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+        )
+        ivp["artifact_revision_binding"]["files"] = "ab" * 32
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("ivp-1", ivp)]))
+
+    def test_rer_recovered_classification_rejected(self) -> None:
+        target = canonical_digest({"artifact": "pinned-v1"})
+        env = canonical_digest({"name": "lab"})
+        rer = _hand_rer(expected_digest=target, environment_digest=env, classification="RECOVERED")
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("rer-1", rer)]))
+
+    def test_rer_content_digest_without_expected_digest_rejected(self) -> None:
+        target = canonical_digest({"artifact": "pinned-v1"})
+        env = canonical_digest({"name": "lab"})
+        rer = _hand_rer(expected_digest=target, environment_digest=env)
+        del rer["restore_target"]["expected_digest"]
+        rer["receipt_digest"] = canonical_digest(
+            {key: value for key, value in rer.items() if key != "receipt_digest"}
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("rer-1", rer)]))
+
+    def test_cr_invalid_sequence_status_rejected(self) -> None:
+        receipt = dict(_cr_build())
+        receipt["sequence_status"] = "VERIFIED"
+        receipt["receipt_digest"] = canonical_digest(
+            {key: value for key, value in receipt.items() if key != "receipt_digest"}
+        )
+        _expect(self, "DAG_RECEIPT_INVALID", lambda: _build([_receipt_node("cr-1", receipt)]))
+
+
+class TestR1FalseGreen(unittest.TestCase):
+    def test_ivp_extractor_missing_targets_incomplete(self) -> None:
+        target = canonical_digest({"blob": "ivp-target"})
+        ivp = _hand_ivp(
+            file_digest=target,
+            source_evidence=target,
+            source_input=target,
+            independent_evidence=target,
+            independent_input=target,
+        )
+        dag = _build([_receipt_node("ivp-1", ivp)])
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        paths = {item["source_path"] for item in dag["unresolved_references"]}
+        self.assertIn("artifact_revision_binding.files[0].sha256", paths)
+        self.assertIn("source_execution_summary.evidence_digest", paths)
+        self.assertIn("source_execution_summary.input_digest", paths)
+        self.assertIn("independent_execution_summary.evidence_digest", paths)
+        self.assertIn("independent_execution_summary.input_digest", paths)
+        self.assertFalse(any(item["relation"] == "DEPENDS_ON" for item in dag["edges"]))
+
+    def test_ivp_extractor_matching_targets_resolve(self) -> None:
+        blob = {"blob": "ivp-target"}
+        target = canonical_digest(blob)
+        ivp = _hand_ivp(
+            file_digest=target,
+            source_evidence=target,
+            source_input=target,
+            independent_evidence=target,
+            independent_input=target,
+        )
+        dag = _build(
+            [
+                _receipt_node("ivp-1", ivp),
+                _artifact_node("target-1", blob),
+            ]
+        )
+        self.assertEqual(dag["structure_status"], "GRAPH_COMPLETE")
+        depends = [item for item in dag["edges"] if item["relation"] == "DEPENDS_ON"]
+        self.assertTrue(depends)
+        self.assertTrue(all(item["target_digest"] == target for item in depends))
+        self.assertEqual(dag["unresolved_references"], [])
+
+    def test_rer_extractor_missing_targets_incomplete(self) -> None:
+        expected = canonical_digest({"artifact": "pinned-v1"})
+        env = canonical_digest({"name": "lab"})
+        iv = canonical_digest({"iv": "receipt"})
+        rer = _hand_rer(expected_digest=expected, environment_digest=env, iv_digest=iv)
+        dag = _build([_receipt_node("rer-1", rer)])
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        paths = {item["source_path"] for item in dag["unresolved_references"]}
+        self.assertIn("restore_target.expected_digest", paths)
+        self.assertIn("target_environment.environment_digest", paths)
+        self.assertIn("independent_verification_refs[0].receipt_digest", paths)
+
+    def test_rer_extractor_matching_targets_resolve(self) -> None:
+        expected_body = {"artifact": "pinned-v1"}
+        env_body = {"name": "lab"}
+        iv_body = {"iv": "receipt"}
+        expected = canonical_digest(expected_body)
+        env = canonical_digest(env_body)
+        iv = canonical_digest(iv_body)
+        rer = _hand_rer(expected_digest=expected, environment_digest=env, iv_digest=iv)
+        dag = _build(
+            [
+                _receipt_node("rer-1", rer),
+                _artifact_node("restore-1", expected_body),
+                _artifact_node("env-1", env_body),
+                _artifact_node("iv-1", iv_body),
+            ]
+        )
+        self.assertEqual(dag["structure_status"], "GRAPH_COMPLETE")
+        depends = [item for item in dag["edges"] if item["relation"] == "DEPENDS_ON"]
+        self.assertTrue(depends)
+        cites = [item for item in dag["edges"] if item["relation"] == "CITES"]
+        self.assertTrue(cites)
+        self.assertEqual(dag["unresolved_references"], [])
+
+    def test_cites_cannot_force_completeness(self) -> None:
+        te = _hand_te(scope_digest="aa" * 32, file_digest="bb" * 32)
+        extra = _artifact_node("note-1", {"note": "citation"})
+        dag = _build(
+            [_receipt_node("te-1", te), extra],
+            [
+                {
+                    "edge_id": "cite-1",
+                    "relation": "CITES",
+                    "basis": "CALLER_DECLARED",
+                    "source_node_id": "te-1",
+                    "target_node_id": "note-1",
+                }
+            ],
+        )
+        self.assertEqual(dag["structure_status"], "GRAPH_INCOMPLETE")
+        self.assertTrue(dag["unresolved_references"])
+
+    def test_nested_wrapper_is_not_recognized_receipt(self) -> None:
+        ivp = _hand_ivp(
+            file_digest="ab" * 32,
+            source_evidence="cd" * 32,
+            source_input="11" * 32,
+            independent_evidence="22" * 32,
+            independent_input="33" * 32,
+        )
+        dag = _build([_artifact_node("wrapped", {"wrapped": ivp})])
+        self.assertEqual(dag["nodes"][0]["kind"], "ARTIFACT")
+        self.assertNotIn("schema_version", dag["nodes"][0])
+
+
+class TestDigestLabelShadow(unittest.TestCase):
+    def test_source_digest_does_not_resolve_by_node_id(self) -> None:
+        real_body = {"payload": "real"}
+        real_digest = canonical_digest(real_body)
+        shadow_body = {"payload": "shadow"}
+        other_body = {"payload": "other"}
+        nodes = [
+            {
+                "node_id": real_digest,
+                "kind": "ARTIFACT",
+                "body": shadow_body,
+            },
+            _artifact_node("real-a", real_body),
+            _artifact_node("other", other_body),
+        ]
+        dag = _build(
+            nodes,
+            [
+                {
+                    "edge_id": "cite-1",
+                    "relation": "CITES",
+                    "basis": "CALLER_DECLARED",
+                    "source_digest": real_digest,
+                    "target_node_id": "other",
+                }
+            ],
+        )
+        cites = [item for item in dag["edges"] if item["relation"] == "CITES"]
+        self.assertEqual(len(cites), 1)
+        self.assertEqual(cites[0]["source_digest"], real_digest)
+        self.assertNotEqual(cites[0]["source_digest"], canonical_digest(shadow_body))
 
 
 class TestNoAcceptedWrites(unittest.TestCase):
