@@ -217,6 +217,39 @@ class AcrTests(unittest.TestCase):
         claim = _claim()
         return produce_acr(claim, b"a", produce_csar(claim, b"a"))
 
+    def _with_consistent_csar_association(self, record: dict) -> dict:
+        mutated = dict(record)
+        preimage = {
+            "schema_version": mutated["schema_version"],
+            "authority": mutated["authority"],
+            "claim_digest_csar_v0": mutated["claim_digest_csar_v0"],
+            "subject_digest_csar_v0": mutated["subject_digest_csar_v0"],
+            "limitations": mutated["limitations"],
+        }
+        mutated["association_digest_csar_v0"] = domain_separated_digest(
+            "CSAR_RECORD",
+            _canonical(preimage),
+        )
+        checked = {
+            "schema_version": mutated["schema_version"],
+            "authority": mutated["authority"],
+            "claim_digest_csar_v0": mutated["claim_digest_csar_v0"],
+            "subject_digest_csar_v0": mutated["subject_digest_csar_v0"],
+            "limitations": mutated["limitations"],
+        }
+        self.assertEqual(
+            domain_separated_digest("CSAR_RECORD", _canonical(checked)),
+            mutated["association_digest_csar_v0"],
+        )
+        return mutated
+
+    def _reject_creation(self, mutated: dict) -> None:
+        returned: list[dict] = []
+        with self.assertRaises(AcrError) as caught:
+            returned.append(produce_acr(_claim(), b"a", mutated))
+        self.assertEqual(caught.exception.code, "ACR_REJECTED")
+        self.assertEqual(returned, [])
+
     def test_01_golden_matches_frozen_bytes_and_closed_acd(self) -> None:
         claim = _claim()
         supplied = produce_csar(claim, b"a")
@@ -710,6 +743,56 @@ class AcrTests(unittest.TestCase):
             inspect.getsource(receipt_module._receipt_digest),
         )
         self.assertNotIn("acr_structurally_consistent", creation)
+
+    def test_27_creation_rejects_csar_fields_beyond_claim_and_subject(self) -> None:
+        claim = _claim()
+        genuine = produce_csar(claim, b"a")
+        receipt = produce_acr(claim, b"a", genuine)
+        self.assertIs(type(receipt), dict)
+        self.assertEqual(receipt["receipt_digest"], _RECEIPT)
+        association_only = dict(genuine, association_digest_csar_v0="0" * 64)
+        authority_zero = self._with_consistent_csar_association(dict(genuine, authority=0))
+        reversed_limitations = dict(genuine)
+        reversed_limitations["limitations"] = list(reversed(genuine["limitations"]))
+        reversed_limitations = self._with_consistent_csar_association(reversed_limitations)
+        extra_key = self._with_consistent_csar_association(dict(genuine, note="not-a-csar-field"))
+        limitations = list(genuine["limitations"])
+        limitations[0] = _AuthorityGranted("authority_granted")
+        malicious = self._with_consistent_csar_association(dict(genuine, limitations=limitations))
+        self.assertEqual(authority_zero["authority"], genuine["authority"])
+        self.assertIs(type(authority_zero["authority"]), int)
+        self.assertNotEqual(
+            authority_zero["association_digest_csar_v0"],
+            genuine["association_digest_csar_v0"],
+        )
+        self.assertNotEqual(
+            reversed_limitations["association_digest_csar_v0"],
+            genuine["association_digest_csar_v0"],
+        )
+        self.assertEqual(
+            extra_key["association_digest_csar_v0"],
+            genuine["association_digest_csar_v0"],
+        )
+        self.assertIn("note", extra_key)
+        self.assertIsNot(type(malicious["limitations"][0]), str)
+        self.assertEqual(malicious["limitations"][0], genuine["limitations"][0])
+        self.assertNotEqual(
+            malicious["association_digest_csar_v0"],
+            genuine["association_digest_csar_v0"],
+        )
+        attacks = (
+            ("association_digest", association_only),
+            ("authority_zero", authority_zero),
+            ("limitations_reversed", reversed_limitations),
+            ("extra_key", extra_key),
+            ("malicious_str_subclass", malicious),
+        )
+        for name, mutated in attacks:
+            with self.subTest(attack=name):
+                self.assertEqual(mutated["claim_digest_csar_v0"], genuine["claim_digest_csar_v0"])
+                self.assertEqual(mutated["subject_digest_csar_v0"], genuine["subject_digest_csar_v0"])
+                self.assertIsNot(mutated, genuine)
+                self._reject_creation(mutated)
 
     def _raised(self, fn) -> AcrError:
         with self.assertRaises(AcrError) as caught:
