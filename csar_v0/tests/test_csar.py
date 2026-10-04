@@ -139,6 +139,26 @@ class CsarTests(unittest.TestCase):
             fn()
         self.assertEqual(caught.exception.code, "CSAR_REJECTED")
 
+    def _reject_message(self, fn, message: str) -> None:
+        with self.assertRaises(CsarError) as caught:
+            fn()
+        text = str(caught.exception)
+        self.assertEqual(caught.exception.code, "CSAR_REJECTED")
+        self.assertIn(message, text)
+        self.assertNotIn("association digest does not reproduce", text)
+
+    def _with_consistent_association(self, record: dict) -> dict:
+        mutated = dict(record)
+        preimage = {key: mutated[key] for key in record_module._PREIMAGE_KEYS}
+        expected = domain_separated_digest("CSAR_RECORD", _canonical(preimage))
+        mutated["association_digest_csar_v0"] = expected
+        checked = {key: mutated[key] for key in record_module._PREIMAGE_KEYS}
+        self.assertEqual(
+            domain_separated_digest("CSAR_RECORD", _canonical(checked)),
+            mutated["association_digest_csar_v0"],
+        )
+        return mutated
+
     def test_01_golden_producer_matches_closed_dsds(self) -> None:
         claim = _claim()
         record = produce_csar(claim, b"a")
@@ -451,4 +471,87 @@ class CsarTests(unittest.TestCase):
                 "parse_csar",
                 "csar_reproduced_from_supplied_inputs",
             },
+        )
+
+    def test_38_authority_zero_with_consistent_digest_is_rejected(self) -> None:
+        record = self._with_consistent_association(dict(produce_csar(_claim(), b"a"), authority=0))
+        self.assertEqual(record["authority"], 0)
+        self._reject_message(lambda: csar_structurally_consistent(record), "authority is not exact False")
+        raw = _canonical(record)
+        self.assertEqual(raw, _canonical(json.loads(raw.decode("utf-8"))))
+        self._reject_message(lambda: parse_csar(raw), "authority is not exact False")
+
+    def test_39_reordered_limitations_with_consistent_digest_are_rejected(self) -> None:
+        record = dict(produce_csar(_claim(), b"a"))
+        record["limitations"] = list(reversed(record["limitations"]))
+        record = self._with_consistent_association(record)
+        self.assertEqual(set(record["limitations"]), set(record_module._LIMITATIONS))
+        self.assertNotEqual(record["limitations"], list(record_module._LIMITATIONS))
+        self._reject_message(
+            lambda: csar_structurally_consistent(record),
+            "limitations are not the code-owned list",
+        )
+        raw = _canonical(record)
+        self.assertEqual(raw, _canonical(json.loads(raw.decode("utf-8"))))
+        self._reject_message(lambda: parse_csar(raw), "limitations are not the code-owned list")
+
+    def test_40_schema_str_subclass_with_consistent_digest_is_rejected(self) -> None:
+        record = dict(produce_csar(_claim(), b"a"))
+        record["schema_version"] = _Str("csar.v0")
+        record = self._with_consistent_association(record)
+        self.assertEqual(record["schema_version"], "csar.v0")
+        self.assertIsNot(type(record["schema_version"]), str)
+        self._reject_message(lambda: csar_structurally_consistent(record), "schema_version mismatch")
+
+    def test_41_digest_str_subclass_with_consistent_digest_is_rejected(self) -> None:
+        record = dict(produce_csar(_claim(), b"a"))
+        record["claim_digest_csar_v0"] = _Str(record["claim_digest_csar_v0"])
+        record["subject_digest_csar_v0"] = _Str(record["subject_digest_csar_v0"])
+        record = self._with_consistent_association(record)
+        record["association_digest_csar_v0"] = _Str(record["association_digest_csar_v0"])
+        checked = {key: record[key] for key in record_module._PREIMAGE_KEYS}
+        self.assertEqual(
+            domain_separated_digest("CSAR_RECORD", _canonical(checked)),
+            record["association_digest_csar_v0"],
+        )
+        for name in ("claim_digest_csar_v0", "subject_digest_csar_v0", "association_digest_csar_v0"):
+            self.assertIsNot(type(record[name]), str)
+        self._reject_message(lambda: csar_structurally_consistent(record), "digest text is malformed")
+
+    def test_42_parse_rejects_canonical_structurally_invalid_records(self) -> None:
+        base = produce_csar(_claim(), b"a")
+        cases = []
+        authority = self._with_consistent_association(dict(base, authority=0))
+        cases.append((authority, "authority is not exact False"))
+        reordered = dict(base)
+        reordered["limitations"] = list(reversed(base["limitations"]))
+        cases.append(
+            (self._with_consistent_association(reordered), "limitations are not the code-owned list")
+        )
+        renamed = dict(base)
+        renamed["schema_version"] = "csar.v9"
+        cases.append((self._with_consistent_association(renamed), "schema_version mismatch"))
+        for record, message in cases:
+            raw = _canonical(record)
+            with self.subTest(message=message):
+                self.assertEqual(raw, _canonical(json.loads(raw.decode("utf-8"))))
+                self._reject_message(lambda: parse_csar(raw), message)
+
+    def test_43_reproduction_requires_exact_six_field_equality(self) -> None:
+        claim = _claim()
+        produced = produce_csar(claim, b"a")
+        supplied = dict(produced)
+        flipped = "0" if supplied["subject_digest_csar_v0"][-1] != "0" else "1"
+        supplied["subject_digest_csar_v0"] = supplied["subject_digest_csar_v0"][:-1] + flipped
+        supplied = self._with_consistent_association(supplied)
+        self.assertEqual(csar_structurally_consistent(supplied), _STRUCTURAL)
+        self.assertEqual(supplied["schema_version"], produced["schema_version"])
+        self.assertIs(supplied["authority"], False)
+        self.assertEqual(supplied["limitations"], produced["limitations"])
+        self.assertEqual(supplied["claim_digest_csar_v0"], produced["claim_digest_csar_v0"])
+        self.assertNotEqual(supplied["subject_digest_csar_v0"], produced["subject_digest_csar_v0"])
+        self.assertNotEqual(supplied["association_digest_csar_v0"], produced["association_digest_csar_v0"])
+        self._reject_message(
+            lambda: csar_reproduced_from_supplied_inputs(supplied, claim, b"a"),
+            "six-field records are not equal",
         )
