@@ -23,6 +23,14 @@ _PUBLIC = [
     "AssociationCarriageDigestError",
     "digest_association_carriage_preimage",
 ]
+_DIGEST_NAMESPACE = {
+    "annotations",
+    "hashlib",
+    "_TAG",
+    "AssociationCarriageDigestError",
+    "_fail",
+    "digest_association_carriage_preimage",
+}
 
 
 def _frozen_fixture() -> bytes:
@@ -255,3 +263,11 @@ class AssociationCarriageDigestTests(unittest.TestCase):
             digest = digest_association_carriage_preimage(b"a")
         self.assertEqual(digest, GOLDEN_1)
         self.assertEqual(seen, [_DST + b"a"])
+
+    def test_21_frozen_namespace_is_exact(self) -> None:
+        module_names = {name for name in vars(digest_module) if not name.startswith("__")}
+        self.assertEqual(module_names, _DIGEST_NAMESPACE)
+        class_names = {
+            name for name in vars(AssociationCarriageDigestError) if not name.startswith("__")
+        }
+        self.assertEqual(class_names, set())
