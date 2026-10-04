@@ -322,6 +322,25 @@ class DomainSeparatedDigestTests(unittest.TestCase):
         claim[NotesKey("spoof")] = "hidden"
         _expect(self, lambda: digest_r4_claim_body(claim))
 
+    def test_m15_plain_dict_subclass_rejected(self) -> None:
+        class PlainDictSubclass(dict):
+            pass
+
+        claim = PlainDictSubclass(_minimal())
+        with self.assertRaises(DomainSeparatedDigestError) as caught:
+            digest_r4_claim_body(claim)
+        self.assertEqual(caught.exception.code, "DSDS_CLAIM_INVALID")
+        self.assertIn("claim must be a dict", str(caught.exception))
+
+    def test_n2_set_like_str_subclass_rejected(self) -> None:
+        class SameText(str):
+            pass
+
+        with self.assertRaises(DomainSeparatedDigestError) as caught:
+            digest_r4_claim_body(_minimal(extra={"evidence_refs": [SameText("a")]}))
+        self.assertEqual(caught.exception.code, "DSDS_CLAIM_INVALID")
+        self.assertIn("set-like element is not a string", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
