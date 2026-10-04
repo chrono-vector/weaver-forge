@@ -133,6 +133,16 @@ class _Str(str):
     pass
 
 
+class _AuthorityGranted(str):
+    """Limitation text whose equality does not reveal its contents."""
+
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __ne__(self, other: object) -> bool:
+        return False
+
+
 class CsarTests(unittest.TestCase):
     def _reject(self, fn) -> None:
         with self.assertRaises(CsarError) as caught:
@@ -555,3 +565,47 @@ class CsarTests(unittest.TestCase):
             lambda: csar_reproduced_from_supplied_inputs(supplied, claim, b"a"),
             "six-field records are not equal",
         )
+
+    def test_44_reproduction_rejects_records_that_match_only_some_fields(self) -> None:
+        claim = _claim()
+        produced = produce_csar(claim, b"a")
+        authority_zero = dict(produced, authority=0)
+        self.assertIs(type(authority_zero["authority"]), int)
+        self.assertEqual(authority_zero["authority"], produced["authority"])
+        zero_association = dict(produced, association_digest_csar_v0="0" * 64)
+        reversed_limitations = dict(
+            produced,
+            limitations=list(reversed(produced["limitations"])),
+        )
+        cases = (
+            authority_zero,
+            zero_association,
+            reversed_limitations,
+        )
+        for mutated in cases:
+            with self.subTest(authority=mutated["authority"], association=mutated["association_digest_csar_v0"][:8]):
+                self.assertEqual(mutated["claim_digest_csar_v0"], produced["claim_digest_csar_v0"])
+                self.assertEqual(mutated["subject_digest_csar_v0"], produced["subject_digest_csar_v0"])
+                self.assertIsNot(mutated, produced)
+                self._reject(
+                    lambda mutated=mutated: csar_reproduced_from_supplied_inputs(mutated, claim, b"a")
+                )
+
+    def test_45_limitation_str_subclass_is_rejected_when_digest_matches(self) -> None:
+        record = dict(produce_csar(_claim(), b"a"))
+        limitations = list(record["limitations"])
+        limitations[0] = _AuthorityGranted("authority_granted")
+        record["limitations"] = limitations
+        record = self._with_consistent_association(record)
+        self.assertIsNot(type(record["limitations"][0]), str)
+        self.assertEqual(record["limitations"][0], record_module._LIMITATIONS[0])
+        self._reject_message(
+            lambda: csar_structurally_consistent(record),
+            "limitations are not the code-owned list",
+        )
+        # Canonical JSON keeps the characters authority_granted and json.loads
+        # returns a builtin str, so parse_csar cannot observe the subclass.
+        raw = _canonical(record)
+        self.assertIn(b"authority_granted", raw)
+        self.assertEqual(raw, _canonical(json.loads(raw.decode("utf-8"))))
+        self._reject(lambda: parse_csar(raw))
