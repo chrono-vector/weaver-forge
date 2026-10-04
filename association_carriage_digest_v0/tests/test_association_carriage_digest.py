@@ -51,6 +51,41 @@ def _boom(data: bytes) -> str:
     raise AssertionError(data)
 
 
+_FORBIDDEN_PUBLIC = frozenset(
+    {
+        "TAG",
+        "ACD_TAG",
+        "PREFIX",
+        "DST",
+        "DOMAINS",
+        "REGISTRY",
+        "NAMESPACE",
+        "DOMAIN",
+        "TAGS",
+    }
+)
+
+
+def _is_tag_surface(value: object, tag: bytes) -> bool:
+    ascii_tag = tag[:-1] if tag.endswith(b"\x00") else tag
+    text = ascii_tag.decode("ascii")
+    if value == tag or value == ascii_tag or value == text:
+        return True
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_is_tag_surface(item, tag) for item in value)
+    if isinstance(value, dict):
+        return any(_is_tag_surface(item, tag) for item in (*value.keys(), *value.values()))
+    return False
+
+
+def _defined_functions(module: object) -> dict[str, object]:
+    found: dict[str, object] = {}
+    for name, value in vars(module).items():
+        if inspect.isfunction(value) and value.__module__ == module.__name__:
+            found[name] = value
+    return found
+
+
 class AssociationCarriageDigestTests(unittest.TestCase):
     def test_01_golden_vector_1(self) -> None:
         self.assertEqual(digest_association_carriage_preimage(b"a"), GOLDEN_1)
@@ -174,12 +209,39 @@ class AssociationCarriageDigestTests(unittest.TestCase):
                     parameter,
                     {"domain", "domain_id", "prefix", "expected_digest"},
                 )
+        defined = _defined_functions(digest_module)
+        self.assertEqual(
+            set(defined),
+            {"_fail", "digest_association_carriage_preimage"},
+        )
+        self.assertEqual(list(inspect.signature(defined["_fail"]).parameters), ["message"])
+        self.assertEqual(
+            list(inspect.signature(defined["digest_association_carriage_preimage"]).parameters),
+            ["preimage"],
+        )
+        for name, value in vars(digest_module).items():
+            if name.startswith("_") or name == "annotations":
+                continue
+            if inspect.ismodule(value) or inspect.isfunction(value) or inspect.isclass(value):
+                continue
+            self.assertNotIn(name, _FORBIDDEN_PUBLIC)
+            self.assertFalse(_is_tag_surface(value, digest_module._TAG))
 
     def test_19_public_exports_are_exact(self) -> None:
         self.assertEqual(acd.__all__, _PUBLIC)
         self.assertEqual(digest_module.__all__, _PUBLIC)
+        self.assertFalse(set(acd.__all__) & _FORBIDDEN_PUBLIC)
+        self.assertFalse(set(digest_module.__all__) & _FORBIDDEN_PUBLIC)
         self.assertEqual(digest_module._TAG, _DST)
         self.assertEqual(len(digest_module._TAG), 21)
+        package_public = {name for name in vars(acd) if not name.startswith("_")}
+        self.assertEqual(package_public, set(_PUBLIC) | {"digest"})
+        for name, value in vars(acd).items():
+            if name.startswith("_") or inspect.ismodule(value):
+                continue
+            self.assertIn(name, _PUBLIC)
+            self.assertNotIn(name, _FORBIDDEN_PUBLIC)
+            self.assertFalse(_is_tag_surface(value, digest_module._TAG))
 
     def test_20_successful_hash_uses_sha256_after_checks(self) -> None:
         seen: list[bytes] = []
