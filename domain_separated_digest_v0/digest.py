@@ -15,9 +15,10 @@ pre-check below. It does not commit to rejected input. Intentional R4
 equivalences that remain are: omitted, null, and "" notes become
 notes:""; omitted ref lists become []; ref order and duplicates become
 sorted unique; omitted, null, and {} extra omit the key; omitted and null
-workflow_state omit the key; workflow_state:"" remains; lists under a
-set-like parent key are sorted and deduped at any depth, including inside
-extra. Unicode is not normalized.
+workflow_state omit the key; workflow_state:"" remains. A list under a
+set-like parent key is sorted and deduped only when every element is an
+exact str; mixed element types are rejected. This applies at any depth,
+including inside extra. Unicode is not normalized.
 """
 
 from __future__ import annotations
@@ -26,7 +27,10 @@ import hashlib
 from typing import Any
 
 from audit_lifecycle.epistemic.records import EpistemicClaimRecord
-from audit_lifecycle.epistemic.serialize import canonical_dumps
+from audit_lifecycle.epistemic.serialize import (
+    SET_LIKE_SEQUENCE_FIELDS,
+    canonical_dumps,
+)
 from audit_lifecycle.epistemic.validation import (
     EpistemicValidationError,
     validate_claim_dict,
@@ -70,7 +74,7 @@ def _fail(code: str, message: str) -> None:
     raise DomainSeparatedDigestError(code, message)
 
 
-def _walk(value: Any, *, allow_tuple: bool = False) -> None:
+def _walk(value: Any, *, parent_key: str | None = None, allow_tuple: bool = False) -> None:
     """Reject shapes that R4 or canonical_dumps would coerce or stringify."""
     if value is None or type(value) is bool or type(value) is int or type(value) is str:
         return
@@ -82,9 +86,16 @@ def _walk(value: Any, *, allow_tuple: bool = False) -> None:
         for key, item in value.items():
             if type(key) is not str:
                 _fail("DSDS_CLAIM_INVALID", "mapping key is not a string")
-            _walk(item)
+            _walk(item, parent_key=key)
         return
     if type(value) is list or (allow_tuple and type(value) is tuple):
+        # Set-like canonical keys use the string itself, and JSON text for
+        # every other value. Mixed types can therefore collapse. Require str.
+        if parent_key in SET_LIKE_SEQUENCE_FIELDS:
+            for item in value:
+                if type(item) is not str:
+                    _fail("DSDS_CLAIM_INVALID", "set-like element is not a string")
+            return
         for item in value:
             _walk(item)
         return
@@ -103,6 +114,9 @@ def r4_claim_body_preimage(claim: Any) -> bytes:
     """
     if type(claim) is not dict:
         _fail("DSDS_CLAIM_INVALID", "claim must be a dict")
+    for key in claim:
+        if type(key) is not str:
+            _fail("DSDS_CLAIM_INVALID", "mapping key is not a string")
     if "confidence" in claim:
         _fail("DSDS_CLAIM_INVALID", "confidence is not committed")
     unknown = set(claim) - _ALLOWED_CLAIM_KEYS
@@ -118,13 +132,12 @@ def r4_claim_body_preimage(claim: Any) -> bytes:
         if type(refs) is list or type(refs) is tuple:
             for item in refs:
                 _reject_strip(item, field)
-            _walk(refs, allow_tuple=True)
-        else:
-            _walk(refs)
     for field, value in claim.items():
-        if field in _REF_FIELDS:
-            continue
-        _walk(value)
+        _walk(
+            value,
+            parent_key=field,
+            allow_tuple=field in _REF_FIELDS and type(value) is tuple,
+        )
     try:
         parsed: EpistemicClaimRecord = validate_claim_dict(claim)
         text = canonical_dumps(parsed.to_dict())

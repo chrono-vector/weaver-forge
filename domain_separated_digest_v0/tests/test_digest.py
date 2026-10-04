@@ -236,6 +236,92 @@ class DomainSeparatedDigestTests(unittest.TestCase):
         self.assertEqual(len(tagged), 64)
         self.assertNotEqual(tagged, hashlib.sha256(b"{}").hexdigest())
 
+    def test_f1_set_like_cross_type_values_rejected(self) -> None:
+        cases = (
+            ("evidence_refs", ["1", 1]),
+            ("refs", [1, "1"]),
+            ("derived_from", ["null", None]),
+            ("provenance_refs", ["true", True]),
+            ("unresolved_assumptions", ['{"a":1}', {"a": 1}]),
+            ("missing_inputs", ["[1]", [1]]),
+        )
+        for key, value in cases:
+            with self.subTest(key=key):
+                _expect(self, lambda key=key, value=value: digest_r4_claim_body(_minimal(extra={key: value})))
+
+    def test_m10b_nested_list_shapes_rejected(self) -> None:
+        _expect(self, lambda: digest_r4_claim_body(_minimal(extra={"n": [[1.5]]})))
+        _expect(self, lambda: digest_r4_claim_body(_minimal(extra={"a": [{1: "x"}]})))
+
+    def test_m12_domain_str_subclass_rejected(self) -> None:
+        class DomainName(str):
+            def __eq__(self, other: object) -> bool:
+                return True
+
+            def __hash__(self) -> int:
+                return hash("PRESENTED_SUBJECT_BYTES")
+
+        def boom(data: bytes) -> str:
+            raise AssertionError(data)
+
+        with patch("domain_separated_digest_v0.digest.hashlib.sha256", boom):
+            for domain in ("R4_CLAIM_BODY", "PRESENTED_SUBJECT_BYTES", "CSAR_RECORD"):
+                with self.subTest(domain=domain):
+                    with self.assertRaises(DomainSeparatedDigestError) as caught:
+                        domain_separated_digest(DomainName(domain), b"a")
+                    self.assertEqual(caught.exception.code, "DSDS_DOMAIN_INVALID")
+
+    def test_m13_subject_bytes_subclass_rejected_before_hash(self) -> None:
+        class LyingLen(bytes):
+            def __len__(self) -> int:
+                return 1
+
+        def boom(data: bytes) -> str:
+            raise AssertionError(data)
+
+        samples = (LyingLen(b""), bytearray(b"a"), memoryview(b"a"))
+        with patch("domain_separated_digest_v0.digest.hashlib.sha256", boom):
+            for sample in samples:
+                with self.subTest(sample=type(sample).__name__):
+                    with self.assertRaises(DomainSeparatedDigestError) as caught:
+                        digest_presented_subject_bytes(sample)  # type: ignore[arg-type]
+                    self.assertEqual(caught.exception.code, "DSDS_PREIMAGE_INVALID")
+
+    def test_m15_m16_dict_subclass_rejected(self) -> None:
+        class LieDict(dict):
+            def items(self):  # type: ignore[override]
+                return [("safe", "x")]
+
+            def __iter__(self):
+                yield "safe"
+
+            def keys(self):  # type: ignore[override]
+                return ["safe"]
+
+        _expect(self, lambda: digest_r4_claim_body(LieDict(_minimal())))
+        _expect(
+            self,
+            lambda: digest_r4_claim_body(_minimal(extra={"box": LieDict({"hidden": 1.5})})),
+        )
+
+    def test_m18_registry_is_exact(self) -> None:
+        self.assertEqual(
+            digest_module.DOMAINS,
+            frozenset({"R4_CLAIM_BODY", "PRESENTED_SUBJECT_BYTES", "CSAR_RECORD"}),
+        )
+
+    def test_f3_str_subclass_top_level_key_rejected(self) -> None:
+        class NotesKey(str):
+            def __eq__(self, other: object) -> bool:
+                return other == "notes"
+
+            def __hash__(self) -> int:
+                return hash("notes")
+
+        claim = _minimal()
+        claim[NotesKey("spoof")] = "hidden"
+        _expect(self, lambda: digest_r4_claim_body(claim))
+
 
 if __name__ == "__main__":
     unittest.main()
