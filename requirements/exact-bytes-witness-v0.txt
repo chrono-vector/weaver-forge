@@ -1,0 +1,15 @@
+# Exact-Bytes Witness v0 frozen profile.
+# cryptography==50.0.2, cffi==2.1.1, pycparser==3.0.
+# Hashes are the D2 inspection-platform artifacts and matching sdists.
+# Install with: python -m pip install --require-hashes --only-binary :all: -r requirements/exact-bytes-witness-v0.txt
+# The ssh extra is absent.
+
+cryptography==50.0.2 \
+    --hash=sha256:7afa5a6602a9f29af1f3a2965f831bae7c9d5d597b7cbb716d41ab3b7d89879c \
+    --hash=sha256:7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5
+cffi==2.1.1 \
+    --hash=sha256:3222ba5d678f80a030e6afbcc33dc1ae5cb45facabb61cee2c7016b8432fde48 \
+    --hash=sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be
+pycparser==3.0 \
+    --hash=sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992 \
+    --hash=sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29
