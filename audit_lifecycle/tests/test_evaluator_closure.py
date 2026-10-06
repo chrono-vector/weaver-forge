@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -934,6 +935,181 @@ class EvaluatorClosureTests(unittest.TestCase):
         )
         relaxed = closure._RESERVED_SEMANTIC_MODULES - {"os"}
         with mock.patch.object(closure, "_RESERVED_SEMANTIC_MODULES", relaxed):
+            actual = self._evaluate()["disposition"]
+        self._assert_mutant_killed("UNKNOWN_REACH", actual)
+        self.assertEqual("PASS", actual)
+
+    # ------------------------------------------------------------------
+    # R2 getattr-family fails closed in evaluator reach
+    # ------------------------------------------------------------------
+
+    _R2_GETATTR_FINDING = "getattr-family attribute access: builtins.getattr: semantic/evaluator.py"
+
+    def test_r2_getattr_io_open_with_caller_path_is_unknown_reach(self) -> None:
+        cases = {
+            "caller_path": (
+                b"import io\n\n"
+                b"def evaluate(subject):\n"
+                b"    return getattr(io, 'open')(subject['path'], 'rb').read()\n"
+            ),
+            "non_literal_path": (
+                b"import io\nNAME = 'semantic/config.json'\n"
+                b"CONFIG = getattr(io, 'open')(NAME, 'rb').read()\n"
+            ),
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=["io"])
+                receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+                self.assertIn(self._R2_GETATTR_FINDING, receipt["unknown_reach"])
+
+    def test_r2_aliased_module_getattr_is_unknown_reach(self) -> None:
+        self._set_evaluator(
+            b"import io as x\n\n"
+            b"def evaluate(subject):\n"
+            b"    return getattr(x, 'open')(subject['path'], 'rb').read()\n",
+            allowed_external=["io"],
+        )
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn(self._R2_GETATTR_FINDING, receipt["unknown_reach"])
+
+    def test_r2_getattr_on_evaluator_owned_object_is_unknown_reach(self) -> None:
+        cases = {
+            "getattr_literal": (
+                b"class Policy:\n    threshold = 3\n\n"
+                b"POLICY = Policy()\nTHRESHOLD = getattr(POLICY, 'threshold')\n"
+            ),
+            "getattr_default": (
+                b"class Policy:\n    threshold = 3\n\n"
+                b"THRESHOLD = getattr(Policy, 'threshold', 0)\n"
+            ),
+            "hasattr_literal": (
+                b"class Policy:\n    threshold = 3\n\n"
+                b"HAS = hasattr(Policy, 'threshold')\n"
+            ),
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source)
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r2_nested_or_aliased_getattr_result_is_unknown_reach(self) -> None:
+        cases = {
+            "aliased_builtin": (
+                b"import io\ng = getattr\nNAME = 'semantic/config.json'\n"
+                b"opener = g(io, 'open')\nCONFIG = opener(NAME, 'rb').read()\n"
+            ),
+            "nested_getattr": (
+                b"import io\nNAME = 'semantic/config.json'\n"
+                b"CONFIG = getattr(getattr(io, 'open'), '__call__')(NAME, 'rb').read()\n"
+            ),
+            "stored_result": (
+                b"import io\nREADER = getattr(io, 'open')\n\n"
+                b"def evaluate(subject):\n    return READER(subject['path']).read()\n"
+            ),
+            "attrgetter_alias": (
+                b"import io\nfrom operator import attrgetter as ag\n"
+                b"NAME = 'semantic/config.json'\nCONFIG = ag('open')(io)(NAME, 'rb').read()\n"
+            ),
+            "methodcaller": (
+                b"import operator\nNAME = 'semantic/config.json'\n"
+                b"CONFIG = operator.methodcaller('read_text')(NAME)\n"
+            ),
+            "module_dict": (
+                b"import io\nNAME = 'semantic/config.json'\n"
+                b"CONFIG = io.__dict__['open'](NAME, 'rb').read()\n"
+            ),
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=["io", "operator"])
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r2_setattr_is_unknown_reach(self) -> None:
+        self._set_evaluator(
+            b"from . import helper\nsetattr(helper, 'VALUE', 9)\nVALUE = helper.VALUE\n"
+        )
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn(
+            "getattr-family attribute access: builtins.setattr: semantic/evaluator.py",
+            receipt["unknown_reach"],
+        )
+
+    def test_r2_delattr_is_unknown_reach(self) -> None:
+        self._set_evaluator(b"from . import helper\ndelattr(helper, 'VALUE')\n")
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn(
+            "getattr-family attribute access: builtins.delattr: semantic/evaluator.py",
+            receipt["unknown_reach"],
+        )
+
+    def test_r2_direct_safe_code_without_getattr_keeps_behavior(self) -> None:
+        self._assert_disposition("PASS", self._evaluate())
+        self._set_evaluator(
+            b"from . import helper\n"
+            b"VALUE = helper.VALUE\n"
+            b"SCHEMA = open('semantic/schema.json', 'rb').read()\n"
+            b"TOTAL = sum([VALUE, len(SCHEMA)])\n"
+        )
+        self._assert_disposition("PASS", self._evaluate())
+        self._assert_disposition(
+            "CLOSURE_HIT", self._change("semantic/helper.py", b"VALUE = 7\n")
+        )
+
+    def test_r2_unrelated_change_with_getattr_outside_reach_passes(self) -> None:
+        receipt = self._change(
+            "ordinary/source.py",
+            b"import io\nOPENER = getattr(io, 'open')\nsetattr(io, 'X', 1)\n",
+        )
+        self._assert_disposition("PASS", receipt)
+        self.assertEqual(["ordinary/source.py"], receipt["changed_paths"])
+
+    def test_r2_protected_state_unchanged_after_getattr_unknown_reach(self) -> None:
+        self._set_evaluator(
+            b"import io\nNAME = 'semantic/config.json'\n"
+            b"CONFIG = getattr(io, 'open')(NAME, 'rb').read()\n",
+            allowed_external=["io"],
+        )
+        self._trusted_epoch_path(self.epoch)
+        before = self._protected_state()
+        receipt = self._evaluate()
+        self.assertEqual(before, self._protected_state())
+        self._assert_disposition("UNKNOWN_REACH", receipt)
+        proposal = self._commit("ordinary change", {"ordinary/source.py": b"VALUE = 4\n"})
+        self._assert_protected_non_pass("UNKNOWN_REACH", proposal)
+
+    def test_mutant_getattr_family_to_pass_is_killed(self) -> None:
+        self._set_evaluator(
+            b"import io\n\n"
+            b"def evaluate(subject):\n"
+            b"    return getattr(io, 'open')(subject['path'], 'rb').read()\n",
+            allowed_external=["io"],
+        )
+        with mock.patch.object(closure, "_getattr_family_findings", return_value=[]):
+            actual = self._evaluate()["disposition"]
+        self._assert_mutant_killed("UNKNOWN_REACH", actual)
+        self.assertEqual("PASS", actual)
+
+    def test_mutant_reinstate_literal_getattr_exemption_is_killed(self) -> None:
+        self._set_evaluator(
+            b"import io as x\nNAME = 'semantic/config.json'\n"
+            b"CONFIG = getattr(x, 'open')(NAME, 'rb').read()\n",
+            allowed_external=["io"],
+        )
+
+        def mutant(path, syntax, aliases):
+            findings = []
+            for node in ast.walk(syntax):
+                if not isinstance(node, ast.Call):
+                    continue
+                if closure._canonical_name(node.func, aliases) not in closure._GETATTR_FAMILY:
+                    continue
+                name = node.args[1] if len(node.args) >= 2 else None
+                if not (isinstance(name, ast.Constant) and type(name.value) is str):
+                    findings.append(f"dynamic attribute access: {path}")
+            return findings
+
+        with mock.patch.object(closure, "_getattr_family_findings", side_effect=mutant):
             actual = self._evaluate()["disposition"]
         self._assert_mutant_killed("UNKNOWN_REACH", actual)
         self.assertEqual("PASS", actual)

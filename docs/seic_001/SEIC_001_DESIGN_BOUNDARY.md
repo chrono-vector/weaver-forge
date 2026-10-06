@@ -84,8 +84,7 @@ Supported (statically understood):
   `pathlib.Path(<literal>).read_bytes() | read_text() | open()` (also through
   import aliases), where the literal is a normalized ESS path.
 - Ordinary computation, plus the code-owned safe builtin allowlist (container,
-  numeric, string, iteration, type-check, and exception builtins), and
-  `getattr`/`hasattr`/`setattr`/`delattr` with a literal non-dunder name.
+  numeric, string, iteration, type-check, and exception builtins).
 
 `UNKNOWN_REACH` (fail closed):
 
@@ -108,8 +107,11 @@ Supported (statically understood):
 - builtins outside the safe allowlist (for example `__import__`, `eval`,
   `exec`, `compile`, `globals`, `locals`, `vars`, `input`, `breakpoint`), and
   any non-call reference to `open`/`io.open` (aliasing a reader);
-- dynamic `getattr`-family access and introspection escapes (`__subclasses__`,
-  `__globals__`, `__builtins__`, frame attributes, and similar);
+- every `getattr`/`hasattr`/`setattr`/`delattr` use (R2: calls and bare
+  references, literal names included; no safe-receiver exemption),
+  `operator.attrgetter`/`operator.methodcaller`, and introspection escapes
+  (`__dict__`, `__getattr__`, `__subclasses__`, `__globals__`, `__builtins__`,
+  frame attributes, and similar);
 - non-literal or non-ESS reads, `pathlib` use outside the recognized literal
   read form, `codecs.open`, `io.FileIO`, `io.open_code`, and resource or
   plugin-discovery method calls on unknown receivers (`read_text`,

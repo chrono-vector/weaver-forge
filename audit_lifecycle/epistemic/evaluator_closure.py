@@ -240,8 +240,17 @@ _SAFE_BUILTINS = frozenset(
     if isinstance(getattr(builtins, name), type)
     and issubclass(getattr(builtins, name), BaseException)
 )
-_ATTRIBUTE_BUILTIN_CALLS = frozenset(
-    {"builtins.delattr", "builtins.getattr", "builtins.hasattr", "builtins.setattr"}
+# SEIC-v0 fails closed on every getattr-family use (calls and references);
+# there is no safe-receiver or literal-name exemption.
+_GETATTR_FAMILY = frozenset(
+    {
+        "builtins.delattr",
+        "builtins.getattr",
+        "builtins.hasattr",
+        "builtins.setattr",
+        "operator.attrgetter",
+        "operator.methodcaller",
+    }
 )
 _READ_PRIMITIVES = frozenset({"builtins.open", "io.open"})
 _UNSUPPORTED_READERS = frozenset({"codecs.open", "io.FileIO", "io.open_code"})
@@ -276,6 +285,9 @@ _INTROSPECTION_ATTRIBUTES = frozenset(
         "__builtins__",
         "__closure__",
         "__code__",
+        "__delattr__",
+        "__dict__",
+        "__getattr__",
         "__getattribute__",
         "__globals__",
         "__import__",
@@ -283,6 +295,7 @@ _INTROSPECTION_ATTRIBUTES = frozenset(
         "__mro__",
         "__reduce__",
         "__reduce_ex__",
+        "__setattr__",
         "__spec__",
         "__subclasses__",
         "ag_frame",
@@ -729,14 +742,28 @@ def _pathlib_read_path(
     return True, _literal_read_path(constructor)
 
 
+def _getattr_family_findings(
+    path: str, syntax: ast.AST, aliases: Mapping[str, str]
+) -> list[str]:
+    """Every getattr-family call or reference in evaluator reach is unknown reach."""
+    findings: list[str] = []
+    for node in ast.walk(syntax):
+        if not isinstance(node, (ast.Name, ast.Attribute)):
+            continue
+        canonical = _canonical_name(node, aliases)
+        if canonical in _GETATTR_FAMILY:
+            findings.append(f"getattr-family attribute access: {canonical}: {path}")
+    return findings
+
+
 def _profile_findings(
     path: str, syntax: ast.AST, bindings: tuple[tuple[str, str, bool], ...]
 ) -> list[str]:
     """Closed SEIC-v0 evaluator syntax profile for one reachable ESS file.
 
     Only statically understood constructs pass.  Reserved semantic machinery,
-    unsupported builtins, star imports, introspection escapes, dynamic
-    attribute access, and file/resource access outside the recognized
+    unsupported builtins, star imports, introspection escapes, every
+    getattr-family use, and file/resource access outside the recognized
     literal-read forms are reported as unknown reach.
     """
     findings: list[str] = []
@@ -767,17 +794,6 @@ def _profile_findings(
             consumed |= _chain_ids(node.func.value.func)
         elif isinstance(node.func, ast.Attribute) and node.func.attr in _RESOURCE_METHODS:
             findings.append(f"unsupported resource access: {node.func.attr}: {path}")
-        if called in _ATTRIBUTE_BUILTIN_CALLS:
-            attribute = node.args[1] if len(node.args) >= 2 else None
-            if (
-                isinstance(attribute, ast.Constant)
-                and type(attribute.value) is str
-                and not attribute.value.startswith("__")
-                and attribute.value not in _INTROSPECTION_ATTRIBUTES
-            ):
-                consumed |= _chain_ids(node.func)
-            else:
-                findings.append(f"dynamic attribute access: {path}")
     for node in ast.walk(syntax):
         if not isinstance(node, (ast.Name, ast.Attribute)) or id(node) in consumed:
             continue
@@ -788,12 +804,14 @@ def _profile_findings(
             isinstance(node, ast.Name)
             and canonical.startswith("builtins.")
             and node.id not in _SAFE_BUILTINS
+            and canonical not in _GETATTR_FAMILY
         ):
             findings.append(f"unsupported builtin reference: {node.id}: {path}")
         if canonical in _READ_PRIMITIVES or canonical in _UNSUPPORTED_READERS:
             findings.append(f"unsupported file access reference: {canonical}: {path}")
         if canonical == "pathlib" or canonical.startswith("pathlib."):
             findings.append(f"unsupported pathlib use: {path}")
+    findings.extend(_getattr_family_findings(path, syntax, aliases))
     return findings
 
 
