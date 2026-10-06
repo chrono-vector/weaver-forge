@@ -13,7 +13,7 @@
 
 `python -m unittest audit_lifecycle.tests.test_evaluator_closure -v`
 
-- 36/36 tests passed.
+- 69/69 tests passed (36 original + 22 R1 + 11 R2).
 - Unrelated normal source change remained `PASS`.
 - Caller semantic input returned `CALLER_SEMANTIC_INPUT`.
 - Direct bytes and proposal-local epoch locations were rejected; epoch records
@@ -27,7 +27,7 @@
 
 ## Mutation Results
 
-Six focused mutant behaviors were exercised and killed by the corresponding
+Twelve focused mutant behaviors were exercised and killed by the corresponding
 security oracle:
 
 1. Skip ESS member comparison.
@@ -36,8 +36,14 @@ security oracle:
 4. Convert `UNKNOWN_REACH` to `PASS`.
 5. Accept caller semantic input.
 6. Compare `M(P)` with the proposal parent instead of `c_E`.
+7. Bypass the external exact-byte epoch binding.
+8. Trust self-declared epoch approval.
+9. Convert aliased semantic reach to `PASS`.
+10. Convert environment-derived semantic input to `PASS`.
+11. Remove the unconditional getattr-family rejection.
+12. Reinstate the literal-name getattr exemption.
 
-Result: `6/6 KILLED`.
+Result: `12/12 KILLED`.
 
 ## Existing Validation
 
@@ -105,21 +111,45 @@ Follow-up to the independent review of candidate
 - New subsystem: `NO`. New authority: `NO`. New digest domain: `NO`. CLOSED
   scope reopened: `NO`.
 
+These `58/58` and `10/10` values are the historical R1 checkpoint. The final
+R2 totals are recorded below.
+
+## R2 Final Closure
+
+R2 candidate: `28c09d005c3002f518523856f01515fd957f33d7`.
+
+- Final focused tests: `69/69 PASS`.
+- Final focused mutations: `12/12 KILLED`.
+- `getattr`, `setattr`, and `delattr` calls or references inside reachable
+  evaluator code produce `UNKNOWN_REACH`; no literal-name or safe-receiver
+  exemption exists in v0.
+- `hasattr`, `operator.attrgetter`, `operator.methodcaller`, and applicable
+  dunder attribute access such as `__dict__` are treated conservatively as
+  `UNKNOWN_REACH`.
+- The concrete indirect `getattr(io, "open")` semantic-read path, including a
+  caller-derived or non-literal path, is closed.
+- The external exact-byte `trusted_epoch_sha256` trust binding remains intact.
+  Epoch contents cannot authenticate themselves, and self-declared approval is
+  not trusted.
+- Both material findings from the R1 review are closed. The final focused Codex
+  review found `0` new material findings and recommended
+  `ACCEPT_WITH_NONMATERIAL_LIMITATIONS`.
+- Conservative overblocking is intentional and remains non-authoritative. It
+  does not create approval, correctness, Human Final, or production permission.
+
 ## Remaining Limitations
 
-- Python reach analysis is intentionally bounded and conservative; constructs
-  outside the closed SEIC-v0 profile fail closed rather than claiming complete
-  dependency discovery, so some benign evaluator code may be `UNKNOWN_REACH`.
-- The approval binding proves only which exact epoch bytes the caller presents as
-  Human-approved; protecting the Human approval record itself is outside v0.
-- Local name rebinding and scoping are not modelled; the profile compensates by
-  rejecting all unsafe builtins and reserved modules wherever they appear.
-- Non-Python evaluator languages are not interpreted by v0.
-- External imports must be human-classified as non-semantic in the epoch; SEIC-v0
-  does not attest external package integrity.
-- Git object availability and local Git correctness are environmental assumptions.
-- No production epoch, proposal authorization, or independent reproduction is
-  established by these local synthetic tests.
+- Conservative overblocking is intentional in v0; benign evaluator code outside
+  the closed profile may produce `UNKNOWN_REACH`.
+- No safe-receiver getattr model exists; the getattr family fails closed.
+- Local name rebinding and scope analysis remain limited.
+- Third-party non-semantic import classification remains Human-controlled;
+  SEIC-v0 does not attest external package integrity.
+- Protection of the Human approval record supplying `trusted_epoch_sha256` is
+  outside v0.
+- Non-Python evaluators are not interpreted.
+- No production authorization is established. These local synthetic tests also
+  do not establish independent reproduction.
 
 Exact evidence ceiling:
 `LOCAL_SEIC_V0_IMPLEMENTATION_AND_SYNTHETIC_VALIDATION_AT_PINNED_REPOSITORY_STATE`.
