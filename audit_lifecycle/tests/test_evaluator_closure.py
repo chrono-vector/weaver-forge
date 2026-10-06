@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import subprocess
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -15,6 +18,10 @@ from audit_lifecycle.epistemic.serialize import canonical_dumps
 
 def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+# Sentinel: the test plays the Human approver and binds the exact epoch bytes.
+_BOUND = object()
 
 
 class EvaluatorClosureTests(unittest.TestCase):
@@ -138,12 +145,17 @@ class EvaluatorClosureTests(unittest.TestCase):
             },
             "closure_policy": {
                 "epoch_declaration_paths": ["config/evaluator_epoch.json"],
-                "non_semantic_paths": ["ordinary"],
             },
         }
 
     def _epoch_bytes(self, **overrides) -> bytes:
         return canonical_dumps(self._epoch_record(**overrides)).encode("utf-8")
+
+    def _trusted_epoch_path(self, epoch_bytes: bytes) -> Path:
+        epoch_path = self.trusted / f"{_sha(epoch_bytes)}.json"
+        if not epoch_path.exists():
+            epoch_path.write_bytes(epoch_bytes)
+        return epoch_path
 
     def _evaluate(
         self,
@@ -151,15 +163,21 @@ class EvaluatorClosureTests(unittest.TestCase):
         epoch: bytes | None = None,
         *,
         caller_semantic_input=None,
+        binding=_BOUND,
     ) -> dict:
+        """Evaluate with the independently protected Human approval binding.
+
+        By default the binding is the SHA-256 of the exact epoch bytes used;
+        ``binding=None`` omits it and any other value is passed unchanged.
+        """
         epoch_bytes = self.epoch if epoch is None else epoch
-        epoch_path = self.trusted / f"{_sha(epoch_bytes)}.json"
-        if not epoch_path.exists():
-            epoch_path.write_bytes(epoch_bytes)
+        epoch_path = self._trusted_epoch_path(epoch_bytes)
+        trusted = _sha(epoch_bytes) if binding is _BOUND else binding
         return closure.evaluate_closure(
             self.root,
             epoch_path,
             self.base if proposal is None else proposal,
+            trusted_epoch_sha256=trusted,
             caller_semantic_input=caller_semantic_input,
         )
 
@@ -485,11 +503,439 @@ class EvaluatorClosureTests(unittest.TestCase):
     def test_mutant_compare_against_proposal_parent_is_killed(self) -> None:
         self._commit("semantic first commit", {"semantic/config.json": b'{"threshold":7}\n'})
         proposal = self._commit("unrelated second commit", {"ordinary/source.py": b"VALUE = 2\n"})
-        with mock.patch.object(
-            closure, "_changed_paths", side_effect=closure._changed_paths_from_parent
-        ):
+        def mutant(root, _base, target):
+            parent = str(closure._git(root, "rev-parse", f"{target}^")).strip()
+            return closure._changed_paths_between(root, parent, target)
+
+        with mock.patch.object(closure, "_changed_paths", side_effect=mutant):
             actual = self._evaluate(proposal)["disposition"]
         self._assert_mutant_killed("CLOSURE_HIT", actual)
+        self.assertEqual("PASS", actual)
+
+    # ------------------------------------------------------------------
+    # R1 helpers
+    # ------------------------------------------------------------------
+
+    def _set_evaluator(
+        self,
+        source: bytes,
+        *,
+        allowed_external: list[str] | None = None,
+        extra: dict[str, bytes] | None = None,
+    ) -> None:
+        files = {"semantic/evaluator.py": source, **(extra or {})}
+        self._write_files(files)
+        self._git("add", "-A")
+        self._git("commit", "--amend", "-q", "--no-edit")
+        self.base = self._git("rev-parse", "HEAD")
+        self.base_files.update(files)
+        self.epoch = self._epoch_bytes(
+            evaluator_source=source,
+            extra_ess=extra,
+            allowed_external=allowed_external,
+        )
+
+    def _protected_state(self) -> tuple:
+        trusted = tuple(
+            sorted((path.name, path.read_bytes()) for path in self.trusted.iterdir())
+        )
+        return (
+            self._git("rev-parse", "HEAD"),
+            self._git("status", "--porcelain=v1", "--untracked-files=all"),
+            self._git("for-each-ref"),
+            (self.root / closure.CHECKER_RELATIVE_PATH).read_bytes(),
+            Path(closure.__file__).read_bytes(),
+            trusted,
+        )
+
+    def _assert_protected_non_pass(self, expected: str, proposal=None, **kwargs) -> dict:
+        """Evaluate one failure case and require unchanged protected state."""
+        epoch = kwargs.get("epoch")
+        self._trusted_epoch_path(self.epoch if epoch is None else epoch)
+        before = self._protected_state()
+        receipt = self._evaluate(proposal, **kwargs)
+        self.assertEqual(before, self._protected_state())
+        self._assert_disposition(expected, receipt)
+        self.assertNotEqual("PASS", receipt["disposition"])
+        return receipt
+
+    def _attacker_epoch(self) -> bytes:
+        """Canonical epoch that self-declares approval and selects its own ESS."""
+        record = self._epoch_record()
+        keep = {
+            closure.CHECKER_RELATIVE_PATH,
+            "config/evaluator_epoch.json",
+            "semantic/helper.py",
+        }
+        record["approval_status"] = "HUMAN_APPROVED"
+        record["human_approval_ref"] = "HUMAN-FORGED-BY-ATTACKER"
+        record["evaluator_entrypoints"] = ["semantic/helper.py"]
+        record["ess"] = [entry for entry in record["ess"] if entry["relative_path"] in keep]
+        return canonical_dumps(record).encode("utf-8")
+
+    # ------------------------------------------------------------------
+    # R1-1 trusted epoch approval binding
+    # ------------------------------------------------------------------
+
+    def test_r1_self_declared_approval_without_binding_is_non_pass(self) -> None:
+        record = self._epoch_record()
+        self.assertEqual("HUMAN_APPROVED", record["approval_status"])
+        proposal = self._commit("ordinary change", {"ordinary/source.py": b"VALUE = 3\n"})
+        receipt = self._assert_protected_non_pass(
+            "REQUIRE_HUMAN_REVIEW", proposal, binding=None
+        )
+        self.assertEqual("UNRESOLVED", receipt["epoch_id"])
+        self._assert_disposition("PASS", self._evaluate(proposal))
+
+    def test_r1_substituted_epoch_bytes_are_rejected(self) -> None:
+        approved = _sha(self.epoch)
+        substituted = self._epoch_bytes(epoch_id="SEIC-EPOCH-SUBSTITUTED")
+        self._assert_protected_non_pass(
+            "EPOCH_MISMATCH", epoch=substituted, binding=approved
+        )
+        reformatted = json.dumps(self._epoch_record(), indent=2).encode("utf-8")
+        self._assert_protected_non_pass(
+            "EPOCH_MISMATCH", epoch=reformatted, binding=approved
+        )
+        self._assert_protected_non_pass("INVALID", binding=approved.upper())
+        self._assert_protected_non_pass("INVALID", binding=approved.encode("ascii"))
+
+    def test_r1_changed_approval_fields_cannot_establish_trust(self) -> None:
+        approved = _sha(self.epoch)
+        record = self._epoch_record()
+        record["human_approval_ref"] = "HUMAN-FORGED-999"
+        forged_ref = canonical_dumps(record).encode("utf-8")
+        self._assert_protected_non_pass("EPOCH_MISMATCH", epoch=forged_ref, binding=approved)
+        self._assert_protected_non_pass("REQUIRE_HUMAN_REVIEW", epoch=forged_ref, binding=None)
+
+        unapproved = self._epoch_bytes(approval_status="UNAPPROVED")
+        self._assert_protected_non_pass("REQUIRE_HUMAN_REVIEW", epoch=unapproved)
+        flipped = unapproved.replace(b'"UNAPPROVED"', b'"HUMAN_APPROVED"', 1)
+        self.assertNotEqual(unapproved, flipped)
+        self._assert_protected_non_pass(
+            "EPOCH_MISMATCH", epoch=flipped, binding=_sha(unapproved)
+        )
+        self._assert_protected_non_pass("REQUIRE_HUMAN_REVIEW", epoch=flipped, binding=None)
+
+    def test_r1_attacker_selected_ess_in_self_declared_epoch_cannot_pass(self) -> None:
+        proposal = self._commit(
+            "semantic threshold change", {"semantic/config.json": b'{"threshold":0}\n'}
+        )
+        attacker = self._attacker_epoch()
+        self._assert_protected_non_pass(
+            "REQUIRE_HUMAN_REVIEW", proposal, epoch=attacker, binding=None
+        )
+        self._assert_protected_non_pass(
+            "EPOCH_MISMATCH", proposal, epoch=attacker, binding=_sha(self.epoch)
+        )
+        self._assert_protected_non_pass("CLOSURE_HIT", proposal)
+
+    # ------------------------------------------------------------------
+    # R1-2 closed evaluator syntax / reach profile
+    # ------------------------------------------------------------------
+
+    def test_r1_import_as_reach_is_handled(self) -> None:
+        self._set_evaluator(b"import semantic.helper as h\nVALUE = h.VALUE\n")
+        self._assert_disposition("PASS", self._evaluate())
+        self._assert_disposition(
+            "CLOSURE_HIT", self._change("semantic/helper.py", b"VALUE = 5\n")
+        )
+
+    def test_r1_import_as_outside_ess_or_machinery_is_unknown_reach(self) -> None:
+        self._set_evaluator(b"import ordinary.source as s\nVALUE = s.VALUE\n")
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn("repo-local import outside ESS: ordinary/source.py", receipt["unknown_reach"])
+        self._set_evaluator(
+            b"import importlib as il\nPLUGIN = il.import_module('plug')\n",
+            allowed_external=["importlib"],
+        )
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn("dynamic semantic loading: semantic/evaluator.py", receipt["unknown_reach"])
+
+    def test_r1_from_import_as_reach_is_handled(self) -> None:
+        self._set_evaluator(b"from semantic import helper as h\nVALUE = h.VALUE\n")
+        self._assert_disposition("PASS", self._evaluate())
+        self._assert_disposition(
+            "CLOSURE_HIT", self._change("semantic/helper.py", b"VALUE = 6\n")
+        )
+
+    def test_r1_from_import_as_unknown_constructs_are_unknown_reach(self) -> None:
+        cases = {
+            "import_module_alias": (
+                b"from importlib import import_module as im\nPLUGIN = im('plug')\n",
+                ["importlib"],
+            ),
+            "member_outside_ess": (
+                b"from ordinary import source as s\nVALUE = s.VALUE\n",
+                [],
+            ),
+            "pathlib_alias_outside_ess": (
+                b"from pathlib import Path as P\n"
+                b"DATA = P('semantic/generated.json').read_bytes()\n",
+                ["pathlib"],
+            ),
+        }
+        for name, (source, allowed) in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=allowed)
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r1_aliased_pathlib_read_inside_ess_is_understood(self) -> None:
+        self._set_evaluator(
+            b"from pathlib import Path as P\n"
+            b"DATA = P('semantic/schema.json').read_bytes()\n",
+            allowed_external=["pathlib"],
+        )
+        self._assert_disposition("PASS", self._evaluate())
+        self._assert_disposition(
+            "CLOSURE_HIT", self._change("semantic/schema.json", b'{"type":"null"}\n')
+        )
+
+    def test_r1_aliased_sys_path_manipulation_is_unknown_reach(self) -> None:
+        cases = {
+            "import_sys_as": b"import sys as s\ns.path.insert(0, 'plugins')\n",
+            "from_sys_import_path_as": b"from sys import path as p\np.append('plugins')\n",
+            "slice_assignment": b"from sys import path as p\np[:0] = ['plugins']\n",
+            "unaliased": b"import sys\nsys.path.insert(0, 'plugins')\n",
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=["sys"])
+                receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+                self.assertTrue(
+                    any("reserved semantic machinery import: sys" in item for item in receipt["unknown_reach"])
+                )
+
+    def test_r1_closed_profile_rejects_unsupported_semantic_constructs(self) -> None:
+        allowed = ["importlib", "json", "pkg_resources", "plugins_lib", "runpy"]
+        cases = {
+            "star_import": b"from semantic.helper import *\n",
+            "eval": b"VALUE = eval('1')\n",
+            "exec": b"exec('VALUE = 1')\n",
+            "compile": b"CODE = compile('1', 'x', 'eval')\n",
+            "globals": b"SCOPE = globals()\n",
+            "dunder_import": b"MODULE = __import__('json')\n",
+            "builtin_alias": b"loader = __import__\nMODULE = loader('json')\n",
+            "introspection": b"CLASSES = object.__subclasses__()\n",
+            "dynamic_getattr": b"import json\nNAME = 'loads'\nF = getattr(json, NAME)\n",
+            "entry_points_alias": (
+                b"from importlib import metadata as md\nPLUGINS = md.entry_points()\n"
+            ),
+            "pkg_resources": (
+                b"import pkg_resources as pr\nPLUGINS = pr.iter_entry_points('seic')\n"
+            ),
+            "plugin_discovery_method": (
+                b"import plugins_lib\nPLUGINS = plugins_lib.entry_points(group='seic')\n"
+            ),
+            "runpy": b"import runpy\nSCOPE = runpy.run_path('plugin.py')\n",
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=allowed)
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r1_generated_input_outside_ess_is_unknown_reach(self) -> None:
+        self._set_evaluator(b"DATA = open('build/generated_policy.json', 'rb').read()\n")
+        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
+        self.assertIn(
+            "semantic data read outside ESS: build/generated_policy.json",
+            receipt["unknown_reach"],
+        )
+
+    # ------------------------------------------------------------------
+    # R1-3 environment / process and indirect caller semantics
+    # ------------------------------------------------------------------
+
+    def test_r1_environment_derived_semantic_input_is_non_pass(self) -> None:
+        self._assert_protected_non_pass(
+            "CALLER_SEMANTIC_INPUT", caller_semantic_input=os.environ
+        )
+        cases = {
+            "os_alias_environ": (
+                b"import os as o\nTHRESHOLD = o.environ.get('SEIC_THRESHOLD')\n"
+            ),
+            "getenv_alias": b"from os import getenv as g\nTHRESHOLD = g('SEIC_THRESHOLD')\n",
+            "from_os_environ": b"from os import environ\nTHRESHOLD = environ['SEIC_THRESHOLD']\n",
+            "argv_alias": b"import sys as s\nMODE = s.argv[1]\n",
+            "stdin_input": b"MODE = input()\n",
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=["os", "sys"])
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r1_indirect_semantic_file_reference_is_non_pass(self) -> None:
+        allowed = ["io", "pathlib"]
+        cases = {
+            "variable_path": (
+                b"CONFIG_PATH = 'semantic/config.json'\n"
+                b"CONFIG = open(CONFIG_PATH, 'rb').read()\n"
+            ),
+            "stored_path_object": (
+                b"from pathlib import Path\n"
+                b"CONFIG_FILE = Path('semantic/config.json')\n"
+                b"CONFIG = CONFIG_FILE.read_text()\n"
+            ),
+            "pointer_file": (
+                b"POINTER = open('semantic/config.json', 'rb').read().decode().strip()\n"
+                b"CONFIG = open(POINTER, 'rb').read()\n"
+            ),
+            "open_alias": (
+                b"reader = open\nCONFIG = reader('semantic/config.json', 'rb').read()\n"
+            ),
+            "io_alias_dynamic": (
+                b"import io as stream\nNAME = 'semantic/config.json'\n"
+                b"CONFIG = stream.open(NAME, 'rb').read()\n"
+            ),
+            "getattr_reader": (
+                b"from pathlib import Path\n"
+                b"CONFIG = getattr(Path('semantic/config.json'), 'read_text')()\n"
+            ),
+        }
+        for name, source in cases.items():
+            with self.subTest(case=name):
+                self._set_evaluator(source, allowed_external=allowed)
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r1_nested_indirect_caller_semantic_configuration_is_non_pass(self) -> None:
+        caller_inputs = {
+            "nested": {"subject": {"evaluator": {"policy": {"threshold": 99}}}},
+            "aliased_field": {"thr3shold_alias": 99},
+            "file_reference": {"config_ref": "semantic/config.json"},
+            "mapping_proxy": types.MappingProxyType({}),
+            "list_wrapper": [{"threshold": 99}],
+        }
+        for name, value in caller_inputs.items():
+            with self.subTest(caller_input=name):
+                self._assert_protected_non_pass(
+                    "CALLER_SEMANTIC_INPUT", caller_semantic_input=value
+                )
+        sources = {
+            "scope_reread": (
+                b"import json\n\n"
+                b"def evaluate(subject):\n"
+                b"    scope = json.loads(open(subject['scope_path'], 'rb').read())\n"
+                b"    return scope['policy']['required_vectors']\n"
+            ),
+            "aliased_policy_field": (
+                b"def evaluate(subject):\n"
+                b"    return getattr(subject, subject['policy_field'])\n"
+            ),
+        }
+        for name, source in sources.items():
+            with self.subTest(source=name):
+                self._set_evaluator(source, allowed_external=["json"])
+                self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    # ------------------------------------------------------------------
+    # R1 controls and cleanup
+    # ------------------------------------------------------------------
+
+    def test_r1_unrelated_change_outside_evaluator_path_still_passes(self) -> None:
+        self._assert_disposition("PASS", self._evaluate())
+        receipt = self._change(
+            "ordinary/source.py",
+            b"import os as o\nimport importlib as il\n"
+            b"VALUE = o.environ.get('X')\nPLUGIN = il.import_module('plug')\n",
+        )
+        self._assert_disposition("PASS", receipt)
+        self.assertEqual(["ordinary/source.py"], receipt["changed_paths"])
+
+    def test_r1_protected_state_unchanged_for_every_new_failure_case(self) -> None:
+        approved = _sha(self.epoch)
+        self._assert_protected_non_pass("REQUIRE_HUMAN_REVIEW", binding=None)
+        self._assert_protected_non_pass(
+            "EPOCH_MISMATCH", epoch=self._attacker_epoch(), binding=approved
+        )
+        self._assert_protected_non_pass("INVALID", binding="0" * 63)
+        self._assert_protected_non_pass(
+            "CALLER_SEMANTIC_INPUT", caller_semantic_input={"a": {"b": 1}}
+        )
+        self._set_evaluator(
+            b"import sys as s\ns.path.insert(0, 'x')\n", allowed_external=["sys"]
+        )
+        self._assert_protected_non_pass("UNKNOWN_REACH")
+        self._set_evaluator(
+            b"from os import getenv as g\nT = g('X')\n", allowed_external=["os"]
+        )
+        self._assert_protected_non_pass("UNKNOWN_REACH")
+
+    def test_r1_non_semantic_paths_removed_and_helper_not_in_production(self) -> None:
+        record = self._epoch_record()
+        self.assertNotIn("non_semantic_paths", record["closure_policy"])
+        record["closure_policy"]["non_semantic_paths"] = ["ordinary"]
+        stale = canonical_dumps(record).encode("utf-8")
+        self._assert_protected_non_pass("INVALID", epoch=stale)
+        self.assertFalse(hasattr(closure, "_changed_paths_from_parent"))
+        source = Path(closure.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("non_semantic_paths", source)
+
+    # ------------------------------------------------------------------
+    # R1 mutation coverage
+    # ------------------------------------------------------------------
+
+    def test_mutant_bypass_external_epoch_binding_is_killed(self) -> None:
+        proposal = self._commit(
+            "semantic threshold change", {"semantic/config.json": b'{"threshold":0}\n'}
+        )
+        with mock.patch.object(closure, "_verify_epoch_binding", return_value=None):
+            actual = self._evaluate(
+                proposal, epoch=self._attacker_epoch(), binding=_sha(self.epoch)
+            )["disposition"]
+        self._assert_mutant_killed("EPOCH_MISMATCH", actual)
+        self.assertEqual("PASS", actual)
+
+    def test_mutant_trust_self_declared_approval_is_killed(self) -> None:
+        proposal = self._commit(
+            "semantic threshold change", {"semantic/config.json": b'{"threshold":0}\n'}
+        )
+        original = closure._verify_epoch_binding
+
+        def mutant(raw, binding):
+            try:
+                declared = json.loads(raw)
+            except ValueError:
+                declared = {}
+            if (
+                type(declared) is dict
+                and declared.get("approval_status") == "HUMAN_APPROVED"
+                and declared.get("human_approval_ref")
+            ):
+                return None
+            return original(raw, binding)
+
+        with mock.patch.object(closure, "_verify_epoch_binding", side_effect=mutant):
+            actual = self._evaluate(
+                proposal, epoch=self._attacker_epoch(), binding=None
+            )["disposition"]
+        self._assert_mutant_killed("REQUIRE_HUMAN_REVIEW", actual)
+        self.assertEqual("PASS", actual)
+
+    def test_mutant_alias_reach_to_pass_is_killed(self) -> None:
+        self._set_evaluator(
+            b"import sys as s\ns.path.insert(0, 'plugins')\n", allowed_external=["sys"]
+        )
+        original = closure._import_bindings
+
+        def mutant(syntax, package_parts):
+            return tuple(
+                binding for binding in original(syntax, package_parts) if not binding[2]
+            )
+
+        with mock.patch.object(closure, "_import_bindings", side_effect=mutant):
+            actual = self._evaluate()["disposition"]
+        self._assert_mutant_killed("UNKNOWN_REACH", actual)
+        self.assertEqual("PASS", actual)
+
+    def test_mutant_environment_semantic_input_to_pass_is_killed(self) -> None:
+        self._set_evaluator(
+            b"import os as o\nTHRESHOLD = o.environ.get('SEIC_THRESHOLD')\n",
+            allowed_external=["os"],
+        )
+        relaxed = closure._RESERVED_SEMANTIC_MODULES - {"os"}
+        with mock.patch.object(closure, "_RESERVED_SEMANTIC_MODULES", relaxed):
+            actual = self._evaluate()["disposition"]
+        self._assert_mutant_killed("UNKNOWN_REACH", actual)
         self.assertEqual("PASS", actual)
 
 

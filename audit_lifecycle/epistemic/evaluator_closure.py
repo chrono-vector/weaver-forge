@@ -1,14 +1,19 @@
 """Non-authoritative semantic evaluator isolation closure v0.
 
-The checker reads committed Git objects only.  A human-approved, canonical
-epoch record pins the accepted base, this checker, evaluator entrypoints, and
-their evaluator semantic surface (ESS).  A closure receipt may block or defer;
-it never authorizes a proposal or changes Weaver evidence semantics.
+The checker reads committed Git objects only.  A canonical epoch record pins
+the accepted base, this checker, evaluator entrypoints, and their evaluator
+semantic surface (ESS).  The record never authenticates itself: it is trusted
+only when its exact bytes match an independently protected plain SHA-256
+binding that the caller supplies from the Human approval record.  Reachable
+ESS Python must stay inside the closed SEIC-v0 evaluator syntax profile;
+anything else is UNKNOWN_REACH.  A closure receipt may block or defer; it
+never authorizes a proposal or changes Weaver evidence semantics.
 """
 
 from __future__ import annotations
 
 import ast
+import builtins
 import hashlib
 import json
 import os
@@ -57,9 +62,7 @@ _ESS_FIELDS = frozenset({"relative_path", "sha256"})
 _SEMANTIC_CONFIG_FIELDS = frozenset(
     {"caller_semantic_input", "non_semantic_external_imports"}
 )
-_POLICY_FIELDS = frozenset(
-    {"epoch_declaration_paths", "non_semantic_paths"}
-)
+_POLICY_FIELDS = frozenset({"epoch_declaration_paths"})
 _RECEIPT_FIELDS = frozenset(
     {
         "schema_version",
@@ -92,6 +95,7 @@ _LIMITATIONS = (
 _DYNAMIC_CALLS = frozenset(
     {
         "__import__",
+        "builtins.__import__",
         "importlib.import_module",
         "importlib.util.spec_from_file_location",
         "pkgutil.iter_modules",
@@ -108,6 +112,187 @@ _PATH_MUTATORS = frozenset(
         "sys.path.remove",
         "sys.path.reverse",
         "sys.path.sort",
+    }
+)
+# Closed SEIC-v0 evaluator syntax profile.  These code-owned constants cannot
+# be relaxed by an epoch record: import machinery, plugin discovery, and
+# process/environment/filesystem-discovery modules are never non-semantic.
+_RESERVED_SEMANTIC_MODULES = frozenset(
+    {
+        "__main__",
+        "_imp",
+        "_io",
+        "argparse",
+        "builtins",
+        "code",
+        "codeop",
+        "configparser",
+        "ctypes",
+        "distutils",
+        "dotenv",
+        "fileinput",
+        "getopt",
+        "getpass",
+        "glob",
+        "imp",
+        "importlib",
+        "importlib_metadata",
+        "importlib_resources",
+        "inspect",
+        "locale",
+        "marshal",
+        "multiprocessing",
+        "nt",
+        "optparse",
+        "os",
+        "pickle",
+        "pkg_resources",
+        "pkgutil",
+        "platform",
+        "pluggy",
+        "posix",
+        "runpy",
+        "setuptools",
+        "shelve",
+        "shutil",
+        "site",
+        "sitecustomize",
+        "socket",
+        "stevedore",
+        "subprocess",
+        "sys",
+        "sysconfig",
+        "tempfile",
+        "usercustomize",
+        "zipimport",
+    }
+)
+_BUILTIN_NAMES = frozenset(dir(builtins))
+_SAFE_BUILTINS = frozenset(
+    {
+        "Ellipsis",
+        "False",
+        "None",
+        "NotImplemented",
+        "True",
+        "__debug__",
+        "__doc__",
+        "__name__",
+        "abs",
+        "aiter",
+        "all",
+        "anext",
+        "any",
+        "ascii",
+        "bin",
+        "bool",
+        "bytearray",
+        "bytes",
+        "callable",
+        "chr",
+        "classmethod",
+        "complex",
+        "dict",
+        "divmod",
+        "enumerate",
+        "filter",
+        "float",
+        "format",
+        "frozenset",
+        "hash",
+        "hex",
+        "id",
+        "int",
+        "isinstance",
+        "issubclass",
+        "iter",
+        "len",
+        "list",
+        "map",
+        "max",
+        "memoryview",
+        "min",
+        "next",
+        "object",
+        "oct",
+        "ord",
+        "pow",
+        "print",
+        "property",
+        "range",
+        "repr",
+        "reversed",
+        "round",
+        "set",
+        "slice",
+        "sorted",
+        "staticmethod",
+        "str",
+        "sum",
+        "super",
+        "tuple",
+        "type",
+        "zip",
+    }
+) | frozenset(
+    name
+    for name in _BUILTIN_NAMES
+    if isinstance(getattr(builtins, name), type)
+    and issubclass(getattr(builtins, name), BaseException)
+)
+_ATTRIBUTE_BUILTIN_CALLS = frozenset(
+    {"builtins.delattr", "builtins.getattr", "builtins.hasattr", "builtins.setattr"}
+)
+_READ_PRIMITIVES = frozenset({"builtins.open", "io.open"})
+_UNSUPPORTED_READERS = frozenset({"codecs.open", "io.FileIO", "io.open_code"})
+_PATHLIB_CONSTRUCTORS = frozenset({"Path", "pathlib.Path"})
+_PATHLIB_READ_METHODS = frozenset({"open", "read_bytes", "read_text"})
+_RESOURCE_METHODS = frozenset(
+    {
+        "entry_points",
+        "exec_module",
+        "find_spec",
+        "get_data",
+        "get_resource_reader",
+        "glob",
+        "iter_entry_points",
+        "iterdir",
+        "listdir",
+        "load_module",
+        "open",
+        "read_bytes",
+        "read_text",
+        "resource_filename",
+        "resource_stream",
+        "resource_string",
+        "rglob",
+        "scandir",
+    }
+)
+_INTROSPECTION_ATTRIBUTES = frozenset(
+    {
+        "__base__",
+        "__bases__",
+        "__builtins__",
+        "__closure__",
+        "__code__",
+        "__getattribute__",
+        "__globals__",
+        "__import__",
+        "__loader__",
+        "__mro__",
+        "__reduce__",
+        "__reduce_ex__",
+        "__spec__",
+        "__subclasses__",
+        "ag_frame",
+        "cr_frame",
+        "f_back",
+        "f_builtins",
+        "f_globals",
+        "f_locals",
+        "gi_frame",
+        "tb_frame",
     }
 )
 
@@ -274,7 +459,6 @@ def parse_epoch_record(raw: bytes) -> dict[str, Any]:
     )
     if not declaration_paths:
         _fail("INVALID", "epoch_declaration_paths must not be empty")
-    _canonical_strings(policy["non_semantic_paths"], "non_semantic_paths", paths=True)
 
     ess_set = set(ess_paths)
     required_members = {checker_path, *entrypoints, *declaration_paths}
@@ -392,12 +576,6 @@ def _changed_paths(root: Path, base: str, proposal: str) -> tuple[str, ...]:
     return _changed_paths_between(root, base, proposal)
 
 
-def _changed_paths_from_parent(root: Path, _base: str, proposal: str) -> tuple[str, ...]:
-    """Mutation-test primitive: the forbidden proposal-parent comparison."""
-    parent = str(_git(root, "rev-parse", f"{proposal}^")).strip()
-    return _changed_paths_between(root, parent, proposal)
-
-
 def _dotted_name(node: ast.AST) -> str | None:
     if isinstance(node, ast.Name):
         return node.id
@@ -406,6 +584,61 @@ def _dotted_name(node: ast.AST) -> str | None:
         if parent:
             return f"{parent}.{node.attr}"
     return None
+
+
+def _import_bindings(
+    syntax: ast.AST, package_parts: list[str]
+) -> tuple[tuple[str, str, bool], ...]:
+    """Return ``(local name, canonical target, aliased)`` for every import."""
+    bindings: list[tuple[str, str, bool]] = []
+    for node in ast.walk(syntax):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname:
+                    bindings.append((alias.asname, alias.name, True))
+                else:
+                    top_level = alias.name.split(".", 1)[0]
+                    bindings.append((top_level, top_level, False))
+        elif isinstance(node, ast.ImportFrom):
+            prefix: list[str] = []
+            if node.level:
+                remove = node.level - 1
+                if remove > len(package_parts):
+                    continue
+                prefix = package_parts[: len(package_parts) - remove]
+            module_parts = node.module.split(".") if node.module else []
+            module = ".".join([*prefix, *module_parts])
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                target = f"{module}.{alias.name}" if module else alias.name
+                bindings.append(
+                    (alias.asname or alias.name, target, alias.asname is not None)
+                )
+    return tuple(bindings)
+
+
+def _canonical_name(node: ast.AST, aliases: Mapping[str, str]) -> str | None:
+    dotted = _dotted_name(node)
+    if dotted is None:
+        return None
+    head, separator, rest = dotted.partition(".")
+    if head in aliases:
+        return f"{aliases[head]}{separator}{rest}"
+    if head in _BUILTIN_NAMES:
+        return f"builtins.{dotted}"
+    return dotted
+
+
+def _chain_ids(node: ast.AST) -> set[int]:
+    identities: set[int] = set()
+    current = node
+    while isinstance(current, ast.Attribute):
+        identities.add(id(current))
+        current = current.value
+    if isinstance(current, ast.Name):
+        identities.add(id(current))
+    return identities
 
 
 def _module_candidates(module: str) -> tuple[str, str]:
@@ -441,6 +674,39 @@ def _resolve_module(
         findings.append(f"unresolved import: {module}")
 
 
+def _resolve_parent_packages(
+    module: str, tree: set[str], ess: set[str], findings: list[str], queue: list[str]
+) -> None:
+    """Importing ``a.b.c`` also executes repo-local ``a`` and ``a.b`` packages."""
+    parts = module.split(".")
+    for index in range(1, len(parts)):
+        package_init = "/".join(parts[:index]) + "/__init__.py"
+        if package_init not in tree:
+            continue
+        if package_init not in ess:
+            findings.append(f"repo-local import outside ESS: {package_init}")
+        else:
+            queue.append(package_init)
+
+
+def _resolve_from_members(
+    module: str,
+    node: ast.ImportFrom,
+    tree: set[str],
+    ess: set[str],
+    allowed_external: set[str],
+    findings: list[str],
+    queue: list[str],
+) -> None:
+    """``from pkg import name [as alias]`` may import the submodule pkg.name."""
+    for alias in node.names:
+        if alias.name == "*":
+            continue
+        member = f"{module}.{alias.name}"
+        if any(candidate in tree for candidate in _module_candidates(member)):
+            _resolve_module(member, tree, ess, allowed_external, findings, queue)
+
+
 def _literal_read_path(call: ast.Call) -> str | None:
     if not call.args or not isinstance(call.args[0], ast.Constant):
         return None
@@ -448,17 +714,87 @@ def _literal_read_path(call: ast.Call) -> str | None:
     return value if type(value) is str else None
 
 
-def _pathlib_read_path(call: ast.Call) -> tuple[bool, str | None]:
+def _pathlib_read_path(
+    call: ast.Call, aliases: Mapping[str, str]
+) -> tuple[bool, str | None]:
     if not isinstance(call.func, ast.Attribute):
         return False, None
-    if call.func.attr not in {"open", "read_bytes", "read_text"}:
+    if call.func.attr not in _PATHLIB_READ_METHODS:
         return False, None
     constructor = call.func.value
     if not isinstance(constructor, ast.Call):
         return False, None
-    if _dotted_name(constructor.func) not in {"Path", "pathlib.Path"}:
+    if _canonical_name(constructor.func, aliases) not in _PATHLIB_CONSTRUCTORS:
         return False, None
     return True, _literal_read_path(constructor)
+
+
+def _profile_findings(
+    path: str, syntax: ast.AST, bindings: tuple[tuple[str, str, bool], ...]
+) -> list[str]:
+    """Closed SEIC-v0 evaluator syntax profile for one reachable ESS file.
+
+    Only statically understood constructs pass.  Reserved semantic machinery,
+    unsupported builtins, star imports, introspection escapes, dynamic
+    attribute access, and file/resource access outside the recognized
+    literal-read forms are reported as unknown reach.
+    """
+    findings: list[str] = []
+    aliases: dict[str, str] = {}
+    for local, target, _aliased in bindings:
+        if target.split(".", 1)[0] in _RESERVED_SEMANTIC_MODULES:
+            findings.append(f"reserved semantic machinery import: {target}: {path}")
+        if aliases.get(local, target) != target:
+            findings.append(f"ambiguous import binding: {local}: {path}")
+        aliases[local] = target
+    consumed: set[int] = set()
+    for node in ast.walk(syntax):
+        if isinstance(node, ast.ImportFrom) and any(
+            alias.name == "*" for alias in node.names
+        ):
+            findings.append(f"star import: {path}")
+        if isinstance(node, ast.Attribute) and node.attr in _INTROSPECTION_ATTRIBUTES:
+            findings.append(f"introspection escape: {node.attr}: {path}")
+        if not isinstance(node, ast.Call):
+            continue
+        called = _canonical_name(node.func, aliases)
+        is_pathlib_read, _literal = _pathlib_read_path(node, aliases)
+        if called in _READ_PRIMITIVES:
+            consumed |= _chain_ids(node.func)
+        elif is_pathlib_read:
+            assert isinstance(node.func, ast.Attribute)
+            assert isinstance(node.func.value, ast.Call)
+            consumed |= _chain_ids(node.func.value.func)
+        elif isinstance(node.func, ast.Attribute) and node.func.attr in _RESOURCE_METHODS:
+            findings.append(f"unsupported resource access: {node.func.attr}: {path}")
+        if called in _ATTRIBUTE_BUILTIN_CALLS:
+            attribute = node.args[1] if len(node.args) >= 2 else None
+            if (
+                isinstance(attribute, ast.Constant)
+                and type(attribute.value) is str
+                and not attribute.value.startswith("__")
+                and attribute.value not in _INTROSPECTION_ATTRIBUTES
+            ):
+                consumed |= _chain_ids(node.func)
+            else:
+                findings.append(f"dynamic attribute access: {path}")
+    for node in ast.walk(syntax):
+        if not isinstance(node, (ast.Name, ast.Attribute)) or id(node) in consumed:
+            continue
+        canonical = _canonical_name(node, aliases)
+        if canonical is None:
+            continue
+        if (
+            isinstance(node, ast.Name)
+            and canonical.startswith("builtins.")
+            and node.id not in _SAFE_BUILTINS
+        ):
+            findings.append(f"unsupported builtin reference: {node.id}: {path}")
+        if canonical in _READ_PRIMITIVES or canonical in _UNSUPPORTED_READERS:
+            findings.append(f"unsupported file access reference: {canonical}: {path}")
+        if canonical == "pathlib" or canonical.startswith("pathlib."):
+            findings.append(f"unsupported pathlib use: {path}")
+    return findings
 
 
 def _proposal_shadow_findings(
@@ -509,6 +845,9 @@ def _analyze_reach(root: Path, record: Mapping[str, Any]) -> tuple[str, ...]:
             continue
 
         package_parts = list(PurePosixPath(path).parent.parts)
+        bindings = _import_bindings(syntax, package_parts)
+        findings.extend(_profile_findings(path, syntax, bindings))
+        aliases = {local: target for local, target, _aliased in bindings}
         for node in ast.walk(syntax):
             if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                 targets: list[ast.AST] = []
@@ -516,15 +855,18 @@ def _analyze_reach(root: Path, record: Mapping[str, Any]) -> tuple[str, ...]:
                     targets.extend(node.targets)
                 else:
                     targets.append(node.target)
-                if any((_dotted_name(target) or "").startswith("sys.path") for target in targets):
+                if any(
+                    (_canonical_name(target, aliases) or "").startswith("sys.path")
+                    for target in targets
+                ):
                     findings.append(f"sys.path manipulation: {path}")
             if isinstance(node, ast.Call):
-                called = _dotted_name(node.func)
+                called = _canonical_name(node.func, aliases)
                 if called in _DYNAMIC_CALLS:
                     findings.append(f"dynamic semantic loading: {path}")
                 if called in _PATH_MUTATORS:
                     findings.append(f"sys.path manipulation: {path}")
-                if called in {"open", "io.open"}:
+                if called in _READ_PRIMITIVES:
                     literal = _literal_read_path(node)
                     if literal is None:
                         findings.append(f"dynamic semantic data read: {path}")
@@ -536,7 +878,7 @@ def _analyze_reach(root: Path, record: Mapping[str, Any]) -> tuple[str, ...]:
                         else:
                             if read_path not in ess:
                                 findings.append(f"semantic data read outside ESS: {read_path}")
-                is_pathlib_read, pathlib_literal = _pathlib_read_path(node)
+                is_pathlib_read, pathlib_literal = _pathlib_read_path(node, aliases)
                 if is_pathlib_read:
                     if pathlib_literal is None:
                         findings.append(f"dynamic pathlib semantic data read: {path}")
@@ -552,6 +894,7 @@ def _analyze_reach(root: Path, record: Mapping[str, Any]) -> tuple[str, ...]:
                                 )
             if isinstance(node, ast.Import):
                 for alias in node.names:
+                    _resolve_parent_packages(alias.name, tree, ess, findings, queue)
                     _resolve_module(
                         alias.name, tree, ess, allowed_external, findings, queue
                     )
@@ -570,12 +913,21 @@ def _analyze_reach(root: Path, record: Mapping[str, Any]) -> tuple[str, ...]:
                         if not module:
                             findings.append(f"unresolved relative import: {path}")
                         else:
+                            _resolve_parent_packages(module, tree, ess, findings, queue)
                             _resolve_module(
                                 module, tree, ess, allowed_external, findings, queue
                             )
+                    if node.module and modules[0]:
+                        _resolve_from_members(
+                            modules[0], node, tree, ess, allowed_external, findings, queue
+                        )
                 elif node.module:
+                    _resolve_parent_packages(node.module, tree, ess, findings, queue)
                     _resolve_module(
                         node.module, tree, ess, allowed_external, findings, queue
+                    )
+                    _resolve_from_members(
+                        node.module, node, tree, ess, allowed_external, findings, queue
                     )
 
     return tuple(sorted(set(findings), key=lambda item: item.encode("utf-8")))
@@ -612,6 +964,26 @@ def _load_trusted_epoch(root: Path, trusted_epoch_path: str | Path) -> bytes:
     except OSError:
         _fail("INVALID", "trusted epoch location is unreadable")
     raise AssertionError("unreachable")
+
+
+def _verify_epoch_binding(raw: bytes, trusted_epoch_sha256: Any) -> None:
+    """Require the independently protected Human approval binding.
+
+    The binding is the plain SHA-256 of the exact epoch record bytes.  It must
+    come from the Human approval record held outside the proposal repository
+    and outside the epoch file; nothing inside the epoch can supply it.
+    """
+    if trusted_epoch_sha256 is None:
+        _fail(
+            "REQUIRE_HUMAN_REVIEW",
+            "no independently protected epoch approval binding was supplied",
+        )
+    expected = _require_sha256(trusted_epoch_sha256, "trusted_epoch_sha256")
+    if _sha256(raw) != expected:
+        _fail(
+            "EPOCH_MISMATCH",
+            "epoch record bytes do not match the trusted approval binding",
+        )
 
 
 def _receipt(
@@ -687,9 +1059,16 @@ def evaluate_closure(
     trusted_epoch_path: str | Path,
     proposal_commit: str,
     *,
+    trusted_epoch_sha256: Any = None,
     caller_semantic_input: Any = None,
 ) -> dict[str, Any]:
-    """Evaluate SEIC-v0 closure without writing repository or protected state."""
+    """Evaluate SEIC-v0 closure without writing repository or protected state.
+
+    ``trusted_epoch_sha256`` is the independently protected Human approval
+    binding: the plain SHA-256 of the exact approved epoch record bytes.  It is
+    required; ``approval_status`` and ``human_approval_ref`` inside the record
+    are descriptive only and can never establish trust.
+    """
     root = Path(repository).resolve()
     record: dict[str, Any] | None = None
     safe_proposal = (
@@ -700,6 +1079,7 @@ def evaluate_closure(
     raw = b""
     try:
         raw = _load_trusted_epoch(root, trusted_epoch_path)
+        _verify_epoch_binding(raw, trusted_epoch_sha256)
         record = parse_epoch_record(raw)
         proposal = _require_commit(proposal_commit, "proposal_commit")
         base = record["accepted_base_commit"]
@@ -707,6 +1087,7 @@ def evaluate_closure(
             _fail("EPOCH_MISMATCH", "accepted base or proposal commit does not exist")
         if not _is_ancestor(root, base, proposal):
             _fail("EPOCH_MISMATCH", "proposal is not a descendant of accepted base")
+        # Descriptive only: a bound record may withhold trust, never create it.
         if record["approval_status"] != "HUMAN_APPROVED":
             return _receipt(
                 record=record,
