@@ -1,0 +1,328 @@
+diff --git a/audit_lifecycle/epistemic/evaluator_closure.py b/audit_lifecycle/epistemic/evaluator_closure.py
+index c62467ae2b00447fbf92aac099ce6101f2acda36..ddfeb4b9cf1c0cd56462da4efe92b719b02f23bd 100644
+--- a/audit_lifecycle/epistemic/evaluator_closure.py
++++ b/audit_lifecycle/epistemic/evaluator_closure.py
+@@ -240,8 +240,17 @@ _SAFE_BUILTINS = frozenset(
+     if isinstance(getattr(builtins, name), type)
+     and issubclass(getattr(builtins, name), BaseException)
+ )
+-_ATTRIBUTE_BUILTIN_CALLS = frozenset(
+-    {"builtins.delattr", "builtins.getattr", "builtins.hasattr", "builtins.setattr"}
++# SEIC-v0 fails closed on every getattr-family use (calls and references);
++# there is no safe-receiver or literal-name exemption.
++_GETATTR_FAMILY = frozenset(
++    {
++        "builtins.delattr",
++        "builtins.getattr",
++        "builtins.hasattr",
++        "builtins.setattr",
++        "operator.attrgetter",
++        "operator.methodcaller",
++    }
+ )
+ _READ_PRIMITIVES = frozenset({"builtins.open", "io.open"})
+ _UNSUPPORTED_READERS = frozenset({"codecs.open", "io.FileIO", "io.open_code"})
+@@ -276,6 +285,9 @@ _INTROSPECTION_ATTRIBUTES = frozenset(
+         "__builtins__",
+         "__closure__",
+         "__code__",
++        "__delattr__",
++        "__dict__",
++        "__getattr__",
+         "__getattribute__",
+         "__globals__",
+         "__import__",
+@@ -283,6 +295,7 @@ _INTROSPECTION_ATTRIBUTES = frozenset(
+         "__mro__",
+         "__reduce__",
+         "__reduce_ex__",
++        "__setattr__",
+         "__spec__",
+         "__subclasses__",
+         "ag_frame",
+@@ -729,14 +742,28 @@ def _pathlib_read_path(
+     return True, _literal_read_path(constructor)
+ 
+ 
++def _getattr_family_findings(
++    path: str, syntax: ast.AST, aliases: Mapping[str, str]
++) -> list[str]:
++    """Every getattr-family call or reference in evaluator reach is unknown reach."""
++    findings: list[str] = []
++    for node in ast.walk(syntax):
++        if not isinstance(node, (ast.Name, ast.Attribute)):
++            continue
++        canonical = _canonical_name(node, aliases)
++        if canonical in _GETATTR_FAMILY:
++            findings.append(f"getattr-family attribute access: {canonical}: {path}")
++    return findings
++
++
+ def _profile_findings(
+     path: str, syntax: ast.AST, bindings: tuple[tuple[str, str, bool], ...]
+ ) -> list[str]:
+     """Closed SEIC-v0 evaluator syntax profile for one reachable ESS file.
+ 
+     Only statically understood constructs pass.  Reserved semantic machinery,
+-    unsupported builtins, star imports, introspection escapes, dynamic
+-    attribute access, and file/resource access outside the recognized
++    unsupported builtins, star imports, introspection escapes, every
++    getattr-family use, and file/resource access outside the recognized
+     literal-read forms are reported as unknown reach.
+     """
+     findings: list[str] = []
+@@ -767,17 +794,6 @@ def _profile_findings(
+             consumed |= _chain_ids(node.func.value.func)
+         elif isinstance(node.func, ast.Attribute) and node.func.attr in _RESOURCE_METHODS:
+             findings.append(f"unsupported resource access: {node.func.attr}: {path}")
+-        if called in _ATTRIBUTE_BUILTIN_CALLS:
+-            attribute = node.args[1] if len(node.args) >= 2 else None
+-            if (
+-                isinstance(attribute, ast.Constant)
+-                and type(attribute.value) is str
+-                and not attribute.value.startswith("__")
+-                and attribute.value not in _INTROSPECTION_ATTRIBUTES
+-            ):
+-                consumed |= _chain_ids(node.func)
+-            else:
+-                findings.append(f"dynamic attribute access: {path}")
+     for node in ast.walk(syntax):
+         if not isinstance(node, (ast.Name, ast.Attribute)) or id(node) in consumed:
+             continue
+@@ -788,12 +804,14 @@ def _profile_findings(
+             isinstance(node, ast.Name)
+             and canonical.startswith("builtins.")
+             and node.id not in _SAFE_BUILTINS
++            and canonical not in _GETATTR_FAMILY
+         ):
+             findings.append(f"unsupported builtin reference: {node.id}: {path}")
+         if canonical in _READ_PRIMITIVES or canonical in _UNSUPPORTED_READERS:
+             findings.append(f"unsupported file access reference: {canonical}: {path}")
+         if canonical == "pathlib" or canonical.startswith("pathlib."):
+             findings.append(f"unsupported pathlib use: {path}")
++    findings.extend(_getattr_family_findings(path, syntax, aliases))
+     return findings
+ 
+ 
+diff --git a/audit_lifecycle/tests/test_evaluator_closure.py b/audit_lifecycle/tests/test_evaluator_closure.py
+index 068b038ab3d40b09ced8a70ef6caf7ea3861dce2..03894f1961b839d9b9e980d6820c0c9509b6e313 100644
+--- a/audit_lifecycle/tests/test_evaluator_closure.py
++++ b/audit_lifecycle/tests/test_evaluator_closure.py
+@@ -2,6 +2,7 @@
+ 
+ from __future__ import annotations
+ 
++import ast
+ import hashlib
+ import json
+ import os
+@@ -938,6 +939,181 @@ class EvaluatorClosureTests(unittest.TestCase):
+         self._assert_mutant_killed("UNKNOWN_REACH", actual)
+         self.assertEqual("PASS", actual)
+ 
++    # ------------------------------------------------------------------
++    # R2 getattr-family fails closed in evaluator reach
++    # ------------------------------------------------------------------
++
++    _R2_GETATTR_FINDING = "getattr-family attribute access: builtins.getattr: semantic/evaluator.py"
++
++    def test_r2_getattr_io_open_with_caller_path_is_unknown_reach(self) -> None:
++        cases = {
++            "caller_path": (
++                b"import io\n\n"
++                b"def evaluate(subject):\n"
++                b"    return getattr(io, 'open')(subject['path'], 'rb').read()\n"
++            ),
++            "non_literal_path": (
++                b"import io\nNAME = 'semantic/config.json'\n"
++                b"CONFIG = getattr(io, 'open')(NAME, 'rb').read()\n"
++            ),
++        }
++        for name, source in cases.items():
++            with self.subTest(case=name):
++                self._set_evaluator(source, allowed_external=["io"])
++                receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
++                self.assertIn(self._R2_GETATTR_FINDING, receipt["unknown_reach"])
++
++    def test_r2_aliased_module_getattr_is_unknown_reach(self) -> None:
++        self._set_evaluator(
++            b"import io as x\n\n"
++            b"def evaluate(subject):\n"
++            b"    return getattr(x, 'open')(subject['path'], 'rb').read()\n",
++            allowed_external=["io"],
++        )
++        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
++        self.assertIn(self._R2_GETATTR_FINDING, receipt["unknown_reach"])
++
++    def test_r2_getattr_on_evaluator_owned_object_is_unknown_reach(self) -> None:
++        cases = {
++            "getattr_literal": (
++                b"class Policy:\n    threshold = 3\n\n"
++                b"POLICY = Policy()\nTHRESHOLD = getattr(POLICY, 'threshold')\n"
++            ),
++            "getattr_default": (
++                b"class Policy:\n    threshold = 3\n\n"
++                b"THRESHOLD = getattr(Policy, 'threshold', 0)\n"
++            ),
++            "hasattr_literal": (
++                b"class Policy:\n    threshold = 3\n\n"
++                b"HAS = hasattr(Policy, 'threshold')\n"
++            ),
++        }
++        for name, source in cases.items():
++            with self.subTest(case=name):
++                self._set_evaluator(source)
++                self._assert_protected_non_pass("UNKNOWN_REACH")
++
++    def test_r2_nested_or_aliased_getattr_result_is_unknown_reach(self) -> None:
++        cases = {
++            "aliased_builtin": (
++                b"import io\ng = getattr\nNAME = 'semantic/config.json'\n"
++                b"opener = g(io, 'open')\nCONFIG = opener(NAME, 'rb').read()\n"
++            ),
++            "nested_getattr": (
++                b"import io\nNAME = 'semantic/config.json'\n"
++                b"CONFIG = getattr(getattr(io, 'open'), '__call__')(NAME, 'rb').read()\n"
++            ),
++            "stored_result": (
++                b"import io\nREADER = getattr(io, 'open')\n\n"
++                b"def evaluate(subject):\n    return READER(subject['path']).read()\n"
++            ),
++            "attrgetter_alias": (
++                b"import io\nfrom operator import attrgetter as ag\n"
++                b"NAME = 'semantic/config.json'\nCONFIG = ag('open')(io)(NAME, 'rb').read()\n"
++            ),
++            "methodcaller": (
++                b"import operator\nNAME = 'semantic/config.json'\n"
++                b"CONFIG = operator.methodcaller('read_text')(NAME)\n"
++            ),
++            "module_dict": (
++                b"import io\nNAME = 'semantic/config.json'\n"
++                b"CONFIG = io.__dict__['open'](NAME, 'rb').read()\n"
++            ),
++        }
++        for name, source in cases.items():
++            with self.subTest(case=name):
++                self._set_evaluator(source, allowed_external=["io", "operator"])
++                self._assert_protected_non_pass("UNKNOWN_REACH")
++
++    def test_r2_setattr_is_unknown_reach(self) -> None:
++        self._set_evaluator(
++            b"from . import helper\nsetattr(helper, 'VALUE', 9)\nVALUE = helper.VALUE\n"
++        )
++        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
++        self.assertIn(
++            "getattr-family attribute access: builtins.setattr: semantic/evaluator.py",
++            receipt["unknown_reach"],
++        )
++
++    def test_r2_delattr_is_unknown_reach(self) -> None:
++        self._set_evaluator(b"from . import helper\ndelattr(helper, 'VALUE')\n")
++        receipt = self._assert_protected_non_pass("UNKNOWN_REACH")
++        self.assertIn(
++            "getattr-family attribute access: builtins.delattr: semantic/evaluator.py",
++            receipt["unknown_reach"],
++        )
++
++    def test_r2_direct_safe_code_without_getattr_keeps_behavior(self) -> None:
++        self._assert_disposition("PASS", self._evaluate())
++        self._set_evaluator(
++            b"from . import helper\n"
++            b"VALUE = helper.VALUE\n"
++            b"SCHEMA = open('semantic/schema.json', 'rb').read()\n"
++            b"TOTAL = sum([VALUE, len(SCHEMA)])\n"
++        )
++        self._assert_disposition("PASS", self._evaluate())
++        self._assert_disposition(
++            "CLOSURE_HIT", self._change("semantic/helper.py", b"VALUE = 7\n")
++        )
++
++    def test_r2_unrelated_change_with_getattr_outside_reach_passes(self) -> None:
++        receipt = self._change(
++            "ordinary/source.py",
++            b"import io\nOPENER = getattr(io, 'open')\nsetattr(io, 'X', 1)\n",
++        )
++        self._assert_disposition("PASS", receipt)
++        self.assertEqual(["ordinary/source.py"], receipt["changed_paths"])
++
++    def test_r2_protected_state_unchanged_after_getattr_unknown_reach(self) -> None:
++        self._set_evaluator(
++            b"import io\nNAME = 'semantic/config.json'\n"
++            b"CONFIG = getattr(io, 'open')(NAME, 'rb').read()\n",
++            allowed_external=["io"],
++        )
++        self._trusted_epoch_path(self.epoch)
++        before = self._protected_state()
++        receipt = self._evaluate()
++        self.assertEqual(before, self._protected_state())
++        self._assert_disposition("UNKNOWN_REACH", receipt)
++        proposal = self._commit("ordinary change", {"ordinary/source.py": b"VALUE = 4\n"})
++        self._assert_protected_non_pass("UNKNOWN_REACH", proposal)
++
++    def test_mutant_getattr_family_to_pass_is_killed(self) -> None:
++        self._set_evaluator(
++            b"import io\n\n"
++            b"def evaluate(subject):\n"
++            b"    return getattr(io, 'open')(subject['path'], 'rb').read()\n",
++            allowed_external=["io"],
++        )
++        with mock.patch.object(closure, "_getattr_family_findings", return_value=[]):
++            actual = self._evaluate()["disposition"]
++        self._assert_mutant_killed("UNKNOWN_REACH", actual)
++        self.assertEqual("PASS", actual)
++
++    def test_mutant_reinstate_literal_getattr_exemption_is_killed(self) -> None:
++        self._set_evaluator(
++            b"import io as x\nNAME = 'semantic/config.json'\n"
++            b"CONFIG = getattr(x, 'open')(NAME, 'rb').read()\n",
++            allowed_external=["io"],
++        )
++
++        def mutant(path, syntax, aliases):
++            findings = []
++            for node in ast.walk(syntax):
++                if not isinstance(node, ast.Call):
++                    continue
++                if closure._canonical_name(node.func, aliases) not in closure._GETATTR_FAMILY:
++                    continue
++                name = node.args[1] if len(node.args) >= 2 else None
++                if not (isinstance(name, ast.Constant) and type(name.value) is str):
++                    findings.append(f"dynamic attribute access: {path}")
++            return findings
++
++        with mock.patch.object(closure, "_getattr_family_findings", side_effect=mutant):
++            actual = self._evaluate()["disposition"]
++        self._assert_mutant_killed("UNKNOWN_REACH", actual)
++        self.assertEqual("PASS", actual)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md b/docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md
+index dc5d63ab43e54a05104f0415a077115812a8cc08..f9127b8eda0b8f8c0d4a18e1ade44e5b407cfb36 100644
+--- a/docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md
++++ b/docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md
+@@ -84,8 +84,7 @@ Supported (statically understood):
+   `pathlib.Path(<literal>).read_bytes() | read_text() | open()` (also through
+   import aliases), where the literal is a normalized ESS path.
+ - Ordinary computation, plus the code-owned safe builtin allowlist (container,
+-  numeric, string, iteration, type-check, and exception builtins), and
+-  `getattr`/`hasattr`/`setattr`/`delattr` with a literal non-dunder name.
++  numeric, string, iteration, type-check, and exception builtins).
+ 
+ `UNKNOWN_REACH` (fail closed):
+ 
+@@ -108,8 +107,11 @@ Supported (statically understood):
+ - builtins outside the safe allowlist (for example `__import__`, `eval`,
+   `exec`, `compile`, `globals`, `locals`, `vars`, `input`, `breakpoint`), and
+   any non-call reference to `open`/`io.open` (aliasing a reader);
+-- dynamic `getattr`-family access and introspection escapes (`__subclasses__`,
+-  `__globals__`, `__builtins__`, frame attributes, and similar);
++- every `getattr`/`hasattr`/`setattr`/`delattr` use (R2: calls and bare
++  references, literal names included; no safe-receiver exemption),
++  `operator.attrgetter`/`operator.methodcaller`, and introspection escapes
++  (`__dict__`, `__getattr__`, `__subclasses__`, `__globals__`, `__builtins__`,
++  frame attributes, and similar);
+ - non-literal or non-ESS reads, `pathlib` use outside the recognized literal
+   read form, `codecs.open`, `io.FileIO`, `io.open_code`, and resource or
+   plugin-discovery method calls on unknown receivers (`read_text`,

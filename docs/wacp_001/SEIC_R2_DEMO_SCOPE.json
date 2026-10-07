@@ -1,0 +1,21 @@
+{
+  "base": "de61774360d04ead15762200676c73bd0b5ffd6a",
+  "clean_worktree_required": false,
+  "exclude": [],
+  "head": "28c09d005c3002f518523856f01515fd957f33d7",
+  "include": [
+    "audit_lifecycle/epistemic/evaluator_closure.py",
+    "audit_lifecycle/tests/test_evaluator_closure.py",
+    "docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md"
+  ],
+  "max_bytes": 250000,
+  "review_mode": "independent_review",
+  "schema_version": "wacp.scope_manifest.v0",
+  "scope_id": "SEIC-001-R2-DEMO",
+  "test_status": {
+    "limitation": "Supplied historical SEIC R2 result; WACP did not execute it.",
+    "mutations": "12/12 KILLED",
+    "source": "docs/seic_001/SEIC_001_VERIFICATION.md",
+    "tests": "69/69 PASS"
+  }
+}

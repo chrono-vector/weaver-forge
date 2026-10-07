@@ -1,0 +1,13 @@
+{
+  "base": "<base-git-revision>",
+  "clean_worktree_required": true,
+  "exclude": [],
+  "head": "<head-git-revision>",
+  "include": [
+    "path/to/scoped/files/**"
+  ],
+  "max_bytes": 100000,
+  "review_mode": "implementation",
+  "schema_version": "wacp.scope_manifest.v0",
+  "scope_id": "EXAMPLE-SCOPE"
+}

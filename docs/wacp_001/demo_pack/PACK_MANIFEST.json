@@ -1,0 +1,109 @@
+{
+  "base_head_relationship": "BASE_IS_ANCESTOR",
+  "base_sha": "de61774360d04ead15762200676c73bd0b5ffd6a",
+  "changed_files": [
+    "audit_lifecycle/epistemic/evaluator_closure.py",
+    "audit_lifecycle/tests/test_evaluator_closure.py",
+    "docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md"
+  ],
+  "completeness_status": "PACK_READY",
+  "context_budget": {
+    "max_bytes": 250000,
+    "policy": "NO_TRUNCATION"
+  },
+  "exclude_patterns": [],
+  "excluded_changed_files": [],
+  "generated_artifact_inventory": [
+    {
+      "bytes": 597,
+      "name": "CONTEXT_SUMMARY.md",
+      "sha256": "d641eb138be50b2b69c81403c4f4c58ff9b2d4090eb6895525f7b6b665061e0a"
+    },
+    {
+      "bytes": 15076,
+      "name": "DIFF.patch",
+      "sha256": "d7cd1030737a1e0841d7acb99581029774e04bc4958c15087d310734386fd773"
+    },
+    {
+      "bytes": 44,
+      "name": "OPEN_FINDINGS.md",
+      "sha256": "010faec0de6e041d0a97635df37015992a27977f25f3dc2c075f4e71f5f5bfb9"
+    },
+    {
+      "bytes": 615,
+      "name": "CLAIM_BOUNDARY.md",
+      "sha256": "534b6461e8ca3255e3bdd800fbbbfb5d3ec837dbcc2847a2bbf2c0ab2672cd32"
+    },
+    {
+      "bytes": 407,
+      "name": "TEST_STATUS.md",
+      "sha256": "eb8542ec0cc8c91bd44b21ef35e9d0d872d0589a2e219503c6a5bbc66909c1f5"
+    }
+  ],
+  "generated_byte_size": 20434,
+  "generator": {
+    "name": "weaver-wacp",
+    "version": "0.1.0"
+  },
+  "git": {
+    "diff_renames_config": "UNSET",
+    "external_diff": "DISABLED",
+    "textconv": "DISABLED",
+    "version": "git version 2.53.0.windows.3",
+    "wacp_rename_policy": "NO_RENAMES"
+  },
+  "head_sha": "28c09d005c3002f518523856f01515fd957f33d7",
+  "include_patterns": [
+    "audit_lifecycle/epistemic/evaluator_closure.py",
+    "audit_lifecycle/tests/test_evaluator_closure.py",
+    "docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md"
+  ],
+  "missing_required_sources": [],
+  "nonclaims": [
+    "not_authorization",
+    "not_correctness",
+    "not_safety",
+    "not_completeness_proof",
+    "not_independent_verification",
+    "not_human_final",
+    "not_evidence_promotion",
+    "not_production_permission",
+    "not_excluded_file_irrelevance",
+    "not_selected_file_sufficiency",
+    "not_test_verification",
+    "not_repository_inspection_replacement",
+    "not_reviewer_judgment_replacement"
+  ],
+  "out_of_scope_changed_files": [],
+  "pack_id": "b453a45db731e38e827196e85a977dc64a42e4b937c478211b837aeddff7a927",
+  "repo_identity": {
+    "remote_origin": "https://github.com/chrono-vector/weaver-forge.git"
+  },
+  "review_mode": "independent_review",
+  "schema_version": "wacp.pack_manifest.v0",
+  "scope_id": "SEIC-001-R2-DEMO",
+  "selected_file_inventory": [
+    {
+      "base_sha256": "ba751d3b591c06ff359951ecff7dcebab12fe20fcf3f077ad947f7c437ec62a1",
+      "head_sha256": "aa1eb9d60f12dd8a6ead29808226c117660dda1fc78bd282350c47455ac5bc69",
+      "path": "audit_lifecycle/epistemic/evaluator_closure.py"
+    },
+    {
+      "base_sha256": "d1b9160307594e411f9d47ba7fbe9943facfb7ee443136735ee3d45d26f159a7",
+      "head_sha256": "87b43557a11a5af304456b05f5bc588b7547abaf7ea1a5f133ac577b231f46f7",
+      "path": "audit_lifecycle/tests/test_evaluator_closure.py"
+    },
+    {
+      "base_sha256": "490f4b58d7f396f552c1d6c49afb09ea076d19074f69dd0d2cdd00208bdf296d",
+      "head_sha256": "94a03033e10ecd4cb37ae91b6fb07bdd5a2d010b487352fada3fd166a2d34b7d",
+      "path": "docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md"
+    }
+  ],
+  "selected_files": [
+    "audit_lifecycle/epistemic/evaluator_closure.py",
+    "audit_lifecycle/tests/test_evaluator_closure.py",
+    "docs/seic_001/SEIC_001_DESIGN_BOUNDARY.md"
+  ],
+  "source_scope_manifest_sha256": "9c03759b0aa60ff1f306fc68a42585e8b5e27428139cbc4f525e8ed782c3712a",
+  "version": 0
+}
