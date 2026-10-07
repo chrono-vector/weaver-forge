@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import unittest
 
 from docs.portfolio_state import validate_psm_v0 as psm
@@ -22,7 +21,7 @@ class PSMMutationTests(unittest.TestCase):
                     "claim_id": item["claim_id"],
                     "description": item["description"],
                     "status": "EARNED",
-                    "source_assertions": [],
+                    "source_claim_refs": [],
                 }
             )
         self.assert_killed(mutation)
@@ -57,6 +56,44 @@ class PSMMutationTests(unittest.TestCase):
 
     def test_m9_replace_source_with_unresolved_path_is_killed(self):
         self.assert_killed(lambda value: value["source_records"][0].update(path="docs/missing.md"))
+
+    def test_m10_unrelated_human_final_support_for_stronger_claim_is_killed(self):
+        def mutation(value):
+            value["not_yet_earned"] = [
+                item for item in value["not_yet_earned"]
+                if item["claim_id"] != "production-authorization"
+            ]
+            value["validation_debt"] = [
+                item for item in value["validation_debt"]
+                if item["debt_id"] != "debt-production-authorization"
+            ]
+            value["earned"].append({
+                "claim_id": "production-authorization",
+                "description": "Unsupported production authority.",
+                "status": "EARNED",
+                "source_claim_refs": ["ecp-001:closed-bounded-v0"],
+            })
+        self.assert_killed(mutation)
+
+    def test_m11_remove_blockers_and_inject_stronger_earned_is_killed(self):
+        def mutation(value):
+            value["not_yet_earned"] = []
+            value["validation_debt"] = []
+            value["earned"].append({
+                "claim_id": "independent-reproduction",
+                "description": "Unsupported independent reproduction.",
+                "status": "EARNED",
+                "source_claim_refs": ["wacp-001:closed-bounded-v0"],
+            })
+        self.assert_killed(mutation)
+
+    def test_m12_delete_required_counterexample_is_killed(self):
+        self.assert_killed(lambda value: value.update(counterexamples=[]))
+
+    def test_m13_collapse_history_to_pass_only_is_killed(self):
+        self.assert_killed(
+            lambda value: value["counterexamples"][0].update(outcome_history=["PASS"])
+        )
 
 
 if __name__ == "__main__":

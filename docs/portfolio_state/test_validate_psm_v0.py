@@ -47,17 +47,22 @@ class PSMValidationTests(unittest.TestCase):
 
     def test_earned_requires_resolved_human_final_linkage(self):
         value = record()
-        value["earned"][0]["source_assertions"][0]["source_record_id"] = "seic-001-verification"
+        value["source_records"][0]["record_kind"] = "verification"
         self.assert_invalid(value)
 
     def test_missing_source_record_is_rejected(self):
         value = record()
-        value["earned"][0]["source_assertions"][0]["source_record_id"] = "missing"
+        value["source_records"].pop(0)
         self.assert_invalid(value)
 
-    def test_earned_assertion_must_exist_verbatim_in_source(self):
+    def test_earned_claim_ref_must_match_specific_claim(self):
         value = record()
-        value["earned"][0]["source_assertions"][0]["exact_text"] = "Production authorization granted"
+        value["earned"][0]["source_claim_refs"] = ["ecp-001:closed-bounded-v0"]
+        self.assert_invalid(value)
+
+    def test_bound_claim_description_cannot_assert_stronger_state(self):
+        value = record()
+        value["earned"][2]["description"] = "ECP-001 grants production authorization."
         self.assert_invalid(value)
 
     def test_missing_git_path_is_rejected(self):
@@ -98,9 +103,76 @@ class PSMValidationTests(unittest.TestCase):
 
     def test_self_declared_human_final_source_is_rejected(self):
         value = record()
+        value["source_records"][0]["record_kind"] = "verification"
         value["source_records"][1]["record_kind"] = "human_final"
-        value["earned"][0]["source_assertions"][0]["source_record_id"] = "seic-001-verification"
         self.assert_invalid(value)
+
+    def test_r1_unrelated_accepted_source_cannot_support_stronger_claim(self):
+        value = record()
+        value["earned"].append({
+            "claim_id": "independent-reproduction",
+            "description": "Unsupported stronger claim.",
+            "status": "EARNED",
+            "source_claim_refs": ["wacp-001:closed-bounded-v0"],
+        })
+        self.assert_invalid(value)
+
+    def test_r2_ecp_closure_cannot_support_production_authority(self):
+        value = record()
+        value["earned"].append({
+            "claim_id": "production-authorization",
+            "description": "Unsupported production authority.",
+            "status": "EARNED",
+            "source_claim_refs": ["ecp-001:closed-bounded-v0"],
+        })
+        self.assert_invalid(value)
+
+    def test_r3_blocker_removal_does_not_support_stronger_claim(self):
+        value = record()
+        value["not_yet_earned"] = [
+            item for item in value["not_yet_earned"]
+            if item["claim_id"] != "production-authorization"
+        ]
+        value["validation_debt"] = [
+            item for item in value["validation_debt"]
+            if item["debt_id"] != "debt-production-authorization"
+        ]
+        value["earned"].append({
+            "claim_id": "production-authorization",
+            "description": "Unsupported production authority.",
+            "status": "EARNED",
+            "source_claim_refs": ["ecp-001:closed-bounded-v0"],
+        })
+        self.assert_invalid(value)
+
+    def test_r4_deleting_all_blockers_does_not_create_evidence(self):
+        value = record()
+        value["not_yet_earned"] = []
+        value["validation_debt"] = []
+        value["earned"].append({
+            "claim_id": "production-authorization",
+            "description": "Unsupported production authority.",
+            "status": "EARNED",
+            "source_claim_refs": ["ecp-001:closed-bounded-v0"],
+        })
+        self.assert_invalid(value)
+
+    def test_r5_correctly_bound_earned_claim_is_accepted(self):
+        self.assertEqual(psm.VALID, psm.validation_status(record(), ROOT))
+
+    def test_r6_required_counterexample_cannot_be_deleted(self):
+        value = record()
+        value["counterexamples"] = []
+        self.assert_invalid(value)
+
+    def test_r7_negative_evidence_and_remediation_links_cannot_be_erased(self):
+        value = record()
+        value["counterexamples"][0]["source_record_ids"] = ["seic-001-human-final"]
+        value["counterexamples"][0]["outcome_history"] = ["PASS"]
+        self.assert_invalid(value)
+
+    def test_r8_complete_failure_remediation_pass_chain_is_accepted(self):
+        self.assertEqual(psm.VALID, psm.validation_status(record(), ROOT))
 
     def test_unresolved_revision_commit_is_rejected(self):
         value = record()

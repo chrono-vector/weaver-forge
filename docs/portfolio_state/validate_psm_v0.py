@@ -46,8 +46,7 @@ _SOURCE_KEYS = frozenset({"source_record_id", "path", "git_commit", "record_kind
 _SOURCE_KINDS = frozenset(
     {"human_final", "verification", "wacp_binding", "ecp_record", "counterexample", "remediation"}
 )
-_EARNED_KEYS = frozenset({"claim_id", "description", "status", "source_assertions"})
-_ASSERTION_KEYS = frozenset({"source_record_id", "exact_text"})
+_EARNED_KEYS = frozenset({"claim_id", "description", "status", "source_claim_refs"})
 _NOT_YET_KEYS = frozenset(
     {"claim_id", "description", "status", "source_record_ids", "blocking_debt_ids"}
 )
@@ -77,6 +76,55 @@ _REQUIRED_NONCLAIMS = frozenset(
         "does_not_prove_completeness",
     }
 )
+
+# Closed PSM-v0 interpretation pins. They bind a bounded claim key to one exact
+# accepted source identity and statement; they do not grant authority or infer
+# stronger claims from generic acceptance, tests, replay, or verification.
+_CLAIM_BINDINGS = {
+    "seic-001:closed-bounded-v0": {
+        "claim_id": "seic-001-closed-bounded-v0",
+        "description": "SEIC-001 is closed within its accepted bounded v0 scope and limitations.",
+        "git_commit": "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+        "path": "docs/seic_001/SEIC_001_HUMAN_FINAL.md",
+        "exact_text": "Final status:\nSEIC-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+    },
+    "wacp-001:closed-bounded-v0": {
+        "claim_id": "wacp-001-closed-bounded-v0",
+        "description": "WACP-001 is closed within its accepted bounded v0 scope and limitations.",
+        "git_commit": "ae2050629f2a6586a272afbacb2130affc2ce279",
+        "path": "docs/wacp_001/WACP_001_HUMAN_FINAL.md",
+        "exact_text": "Final status:\nWACP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+    },
+    "ecp-001:closed-bounded-v0": {
+        "claim_id": "ecp-001-closed-bounded-v0",
+        "description": "ECP-001 is closed within its accepted bounded v0 scope and limitations.",
+        "git_commit": "374ff5d9ceecc92cccb6ea7c450e34c3787bb80a",
+        "path": "docs/ecp_001/ECP_001_HUMAN_FINAL.md",
+        "exact_text": "Final status:\nECP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+    },
+}
+_COUNTEREXAMPLE_BINDINGS = {
+    "seic-indirect-attribute-reach": {
+        "trigger_source": (
+            "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+            "docs/seic_001/SEIC_001_HUMAN_FINAL.md",
+        ),
+        "required_sources": frozenset(
+            {
+                (
+                    "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+                    "docs/seic_001/SEIC_001_HUMAN_FINAL.md",
+                ),
+                (
+                    "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+                    "docs/seic_001/SEIC_001_VERIFICATION.md",
+                ),
+            }
+        ),
+        "status": "REMEDIATED",
+        "outcome_history": ("FAIL", "REMEDIATION", "PASS"),
+    }
+}
 
 
 class DuplicateKeyError(ValueError):
@@ -243,28 +291,35 @@ def validate_record(record: Any, repository: str | Path) -> tuple[str, ...]:
         if entry is None:
             continue
         claim_id = _string(entry.get("claim_id"), f"{field}.claim_id", errors)
-        _string(entry.get("description"), f"{field}.description", errors)
+        description = _string(entry.get("description"), f"{field}.description", errors)
         if entry.get("status") != "EARNED":
             errors.append(f"{field}.status must be EARNED")
-        assertions = _exact_list(entry.get("source_assertions"), f"{field}.source_assertions", errors, nonempty=True)
-        assertion_sources: list[str] = []
-        for assertion_index, raw_assertion in enumerate(assertions):
-            assertion_field = f"{field}.source_assertions[{assertion_index}]"
-            assertion = _exact_object(raw_assertion, _ASSERTION_KEYS, assertion_field, errors)
-            if assertion is None:
+        claim_refs = _string_list(
+            entry.get("source_claim_refs"), f"{field}.source_claim_refs", errors, nonempty=True
+        )
+        for claim_ref in claim_refs:
+            binding = _CLAIM_BINDINGS.get(claim_ref)
+            if binding is None:
+                errors.append(f"{field} source claim ref is not in the closed PSM-v0 table: {claim_ref}")
                 continue
-            ref = _string(assertion.get("source_record_id"), f"{assertion_field}.source_record_id", errors)
-            exact_text = _string(assertion.get("exact_text"), f"{assertion_field}.exact_text", errors)
-            if ref is not None:
-                assertion_sources.append(ref)
-                if ref not in source_by_id:
-                    errors.append(f"{assertion_field} references missing source record: {ref}")
-                elif exact_text is not None and exact_text not in source_content.get(ref, ""):
-                    errors.append(f"{assertion_field}.exact_text is absent from the source record")
-        if assertion_sources and not any(
-            source_by_id.get(ref, {}).get("record_kind") == "human_final" for ref in assertion_sources
-        ):
-            errors.append(f"{field} must quote an accepted Human Final source record")
+            if claim_id != binding["claim_id"]:
+                errors.append(f"{field} claim_id does not match source claim ref: {claim_ref}")
+            if description != binding["description"]:
+                errors.append(f"{field} description does not match source claim ref: {claim_ref}")
+            matched_sources = [
+                source_id
+                for source_id, source in source_by_id.items()
+                if source.get("git_commit") == binding["git_commit"]
+                and source.get("path") == binding["path"]
+                and source.get("record_kind") == "human_final"
+            ]
+            if not matched_sources:
+                errors.append(f"{field} source claim ref has no matching accepted source identity: {claim_ref}")
+            elif not any(
+                binding["exact_text"] in source_content.get(source_id, "")
+                for source_id in matched_sources
+            ):
+                errors.append(f"{field} source claim ref statement is absent: {claim_ref}")
         if claim_id is not None:
             if claim_id in earned_ids:
                 errors.append(f"duplicate earned claim_id: {claim_id}")
@@ -341,6 +396,7 @@ def validate_record(record: Any, repository: str | Path) -> tuple[str, ...]:
 
     counterexamples = _exact_list(record.get("counterexamples"), "counterexamples", errors)
     seen_counterexamples: set[str] = set()
+    counterexample_by_id: dict[str, tuple[dict[str, Any], list[str]]] = {}
     for index, raw in enumerate(counterexamples):
         field = f"counterexamples[{index}]"
         item = _exact_object(raw, _COUNTEREXAMPLE_KEYS, field, errors)
@@ -363,6 +419,32 @@ def validate_record(record: Any, repository: str | Path) -> tuple[str, ...]:
             if item_id in seen_counterexamples:
                 errors.append(f"duplicate counterexample_id: {item_id}")
             seen_counterexamples.add(item_id)
+            counterexample_by_id[item_id] = (item, refs)
+
+    source_identities = {
+        (source.get("git_commit"), source.get("path")) for source in source_by_id.values()
+    }
+    for counterexample_id, binding in _COUNTEREXAMPLE_BINDINGS.items():
+        if binding["trigger_source"] not in source_identities:
+            continue
+        preserved = counterexample_by_id.get(counterexample_id)
+        if preserved is None:
+            errors.append(f"required counterexample is missing: {counterexample_id}")
+            continue
+        item, refs = preserved
+        linked_identities = {
+            (
+                source_by_id.get(ref, {}).get("git_commit"),
+                source_by_id.get(ref, {}).get("path"),
+            )
+            for ref in refs
+        }
+        if item.get("status") != binding["status"]:
+            errors.append(f"required counterexample status changed: {counterexample_id}")
+        if tuple(item.get("outcome_history", ())) != binding["outcome_history"]:
+            errors.append(f"required counterexample history changed: {counterexample_id}")
+        if not binding["required_sources"] <= linked_identities:
+            errors.append(f"required counterexample provenance is incomplete: {counterexample_id}")
 
     assumptions = _exact_list(record.get("assumptions"), "assumptions", errors)
     seen_assumptions: set[str] = set()

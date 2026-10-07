@@ -7,8 +7,8 @@ authorization.
 ## Focused results
 
 - Representative PSM-v0 record validation: `VALID`
-- Focused PSM tests: `19/19 PASS`
-- Required PSM mutations: `9/9 KILLED`
+- Focused PSM tests: `28/28 PASS`
+- Required PSM mutations: `13/13 KILLED`
 
 Commands:
 
@@ -17,25 +17,37 @@ python docs/portfolio_state/validate_psm_v0.py docs/portfolio_state/portfolio_st
 python -m unittest docs.portfolio_state.test_validate_psm_v0 docs.portfolio_state.test_mutations
 ```
 
-The focused cases were executed unchanged in six bounded named groups because
-the host terminates a single Windows process at approximately 60 seconds. All
-19 focused cases and all 9 mutation cases ran exactly once in the successful
-groups; no case was skipped or altered.
+The focused cases were executed unchanged in bounded named groups because the
+host terminates a single Windows process at approximately 60 seconds. All 28
+focused cases and all 13 mutation cases ran in successful groups; no case was
+skipped or altered.
 
 The focused suite covers closed top-level and nested fields, deterministic
 serialization, duplicate JSON key rejection, Git-object source resolution,
-accepted Human Final linkage and exact source assertion checks for Earned
-entries, missing source rejection,
+accepted Human Final linkage and code-owned claim-to-source interpretation pins
+for Earned entries, canonical bound descriptions, missing source rejection,
 Earned/NotYetEarned contradiction detection, debt-reference integrity,
 FAIL/remediation/PASS preservation, UNKNOWN separation from PASS, replayability
 separation from independent reproduction, and rejection of authority, Human
 Final, production permission, promotion, and ceiling-override metadata.
 
-Required mutations M1 through M9 were each detected: unsupported promotion from
+Required mutations M1 through M9 remain detected: unsupported promotion from
 NotYetEarned, blocking-debt deletion, limitation-to-authority conversion,
 counterexample-history erasure, UNKNOWN-to-PASS conversion, Human Final
 inference, production-permission inference, independent-reproduction inference,
-and unresolved-source substitution.
+and unresolved-source substitution. Remediation mutations M10 through M13 are
+also killed: unrelated accepted-source substitution for a stronger claim,
+NotYetEarned/debt removal followed by unsupported Earned injection, complete
+required-counterexample deletion, and PASS-only history collapse.
+
+## Material remediation closure
+
+- Unrelated accepted source text cannot support another claim: `PASS`
+- ECP closure/verification cannot support production authorization: `PASS`
+- Removing NotYetEarned or ValidationDebt creates no evidence: `PASS`
+- A required counterexample record cannot be deleted: `PASS`
+- Required negative-evidence and remediation links cannot be deleted: `PASS`
+- `FAIL` / `REMEDIATION` / `PASS` cannot collapse to final PASS: `PASS`
 
 ## Existing Weaver regression
 

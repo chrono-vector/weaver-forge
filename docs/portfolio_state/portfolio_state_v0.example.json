@@ -37,33 +37,24 @@
     {
       "claim_id": "seic-001-closed-bounded-v0",
       "description": "SEIC-001 is closed within its accepted bounded v0 scope and limitations.",
-      "source_assertions": [
-        {
-          "exact_text": "Final status:\nSEIC-001 CLOSED WITH NONMATERIAL LIMITATIONS",
-          "source_record_id": "seic-001-human-final"
-        }
+      "source_claim_refs": [
+        "seic-001:closed-bounded-v0"
       ],
       "status": "EARNED"
     },
     {
       "claim_id": "wacp-001-closed-bounded-v0",
       "description": "WACP-001 is closed within its accepted bounded v0 scope and limitations.",
-      "source_assertions": [
-        {
-          "exact_text": "Final status:\nWACP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
-          "source_record_id": "wacp-001-human-final"
-        }
+      "source_claim_refs": [
+        "wacp-001:closed-bounded-v0"
       ],
       "status": "EARNED"
     },
     {
       "claim_id": "ecp-001-closed-bounded-v0",
       "description": "ECP-001 is closed within its accepted bounded v0 scope and limitations.",
-      "source_assertions": [
-        {
-          "exact_text": "Final status:\nECP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
-          "source_record_id": "ecp-001-human-final"
-        }
+      "source_claim_refs": [
+        "ecp-001:closed-bounded-v0"
       ],
       "status": "EARNED"
     }
