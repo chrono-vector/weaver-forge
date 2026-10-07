@@ -1,0 +1,223 @@
+{
+  "assumptions": [
+    {
+      "assumption_id": "external-human-approval-record-protection",
+      "description": "Protection of the external Human approval record remains outside SEIC-v0.",
+      "source_record_ids": [
+        "seic-001-human-final"
+      ],
+      "status": "UNKNOWN"
+    },
+    {
+      "assumption_id": "local-git-correctness",
+      "description": "Local Git object availability and correctness remain environmental assumptions.",
+      "source_record_ids": [
+        "wacp-001-human-final"
+      ],
+      "status": "UNKNOWN"
+    }
+  ],
+  "counterexamples": [
+    {
+      "counterexample_id": "seic-indirect-attribute-reach",
+      "description": "The getattr-family reach gap was found, remediated, and then accepted; the prior failure remains visible.",
+      "outcome_history": [
+        "FAIL",
+        "REMEDIATION",
+        "PASS"
+      ],
+      "source_record_ids": [
+        "seic-001-verification",
+        "seic-001-human-final"
+      ],
+      "status": "REMEDIATED"
+    }
+  ],
+  "earned": [
+    {
+      "claim_id": "seic-001-closed-bounded-v0",
+      "description": "SEIC-001 is closed within its accepted bounded v0 scope and limitations.",
+      "source_assertions": [
+        {
+          "exact_text": "Final status:\nSEIC-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+          "source_record_id": "seic-001-human-final"
+        }
+      ],
+      "status": "EARNED"
+    },
+    {
+      "claim_id": "wacp-001-closed-bounded-v0",
+      "description": "WACP-001 is closed within its accepted bounded v0 scope and limitations.",
+      "source_assertions": [
+        {
+          "exact_text": "Final status:\nWACP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+          "source_record_id": "wacp-001-human-final"
+        }
+      ],
+      "status": "EARNED"
+    },
+    {
+      "claim_id": "ecp-001-closed-bounded-v0",
+      "description": "ECP-001 is closed within its accepted bounded v0 scope and limitations.",
+      "source_assertions": [
+        {
+          "exact_text": "Final status:\nECP-001 CLOSED WITH NONMATERIAL LIMITATIONS",
+          "source_record_id": "ecp-001-human-final"
+        }
+      ],
+      "status": "EARNED"
+    }
+  ],
+  "epistemic_ceiling": {
+    "ceiling_id": "ecp-001-local-validation-ceiling",
+    "description": "This PSM record preserves and does not strengthen the accepted ECP-001 ceiling.",
+    "source_record_id": "ecp-001-human-final",
+    "verbatim": "LOCAL_ECP_V0_IMPLEMENTATION_AND_VALIDATION_AT_PINNED_REPOSITORY_STATE"
+  },
+  "limitations": [
+    "source-record acceptance remains governed by the referenced authoritative records",
+    "PSM-v0 does not discover omitted validation debt, assumptions, or counterexamples",
+    "Git object resolution establishes availability and identity linkage, not truth or authority",
+    "this representative record is not a complete portfolio inventory"
+  ],
+  "nonclaims": [
+    "does_not_create_authority",
+    "does_not_establish_truth",
+    "does_not_establish_correctness",
+    "does_not_establish_safety",
+    "does_not_promote_evidence",
+    "does_not_promote_claims",
+    "does_not_create_human_final",
+    "does_not_grant_production_permission",
+    "does_not_create_witness_status",
+    "does_not_establish_independent_reproduction",
+    "does_not_replace_authoritative_records",
+    "does_not_prove_completeness"
+  ],
+  "not_yet_earned": [
+    {
+      "blocking_debt_ids": [
+        "debt-independent-reproduction"
+      ],
+      "claim_id": "independent-reproduction",
+      "description": "Independent reproduction is not earned by local records or replayability.",
+      "source_record_ids": [
+        "ecp-001-human-final"
+      ],
+      "status": "NOT_YET_EARNED"
+    },
+    {
+      "blocking_debt_ids": [
+        "debt-production-authorization"
+      ],
+      "claim_id": "production-authorization",
+      "description": "Production authorization is not established by accepted implementation metadata.",
+      "source_record_ids": [
+        "ecp-001-human-final"
+      ],
+      "status": "NOT_YET_EARNED"
+    },
+    {
+      "blocking_debt_ids": [
+        "debt-real-environment-correspondence"
+      ],
+      "claim_id": "real-environment-correspondence",
+      "description": "Real-environment correspondence is not established by local synthetic validation.",
+      "source_record_ids": [
+        "seic-001-human-final"
+      ],
+      "status": "NOT_YET_EARNED"
+    }
+  ],
+  "portfolio_state_id": "psm-001-representative-accepted-state",
+  "replayability": {
+    "independent_reproduction": "NOT_CLAIMED",
+    "source_record_ids": [
+      "wacp-001-human-final"
+    ],
+    "status": "RECORDED"
+  },
+  "revision_provenance": [
+    {
+      "git_commit": "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+      "revision_id": "seic-001-human-final-revision",
+      "source_record_ids": [
+        "seic-001-human-final"
+      ]
+    },
+    {
+      "git_commit": "ae2050629f2a6586a272afbacb2130affc2ce279",
+      "revision_id": "wacp-001-human-final-revision",
+      "source_record_ids": [
+        "wacp-001-human-final"
+      ]
+    },
+    {
+      "git_commit": "374ff5d9ceecc92cccb6ea7c450e34c3787bb80a",
+      "revision_id": "ecp-001-human-final-revision",
+      "source_record_ids": [
+        "ecp-001-human-final"
+      ]
+    }
+  ],
+  "schema_version": "weaver.portfolio_state_metadata.v0",
+  "source_records": [
+    {
+      "git_commit": "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+      "path": "docs/seic_001/SEIC_001_HUMAN_FINAL.md",
+      "record_kind": "human_final",
+      "source_record_id": "seic-001-human-final"
+    },
+    {
+      "git_commit": "9d2e0f85c719307ba12e1ff6fb8b2e8f3ca833d8",
+      "path": "docs/seic_001/SEIC_001_VERIFICATION.md",
+      "record_kind": "verification",
+      "source_record_id": "seic-001-verification"
+    },
+    {
+      "git_commit": "ae2050629f2a6586a272afbacb2130affc2ce279",
+      "path": "docs/wacp_001/WACP_001_HUMAN_FINAL.md",
+      "record_kind": "human_final",
+      "source_record_id": "wacp-001-human-final"
+    },
+    {
+      "git_commit": "374ff5d9ceecc92cccb6ea7c450e34c3787bb80a",
+      "path": "docs/ecp_001/ECP_001_HUMAN_FINAL.md",
+      "record_kind": "human_final",
+      "source_record_id": "ecp-001-human-final"
+    }
+  ],
+  "subject_scope_id": "weaver-forge:accepted-scope-portfolio",
+  "validation_debt": [
+    {
+      "blocked_claims": [
+        "independent-reproduction"
+      ],
+      "closure_condition": "A separately accepted independent reproduction record is referenced by a future portfolio revision.",
+      "debt_id": "debt-independent-reproduction",
+      "description": "No independent reproduction is established by the accepted local records.",
+      "source_reference": "ecp-001-human-final",
+      "status": "OPEN"
+    },
+    {
+      "blocked_claims": [
+        "production-authorization"
+      ],
+      "closure_condition": "A separate authoritative production decision exists outside PSM and is referenced by a future portfolio revision.",
+      "debt_id": "debt-production-authorization",
+      "description": "Production authorization remains unchanged and unearned.",
+      "source_reference": "ecp-001-human-final",
+      "status": "OPEN"
+    },
+    {
+      "blocked_claims": [
+        "real-environment-correspondence"
+      ],
+      "closure_condition": "Accepted evidence explicitly establishes correspondence to the named real environment.",
+      "debt_id": "debt-real-environment-correspondence",
+      "description": "Local and synthetic validation does not establish real-environment correspondence.",
+      "source_reference": "seic-001-human-final",
+      "status": "OPEN"
+    }
+  ]
+}
