@@ -1,0 +1,193 @@
+{
+  "command_inventory": [
+    {
+      "case_id": "PSM_POSITIVE_ACCEPTED_RECORD",
+      "command_id": "CMD_PSM_POSITIVE_ACCEPTED_RECORD",
+      "required": true,
+      "sequence": 1
+    },
+    {
+      "case_id": "PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
+      "command_id": "CMD_PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
+      "required": true,
+      "sequence": 2
+    },
+    {
+      "case_id": "PSM_NEG_SOURCE_BINDING_MISMATCH",
+      "command_id": "CMD_PSM_NEG_SOURCE_BINDING_MISMATCH",
+      "required": true,
+      "sequence": 3
+    },
+    {
+      "case_id": "PSM_NEG_BLOCKER_DEBT_REMOVAL",
+      "command_id": "CMD_PSM_NEG_BLOCKER_DEBT_REMOVAL",
+      "required": true,
+      "sequence": 4
+    },
+    {
+      "case_id": "PSM_NEG_COUNTEREXAMPLE_DELETION",
+      "command_id": "CMD_PSM_NEG_COUNTEREXAMPLE_DELETION",
+      "required": true,
+      "sequence": 5
+    },
+    {
+      "case_id": "PSM_NEG_HISTORY_COLLAPSE",
+      "command_id": "CMD_PSM_NEG_HISTORY_COLLAPSE",
+      "required": true,
+      "sequence": 6
+    },
+    {
+      "case_id": "PSM_NEG_UNKNOWN_CLAIM_CLASS",
+      "command_id": "CMD_PSM_NEG_UNKNOWN_CLAIM_CLASS",
+      "required": true,
+      "sequence": 7
+    },
+    {
+      "case_id": "PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
+      "command_id": "CMD_PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
+      "required": true,
+      "sequence": 8
+    },
+    {
+      "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
+      "command_id": "CMD_PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
+      "required": true,
+      "sequence": 9
+    },
+    {
+      "case_id": "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
+      "command_id": "CMD_PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
+      "required": true,
+      "sequence": 10
+    }
+  ],
+  "nonclaims": [
+    "profile is not authority",
+    "profile is not IW admission",
+    "profile is not Human Final"
+  ],
+  "profile_purpose": "PSM-001 validator bounded property",
+  "python_policy": {
+    "sitecustomize": "PROHIBITED",
+    "source_backed_import_required": true,
+    "stale_pyc": "PROHIBITED",
+    "stdlib_only": true,
+    "usercustomize": "PROHIBITED",
+    "version": "3.11.x"
+  },
+  "required_cases": [
+    {
+      "accepted_return_codes": [
+        0
+      ],
+      "case_id": "PSM_POSITIVE_ACCEPTED_RECORD",
+      "expected_classification": "PASS",
+      "input_digest": "111fabd210f40775e4ea8536a1f76935c68771a7a3d643849b541c330a57be8f",
+      "mandatory_execution": true,
+      "required_property": "accepted record validates"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
+      "expected_classification": "FAIL",
+      "input_digest": "f41860cbc0ea25a69eaa4364b16577b99a568f05b89d87a6e977e346736dab45",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_SOURCE_BINDING_MISMATCH",
+      "expected_classification": "FAIL",
+      "input_digest": "4083c52ff5d91cc559b921d22494db861d1d009186907fe5bb3e85ab6ec14731",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_BLOCKER_DEBT_REMOVAL",
+      "expected_classification": "FAIL",
+      "input_digest": "b71f892cfff70c78470b1c87d41179b19c10f1fcea2e937a3355ce155901e5f1",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_COUNTEREXAMPLE_DELETION",
+      "expected_classification": "FAIL",
+      "input_digest": "0f3abfc38ebcbcad6546914b81c4d77c66ebffd1da33cfd29145ba6dc445fab2",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_HISTORY_COLLAPSE",
+      "expected_classification": "FAIL",
+      "input_digest": "d820dbc639717e3ef80345109b1a819c1e5602a5bc222f8dfe38425d93156796",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_UNKNOWN_CLAIM_CLASS",
+      "expected_classification": "FAIL",
+      "input_digest": "f45fefb57544bd88689f02c5eb9ee1c182c49e8e13dc389ffa56991bb3633ee6",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
+      "expected_classification": "FAIL",
+      "input_digest": "2d2c8d0c2a58e5b4bfcc8f9e91c22f065c8c1439d0ffa435adca0ba844478e4f",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
+      "expected_classification": "FAIL",
+      "input_digest": "6f434a856e836f65f2a1557d6df167e168e3058f33a9b70ca96a5fec09fa0a6f",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    },
+    {
+      "accepted_return_codes": [
+        1,
+        2
+      ],
+      "case_id": "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
+      "expected_classification": "FAIL",
+      "input_digest": "85bcad8eefee9a78a03b8884ca9ca8901f89939cdab777518f999c4a2712a0b9",
+      "mandatory_execution": true,
+      "required_property": "negative control refuses/fails as frozen"
+    }
+  ],
+  "schema_version": "inr.target_profile.v0",
+  "target_profile_digest": "2e2e75e246694fdd4d39d52bf3d5f6f65642dcbb3ef4621f258aed7724537634",
+  "target_profile_id": "INR_TARGET_PROFILE_PSM_001_V0",
+  "target_sha": "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b"
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "INR Target Profile v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "target_profile_id", "target_profile_digest", "target_sha", "required_cases", "command_inventory", "python_policy", "nonclaims"],
+  "properties": {
+    "schema_version": {"const": "inr.target_profile.v0"},
+    "target_profile_id": {"type": "string"},
+    "target_profile_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "profile_purpose": {"type": "string"},
+    "python_policy": {"type": "object"},
+    "required_cases": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "command_inventory": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}

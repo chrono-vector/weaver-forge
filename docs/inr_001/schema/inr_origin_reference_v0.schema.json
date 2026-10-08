@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "INR Origin Reference Set v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "origin_reference_set_id", "origin_reference_set_digest", "target_sha", "origins"],
+  "properties": {
+    "schema_version": {"const": "inr.origin_reference_set.v0"},
+    "origin_reference_set_id": {"type": "string"},
+    "origin_reference_set_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "origins": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+  }
+}

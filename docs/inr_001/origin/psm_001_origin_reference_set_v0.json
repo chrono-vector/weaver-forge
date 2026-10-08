@@ -1,0 +1,16 @@
+{
+  "origin_reference_set_digest": "8512b8a1954673be69e0ab0c9486935eff07e4d91cecdcec6f0a4b50694c8a03",
+  "origin_reference_set_id": "INR_ORIGIN_SET_PSM_001_V0",
+  "origins": [
+    {
+      "environment_fingerprint_summary": "local accepted PSM/WFN/GZSE lineage; not qualifying non-origin",
+      "machine_category": "origin-development-worktree",
+      "origin_id": "ORIGIN_PSM_001_ACCEPTED_LOCAL",
+      "repository": "chrono-vector/weaver-forge",
+      "target_sha": "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b",
+      "workspace_category": "accepted-local-history"
+    }
+  ],
+  "schema_version": "inr.origin_reference_set.v0",
+  "target_sha": "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b"
+}

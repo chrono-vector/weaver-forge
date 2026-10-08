@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "INR Event v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "inr_event_id", "target_sha", "accepted_target_profile_binding", "accepted_origin_reference_binding", "run_challenge", "lifecycle", "byte_identity", "module_execution", "git_runtime", "protected_set_isolation", "non_origin", "capture_provenance", "case_result_bindings", "repair_detection", "final_result"],
+  "properties": {
+    "schema_version": {"const": "inr.event.v0"},
+    "inr_event_id": {"type": "string", "minLength": 1},
+    "target_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "accepted_target_profile_binding": {"type": "object"},
+    "accepted_origin_reference_binding": {"type": "object"},
+    "run_challenge": {"type": "object"},
+    "lifecycle": {"type": "object"},
+    "byte_identity": {"type": "object"},
+    "module_execution": {"type": "object"},
+    "git_runtime": {"type": "object"},
+    "protected_set_isolation": {"type": "object"},
+    "non_origin": {"type": "object"},
+    "capture_provenance": {"type": "object"},
+    "case_result_bindings": {"type": "array", "items": {"type": "object"}},
+    "extra_command_records": {"type": "array", "items": {"type": "object"}},
+    "repair_detection": {"type": "object"},
+    "final_result": {"enum": ["PASS", "FAIL", "UNCONFIRMED", "BLOCKED"]},
+    "nonclaims": {"type": "array", "items": {"type": "string"}}
+  }
+}
