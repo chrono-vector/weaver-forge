@@ -10,7 +10,19 @@ RESULT MODEL (R2: structural validity is not assurance)
   present and consistent. On their own they NEVER establish anything.
 * ``provider_provenance`` / ``bundle_run_binding``: GitHub Actions only, verified
   through ``provider_github_v0.verify_provider`` against authoritative provider
-  data. Bundle provider fields are claims to compare.
+  data. Bundle provider fields are claims to compare. R3: ``bundle_run_binding`` is
+  PASS only when the provider-held artifact CONTENT (downloaded ZIP) equals the
+  submitted bundle byte for byte under the frozen ``ARTIFACT_CONTENT_RULE``. The
+  binding is RUN-LEVEL (``run_level_provenance``). The producing job is not
+  authenticated (``job_level_provenance: NOT_CLAIMED``).
+* ``isolation_components`` (R3, reported): ``inventory_binding`` means the protected
+  inventory covers exactly the actual execution objects. ``frozen_tree`` means the
+  frozen code/config/input/Git/runtime objects are non-writable and non-owned by the
+  execution principal across the execution window, with equal pre/post
+  measurements. ``staged_objects`` covers the stage root, cwd, staged validator and
+  case inputs. With the accepted INR supervisor, ``staged_objects`` is always
+  UNCONFIRMED, so ``protected_tree_isolation_evidence`` and
+  ``all_writer_isolation_established`` are never PASS for a real bundle.
 * ``assurance_predicates`` (``*_established``) and ``external_assurance``: an
   assurance predicate is PASS only when its evidence predicate(s) PASS AND the
   structural bundle, the trusted reference binding, the provider provenance and the
@@ -128,9 +140,20 @@ ACQUISITION_FIELDS = ("method", "source", "ref", "head")
 ACQUISITION_METHODS = frozenset({"git-clone", "git-fetch"})
 NETWORK_FS_TYPES = frozenset({"nfs", "nfs4", "cifs", "smb", "smbfs", "smb3", "9p", "fuse.sshfs",
                               "sshfs", "virtiofs", "afs", "glusterfs", "ceph", "drvfs", "vboxsf"})
-# Protected inventory categories; each is bound to an ACTUAL runtime path (see runtime_inventory).
-PROTECTED_CATEGORIES = ("target_tree", "target_files", "git_directory", "git_objects", "profile_origin_binding",
-                        "inputs", "command_inventory", "capture_configuration", "execution_tree")
+# Protected inventory categories; each entry is bound to an ACTUAL runtime object (see runtime_inventory).
+# FROZEN objects exist before the event and must be non-writable to the execution principal from the
+# freeze until after the post measurement. STAGED objects are created by the accepted supervisor inside
+# its work dir during the execution window.
+FROZEN_CATEGORIES = ("target_tree", "target_files", "git_directory", "git_objects", "profile_origin_binding",
+                     "inputs", "command_inventory", "capture_configuration", "runtime_executables")
+STAGED_CATEGORIES = ("stage_root", "execution_cwd", "staged_validator", "case_inputs")
+PROTECTED_CATEGORIES = FROZEN_CATEGORIES + STAGED_CATEGORIES
+OUTSIDE_ROOT_CATEGORIES = ("runtime_executables",)
+OUTPUT_DIR_PURPOSES = ("export", "ledger", "work_dir")
+# Fact about the accepted INR-001 supervisor (tempfile.TemporaryDirectory in --work-dir, staged files
+# written and chmod-ed by the supervisor process, children run with the same principal). It is a code
+# constant, not a switch: no argv, environment or file input changes it.
+ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True
 SUPERVISOR_REL = "docs/inr_001/supervisor_inr_v0.py"
 PROBE_REL = "docs/inr_001/runtime_probe.py"
 PROFILE_REL = "docs/inr_001/profiles/psm_001_inr_target_profile_v0.json"
@@ -300,7 +323,7 @@ def parse_sha256sums(data):
 # --- bundle integrity -----------------------------------------------------------------
 
 def _load_bundle(root, trusted, schema, findings):
-    """Path safety + hash binding. Returns (manifest, files) or None (rejected)."""
+    """Path safety + hash binding. Returns (manifest, files, digest, manifest_bytes) or None (rejected)."""
     gate = "bundle_integrity"
     root = Path(root)
     if _is_link(root) or not root.is_dir():
@@ -402,7 +425,7 @@ def _load_bundle(root, trusted, schema, findings):
         return None
     if not findings.has_issue(gate):
         findings.establish(gate)
-    return manifest, files, sup.digest(manifest_bytes)
+    return manifest, files, sup.digest(manifest_bytes), manifest_bytes
 
 
 class _Evidence:
@@ -414,6 +437,7 @@ class _Evidence:
         self.files = files
         self.trusted = trusted
         self.docs, self.problems, self.ignored = {}, {}, []
+        self.isolation_components = None
         if "runner_declarations" in manifest:
             self.ignored.append(MANIFEST_NAME + ":runner_declarations="
                                 + json.dumps(manifest["runner_declarations"], sort_keys=True))
@@ -758,8 +782,9 @@ def _derive_git(f, ev):
 
 
 def protected_tree_digest(entries):
-    """Adapter rule: digest over (category, path, kind, sha256), sorted."""
-    rows = sorted([e["category"], e["path"], e["kind"], e["sha256"]] for e in entries)
+    """Adapter rule: digest over (category, path, kind, sha256) of FROZEN entries, sorted."""
+    rows = sorted([e["category"], e["path"], e["kind"], e["sha256"]] for e in entries
+                  if e["category"] in FROZEN_CATEGORIES)
     return sup.digest(sup.canonical(rows))
 
 
@@ -773,13 +798,20 @@ def _parent(path):
 
 
 def runtime_inventory(ev):
-    """Protected paths derived from the ACTUAL capture/runtime paths (M3).
+    """Required protected objects derived from ACTUAL runtime/capture data (M3).
 
-    Returns ``(expected, problems)``. ``expected`` maps category -> {key: (path,
-    kind, sha256)} and is None when the runtime paths are not admitted. Sources:
-    the supervisor script path (event start), the Git probe repository root and
-    common Git dir (post measurement), every capture record's cwd and argv, and the
-    trusted digests.
+    Returns ``(expected, problems)``. ``expected`` maps category -> {key: (path, kind,
+    sha256)}; it is None when the runtime paths are not admitted. The inventory never
+    defines what was executed. Sources:
+
+    * the supervisor script path (event start);
+    * the supervisor's Git probe: worktree root, common Git dir and executable, with
+      its measured digest (post measurement);
+    * the supervisor-measured Python executable digest;
+    * every capture record's cwd and executed argv: the interpreter, probe, staged
+      validator, case input and repository;
+    * the trusted frozen configuration: tooling, PSM and case input digests;
+    * Git alternates recorded by the Git identity and the object-store observation.
     """
     t = ev.trusted
     es, pm = ev.docs.get("event_start"), ev.docs.get("post_measurement")
@@ -792,37 +824,78 @@ def runtime_inventory(ev):
     if not _is_absolute(supervisor) or not supervisor.endswith("/" + SUPERVISOR_REL):
         return None, [("unconfirmed", "supervisor path does not identify an INR tooling checkout")]
     tooling = supervisor[:-len(SUPERVISOR_REL) - 1]
-    repo, common = _norm(pm["git_probe"]["repository_root"]), _norm(pm["git_probe"]["common_git_dir"])
+    probe = pm["git_probe"]
+    repo, common = _norm(probe["repository_root"]), _norm(probe["common_git_dir"])
     if len({_key(record["cwd"]) for record in records}) != 1:
         problems.append(("fail", "children ran in different working directories"))
     cwd = _norm(records[0]["cwd"])
     stage = _parent(cwd)
     if not cwd.rpartition("/")[2].startswith(STAGE_DIR_PREFIX) or not stage:
         problems.append(("fail", "capture working directory is not a supervisor staging directory"))
-    for case, record in zip(t["cases"], records):
-        argv = record["argv"]
-        if len(argv) != len(sup.ARGV_TEMPLATE):
-            continue
-        if _key(argv[4]) != _key(tooling + "/" + PROBE_REL):
-            problems.append(("fail", f"{case['case_id']}: capture probe path outside the protected inventory"))
-        if _key(argv[7]) != _key(repo):
-            problems.append(("fail", f"{case['case_id']}: capture repository path outside the protected inventory"))
-        if _parent(argv[5]) != cwd or _parent(argv[6]) != cwd:
-            problems.append(("fail", f"{case['case_id']}: staged source/input outside the capture working directory"))
     expected = {category: {} for category in PROTECTED_CATEGORIES}
 
     def add(category, path, kind, sha256):
         expected[category][_key(path)] = (_norm(path), kind, sha256)
 
+    interpreters = set()
+    for case, record in zip(t["cases"], records):
+        cid, argv = case["case_id"], record["argv"]
+        if len(argv) != len(sup.ARGV_TEMPLATE) or not all(_is_absolute(a) for a in argv[:1] + argv[4:]):
+            problems.append(("unconfirmed", f"{cid}: executed argv paths not derivable"))
+            continue
+        interpreters.add(_key(argv[0]))
+        if _key(argv[4]) != _key(tooling + "/" + PROBE_REL):
+            problems.append(("fail", f"{cid}: capture probe path outside the protected inventory"))
+        if _key(argv[7]) != _key(repo):
+            problems.append(("fail", f"{cid}: capture repository path outside the protected inventory"))
+        if _key(argv[5]) != _key(cwd + "/" + VALIDATOR_FILE):
+            problems.append(("fail", f"{cid}: executed validator is not the staged validator in the capture cwd"))
+        if _key(argv[6]) != _key(cwd + "/" + cid + ".json"):
+            problems.append(("fail", f"{cid}: executed case input is not the staged input in the capture cwd"))
+        add("staged_validator", argv[5], "file", t["target_file_digests"][VALIDATOR_FILE])
+        add("case_inputs", argv[6], "file", case["input_digest"])
+        add("runtime_executables", argv[0], "file", pm["measurements"]["python_executable_sha256"])
+    if len(interpreters) > 1:
+        problems.append(("fail", "children ran different interpreters"))
     add("target_tree", repo, "dir", "")
     for name, want in t["target_file_digests"].items():
         add("target_files", repo + "/docs/portfolio_state/" + name, "file", want)
     add("git_directory", common, "dir", "")
     add("git_objects", common + "/objects", "dir", "")
+    alternates = set(ev.docs["git_identity"]["alternates"]) if ev.docs.get("git_identity") else set()
+    iso = ev.docs.get("isolation_checks")
+    alternates |= set(iso["git_object_store"]["alternates"]) if iso else set()
+    for alternate in sorted(alternates):
+        if _is_absolute(alternate):
+            add("git_objects", alternate, "dir", "")
+        else:
+            problems.append(("unconfirmed", f"Git alternate is not an absolute object directory: {alternate!r}"))
+    add("runtime_executables", probe["executable"], "file", probe["executable_sha256"])
     for category, rel in TOOLING_BINDINGS:
         add(category, tooling + "/" + rel, "file", t["tooling_digests"][rel])
-    add("execution_tree", stage, "dir", "")
+    add("stage_root", stage, "dir", "")
+    add("execution_cwd", cwd, "dir", "")
     return expected, problems
+
+
+class _Component:
+    """Issue ledger for one isolation component (reported; merged into the predicate)."""
+
+    def __init__(self, name):
+        self.name, self.issues = name, {"blocked": [], "fail": [], "unconfirmed": []}
+
+    def add(self, level, message):
+        self.issues[level].append(message)
+
+    def status(self):
+        for level, status in (("blocked", "BLOCKED"), ("fail", "FAIL"), ("unconfirmed", "UNCONFIRMED")):
+            if self.issues[level]:
+                return status
+        return "PASS"
+
+
+def _flags_writable(item):
+    return item["writable_by_principal"] or item["owner_is_principal"]
 
 
 def _derive_protected_tree(f, ev):
@@ -830,104 +903,175 @@ def _derive_protected_tree(f, ev):
     iso = ev.need(f, p, "isolation_checks")
     if iso is None:
         return
+    binding, frozen, staged = _Component("inventory_binding"), _Component("frozen_tree"), _Component("staged_objects")
     tree, wp, gi = iso["protected_tree"], ev.docs.get("workspace_provenance"), ev.docs.get("git_identity")
     root = tree["root"]
-    if iso["execution_principal"]["is_admin"]:
-        f.add(p, "unconfirmed", "administrative execution principal can bypass permissions")
+    # --- inventory binding: the inventory must cover exactly the actual execution objects
     covered = tree["categories_covered"]
     if sorted(covered) != sorted(PROTECTED_CATEGORIES) or len(set(covered)) != len(covered):
-        f.add(p, "unconfirmed", "partial isolation inventory: protected categories not all covered")
+        binding.add("unconfirmed", "partial isolation inventory: protected categories not all covered")
     if wp is None:
-        f.add(p, "unconfirmed", "bounded workspace root not established")
+        binding.add("unconfirmed", "bounded workspace root not established")
     elif _key(root) != _key(wp["workspace_path"]):
-        f.add(p, "fail", "protected root is not the bounded workspace root")
+        binding.add("fail", "protected root is not the bounded workspace root")
     by_category = {}
     for entry in tree["entries"]:
         label = f"{entry['category']}:{entry['path']}"
         by_category.setdefault(entry["category"], {})[_key(entry["path"])] = entry
         if not _is_absolute(entry["path"]):
-            f.add(p, "fail", f"protected entry path is not absolute: {label}")
+            binding.add("fail", f"protected entry path is not absolute: {label}")
         if entry["symlink"] or entry["reparse_point"]:
-            f.add(p, "fail", f"protected entry is a symlink/junction alias: {label}")
+            binding.add("fail", f"protected entry is a symlink/junction alias: {label}")
         if entry["kind"] == "file" and entry["link_count"] != 1:
-            f.add(p, "fail", f"protected file has hard-link aliases: {label}")
+            binding.add("fail", f"protected file has hard-link aliases: {label}")
         if entry["kind"] == "file" and not entry["sha256"]:
-            f.add(p, "unconfirmed", f"protected file digest missing: {label}")
+            binding.add("unconfirmed", f"protected file digest missing: {label}")
         if entry["writable_by_others"]:
-            f.add(p, "fail", f"protected entry writable by another principal: {label}")
-        # The stage root must stay principal-writable: the supervisor creates its staging
-        # directory there. Every other protected entry must be read-only.
-        if entry["writable_by_principal"] and entry["category"] != "execution_tree":
-            f.add(p, "unconfirmed", f"protected entry writable by the execution principal: {label}")
+            frozen.add("fail", f"protected entry writable by another principal: {label}")
     expected, problems = runtime_inventory(ev)
     for level, message in problems:
-        f.add(p, level, message)
+        binding.add(level, message)
     parents = {_key(parent["path"]): parent for parent in tree["parent_chain"]}
     if expected is not None:
+        entry_keys = {key for category in PROTECTED_CATEGORIES for key in expected[category]}
         for category in PROTECTED_CATEGORIES:
             want, have = expected[category], by_category.get(category, {})
             for key, (path, kind, sha256) in sorted(want.items()):
-                if not _within(path, root):
-                    f.add(p, "fail", f"protected execution path outside the bounded workspace root: {path}")
+                if category not in OUTSIDE_ROOT_CATEGORIES and not _within(path, root):
+                    binding.add("fail", f"protected execution path outside the bounded workspace root: {path}")
                 entry = have.get(key)
                 if entry is None:
                     if set(have) - set(want):
-                        f.add(p, "fail", f"unrelated path substituted for {category} (actual {path})")
+                        binding.add("fail", f"unrelated path substituted for {category} (actual {path})")
                     else:
-                        f.add(p, "unconfirmed", f"protected inventory lacks {category}: {path}")
+                        binding.add("unconfirmed", f"protected inventory lacks {category}: {path}")
                 elif entry["kind"] != kind or (kind == "file" and entry["sha256"] != sha256):
-                    f.add(p, "fail", f"protected entry differs from the actual/trusted object: {category}:{path}")
+                    binding.add("fail", f"protected entry differs from the actual/trusted object: {category}:{path}")
             for key in sorted(set(have) - set(want)):
-                f.add(p, "fail", f"inventory path not used by execution: {category}:{have[key]['path']}")
+                binding.add("fail", f"inventory path not used by execution: {category}:{have[key]['path']}")
         target_root = next(iter(expected["target_tree"].values()))[0]
-        objects = next(iter(expected["git_objects"].values()))[0]
+        objects = expected["git_objects"][_key(next(iter(expected["git_directory"].values()))[0] + "/objects")][0]
         if gi is not None and _key(gi["repository_root"]) != _key(target_root):
-            f.add(p, "fail", "acquired repository is not the actual executed target tree")
+            binding.add("fail", "acquired repository is not the actual executed target tree")
         if _key(iso["git_object_store"]["path"]) != _key(objects):
-            f.add(p, "fail", "recorded Git object store is not the actual object store of the executed repository")
+            binding.add("fail", "recorded Git object store is not the actual object store of the executed repository")
         required = {}
         for category in PROTECTED_CATEGORIES:
+            if category in OUTSIDE_ROOT_CATEGORIES:
+                continue
             for path, _kind, _sha in expected[category].values():
                 current = _parent(path)
                 while current and _within(current, root):
-                    required[_key(current)] = current
+                    if _key(current) not in entry_keys:
+                        required[_key(current)] = current
                     if _key(current) == _key(root):
                         break
                     current = _parent(current)
         for key, path in sorted(required.items()):
             if key not in parents:
-                f.add(p, "unconfirmed", f"partial parent chain: ancestor not recorded: {path}")
+                binding.add("unconfirmed", f"partial parent chain: ancestor not recorded: {path}")
         for key in sorted(set(parents) - set(required)):
-            f.add(p, "fail", f"parent record not on any protected execution path: {parents[key]['path']}")
+            binding.add("fail", f"parent record not on any protected execution path: {parents[key]['path']}")
+        stage_root = next(iter(expected["stage_root"].values()))[0]
+    else:
+        stage_root = None
     for parent in tree["parent_chain"]:
         if parent["symlink"] or parent["reparse_point"]:
-            f.add(p, "fail", f"protected parent is a symlink/junction alias: {parent['path']}")
+            binding.add("fail", f"protected parent is a symlink/junction alias: {parent['path']}")
         if parent["writable_by_others"]:
-            f.add(p, "fail", f"protected parent writable by another principal: {parent['path']}")
-        if parent["writable_by_principal"]:
-            f.add(p, "unconfirmed", f"writable parent (replacement risk not excluded): {parent['path']}")
+            frozen.add("fail", f"protected parent writable by another principal: {parent['path']}")
+        if _flags_writable(parent):
+            frozen.add("unconfirmed", f"parent writable or owned by the execution principal (replacement risk): "
+                                      f"{parent['path']}")
     root_record = parents.get(_key(root))
     if root_record is None:
-        f.add(p, "unconfirmed", "mount identity of the bounded workspace root not recorded")
+        binding.add("unconfirmed", "mount identity of the bounded workspace root not recorded")
     else:
-        for item in list(tree["entries"]) + list(tree["parent_chain"]):
+        for item in [e for e in tree["entries"] if e["category"] not in OUTSIDE_ROOT_CATEGORIES] \
+                + list(tree["parent_chain"]):
             if item["device"] != root_record["device"]:
-                f.add(p, "unconfirmed", f"mount boundary inside the protected tree: {item['path']}")
+                binding.add("unconfirmed", f"mount boundary inside the protected tree: {item['path']}")
+    # --- frozen tree: code/config/input/Git/runtime objects non-writable through the execution window
+    if iso["execution_principal"]["is_admin"]:
+        frozen.add("unconfirmed", "administrative execution principal can bypass permissions")
+    frozen_entries = [e for e in tree["entries"] if e["category"] in FROZEN_CATEGORIES]
+    for entry in frozen_entries:
+        if _flags_writable(entry):
+            frozen.add("unconfirmed", f"protected {entry['category']} writable or owned by the execution principal "
+                                      f"during the execution window: {entry['path']}")
+    post = {(_key(e["path"]), e["category"]): e for e in tree["post_entries"]}
+    for entry in frozen_entries:
+        again = post.pop((_key(entry["path"]), entry["category"]), None)
+        if again is None:
+            frozen.add("unconfirmed", f"protected entry not re-measured after execution: {entry['path']}")
+            continue
+        if again["kind"] != entry["kind"] or again["sha256"] != entry["sha256"]:
+            frozen.add("fail", f"protected entry changed between freeze and post measurement: {entry['path']}")
+        if _flags_writable(again) or again["writable_by_others"]:
+            frozen.add("unconfirmed", f"protected entry writable after execution: {entry['path']}")
+        if again["symlink"] or again["reparse_point"] or (again["kind"] == "file" and again["link_count"] != 1):
+            frozen.add("fail", f"protected entry aliased after execution: {entry['path']}")
+    for (_k, category), extra in sorted(post.items()):
+        frozen.add("fail", f"post measurement lists an object outside the frozen inventory: {category}:{extra['path']}")
+    if tree["freeze_digest"] != protected_tree_digest(tree["entries"]):
+        frozen.add("fail", "freeze digest does not match the recorded frozen entries")
+    if tree["post_execution_digest"] != protected_tree_digest(tree["post_entries"]):
+        frozen.add("fail", "post digest does not match the recorded post measurement")
+    if tree["post_execution_digest"] != tree["freeze_digest"]:
+        frozen.add("fail", "protected tree changed between freeze and post measurement")
+    es, ec = ev.docs.get("event_start"), ev.docs.get("event_complete")
+    froze, measured = _timestamp(tree["freeze_completed_at"]), _timestamp(tree["post_measured_at"])
+    started = _timestamp(es["started_at"]) if es is not None else None
+    done = _timestamp(ec["completed_at"]) if ec is not None else None
+    if None in (froze, measured, started, done) or not froze <= started <= done <= measured:
+        frozen.add("unconfirmed", "freeze and post measurement do not enclose the execution window")
+    purposes = sorted(d["purpose"] for d in tree["output_dirs"])
+    if purposes != sorted(OUTPUT_DIR_PURPOSES):
+        frozen.add("unconfirmed", "designated output directories (export, ledger, work dir) not declared exactly once")
+    for out in tree["output_dirs"]:
+        if not _is_absolute(out["path"]):
+            frozen.add("fail", f"designated output directory is not absolute: {out['path']}")
+            continue
+        for entry in frozen_entries:
+            if _within(entry["path"], out["path"]) or _within(out["path"], entry["path"]):
+                frozen.add("fail", f"designated output directory overlaps the frozen protected tree: {out['path']}")
+                break
+        if out["purpose"] == "work_dir" and stage_root is not None and _key(out["path"]) != _key(stage_root):
+            binding.add("fail", "declared supervisor work dir is not the actual stage root")
     for mount in iso["mounts"]:
         network = mount["network"] or mount["fs_type"].lower() in NETWORK_FS_TYPES
         if mount["writable"] and (mount["shared"] or network) and (
                 _within(root, mount["mount_point"]) or _within(mount["mount_point"], root)):
-            f.add(p, "fail", f"protected tree on a writable shared/network mount: {mount['mount_point']}")
+            frozen.add("fail", f"protected tree on a writable shared/network mount: {mount['mount_point']}")
         elif _within(mount["mount_point"], root) and _key(mount["mount_point"]) != _key(root):
-            f.add(p, "unconfirmed", f"mount point inside the protected tree: {mount['mount_point']}")
+            binding.add("unconfirmed", f"mount point inside the protected tree: {mount['mount_point']}")
     for cache in iso["package_caches"] + iso["build_caches"]:
         if cache["restored"] and (_within(cache["path"], root) or _within(root, cache["path"])):
-            f.add(p, "fail", f"restored cache overlaps the protected tree: {cache['path']}")
-    computed = protected_tree_digest(tree["entries"])
-    if tree["freeze_digest"] != computed:
-        f.add(p, "fail", "freeze digest does not match the recorded protected entries")
-    if tree["post_execution_digest"] != tree["freeze_digest"]:
-        f.add(p, "fail", "protected tree changed between freeze and post measurement")
+            frozen.add("fail", f"restored cache overlaps the protected tree: {cache['path']}")
+    # --- staged execution objects: stage root, cwd, staged validator, staged case inputs
+    staged_entries = [e for e in tree["entries"] if e["category"] in STAGED_CATEGORIES]
+    if ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL:
+        staged.add("unconfirmed", "the accepted INR supervisor creates the staging directory and writes the staged "
+                                  "validator and case inputs as the execution principal during the execution "
+                                  "window; these executed objects stay principal-owned and replaceable and cannot "
+                                  "be frozen without changing INR tooling")
+        for entry in staged_entries:
+            if entry["category"] == "stage_root" and not entry["writable_by_principal"]:
+                staged.add("fail", "stage root observed non-writable: the accepted supervisor could not have staged")
+            elif entry["category"] != "stage_root" and not entry["owner_is_principal"]:
+                staged.add("fail", f"staged object claims non-principal ownership, contradicting the accepted "
+                                   f"supervisor: {entry['path']}")
+    else:
+        for entry in staged_entries:
+            if _flags_writable(entry):
+                staged.add("unconfirmed", f"staged {entry['category']} writable or owned by the execution "
+                                          f"principal during the execution window: {entry['path']}")
+    components = (binding, frozen, staged)
+    ev.isolation_components = {c.name: c.status() for c in components}
+    for component in components:
+        for level, messages in component.issues.items():
+            for message in messages:
+                f.add(p, level, f"[{component.name}] {message}")
     _finish(f, p)
 
 
@@ -1124,7 +1268,7 @@ def combine(statuses):
 
 
 def _result(findings, trusted, ignored, *, bundle_digest=None, provider_run=None, bound_event=None,
-            report_predicates=None):
+            report_predicates=None, components=None):
     gates = {name: findings.status(name) for name in GATES}
     evidence = {name: findings.status(name) for name in EVIDENCE_PREDICATES}
     assurance = {name: combine([evidence[source] for source in sources] + list(gates.values()))
@@ -1140,6 +1284,10 @@ def _result(findings, trusted, ignored, *, bundle_digest=None, provider_run=None
             "structural_bundle": "PASS" if gates["bundle_integrity"] == "PASS" else "FAIL",
             "provider_provenance": combine([gates["provider_provenance"]]),
             "bundle_run_binding": combine([gates["bundle_run_binding"]]),
+            "run_level_provenance": combine([gates["provider_provenance"], gates["bundle_run_binding"]]),
+            "job_level_provenance": provider_github.JOB_LEVEL_PROVENANCE,
+            "isolation_components": dict(components) if components else {
+                "inventory_binding": "UNCONFIRMED", "frozen_tree": "UNCONFIRMED", "staged_objects": "UNCONFIRMED"},
             "external_assurance": external,
             "external_assurance_pass": external == "PASS",
             "inr_external_reconstruction_pass": False,
@@ -1161,14 +1309,14 @@ def _result(findings, trusted, ignored, *, bundle_digest=None, provider_run=None
             "nonclaims": list(NONCLAIMS)}
 
 
-def _derive_provider(f, ev, provider, expected_head_sha, not_before):
+def _derive_provider(f, ev, provider, expected_head_sha, not_before, content):
     es, ec = ev.docs.get("event_start"), ev.docs.get("event_complete")
     window = (_timestamp(es["started_at"]) if es is not None else None,
               _timestamp(ec["completed_at"]) if ec is not None else None)
     verified = provider_github.verify_provider(
         provider, ev.docs.get("runner_identity"), repository=ev.trusted["repository"],
         bundle_digest=ev.bundle_digest, expected_head_sha=expected_head_sha, not_before=not_before,
-        event_window=window)
+        event_window=window, bundle_content=content)
     for gate, issues in (("provider_provenance", verified["provenance"]), ("bundle_run_binding", verified["binding"])):
         for level in ("blocked", "fail", "unconfirmed"):
             for message in issues[level]:
@@ -1218,7 +1366,8 @@ def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None, expe
     loaded = _load_bundle(bundle_dir, trusted, schema, findings)
     if loaded is None:
         return _result(findings, trusted, [])
-    evidence = _Evidence(*loaded, trusted, schema)
+    evidence = _Evidence(*loaded[:3], trusted, schema)
+    content = (loaded[3], loaded[0], dict(loaded[1])) if not findings.has_issue("bundle_integrity") else None
     boundary = _timestamp(not_before) if not_before is not None else None
     if not_before is not None and boundary is None:
         findings.add("current_event_capture_evidence", "unconfirmed", "operator not-before time invalid")
@@ -1233,10 +1382,10 @@ def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None, expe
     _derive_git(findings, evidence)
     _derive_protected_tree(findings, evidence)
     _derive_event(findings, evidence, expected_event_id, boundary)
-    provider_run = _derive_provider(findings, evidence, provider, expected_head_sha, boundary)
+    provider_run = _derive_provider(findings, evidence, provider, expected_head_sha, boundary, content)
     return _result(findings, trusted, evidence.ignored, bundle_digest=evidence.bundle_digest,
                    provider_run=provider_run, bound_event=_bound_event(evidence),
-                   report_predicates=_report_predicates(evidence))
+                   report_predicates=_report_predicates(evidence), components=evidence.isolation_components)
 
 
 def main(argv=None):

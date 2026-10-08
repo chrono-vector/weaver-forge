@@ -4,8 +4,9 @@ The helper takes three inputs: the event export that the INR-001 r3 supervisor w
 on the external runner, the runner observation files, and the target files acquired
 there. It splits the export into the XR raw event files, then writes
 raw/sha256sums.txt and external_run_manifest.json. It prints the bundle digest (SHA-256 of the
-manifest). The workflow must upload the bundle as the GitHub Actions artifact named
-``inr-xr-bundle-<bundle_digest>`` (the R2 bundle-to-run binding).
+manifest). The workflow must upload exactly the bundle tree (nothing else) as the
+GitHub Actions artifact named ``inr-xr-bundle-<bundle_digest>``; the verifier
+downloads that artifact and compares its CONTENT with the submitted bundle (R3).
 
 It derives nothing and asserts nothing. The manifest carries references and hash
 bindings only, and every predicate and classification is derived later by

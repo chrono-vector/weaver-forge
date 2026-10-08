@@ -1,5 +1,6 @@
-"""INR-XR-001 tests (R2): provider trust anchor, INR integration, protected-inventory binding,
-the 20 named adversarial tests, and focused/static tests.
+"""INR-XR-001 tests (R3): provider trust anchor and artifact CONTENT binding, INR integration,
+protected execution objects and freeze model, the 20 named adversarial tests, and focused/static
+tests.
 
 Every fixture is synthetic. It is built in a temporary directory prefixed
 ``inrxr001_t_`` and removed afterwards. No real external run is executed and no
@@ -13,6 +14,19 @@ file. A PASS reached with them is a unit-test PASS of the derivation logic, not
 provider verification. Real provider verification remains UNCONFIRMED until a real
 run.
 
+R3 adds two more substitutes:
+
+* The substitute provider also serves artifact metadata and the artifact ZIP.
+* ``hypothetical_staging()`` patches
+  ``xr.ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL`` to False, modelling a supervisor
+  whose staged validator and case inputs are frozen and owned by another principal.
+  The accepted INR supervisor cannot do this, so in production all-writer isolation
+  stays UNCONFIRMED (see ProtectedExecutionTests test 12).
+
+``BundleCase`` applies ``hypothetical_staging()`` by default so that the verdicts of
+the older tests still come from the defect they inject. Tests of the real staging
+model use ``accepted_supervisor()`` and ``valid_parts(accepted_staging=True)``.
+
 R2 semantic changes to the earlier 20 adversarial tests:
 
 * ``classification`` is replaced by ``external_assurance``.
@@ -21,6 +35,8 @@ R2 semantic changes to the earlier 20 adversarial tests:
   injected defect.
 * Test 20 runs with NO provider and expects structural PASS with assurance
   UNCONFIRMED (it was ADAPTER/BUNDLE PASS in 304de4d).
+* R3: test 3's edit also clears ``post_entries``, and ``execution_tree`` is renamed
+  ``stage_root``.
 """
 from __future__ import annotations
 
@@ -38,6 +54,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
+import zipfile
+from email.message import Message
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
@@ -70,10 +89,12 @@ SUPERVISOR_PID = 4100
 CHALLENGE = sup.digest(b"inrxr001 synthetic challenge")
 CONFIG_KEYS = ["core.repositoryformatversion", "core.filemode", "core.bare", "remote.origin.url"]
 RAW = {role: path for role, path in xr.SINGLETON_PATHS.items()}
-RUN_ID, JOB_ID = 18000000001, 51000000001
+RUN_ID, JOB_ID, ARTIFACT_ID = 18000000001, 51000000001, 4100000001
 RUNNER_NAME = "GitHub Actions 1000001"
-PARENTS = [ROOT, TARGET, TARGET + "/docs", TARGET + "/docs/portfolio_state",
-           TARGET + "/docs/portfolio_state/schema", TARGET + "/.git", TOOLING, TOOLING + "/docs",
+# Required ancestors that are not themselves protected entries (TARGET, TARGET/.git, STAGE_ROOT and STAGE are
+# entries and carry their own write/alias observations).
+PARENTS = [ROOT, TARGET + "/docs", TARGET + "/docs/portfolio_state",
+           TARGET + "/docs/portfolio_state/schema", TOOLING, TOOLING + "/docs",
            TOOLING + "/docs/inr_001", TOOLING + "/docs/inr_001/profiles", TOOLING + "/docs/inr_001/origin"]
 
 
@@ -113,10 +134,16 @@ TARGET_AVAILABLE = _target_available()
 NEEDS_TARGET = unittest.skipUnless(TARGET_AVAILABLE, "pinned PSM target bytes unavailable (local Git at TARGET_SHA)")
 
 
-def protected_entries(t):
-    """Absolute-path inventory bound to the fixture's actual runtime paths."""
-    flags = {"writable_by_principal": False, "writable_by_others": False, "symlink": False,
-             "reparse_point": False, "link_count": 1, "device": DEVICE}
+def protected_entries(t, accepted_staging=False):
+    """Absolute-path inventory bound to the fixture's actual runtime paths.
+
+    Frozen objects are owned by another principal and are read-only. Staged objects
+    take the accepted supervisor's honest flags when ``accepted_staging`` is True
+    (principal-owned; the stage root and cwd principal-writable). Otherwise they take
+    the hypothetical frozen flags (unit-test substitute; see the module docstring).
+    """
+    flags = {"owner_is_principal": False, "writable_by_principal": False, "writable_by_others": False,
+             "symlink": False, "reparse_point": False, "link_count": 1, "device": DEVICE}
 
     def entry(category, path, kind="dir", sha256="", **changes):
         return dict(flags, category=category, path=path, kind=kind, sha256=sha256, **changes)
@@ -126,20 +153,36 @@ def protected_entries(t):
     entries += [entry("git_directory", TARGET + "/.git"), entry("git_objects", TARGET + "/.git/objects")]
     entries += [entry(category, TOOLING + "/" + rel, "file", t["tooling_digests"][rel])
                 for category, rel in xr.TOOLING_BINDINGS]
-    entries.append(entry("execution_tree", STAGE_ROOT, writable_by_principal=True))
+    entries += [entry("runtime_executables", PYTHON, "file", PY_SHA, device="2050"),
+                entry("runtime_executables", GIT, "file", GIT_SHA, device="2050")]
+    staged = {"owner_is_principal": True, "writable_by_principal": True} if accepted_staging else {}
+    staged_file = {"owner_is_principal": True} if accepted_staging else {}
+    entries.append(entry("stage_root", STAGE_ROOT, writable_by_principal=accepted_staging))
+    entries.append(entry("execution_cwd", STAGE, **staged))
+    entries.append(entry("staged_validator", STAGE + "/" + xr.VALIDATOR_FILE, "file",
+                         t["target_file_digests"][xr.VALIDATOR_FILE], **staged_file))
+    entries += [entry("case_inputs", STAGE + "/" + case["case_id"] + ".json", "file", case["input_digest"],
+                      **staged_file) for case in t["cases"]]
     return entries
 
 
 def parent_record(path, **changes):
-    return dict({"path": path, "writable_by_principal": False, "writable_by_others": False, "symlink": False,
-                 "reparse_point": False, "device": DEVICE}, **changes)
+    return dict({"path": path, "owner_is_principal": False, "writable_by_principal": False,
+                 "writable_by_others": False, "symlink": False, "reparse_point": False, "device": DEVICE}, **changes)
+
+
+def sync_post(tree):
+    """Post measurement = the frozen entries as re-measured (unchanged)."""
+    tree["post_entries"] = [dict(e) for e in tree["entries"] if e["category"] in xr.FROZEN_CATEGORIES]
+    refreeze(tree)
 
 
 def refreeze(tree):
-    tree["freeze_digest"] = tree["post_execution_digest"] = xr.protected_tree_digest(tree["entries"])
+    tree["freeze_digest"] = xr.protected_tree_digest(tree["entries"])
+    tree["post_execution_digest"] = xr.protected_tree_digest(tree["post_entries"])
 
 
-def valid_parts():
+def valid_parts(accepted_staging=False):
     """A complete, internally consistent synthetic bundle as editable parts (path -> value)."""
     t = xr.trusted_configuration()
     targets = dict(target_files())
@@ -223,7 +266,8 @@ def valid_parts():
         "workspace_created_at": "2026-10-08T01:01:00Z", "initial_listing": [],
         "acquisition_started_at": "2026-10-08T01:01:05Z", "acquisition_completed_at": "2026-10-08T01:02:00Z",
         "inherited_writable_paths": [], "cache_restore_events": [], "prior_job_artifacts": []}
-    entries = protected_entries(t)
+    entries = protected_entries(t, accepted_staging)
+    post_entries = [dict(e) for e in entries if e["category"] in xr.FROZEN_CATEGORIES]
     tree_digest = xr.protected_tree_digest(entries)
     parts[RAW["isolation_checks"]] = {
         "schema_version": "inr.xr.raw.isolation_checks.v0",
@@ -236,7 +280,14 @@ def valid_parts():
         "git_object_store": {"path": TARGET + "/.git/objects", "shared": False, "alternates": []},
         "origin_snapshot_restored": False,
         "protected_tree": {"root": ROOT, "categories_covered": list(xr.PROTECTED_CATEGORIES), "entries": entries,
+                           "post_entries": post_entries,
                            "parent_chain": [parent_record(path) for path in PARENTS],
+                           "output_dirs": [{"purpose": "export", "path": ROOT + "/out", "writable_by_principal": True},
+                                           {"purpose": "ledger", "path": ROOT + "/ledger",
+                                            "writable_by_principal": True},
+                                           {"purpose": "work_dir", "path": STAGE_ROOT,
+                                            "writable_by_principal": True}],
+                           "freeze_completed_at": "2026-10-08T01:09:00Z", "post_measured_at": "2026-10-08T01:13:00Z",
                            "freeze_digest": tree_digest, "post_execution_digest": tree_digest}}
     parts[RAW["python_identity"]] = {
         "schema_version": "inr.xr.raw.python_identity.v0", "version": [3, 11, 9],
@@ -301,12 +352,14 @@ def rebind(bundle, rel):
 class UnitTestTrustSubstituteProvider:
     """UNIT-TEST TRUST SUBSTITUTE for the GitHub REST API (never used outside tests).
 
-    Serves fixed JSON documents for exact API paths. A path it does not know raises
-    ``ProviderUnavailable``, which models an unreachable provider or a 404.
+    Serves fixed JSON documents for exact API paths, plus artifact ZIP bytes by
+    artifact ID. A path it does not know raises ``ProviderUnavailable``, which models
+    an unreachable provider, a 404 or a 410.
     """
 
-    def __init__(self, documents):
+    def __init__(self, documents, archives=None):
         self.documents = documents
+        self.archives = archives or {}
         self.requested = []
 
     def get_json(self, path):
@@ -314,6 +367,38 @@ class UnitTestTrustSubstituteProvider:
         if path not in self.documents:
             raise gh.ProviderUnavailable("unit-test substitute: unknown provider path " + path)
         return copy.deepcopy(self.documents[path])
+
+    def get_artifact_zip(self, repository, artifact_id):
+        self.requested.append(f"zip:{repository}:{artifact_id}")
+        if (repository, artifact_id) not in self.archives:
+            raise gh.ProviderUnavailable("unit-test substitute: artifact gone")
+        return self.archives[(repository, artifact_id)]
+
+
+def bundle_tree(bundle):
+    """The submitted bundle tree as {path: bytes} (manifest + evidence files on disk)."""
+    bundle = Path(bundle)
+    out = {}
+    if (bundle / xr.MANIFEST_NAME).is_file():
+        out[xr.MANIFEST_NAME] = (bundle / xr.MANIFEST_NAME).read_bytes()
+        for entry in json.loads(out[xr.MANIFEST_NAME])["evidence_files"]:
+            path = bundle.joinpath(*entry["path"].split("/"))
+            if path.is_file():
+                out[entry["path"]] = path.read_bytes()
+    return out
+
+
+def make_zip(entries):
+    """ZIP bytes from [(name, bytes)] or {name: bytes}; duplicates allowed (raw construction)."""
+    buffer = io.BytesIO()
+    items = entries.items() if isinstance(entries, dict) else entries
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in items:
+            if isinstance(data, zipfile.ZipInfo):
+                archive.writestr(data, b"")
+            else:
+                archive.writestr(name, data)
+    return buffer.getvalue()
 
 
 def substitute_documents(digest, repository=None):
@@ -325,28 +410,50 @@ def substitute_documents(digest, repository=None):
     job = {"id": JOB_ID, "run_id": RUN_ID, "run_attempt": 1, "head_sha": HEAD_SHA, "runner_name": RUNNER_NAME,
            "runner_group_name": gh.HOSTED_RUNNER_GROUP, "labels": ["ubuntu-24.04"], "status": "completed",
            "conclusion": "success", "started_at": "2026-10-08T01:00:00Z", "completed_at": "2026-10-08T01:20:00Z"}
-    artifact = {"id": 4100000001, "name": gh.ARTIFACT_PREFIX + digest, "size_in_bytes": 48213, "expired": False,
+    artifact = {"id": ARTIFACT_ID, "name": gh.ARTIFACT_PREFIX + digest, "size_in_bytes": 48213, "expired": False,
                 "created_at": "2026-10-08T01:13:00Z", "workflow_run": {"id": RUN_ID, "head_sha": HEAD_SHA}}
-    return {"run": run, "job": job, "artifacts": {"total_count": 1, "artifacts": [artifact]}}
+    meta = dict(copy.deepcopy(artifact), archive_download_url=gh.API_ORIGIN + f"/repos/{repository}/actions/"
+                f"artifacts/{ARTIFACT_ID}/zip")
+    return {"run": run, "job": job, "artifacts": {"total_count": 1, "artifacts": [artifact]}, "meta": meta}
 
 
-def substitute_provider(bundle=None, *, digest=None, edit=None, repository=None):
+def substitute_provider(bundle=None, *, digest=None, edit=None, repository=None, archive=None, exact_meta=False):
+    """Substitute provider for one run. ``archive`` defaults to the ZIP of the submitted bundle tree."""
     repository = repository or xr.trusted_configuration()["repository"]
     digest = digest if digest is not None else bundle_digest(bundle)
     docs = substitute_documents(digest, repository)
+    if archive is not None:
+        docs["zip"] = archive
+    else:
+        docs["zip"] = None if bundle is None else make_zip(sorted(bundle_tree(bundle).items()))
+    if not exact_meta and docs["zip"] is not None:
+        docs["artifacts"]["artifacts"][0]["size_in_bytes"] = docs["meta"]["size_in_bytes"] = len(docs["zip"])
+        docs["meta"]["digest"] = "sha256:" + sup.digest(docs["zip"])
     if edit is not None:
         edit(docs)
     base = f"/repos/{repository}/actions"
+    archives = {} if docs.get("zip") is None else {(repository, ARTIFACT_ID): docs["zip"]}
     return UnitTestTrustSubstituteProvider({
         f"{base}/runs/{RUN_ID}/attempts/1": docs["run"],
         f"{base}/jobs/{JOB_ID}": docs["job"],
-        f"{base}/runs/{RUN_ID}/artifacts?name={gh.ARTIFACT_PREFIX}{digest}": docs["artifacts"]})
+        f"{base}/runs/{RUN_ID}/artifacts?name={gh.ARTIFACT_PREFIX}{digest}": docs["artifacts"],
+        f"{base}/artifacts/{ARTIFACT_ID}": docs["meta"]}, archives)
 
 
 def trusted_process_substitute():
     """UNIT-TEST TRUST SUBSTITUTE for the verifier-process identity (in-process tests only)."""
     return mock.patch.object(verifier, "_process_identity",
                              return_value={"pid": os.getpid(), "is_verifier_process": True})
+
+
+def hypothetical_staging():
+    """UNIT-TEST SUBSTITUTE: a supervisor whose staged objects are frozen as another principal."""
+    return mock.patch.object(xr, "ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL", False)
+
+
+def accepted_supervisor():
+    """The production staging model (the accepted INR supervisor)."""
+    return mock.patch.object(xr, "ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL", True)
 
 
 SUBSTITUTE = object()  # sentinel: build the substitute provider from the bundle at validation time
@@ -357,6 +464,9 @@ class BundleCase(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix=TMP_PREFIX))
         self.addCleanup(rmtree, self.tmp)
         self.counter = 0
+        staging = hypothetical_staging()
+        staging.start()
+        self.addCleanup(staging.stop)
 
     def build(self, parts=None, *, declarations=None, event_id=EVENT_ID, edit=None):
         parts = valid_parts() if parts is None else parts
@@ -493,17 +603,19 @@ class ProviderTests(BundleCase):
                          bundle_run_binding="PASS")
         self.assertEqual(set(result["assurance_predicates"].values()), {"PASS"})
         self.assertEqual(result["provider_run"]["artifact_name"], gh.ARTIFACT_PREFIX + bundle_digest(bundle))
+        self.assertIs(result["provider_run"]["artifact_content_bound"], True)
         self.assertEqual(result["bundle_digest"], bundle_digest(bundle))
         repo = xr.trusted_configuration()["repository"]
         self.assertEqual(provider.requested, [
             f"/repos/{repo}/actions/runs/{RUN_ID}/attempts/1", f"/repos/{repo}/actions/jobs/{JOB_ID}",
-            f"/repos/{repo}/actions/runs/{RUN_ID}/artifacts?name={gh.ARTIFACT_PREFIX}{bundle_digest(bundle)}"])
+            f"/repos/{repo}/actions/runs/{RUN_ID}/artifacts?name={gh.ARTIFACT_PREFIX}{bundle_digest(bundle)}",
+            f"/repos/{repo}/actions/artifacts/{ARTIFACT_ID}", f"zip:{repo}:{ARTIFACT_ID}"])
 
     def test_provider_hosted_runner_and_windows(self):
         bundle = self.build()
         for edit in (lambda d: d["job"].update(runner_group_name="Default"),
                      lambda d: d["job"].update(started_at="2026-10-08T01:11:00Z"),
-                     lambda d: d["artifacts"]["artifacts"][0].update(created_at="2026-10-08T02:00:00Z"),
+                     lambda d: d["meta"].update(created_at="2026-10-08T02:00:00Z"),
                      lambda d: d["artifacts"]["artifacts"][0]["workflow_run"].update(id=RUN_ID + 1)):
             result = self.validate(bundle, provider=substitute_provider(bundle, edit=edit))
             self.assertClass(result, "FAIL")
@@ -583,6 +695,85 @@ class ProviderTransportTests(unittest.TestCase):
     def test_redirects_refused(self):
         with self.assertRaises(gh.ProviderUnavailable):
             gh._NoRedirect().redirect_request(None, None, 302, "Found", {}, "https://evil.example/")
+
+    def zip_openers(self, location, storage_response=None, first_status=302):
+        """Fake openers: the API answers ``first_status`` (302 + Location); storage answers the response."""
+        seen = []
+
+        class Opener:
+            def __init__(self, handlers):
+                self.handlers = handlers
+
+            def open(self, request, timeout):
+                seen.append((request.full_url, dict(request.header_items()), [type(h).__name__ for h in self.handlers]))
+                if request.full_url.startswith(gh.API_ORIGIN):
+                    headers = Message()
+                    if location is not None:
+                        headers["Location"] = location
+                    raise gh.urllib.error.HTTPError(request.full_url, first_status, "Found", headers, None)
+                if storage_response is None:
+                    raise gh.urllib.error.URLError("unreachable")
+                return storage_response
+        return seen, (lambda *handlers: Opener(handlers))
+
+    def test_artifact_zip_download_policy(self):
+        good = "https://productionresultssa15.blob.core.windows.net/actions-results/abc/artifacts/x.zip?sig=s"
+
+        class Response:
+            status, body = 200, b"PK-bytes"
+
+            def __init__(self, url=good, body=b"PK-bytes", status=200):
+                self.url, self.body, self.status = url, body, status
+
+            def geturl(self):
+                return self.url
+
+            def read(self, n):
+                return self.body[:n]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+        with mock.patch.object(gh.urllib.request, "build_opener", side_effect=AssertionError("network")):
+            with self.assertRaises(gh.ProviderUnavailable):
+                gh.GitHubProvider(None).get_artifact_zip("a/b", 1)
+            with self.assertRaises(gh.ProviderUnavailable):
+                gh.GitHubProvider("t0ken").get_artifact_zip("a/b", "1")
+            with self.assertRaises(gh.ProviderUnavailable):
+                gh.GitHubProvider("t0ken").get_artifact_zip("a/b/../c", 1)
+        seen, opener = self.zip_openers(good, Response())
+        with mock.patch.object(gh.urllib.request, "build_opener", opener):
+            self.assertEqual(gh.GitHubProvider("t0ken").get_artifact_zip("a/b", 7), b"PK-bytes")
+        (api_url, api_headers, api_handlers), (storage_url, storage_headers, storage_handlers) = seen
+        self.assertEqual(api_url, "https://api.github.com/repos/a/b/actions/artifacts/7/zip")
+        self.assertEqual(api_headers["Authorization"], "Bearer t0ken")
+        self.assertEqual(storage_url, good)
+        self.assertNotIn("Authorization", storage_headers)
+        self.assertEqual((api_handlers, storage_handlers), (["_CaptureRedirect"], ["_NoRedirect"]))
+        for bad in ("https://evil.example/actions-results/x", "http://productionresultssa15.blob.core.windows.net/"
+                    "actions-results/x", "https://attacker.blob.core.windows.net/actions-results/x",
+                    "https://productionresultssa15.blob.core.windows.net/other/x",
+                    "https://u:p@productionresultssa15.blob.core.windows.net/actions-results/x",
+                    "https://productionresultssa15.blob.core.windows.net:8443/actions-results/x",
+                    "https://productionresultssa15.blob.core.windows.net.evil.example/actions-results/x", None):
+            seen, opener = self.zip_openers(bad, Response())
+            with mock.patch.object(gh.urllib.request, "build_opener", opener):
+                with self.assertRaises(gh.ProviderUnavailable, msg=bad):
+                    gh.GitHubProvider("t0ken").get_artifact_zip("a/b", 7)
+            self.assertEqual(len(seen), 1, "no request may reach a disallowed redirect target")
+        for status in (410, 404, 500):
+            _seen, opener = self.zip_openers(good, Response(), first_status=status)
+            with mock.patch.object(gh.urllib.request, "build_opener", opener):
+                with self.assertRaises(gh.ProviderUnavailable):
+                    gh.GitHubProvider("t0ken").get_artifact_zip("a/b", 7)
+        for response in (Response(url="https://evil.example/x"), Response(status=206),
+                         Response(body=b"x" * (gh.MAX_ARTIFACT_BYTES + 1)), None):
+            _seen, opener = self.zip_openers(good, response)
+            with mock.patch.object(gh.urllib.request, "build_opener", opener):
+                with self.assertRaises(gh.ProviderUnavailable):
+                    gh.GitHubProvider("t0ken").get_artifact_zip("a/b", 7)
 
     def test_no_mock_switch_in_production_paths(self):
         for main in (verifier.main, xr.main):
@@ -738,11 +929,11 @@ class IntegrationTests(BundleCase):
 class IsolationBindingTests(BundleCase):
     """Section 12 tests 12-16: protected inventory bound to the actual execution paths (M3)."""
 
-    def edit_tree(self, change):
-        parts = valid_parts()
+    def edit_tree(self, change, accepted_staging=False):
+        parts = valid_parts(accepted_staging)
         iso = parts[RAW["isolation_checks"]]
         change(iso["protected_tree"], iso, parts)
-        refreeze(iso["protected_tree"])
+        sync_post(iso["protected_tree"])
         return parts
 
     def assertProtected(self, parts, classification, needle=None):
@@ -799,7 +990,7 @@ class IsolationBindingTests(BundleCase):
         self.assertProtected(self.edit_tree(junction), "FAIL")
 
         def mount(tree, _iso, _parts):
-            tree["parent_chain"][3]["device"] = "2050"
+            tree["parent_chain"][3]["device"] = "2099"
         self.assertProtected(self.edit_tree(mount), "UNCONFIRMED", "mount boundary")
 
     def test_b15_capture_path_outside_inventory(self):
@@ -863,6 +1054,330 @@ class IsolationBindingTests(BundleCase):
 
 
 @NEEDS_TARGET
+class ArtifactContentTests(BundleCase):
+    """R3 M1 tests A-I: the submitted bundle CONTENT must equal the provider-held artifact CONTENT."""
+
+    def assertNotBound(self, result, binding):
+        self.assertNotEqual(result["external_assurance"], "PASS")
+        self.assertEqual(result["bundle_run_binding"], binding, json.dumps(result, indent=1))
+        self.assertIsNone(result["provider_run"] and result["provider_run"]["artifact_name"])
+
+    def other_bundle(self):
+        return self.build(edit=lambda parts: parts[RAW["workspace_provenance"]].update(
+            runner_declarations={"note": "a different bundle"}))
+
+    def test_m1_a_same_artifact_name_different_content(self):
+        bundle = self.build()
+        other = self.other_bundle()
+        provider = substitute_provider(bundle, archive=make_zip(sorted(bundle_tree(other).items())))
+        result = self.validate(bundle, provider=provider)
+        self.assertNotBound(result, "FAIL")
+        self.assertIn("provider-held artifact content differs from the submitted bundle", self.messages(result))
+
+    def test_m1_b_same_run_head_wrong_bundle_bytes(self):
+        original = self.build()
+        submitted = self.other_bundle()
+        # (i) the run's artifact (named for the submitted digest) holds the ORIGINAL bundle bytes
+        provider = substitute_provider(submitted, archive=make_zip(sorted(bundle_tree(original).items())))
+        self.assertNotBound(self.validate(submitted, provider=provider), "FAIL")
+        # (ii) the run only holds an artifact for the original digest: nothing binds the submitted bytes
+        result = self.validate(submitted, provider=substitute_provider(original))
+        self.assertNotEqual(result["external_assurance"], "PASS")
+        self.assertNotEqual(result["bundle_run_binding"], "PASS")
+
+    def test_m1_c_matching_manifest_altered_raw_evidence(self):
+        bundle = self.build()
+        tree = bundle_tree(bundle)
+        rel = RAW["python_identity"]
+        tree[rel] = tree[rel].replace(b"3.11.9", b"3.11.8")
+        result = self.validate(bundle, provider=substitute_provider(bundle, archive=make_zip(sorted(tree.items()))))
+        self.assertNotBound(result, "FAIL")
+        self.assertIn(rel, self.messages(result))
+        # content-rule variants on an otherwise exact tree: all FAIL
+        exact = sorted(bundle_tree(bundle).items())
+        link = zipfile.ZipInfo("raw/link.json")
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        for label, entries in (
+                ("extra file", exact + [("raw/extra.json", b"{}")]),
+                ("missing file", [e for e in exact if e[0] != RAW["git_identity"]]),
+                ("duplicate entry", exact + [exact[1]]),
+                ("case-folded duplicate", exact + [(exact[1][0].upper(), exact[1][1])]),
+                ("traversal", exact + [("raw/../escape.json", b"{}")]),
+                ("absolute", exact + [("/etc/passwd", b"x")]),
+                ("backslash", exact + [("raw\\x.json", b"x")]),
+                ("symlink entry", exact + [("raw/link.json", link)]),
+                ("unexpected directory", exact + [("extra_dir/", b"")])):
+            with self.subTest(label), warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                result = self.validate(bundle, provider=substitute_provider(bundle, archive=make_zip(entries)))
+                self.assertNotBound(result, "FAIL")
+        result = self.validate(bundle, provider=substitute_provider(bundle, archive=b"not a zip"))
+        self.assertNotBound(result, "FAIL")
+        # ancestor directory entries alone are harmless
+        result = self.validate(bundle, provider=substitute_provider(
+            bundle, archive=make_zip([("raw/", b""), ("raw/target/", b"")] + exact)))
+        self.assertEqual(result["bundle_run_binding"], "PASS")
+
+    def test_m1_d_duplicate_matching_artifacts(self):
+        bundle = self.build()
+        result = self.validate(bundle, provider=substitute_provider(bundle, edit=lambda d: d["artifacts"]["artifacts"]
+                                                                    .append(dict(d["artifacts"]["artifacts"][0],
+                                                                                 id=ARTIFACT_ID + 1))))
+        self.assertNotBound(result, "UNCONFIRMED")
+        self.assertIn("no unique provider artifact", self.messages(result))
+
+    def test_m1_e_expired_or_deleted_artifact(self):
+        bundle = self.build()
+        for edit in (lambda d: d["meta"].update(expired=True),
+                     lambda d: d["artifacts"]["artifacts"][0].update(expired=True),
+                     lambda d: d["meta"].update(size_in_bytes=0)):
+            self.assertNotBound(self.validate(bundle, provider=substitute_provider(bundle, edit=edit)), "UNCONFIRMED")
+        # deleted (410 / gone) at download time: BLOCKED, never PASS
+        result = self.validate(bundle, provider=substitute_provider(bundle, edit=lambda d: d.update(zip=None)))
+        self.assertNotBound(result, "BLOCKED")
+        self.assertEqual(result["external_assurance"], "BLOCKED")
+
+    def test_m1_f_artifact_from_different_run(self):
+        bundle = self.build()
+        for edit in (lambda d: d["meta"]["workflow_run"].update(id=RUN_ID + 1),
+                     lambda d: d["artifacts"]["artifacts"][0]["workflow_run"].update(id=RUN_ID + 1),
+                     lambda d: d["meta"].update(id=ARTIFACT_ID + 9)):
+            result = self.validate(bundle, provider=substitute_provider(bundle, edit=edit))
+            self.assertNotBound(result, "FAIL")
+
+    def test_m1_g_same_run_wrong_head_expectation(self):
+        bundle = self.build()
+        result = self.validate(bundle, expected_head_sha="c" * 40)
+        self.assertClass(result, "FAIL", provider_provenance="FAIL")
+        self.assertNotEqual(result["bundle_run_binding"], "PASS")
+        result = self.validate(bundle, provider=substitute_provider(
+            bundle, edit=lambda d: d["meta"]["workflow_run"].update(head_sha="d" * 40)))
+        self.assertNotBound(result, "FAIL")
+
+    def test_m1_h_exact_provider_content_binding_pass_unit_test_only(self):
+        """UNIT-TEST PASS under a trust substitute: provider-held ZIP == submitted bundle."""
+        bundle = self.build()
+        result = self.validate(bundle)
+        self.assertEqual(result["bundle_run_binding"], "PASS")
+        self.assertEqual(result["run_level_provenance"], "PASS")
+        self.assertEqual(result["job_level_provenance"], "NOT_CLAIMED")
+        run = result["provider_run"]
+        self.assertEqual((run["artifact_id"], run["artifact_content_bound"], run["provenance_scope"],
+                          run["job_level_provenance"]), (ARTIFACT_ID, True, "RUN_LEVEL", "NOT_CLAIMED"))
+        self.assertNotIn("job_id", run)
+        self.assertClass(result, "PASS")
+        # provider size/digest metadata must match the downloaded bytes
+        for edit in (lambda d: d["meta"].update(size_in_bytes=d["meta"]["size_in_bytes"] + 1),
+                     lambda d: d["meta"].update(digest="sha256:" + "0" * 64)):
+            self.assertNotBound(self.validate(bundle, provider=substitute_provider(bundle, edit=edit)), "FAIL")
+
+    def test_m1_i_local_bundle_without_provider_content(self):
+        bundle = self.build()
+        result = self.validate(bundle, provider=None)
+        self.assertEqual(result["structural_bundle"], "PASS")
+        self.assertClass(result, "UNCONFIRMED", bundle_run_binding="UNCONFIRMED")
+        self.assertEqual(set(result["assurance_predicates"].values()), {"UNCONFIRMED"})
+        self.assertEqual(result["run_level_provenance"], "UNCONFIRMED")
+        # the bundle is also missing a bound file locally: no content comparison, never PASS
+        (bundle / RAW["isolation_checks"]).unlink()
+        result = self.validate(bundle)
+        self.assertNotEqual(result["bundle_run_binding"], "PASS")
+        self.assertNotEqual(result["external_assurance"], "PASS")
+
+
+@NEEDS_TARGET
+class ProtectedExecutionTests(BundleCase):
+    """R3 M3 tests 1-12: actual execution objects inside the protected inventory; freeze model."""
+
+    def tree_parts(self, change=None, accepted_staging=False, sync=True):
+        parts = valid_parts(accepted_staging)
+        iso = parts[RAW["isolation_checks"]]
+        if change is not None:
+            change(iso["protected_tree"], iso, parts)
+        if sync:
+            sync_post(iso["protected_tree"])
+        else:
+            refreeze(iso["protected_tree"])
+        return parts
+
+    def isolation(self, parts, provider=SUBSTITUTE):
+        result = self.validate(self.build(parts), provider=provider)
+        return result, result["evidence_predicates"]["protected_tree_isolation_evidence"]
+
+    def assertIsolation(self, parts, status, needle=None, component=None, component_status=None):
+        result, actual = self.isolation(parts)
+        self.assertEqual(actual, status, self.messages(result))
+        self.assertEqual(result["assurance_predicates"]["all_writer_isolation_established"], status)
+        if needle:
+            self.assertIn(needle, self.messages(result))
+        if component:
+            self.assertEqual(result["isolation_components"][component], component_status)
+        return result
+
+    @staticmethod
+    def drop(category, keep=lambda e: False):
+        def change(tree, _iso, _parts):
+            tree["entries"] = [e for e in tree["entries"] if e["category"] != category or keep(e)]
+        return change
+
+    def test_m3_01_actual_validator_missing_from_inventory(self):
+        self.assertIsolation(self.tree_parts(self.drop("staged_validator")), "UNCONFIRMED",
+                             "protected inventory lacks staged_validator: " + STAGE + "/" + xr.VALIDATOR_FILE,
+                             "inventory_binding", "UNCONFIRMED")
+
+    def test_m3_02_actual_case_json_missing(self):
+        missing = STAGE + "/PSM_NEG_HISTORY_COLLAPSE.json"
+        self.assertIsolation(self.tree_parts(self.drop("case_inputs", keep=lambda e: e["path"] != missing)),
+                             "UNCONFIRMED", "protected inventory lacks case_inputs: " + missing)
+
+    def test_m3_03_unrelated_validator_path_substituted(self):
+        def change(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "staged_validator")["path"] = \
+                ROOT + "/decoy/inr-local-q/" + xr.VALIDATOR_FILE
+        self.assertIsolation(self.tree_parts(change), "FAIL", "unrelated path substituted for staged_validator")
+        # the executed argv names a validator outside the capture cwd: FAIL whatever the inventory says
+        parts = valid_parts()
+        record = parts[xr.PER_CASE_PATHS["command_result"].format("PSM_NEG_HISTORY_COLLAPSE")]
+        record["argv"][5] = record["popen_args"][5] = ROOT + "/decoy/" + xr.VALIDATOR_FILE
+        result, actual = self.isolation(parts)
+        self.assertEqual(actual, "FAIL")
+        self.assertIn("executed validator is not the staged validator", self.messages(result))
+
+    def test_m3_04_actual_cwd_outside_protected_inventory(self):
+        def change(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "execution_cwd")["path"] = STAGE_ROOT + "/inr-local-zz"
+        self.assertIsolation(self.tree_parts(change), "FAIL", "unrelated path substituted for execution_cwd")
+        # the children actually ran outside the bounded workspace root
+        parts = valid_parts()
+        moved = "/tmp/elsewhere/inr-local-x1y2z3"
+        for case in xr.trusted_configuration()["cases"]:
+            record = parts[xr.PER_CASE_PATHS["command_result"].format(case["case_id"])]
+            record["cwd"] = moved
+            for i in (5, 6):
+                record["argv"][i] = record["popen_args"][i] = record["argv"][i].replace(STAGE, moved)
+        result, actual = self.isolation(parts)
+        self.assertEqual(actual, "FAIL")
+        self.assertIn("protected execution path outside the bounded workspace root: " + moved, self.messages(result))
+
+    def test_m3_05_git_common_dir_missing(self):
+        self.assertIsolation(self.tree_parts(self.drop("git_directory")), "UNCONFIRMED",
+                             "protected inventory lacks git_directory: " + TARGET + "/.git")
+
+    def test_m3_06_object_store_substituted(self):
+        def change(tree, iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "git_objects")["path"] = ROOT + "/mirror.git/objects"
+            iso["git_object_store"]["path"] = ROOT + "/mirror.git/objects"
+        self.assertIsolation(self.tree_parts(change), "FAIL", "unrelated path substituted for git_objects")
+
+    def test_m3_07_missing_required_parent(self):
+        def change(tree, _iso, _parts):
+            tree["parent_chain"] = [p for p in tree["parent_chain"] if p["path"] != TOOLING + "/docs/inr_001"]
+        self.assertIsolation(self.tree_parts(change), "UNCONFIRMED",
+                             "partial parent chain: ancestor not recorded: " + TOOLING + "/docs/inr_001")
+
+    def test_m3_08_writable_protected_validator_during_execution(self):
+        # accepted supervisor: the staged validator is principal-owned (honest observation)
+        with accepted_supervisor():
+            result = self.assertIsolation(self.tree_parts(accepted_staging=True), "UNCONFIRMED",
+                                          "accepted INR supervisor creates the staging directory",
+                                          "staged_objects", "UNCONFIRMED")
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "PASS")
+
+        def writable(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "staged_validator")["writable_by_principal"] = True
+        self.assertIsolation(self.tree_parts(writable), "UNCONFIRMED", "staged staged_validator writable",
+                             "staged_objects", "UNCONFIRMED")
+
+        def frozen_source(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["path"].endswith("/portfolio_state/" + xr.VALIDATOR_FILE)).update(
+                owner_is_principal=True)
+        self.assertIsolation(self.tree_parts(frozen_source), "UNCONFIRMED",
+                             "protected target_files writable or owned by the execution principal",
+                             "frozen_tree", "UNCONFIRMED")
+
+    def test_m3_09_writable_protected_case_input(self):
+        def writable(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "case_inputs")["owner_is_principal"] = True
+        self.assertIsolation(self.tree_parts(writable), "UNCONFIRMED", "staged case_inputs writable",
+                             "staged_objects", "UNCONFIRMED")
+
+        def inputs_source(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["category"] == "inputs")["writable_by_principal"] = True
+        self.assertIsolation(self.tree_parts(inputs_source), "UNCONFIRMED", "protected inputs writable",
+                             "frozen_tree", "UNCONFIRMED")
+
+    def test_m3_10_designated_output_dir_writable_while_frozen_is_acceptable(self):
+        result = self.assertIsolation(self.tree_parts(), "PASS")
+        self.assertTrue(all(d["writable_by_principal"] for d in
+                            valid_parts()[RAW["isolation_checks"]]["protected_tree"]["output_dirs"]))
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "PASS")
+
+        def overlapping(tree, _iso, _parts):
+            tree["output_dirs"][0]["path"] = TOOLING + "/docs"
+        self.assertIsolation(self.tree_parts(overlapping), "FAIL", "overlaps the frozen protected tree")
+
+        def undeclared(tree, _iso, _parts):
+            tree["output_dirs"] = tree["output_dirs"][:2]
+        self.assertIsolation(self.tree_parts(undeclared), "UNCONFIRMED", "designated output directories")
+
+        def wrong_work_dir(tree, _iso, _parts):
+            tree["output_dirs"][2]["path"] = ROOT + "/work"
+        self.assertIsolation(self.tree_parts(wrong_work_dir), "FAIL", "declared supervisor work dir")
+
+    def test_m3_11_equal_digests_but_writable_during_run(self):
+        def writable(tree, _iso, _parts):
+            for entries in (tree["entries"], tree["post_entries"]):
+                next(e for e in entries if e["category"] == "capture_configuration")["writable_by_principal"] = True
+        parts = self.tree_parts(writable, sync=False)
+        tree = parts[RAW["isolation_checks"]]["protected_tree"]
+        self.assertEqual(tree["freeze_digest"], tree["post_execution_digest"])
+        self.assertIsolation(parts, "UNCONFIRMED", "protected capture_configuration writable", "frozen_tree",
+                             "UNCONFIRMED")
+
+        def writable_parent(tree, _iso, _parts):
+            tree["parent_chain"][0]["owner_is_principal"] = True
+        self.assertIsolation(self.tree_parts(writable_parent), "UNCONFIRMED", "replacement risk")
+
+        def late_freeze(tree, _iso, _parts):
+            tree["freeze_completed_at"] = "2026-10-08T01:11:00Z"
+        self.assertIsolation(self.tree_parts(late_freeze), "UNCONFIRMED", "do not enclose the execution window")
+
+        def changed(tree, _iso, _parts):
+            tree["post_entries"][0]["sha256"] = "4" * 64
+        self.assertIsolation(self.tree_parts(changed, sync=False), "FAIL", "changed between freeze and post")
+
+    def test_m3_12_complete_frozen_inventory_bounded_isolation(self):
+        # (a) unit-test PASS of the conjunction under the hypothetical-staging substitute
+        result = self.assertIsolation(self.tree_parts(), "PASS")
+        self.assertEqual(result["isolation_components"],
+                         {"inventory_binding": "PASS", "frozen_tree": "PASS", "staged_objects": "PASS"})
+        self.assertClass(result, "PASS")
+        # (b) the production staging model (accepted supervisor), same complete frozen inventory
+        with accepted_supervisor():
+            result = self.assertIsolation(self.tree_parts(accepted_staging=True), "UNCONFIRMED")
+        self.assertEqual(result["isolation_components"],
+                         {"inventory_binding": "PASS", "frozen_tree": "PASS", "staged_objects": "UNCONFIRMED"})
+        self.assertEqual(result["external_assurance"], "UNCONFIRMED")
+        # (c) a bundle claiming frozen staged objects contradicts the accepted supervisor
+        with accepted_supervisor():
+            self.assertIsolation(self.tree_parts(), "FAIL", "contradicting the accepted supervisor")
+
+    def test_runtime_executables_and_alternates_bound(self):
+        def python_moved(tree, _iso, _parts):
+            next(e for e in tree["entries"] if e["path"] == PYTHON)["path"] = "/tmp/python3.11"
+        self.assertIsolation(self.tree_parts(python_moved), "FAIL", "unrelated path substituted for runtime_executables")
+
+        def no_git(tree, _iso, _parts):
+            tree["entries"] = [e for e in tree["entries"] if e["path"] != GIT]
+        self.assertIsolation(self.tree_parts(no_git), "UNCONFIRMED", "lacks runtime_executables: " + GIT)
+        parts = valid_parts()
+        parts[RAW["isolation_checks"]]["git_object_store"]["alternates"] = [ROOT + "/alt/objects"]
+        result, actual = self.isolation(parts)
+        self.assertEqual(actual, "UNCONFIRMED")
+        self.assertIn("protected inventory lacks git_objects: " + ROOT + "/alt/objects", self.messages(result))
+
+
+@NEEDS_TARGET
 class AdversarialTests(BundleCase):
     """INR-XR-001 section 18: the 20 required adversarial attempts (R2 semantics, see module docstring)."""
 
@@ -903,9 +1418,10 @@ class AdversarialTests(BundleCase):
         def edit(parts):
             iso = parts[RAW["isolation_checks"]]
             tree = iso["protected_tree"]
-            tree["entries"] = [e for e in tree["entries"] if e["category"] == "execution_tree"]
-            tree["categories_covered"] = ["execution_tree"]
-            tree["freeze_digest"] = tree["post_execution_digest"] = xr.protected_tree_digest(tree["entries"])
+            tree["entries"] = [e for e in tree["entries"] if e["category"] == "stage_root"]
+            tree["post_entries"] = []
+            tree["categories_covered"] = ["stage_root"]
+            refreeze(tree)
             iso["runner_declarations"] = {"all_writer_isolation": True,
                                           "protected_tree_isolation_evidence": "PASS"}
         result = self.validate(self.build(edit=edit, declarations={"all_writer_isolation": True}))
@@ -1485,6 +2001,28 @@ class StaticTests(unittest.TestCase):
         for bad in (line + line, ("a" * 64 + "  ../x\n").encode(), b"zz  raw/x\n"):
             with self.assertRaises(ValueError):
                 xr.parse_sha256sums(bad)
+
+    def test_r3_production_constants_and_closed_result_fields(self):
+        source = Path(xr.__file__).read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"^ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = (.*)$", source, re.M), ["True"])
+        self.assertEqual(len(re.findall(r"ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL\s*=", source)), 1)
+        self.assertEqual(gh.JOB_LEVEL_PROVENANCE, "NOT_CLAIMED")
+        props = xr.load_schema()["$defs"]["adapter_result"]["properties"]
+        self.assertEqual(props["job_level_provenance"], {"const": "NOT_CLAIMED"})
+        self.assertEqual(tuple(props["isolation_components"]["required"]),
+                         ("inventory_binding", "frozen_tree", "staged_objects"))
+        self.assertIs(props["isolation_components"]["additionalProperties"], False)
+        self.assertEqual(set(xr.PROTECTED_CATEGORIES), set(xr.FROZEN_CATEGORIES) | set(xr.STAGED_CATEGORIES))
+        self.assertFalse(set(xr.FROZEN_CATEGORIES) & set(xr.STAGED_CATEGORIES))
+        provider_source = Path(gh.__file__).read_text(encoding="utf-8")
+        # one fixed download endpoint; no bundle-controlled URL reaches the opener
+        self.assertNotIn("archive_download_url", provider_source.split('"""', 2)[2])
+        self.assertEqual(gh.ARTIFACT_STORAGE_PATH_PREFIX, "/actions-results/")
+        for host in ("productionresultssa15.blob.core.windows.net", "productionresultssa0.blob.core.windows.net"):
+            self.assertTrue(gh.ARTIFACT_STORAGE_HOST.fullmatch(host))
+        for host in ("evil.blob.core.windows.net", "productionresultssa15.blob.core.windows.net.evil.example",
+                     "productionresultssa.blob.core.windows.net", "objects.githubusercontent.com"):
+            self.assertIsNone(gh.ARTIFACT_STORAGE_HOST.fullmatch(host))
 
 
 if __name__ == "__main__":

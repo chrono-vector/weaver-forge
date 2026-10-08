@@ -423,7 +423,11 @@
             "root",
             "categories_covered",
             "entries",
+            "post_entries",
             "parent_chain",
+            "output_dirs",
+            "freeze_completed_at",
+            "post_measured_at",
             "freeze_digest",
             "post_execution_digest"
           ],
@@ -444,7 +448,11 @@
                   "inputs",
                   "command_inventory",
                   "capture_configuration",
-                  "execution_tree"
+                  "runtime_executables",
+                  "stage_root",
+                  "execution_cwd",
+                  "staged_validator",
+                  "case_inputs"
                 ]
               }
             },
@@ -458,6 +466,7 @@
                   "path",
                   "kind",
                   "sha256",
+                  "owner_is_principal",
                   "writable_by_principal",
                   "writable_by_others",
                   "symlink",
@@ -476,7 +485,11 @@
                       "inputs",
                       "command_inventory",
                       "capture_configuration",
-                      "execution_tree"
+                      "runtime_executables",
+                      "stage_root",
+                      "execution_cwd",
+                      "staged_validator",
+                      "case_inputs"
                     ]
                   },
                   "path": {
@@ -492,6 +505,9 @@
                   "sha256": {
                     "type": "string",
                     "pattern": "^([0-9a-f]{64})?$"
+                  },
+                  "owner_is_principal": {
+                    "type": "boolean"
                   },
                   "writable_by_principal": {
                     "type": "boolean"
@@ -516,6 +532,81 @@
               },
               "minItems": 1
             },
+            "post_entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "path",
+                  "kind",
+                  "sha256",
+                  "owner_is_principal",
+                  "writable_by_principal",
+                  "writable_by_others",
+                  "symlink",
+                  "reparse_point",
+                  "link_count",
+                  "device"
+                ],
+                "properties": {
+                  "category": {
+                    "enum": [
+                      "target_tree",
+                      "target_files",
+                      "git_directory",
+                      "git_objects",
+                      "profile_origin_binding",
+                      "inputs",
+                      "command_inventory",
+                      "capture_configuration",
+                      "runtime_executables",
+                      "stage_root",
+                      "execution_cwd",
+                      "staged_validator",
+                      "case_inputs"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "enum": [
+                      "file",
+                      "dir"
+                    ]
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^([0-9a-f]{64})?$"
+                  },
+                  "owner_is_principal": {
+                    "type": "boolean"
+                  },
+                  "writable_by_principal": {
+                    "type": "boolean"
+                  },
+                  "writable_by_others": {
+                    "type": "boolean"
+                  },
+                  "symlink": {
+                    "type": "boolean"
+                  },
+                  "reparse_point": {
+                    "type": "boolean"
+                  },
+                  "link_count": {
+                    "type": "integer"
+                  },
+                  "device": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
             "parent_chain": {
               "type": "array",
               "items": {
@@ -523,6 +614,7 @@
                 "additionalProperties": false,
                 "required": [
                   "path",
+                  "owner_is_principal",
                   "writable_by_principal",
                   "writable_by_others",
                   "symlink",
@@ -533,6 +625,9 @@
                   "path": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "owner_is_principal": {
+                    "type": "boolean"
                   },
                   "writable_by_principal": {
                     "type": "boolean"
@@ -553,6 +648,42 @@
                 }
               },
               "minItems": 1
+            },
+            "output_dirs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "purpose",
+                  "path",
+                  "writable_by_principal"
+                ],
+                "properties": {
+                  "purpose": {
+                    "enum": [
+                      "export",
+                      "ledger",
+                      "work_dir"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "writable_by_principal": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "freeze_completed_at": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+            },
+            "post_measured_at": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
             },
             "freeze_digest": {
               "type": "string",
@@ -1175,6 +1306,9 @@
         "structural_bundle",
         "provider_provenance",
         "bundle_run_binding",
+        "run_level_provenance",
+        "job_level_provenance",
+        "isolation_components",
         "external_assurance",
         "external_assurance_pass",
         "inr_external_reconstruction_pass",
@@ -1222,6 +1356,52 @@
             "UNCONFIRMED",
             "BLOCKED"
           ]
+        },
+        "run_level_provenance": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNCONFIRMED",
+            "BLOCKED"
+          ]
+        },
+        "job_level_provenance": {
+          "const": "NOT_CLAIMED"
+        },
+        "isolation_components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inventory_binding",
+            "frozen_tree",
+            "staged_objects"
+          ],
+          "properties": {
+            "inventory_binding": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "frozen_tree": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "staged_objects": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            }
+          }
         },
         "external_assurance": {
           "enum": [

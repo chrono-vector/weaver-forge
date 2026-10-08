@@ -11,6 +11,14 @@ adds the GitHub Actions provider trust anchor with one bundle-to-run binding, ad
 the one-way XR verifier process as the integration point into INR, and binds the
 protected inventory to the actual execution paths.
 
+R3 (material remediation of M1 and M3 only) binds the submitted bundle CONTENT to the
+provider-held artifact CONTENT (section 1.2), states the provenance scope honestly
+(RUN-LEVEL; job-level NOT_CLAIMED), binds the actual staged execution objects (cwd,
+staged validator, case inputs, interpreter, Git object store, required ancestors) to
+the protected inventory, and replaces the principal-writable stage-root allowance with
+a freeze model (section 6.1). Under the accepted INR supervisor's staging layout,
+`all_writer_isolation_established` cannot be PASS and is reported UNCONFIRMED.
+
 **Structural validity is not assurance.** A bundle that is internally consistent and
 hash-bound gets `structural_bundle: PASS` only. External assurance additionally
 needs authoritative GitHub Actions metadata, fetched by the verifier itself from
@@ -67,7 +75,10 @@ raw evidence (runner, untrusted claims)
 | `structural_bundle` | PASS / FAIL | manifest schema-valid; every raw file present, path-safe and hash-bound (`bundle_integrity` gate) |
 | `evidence_predicates` (10, `*_evidence`) | PASS / FAIL / UNCONFIRMED / BLOCKED / NOT_ESTABLISHED | bundle-authored evidence present and consistent; never assurance on its own |
 | `provider_provenance` | PASS / UNCONFIRMED / BLOCKED / FAIL | the claimed run, attempt, job, commit, workflow, runner and times agree with authoritative GitHub data |
-| `bundle_run_binding` | PASS / UNCONFIRMED / BLOCKED / FAIL | the verified run carries the artifact `inr-xr-bundle-<bundle_digest>` (section 1.2) |
+| `bundle_run_binding` | PASS / UNCONFIRMED / BLOCKED / FAIL | the verified run carries exactly one artifact `inr-xr-bundle-<bundle_digest>` whose downloaded CONTENT equals the submitted bundle under the frozen content rule (section 1.2) |
+| `run_level_provenance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of `provider_provenance` and `bundle_run_binding`; the bundle is bound to the verified workflow RUN |
+| `job_level_provenance` | NOT_CLAIMED (constant) | the producing job is not authenticated (artifacts are run-scoped) |
+| `isolation_components` | PASS / UNCONFIRMED / BLOCKED / FAIL each | `inventory_binding`, `frozen_tree`, `staged_objects` (section 6.1); `staged_objects` is always UNCONFIRMED under the accepted supervisor |
 | `assurance_predicates` (9, `*_established`) | PASS / UNCONFIRMED / BLOCKED / FAIL | evidence predicate(s) AND all four gates (`bundle_integrity`, `trusted_reference_binding`, `provider_provenance`, `bundle_run_binding`) |
 | `external_assurance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of all assurance predicates and gates; precedence BLOCKED > FAIL (including contradictions) > UNCONFIRMED > PASS |
 
@@ -82,24 +93,67 @@ Mapping: `runner_identity`, `fresh_hosted_runner`, `fresh_workspace`,
 
 `provider_github_v0.py` is the only provider boundary.
 
-- Endpoints (fixed set, GET only, redirects refused, final host must be
+- JSON endpoints (fixed set, GET only, redirects refused, final host must be
   `api.github.com`):
   `/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}`,
   `/repos/{repo}/actions/jobs/{job_id}`,
-  `/repos/{repo}/actions/runs/{run_id}/artifacts?name=inr-xr-bundle-<bundle_digest>`.
+  `/repos/{repo}/actions/runs/{run_id}/artifacts?name=inr-xr-bundle-<bundle_digest>`,
+  `/repos/{repo}/actions/artifacts/{artifact_id}`.
   `{repo}` is the trusted repository from the committed origin set, never the bundle.
+- Download endpoint (R3, the only non-JSON request):
+  `GET https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip` with
+  the token. `{artifact_id}` is an integer taken only from the verified listing of the
+  verified run. GitHub answers 302 with a `Location` to a short-lived signed storage
+  URL. Exactly one redirect is followed, and only to a target that is `https`, port
+  443, without userinfo or fragment, on a host matching
+  `productionresultssa<N>.blob.core.windows.net` (GitHub Actions artifact storage),
+  with a path under `/actions-results/`. Any other answer (non-302, 404/410, missing
+  or disallowed `Location`) is a provider failure. The redirected request carries NO
+  `Authorization` header, follows no further redirect, must answer 200 from the same
+  allowed host, and is capped at 64 MiB. There is no generic URL fetching, and the
+  `archive_download_url` field of the metadata is not used.
 - **No token: BLOCKED, and no network request is made.** No mock, offline or
   substitute mode exists in production code, and no argv, environment or file switch
   selects one. Unit tests pass a clearly labelled `UnitTestTrustSubstituteProvider`
   in-process. That object exists only in the test module.
-- **Binding (the ONE mechanism).** `bundle_digest` = SHA-256 of the exact
-  `external_run_manifest.json` bytes. The manifest binds every raw file by SHA-256.
-  The workflow job uploads the bundle as the artifact named
-  `inr-xr-bundle-<bundle_digest>` (the collection helper prints the name). The
-  verifier computes the digest from the submitted manifest and requires exactly one
-  artifact of that name in the verified run. The artifact must name the verified
-  run and head SHA, must not be expired or empty, and must have been created inside
-  the verified job window.
+- **Binding (the ONE mechanism: GitHub artifact CONTENT verification).**
+  `bundle_digest` = SHA-256 of the exact `external_run_manifest.json` bytes. The
+  manifest binds every raw file by SHA-256. The workflow uploads the bundle tree as
+  the artifact named `inr-xr-bundle-<bundle_digest>` (the collection helper prints the
+  name). The verifier:
+  1. requires exactly one artifact of that name in the verified run's listing, with a
+     positive integer ID;
+  2. fetches that artifact's metadata, which must repeat the ID and name, name the
+     verified run and head SHA, be unexpired with a positive size, and have been
+     created inside the claimed job window (expired or empty: UNCONFIRMED; other run,
+     head, ID or name: FAIL);
+  3. downloads the ZIP (above); its length must equal `size_in_bytes`, and when the
+     metadata carries `digest: sha256:<hex>` the ZIP SHA-256 must equal it (FAIL);
+  4. applies the frozen content rule.
+- **Frozen artifact content rule (`ARTIFACT_CONTENT_RULE`).** The ZIP holds exactly
+  `external_run_manifest.json` plus every path bound by its `evidence_files`, as
+  regular, unencrypted, stored or deflated file entries. Directory entries are
+  allowed only for ancestors of those files. Every entry's bytes must equal the
+  submitted bundle file byte for byte, so the manifest bytes, the raw-file inventory
+  and SHA-256 values, the event ID, the target SHA and the profile/origin digests are
+  all bound to provider-held content. FAIL: an unreadable archive, an extra, missing,
+  duplicate (also case-folded), traversing, absolute, backslash or drive path, a
+  symlink entry, an encrypted or unsupported entry, a size inconsistency, or any byte
+  difference. Caps: 256 entries, 256 MiB uncompressed. No bundle-supplied artifact
+  hash is trusted. A submitted bundle that fails integrity is never compared
+  (UNCONFIRMED).
+- Download unavailable (no token, network error, 404/410, disallowed redirect):
+  BLOCKED, never PASS. `provider_run.artifact_name` is set only when the content is
+  bound.
+- **Provenance scope.** GitHub artifacts are run-scoped and the REST artifact
+  metadata names the run, not the producing job. The binding is RUN-LEVEL
+  (`run_level_provenance`). The claimed job is checked against the provider job
+  record for consistency (same run, attempt and head, runner name, hosted group,
+  artifact and event times in its window), but the producing job is not
+  authenticated: `job_level_provenance` is the constant `NOT_CLAIMED`, and the
+  claimed job fields are reported as `claimed_job_*`. The approved workflow is
+  designed with a single producing job, but the verifier does not verify the
+  workflow file content, so this is not used as a job binding.
 - Provider checks:
   - FAIL when any of these differ: repository, run ID/attempt, job ID, the job's
     run/attempt/head, the claimed head SHA, the operator `--expected-head-sha`, the
@@ -202,27 +256,40 @@ execution used (section 6.1).
 
    Also record `python_identity.json`: `sys.version_info`, `sys.version`,
    `platform.python_implementation()`, the resolved `sys.executable` and its sha256.
-6. **Runner, freeze.**
-   - Make every protected entry read-only for the execution principal, and make
-     `$ROOT` and its parents non-writable.
-     The stage root `$ROOT/stage` stays principal-writable (the supervisor creates
-     its staging directory there).
+6. **Runner, freeze (R3).**
+   - The execution principal is a dedicated unprivileged user (for example run via
+     `sudo -u inrxr`) that owns nothing under `$ROOT` except the three designated
+     output directories `$ROOT/out` (export), `$ROOT/ledger` (ledger) and
+     `$ROOT/stage` (supervisor work dir). The frozen tree (target clone, `.git`,
+     tooling, interpreter, Git executable) and every required ancestor are owned by
+     another principal and are not writable by the execution principal.
    - Record `isolation_checks.json`: the mount table (`findmnt -J`), package and build
-     caches, the Git object store, the protected entries and the parent chain. Each
-     protected entry records category, absolute path, kind, sha256, writability by
-     principal and by others, symlink/reparse, link count and device. Each parent
-     record holds path, writability, symlink/reparse and device. The parent chain
-     covers every ancestor of every protected path up to and including `$ROOT`.
-   - Compute the freeze digest with the adapter rule:
-     `sha256(canonical(sorted([category, path, kind, sha256] for each entry)))`, where
-     `canonical` is `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=True)`.
+     caches, the Git object store, the protected entries, the parent chain, the output
+     directories and `freeze_completed_at`. Each protected entry records category,
+     absolute path, kind, sha256, writability by the execution principal and by
+     others, `owner_is_principal`, symlink/reparse, link count and device. Each parent
+     record holds path, writability, `owner_is_principal`, symlink/reparse and device.
+     The parent chain covers every ancestor (up to and including `$ROOT`) of every
+     protected path inside `$ROOT` that is not itself a protected entry.
+   - Staged entries (`stage_root`, `execution_cwd`, `staged_validator`,
+     `case_inputs`) are recorded with their actual paths (the supervisor's
+     `inr-local-*` directory, `validate_psm_v0.py` and `<case>.json` inside it) and
+     HONEST flags: under the accepted supervisor they are created and owned by the
+     execution principal, and they cannot be frozen.
+   - Compute the freeze digest with the adapter rule over the FROZEN categories only:
+     `sha256(canonical(sorted([category, path, kind, sha256] for each frozen entry)))`,
+     where `canonical` is
+     `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=True)`.
 7. **Runner, event.** Record `started_at` (UTC), then run the accepted supervisor
-   exactly as INR-001 r3 prescribes, with the target clone as repository:
+   as the execution principal, exactly as INR-001 r3 prescribes, with the target
+   clone as repository:
    `python -I -S -B $ROOT/tooling/docs/inr_001/supervisor_inr_v0.py --event-id <ID>
-   --repository $ROOT/target --out $ROOT/export.json --work-dir $ROOT/stage --ledger <ledger>`.
-   Record `completed_at` when it exits.
-8. **Runner, post.** Re-measure the protected entries and record
-   `post_execution_digest`. It must equal the freeze digest.
+   --repository $ROOT/target --out $ROOT/out/export.json --work-dir $ROOT/stage
+   --ledger $ROOT/ledger/<ledger>`. Record `completed_at` when it exits.
+8. **Runner, post.** Re-measure every protected entry into `post_entries` (same
+   fields), record `post_measured_at` and `post_execution_digest`. It must equal the
+   freeze digest, and `freeze_completed_at <= started_at <= completed_at <=
+   post_measured_at`.
 9. **Runner, bundle.** Run
    `python -B -m docs.inr_001.xr.collect_bundle_v0 --export $ROOT/export.json --observations
    $ROOT/obs --target-repository $ROOT/target --out $ROOT/bundle --started-at <UTC> --completed-at
@@ -233,11 +300,13 @@ execution used (section 6.1).
    PSM files into `raw/target/`, then writes `raw/sha256sums.txt` and
    `external_run_manifest.json`. It asserts nothing, and prints `bundle_digest` and
    `artifact_name`.
-10. **Runner, binding.** Upload `$ROOT/bundle` as the artifact named exactly
-    `inr-xr-bundle-<bundle_digest>` (`actions/upload-artifact`), from the same job,
-    before the job completes.
+10. **Runner, binding.** Upload the CONTENTS of `$ROOT/bundle` (exactly the bundle
+    tree, nothing else) as the artifact named exactly `inr-xr-bundle-<bundle_digest>`
+    (`actions/upload-artifact`), from the same job, before the job completes.
 11. **Operator, verification.** After the run completes, download the artifact,
-    export `INR_XR_GITHUB_TOKEN` and run the verifier process (section 1.3). The
+    export `INR_XR_GITHUB_TOKEN` (read access to Actions) and run the verifier
+    process (section 1.3). The verifier downloads the artifact again itself and
+    compares its content with the submitted bundle. The
     adapter CLI is `python -B -m docs.inr_001.xr.validate_external_run_v0 BUNDLE
     --expected-event-id <ID> --not-before <UTC> --expected-head-sha <SHA>`. Its exit
     status 0 means external assurance PASS for the bundle only. It is never an INR
@@ -320,54 +389,84 @@ consistent. Assurance follows section 1.1.
 | bundle_run_binding | section 1.2 binding |
 | trusted_reference_binding | manifest target SHA = TARGET_SHA (else BLOCKED); origin and profile references equal to the trusted ones (alternate, stale or executor-selected origin: UNCONFIRMED); trusted configuration loadable (else BLOCKED) |
 
-### 6.1 Protected inventory bound to the actual execution (M3)
+### 6.1 Protected execution objects and the freeze model (M3, R3)
 
-The adapter derives the expected protected set from the ACTUAL runtime paths, never
-from the inventory itself:
+The adapter derives the REQUIRED protected set from the actual runtime/capture data,
+the trusted frozen configuration and the Git/runtime measurements. The inventory
+never defines what was executed.
+
+Derivation:
 
 - tooling root = `event_start.supervisor_path` without
   `/docs/inr_001/supervisor_inr_v0.py` (any other shape: UNCONFIRMED);
-- repository = the supervisor's post-measurement `git_probe.repository_root`;
-- common Git dir = `git_probe.common_git_dir`;
-- stage root = the parent of the children's single `cwd`, which must be an
-  `inr-local-*` directory;
-- each capture record: `argv[4]` must be `<tooling root>/docs/inr_001/runtime_probe.py`,
-  `argv[7]` the repository, and `argv[5]`/`argv[6]` inside the cwd. Otherwise FAIL
-  (capture path outside the protected inventory).
+- repository, common Git dir and Git executable (with its digest) = the supervisor's
+  post-measurement `git_probe`;
+- execution cwd = the children's single `cwd`, which must be an `inr-local-*`
+  directory; stage root = its parent;
+- each capture record: `argv` must have the accepted 8-element shape with absolute
+  paths; `argv[4]` must be `<tooling root>/docs/inr_001/runtime_probe.py`, `argv[5]`
+  `<cwd>/validate_psm_v0.py` (the executed staged validator), `argv[6]`
+  `<cwd>/<case_id>.json` (the executed case input), and `argv[7]` the repository.
+  Otherwise FAIL. `argv[0]` is the interpreter; all children must use the same one;
+- Git object directories = `<common Git dir>/objects` plus every absolute alternate
+  reported by `git_identity` or `isolation_checks` (a non-absolute alternate:
+  UNCONFIRMED).
 
-Expected entries:
+Required entries (exact path, kind and digest):
 
-- `target_tree` = the repository;
-- `target_files` = `<repository>/docs/portfolio_state/<file>` with the pinned
-  digests;
-- `git_directory` = the common Git dir;
-- `git_objects` = `<common Git dir>/objects`;
-- `profile_origin_binding` = the profile and origin JSON, `command_inventory` = the
-  profile, `inputs` = `input_cases.py`, and `capture_configuration` = the supervisor
-  and probe, all under the tooling root, with the accepted tooling digests;
-- `execution_tree` = the stage root.
+- FROZEN categories: `target_tree` (repository), `target_files` (pinned PSM files),
+  `git_directory` (common Git dir), `git_objects` (object store and alternates),
+  `profile_origin_binding`, `command_inventory`, `inputs`, `capture_configuration`
+  (supervisor and probe) under the tooling root with the accepted digests, and
+  `runtime_executables` (interpreter with the measured Python executable digest, and
+  the Git executable with the probe digest);
+- STAGED categories: `stage_root`, `execution_cwd`, `staged_validator` (digest = the
+  capture record's staged source digest) and `case_inputs` (digest = the input
+  digest).
 
-Rules:
+The result reports three components in `isolation_components`; the predicate
+`protected_tree_isolation_evidence` (and so `all_writer_isolation_established`) is
+their conjunction:
 
-- FAIL in these cases:
-  - an expected path is missing while the category lists another path (unrelated
-    path substituted);
-  - an extra inventory path (not used by execution);
-  - a kind or digest mismatch;
-  - an expected path outside the root;
-  - the root is not `workspace_provenance.workspace_path`;
-  - `git_identity.repository_root` or `git_object_store.path` is not the executed
-    repository or object store;
-  - a parent record is not on any protected path.
-- UNCONFIRMED in these cases:
-  - a category has no entries, or an expected path is missing with no substitute
-    (partial inventory);
-  - an ancestor is missing from the parent chain (partial parent chain);
-  - device differences (mount boundary);
-  - runtime paths not admitted.
-- Aliases (symlink, junction/reparse point, hard link) and writable-by-others are
-  FAIL; a writable parent is UNCONFIRMED.
-- No hostile-host claim: privileged or host-level writers are not excluded.
+1. `inventory_binding`
+   - FAIL: an expected path missing while its category lists another path
+     (substitution); an extra inventory path; a kind or digest mismatch; a path
+     outside the bounded root (`workspace_provenance.workspace_path`) other than
+     runtime executables; a root mismatch; `git_identity.repository_root` or
+     `git_object_store.path` not the executed repository or object store; an alias
+     (symlink, junction/reparse point, hard link) on an entry or parent; a parent
+     record not required by any protected path; the declared supervisor work dir not
+     equal to the actual stage root; children executed outside the root.
+   - UNCONFIRMED: a missing entry with no substitute; a missing required ancestor; a
+     device differing from the root (mount boundary); a missing digest.
+2. `frozen_tree`
+   - FAIL: writable by others; a post entry changed, extra or aliased; a freeze or
+     post digest not equal to the recomputed digest, or post not equal to freeze; an
+     output dir that is relative or overlaps a frozen entry; a shared/network mount or
+     restored cache overlap.
+   - UNCONFIRMED: any frozen entry or required parent writable by, or owned by, the
+     execution principal (parent replacement risk); an elevated principal; a missing
+     post entry; the freeze/post times not enclosing the event window; designated
+     output directories not exactly `export`, `ledger` and `work_dir`.
+   - Equal pre/post digests alone never establish this component (TOCTOU boundary);
+     non-writability during the window is required as well.
+3. `staged_objects`
+   - With the accepted supervisor (`ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True`, a
+     code constant, not a switch): always UNCONFIRMED. The accepted supervisor
+     creates its `inr-local-*` staging directory with `tempfile` under the work dir,
+     writes the validator and case JSON there, and runs the children in it as the
+     same principal. The executed objects are therefore principal-owned and
+     replaceable during the window, and freezing them would need a change to the
+     accepted INR tooling, which is out of scope. A bundle that claims a
+     non-writable stage root, or staged objects not owned by the execution principal,
+     contradicts that supervisor: FAIL.
+   - The unit tests also exercise a hypothetical staging substitute (constant patched
+     in-process) to show that the conjunction can PASS when every object is frozen.
+     That path is not reachable from production.
+
+Consequence: in production, `all_writer_isolation_established` is at best
+UNCONFIRMED. No hostile-host claim is made: privileged or host-level writers are not
+excluded, and the observations remain runner-reported.
 
 ### Self-assertion policy (decision)
 
@@ -407,19 +506,27 @@ supervisor exited, and it carries the supervisor report. The adapter requires
   not-before time, the provider run creation time and the job window. The operator
   must never reuse an event ID.
 - No all-writer proof: privileged or host-level writers, and writers outside the
-  observed mount table, are not excluded.
+  observed mount table, are not excluded. Under the accepted supervisor the staged
+  execution objects are principal-writable, so all-writer isolation is UNCONFIRMED.
+- Real artifact download has NOT been executed; the content binding was exercised
+  only with unit-test archives (MOCK_ONLY). The storage host allowlist follows
+  GitHub's documented behaviour at the time of writing and may need revision.
+- No job-level provenance: the binding authenticates the run, not the job.
 - Observations inside the bundle (mount table, writability, parent chain) remain
   runner-reported. The provider anchors their origin (which run produced them), not
   their truth.
 
 ## 8. Deviations from the request
 
-- R2: the stage root (`execution_tree`) is the one protected entry that may be
-  principal-writable, because the accepted supervisor creates its staging directory
-  there. Its contents are bound through the per-case staged source and input digests
-  in the capture records.
-- R2: OIDC/attestations are not used (section 4 of the R2 request allowed this). The
-  single binding mechanism is the provider artifact name.
+- R3: the R2 principal-writable stage-root allowance is removed. Because the
+  accepted supervisor stages the executed validator and case JSON as the execution
+  principal, `staged_objects` (and so all-writer isolation) stays UNCONFIRMED; the
+  accepted INR tooling is not changed to avoid this.
+- R3: runtime executables (interpreter, Git) are bound by path and digest but lie
+  outside the bounded workspace root; their parent chains are not required.
+- R3: job-level provenance is NOT_CLAIMED (artifacts are run-scoped).
+- R2/R3: OIDC/attestations are not used. The single binding mechanism is GitHub
+  artifact content verification (R3), keyed by the artifact name.
 
 - `raw/target/<pinned PSM file>` is added to the bundle. The adapter hashes the
   acquired PSM bytes itself and derives the required-object set from the
