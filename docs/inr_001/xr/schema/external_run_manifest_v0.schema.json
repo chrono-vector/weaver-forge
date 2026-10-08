@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "INR-XR-001 External Run Manifest v0",
-  "description": "Top level: the runner-written manifest (evidence references and hash bindings only). $defs.raw_*: raw evidence data files. $defs.adapter_result: adapter-derived predicates and final classification (adapter output only; never accepted as input). Checked with the code-owned vocabulary of docs/inr_001/schema_check.py.",
+  "description": "Top level: the runner-written manifest (evidence references and hash bindings only). $defs.raw_*: raw evidence data files (bundle-authored claims). $defs.adapter_result: adapter output only (structural result, evidence predicates, provider gates, assurance predicates, external assurance); never accepted as input. Checked with the code-owned vocabulary of docs/inr_001/schema_check.py.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -128,7 +128,9 @@
         "image_os",
         "image_version",
         "boot_time",
-        "job_started_at"
+        "job_started_at",
+        "head_sha",
+        "workflow_path"
       ],
       "properties": {
         "schema_version": {
@@ -184,6 +186,14 @@
         "job_started_at": {
           "type": "string",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "workflow_path": {
+          "type": "string",
+          "minLength": 1
         },
         "runner_declarations": {
           "type": "object"
@@ -426,13 +436,15 @@
               "type": "array",
               "items": {
                 "enum": [
+                  "target_tree",
                   "target_files",
+                  "git_directory",
+                  "git_objects",
                   "profile_origin_binding",
                   "inputs",
                   "command_inventory",
                   "capture_configuration",
-                  "execution_tree",
-                  "git_objects"
+                  "execution_tree"
                 ]
               }
             },
@@ -450,18 +462,21 @@
                   "writable_by_others",
                   "symlink",
                   "reparse_point",
-                  "link_count"
+                  "link_count",
+                  "device"
                 ],
                 "properties": {
                   "category": {
                     "enum": [
+                      "target_tree",
                       "target_files",
+                      "git_directory",
+                      "git_objects",
                       "profile_origin_binding",
                       "inputs",
                       "command_inventory",
                       "capture_configuration",
-                      "execution_tree",
-                      "git_objects"
+                      "execution_tree"
                     ]
                   },
                   "path": {
@@ -492,6 +507,10 @@
                   },
                   "link_count": {
                     "type": "integer"
+                  },
+                  "device": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 }
               },
@@ -505,7 +524,10 @@
                 "required": [
                   "path",
                   "writable_by_principal",
-                  "writable_by_others"
+                  "writable_by_others",
+                  "symlink",
+                  "reparse_point",
+                  "device"
                 ],
                 "properties": {
                   "path": {
@@ -517,6 +539,16 @@
                   },
                   "writable_by_others": {
                     "type": "boolean"
+                  },
+                  "symlink": {
+                    "type": "boolean"
+                  },
+                  "reparse_point": {
+                    "type": "boolean"
+                  },
+                  "device": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 }
               },
@@ -727,7 +759,8 @@
         "accepted_target_profile_binding",
         "accepted_origin_reference_binding",
         "supervisor",
-        "supervisor_sha256"
+        "supervisor_sha256",
+        "supervisor_path"
       ],
       "properties": {
         "schema_version": {
@@ -836,6 +869,10 @@
         "supervisor_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "supervisor_path": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -1135,13 +1172,20 @@
       "required": [
         "schema_version",
         "result_kind",
-        "classification",
-        "classification_scope",
-        "adapter_bundle_pass",
+        "structural_bundle",
+        "provider_provenance",
+        "bundle_run_binding",
+        "external_assurance",
+        "external_assurance_pass",
         "inr_external_reconstruction_pass",
         "fresh_local_inr_pass",
         "gates",
-        "predicates",
+        "evidence_predicates",
+        "assurance_predicates",
+        "bundle_digest",
+        "provider_run",
+        "bound_event",
+        "supervisor_report_predicates",
         "blocked",
         "fail",
         "unconfirmed",
@@ -1152,12 +1196,18 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "inr.xr.adapter_result.v0"
+          "const": "inr.xr.adapter_result.v0.r2"
         },
         "result_kind": {
           "const": "EXTERNAL_BUNDLE_ADAPTER_RESULT"
         },
-        "classification": {
+        "structural_bundle": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "provider_provenance": {
           "enum": [
             "PASS",
             "FAIL",
@@ -1165,10 +1215,23 @@
             "BLOCKED"
           ]
         },
-        "classification_scope": {
-          "const": "ADAPTER_BUNDLE_ONLY"
+        "bundle_run_binding": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNCONFIRMED",
+            "BLOCKED"
+          ]
         },
-        "adapter_bundle_pass": {
+        "external_assurance": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNCONFIRMED",
+            "BLOCKED"
+          ]
+        },
+        "external_assurance_pass": {
           "type": "boolean"
         },
         "inr_external_reconstruction_pass": {
@@ -1182,7 +1245,9 @@
           "additionalProperties": false,
           "required": [
             "bundle_integrity",
-            "trusted_reference_binding"
+            "trusted_reference_binding",
+            "provider_provenance",
+            "bundle_run_binding"
           ],
           "properties": {
             "bundle_integrity": {
@@ -1202,26 +1267,44 @@
                 "BLOCKED",
                 "NOT_ESTABLISHED"
               ]
+            },
+            "provider_provenance": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "bundle_run_binding": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
             }
           }
         },
-        "predicates": {
+        "evidence_predicates": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "runner_identity_established",
-            "fresh_hosted_runner_candidate",
-            "fresh_workspace_established",
-            "independent_acquisition_established",
+            "runner_identity_evidence",
+            "fresh_hosted_runner_evidence",
+            "fresh_workspace_evidence",
+            "independent_acquisition_evidence",
             "no_shared_origin_filesystem_evidence",
             "no_shared_mutable_cache_evidence",
-            "python_311_established",
-            "git_identity_established",
-            "protected_tree_isolation_established",
-            "current_event_capture_established"
+            "python_311_evidence",
+            "git_identity_evidence",
+            "protected_tree_isolation_evidence",
+            "current_event_capture_evidence"
           ],
           "properties": {
-            "runner_identity_established": {
+            "runner_identity_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1230,7 +1313,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "fresh_hosted_runner_candidate": {
+            "fresh_hosted_runner_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1239,7 +1322,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "fresh_workspace_established": {
+            "fresh_workspace_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1248,7 +1331,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "independent_acquisition_established": {
+            "independent_acquisition_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1275,7 +1358,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "python_311_established": {
+            "python_311_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1284,7 +1367,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "git_identity_established": {
+            "git_identity_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1293,7 +1376,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "protected_tree_isolation_established": {
+            "protected_tree_isolation_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1302,7 +1385,7 @@
                 "NOT_ESTABLISHED"
               ]
             },
-            "current_event_capture_established": {
+            "current_event_capture_evidence": {
               "enum": [
                 "PASS",
                 "FAIL",
@@ -1312,6 +1395,104 @@
               ]
             }
           }
+        },
+        "assurance_predicates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runner_identity_established",
+            "fresh_hosted_runner_established",
+            "fresh_workspace_established",
+            "independent_acquisition_established",
+            "no_shared_mutable_state_established",
+            "all_writer_isolation_established",
+            "python_311_established",
+            "git_identity_established",
+            "current_event_capture_established"
+          ],
+          "properties": {
+            "runner_identity_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "fresh_hosted_runner_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "fresh_workspace_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "independent_acquisition_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "no_shared_mutable_state_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "all_writer_isolation_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "python_311_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "git_identity_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            },
+            "current_event_capture_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED"
+              ]
+            }
+          }
+        },
+        "bundle_digest": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "provider_run": {},
+        "bound_event": {},
+        "supervisor_report_predicates": {
+          "type": "object"
         },
         "blocked": {
           "type": "array",

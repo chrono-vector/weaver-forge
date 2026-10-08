@@ -1,35 +1,36 @@
-"""INR-XR-001 v0 external-run bundle adapter (validation and derivation only).
+"""INR-XR-001 v0 external-run bundle adapter (structural validation, evidence derivation and
+provider-verified assurance).
 
-SCOPE (read first)
-------------------
-This adapter checks a disk bundle that an external runner produced. It checks four
-things: the hash binding and path safety of the bundle, its binding to the trusted
-INR-001 configuration committed in this repository, the ten bounded external
-predicates it derives itself from raw evidence, and a fail-closed classification.
+RESULT MODEL (R2: structural validity is not assurance)
+--------------------------------------------------------
+* ``structural_bundle`` (PASS/FAIL): the manifest is schema-valid and every
+  required raw file is present, path-safe and hash-bound.
+* ``evidence_predicates``: ten predicates (``*_evidence``) derived by the adapter
+  from bundle-authored raw evidence. They say only that the bundle's evidence is
+  present and consistent. On their own they NEVER establish anything.
+* ``provider_provenance`` / ``bundle_run_binding``: GitHub Actions only, verified
+  through ``provider_github_v0.verify_provider`` against authoritative provider
+  data. Bundle provider fields are claims to compare.
+* ``assurance_predicates`` (``*_established``) and ``external_assurance``: an
+  assurance predicate is PASS only when its evidence predicate(s) PASS AND the
+  structural bundle, the trusted reference binding, the provider provenance and the
+  bundle-to-run binding are all PASS. Without a trusted provider anchor, a
+  synthetic but fully consistent bundle reaches structural PASS with assurance
+  UNCONFIRMED.
 
-A PASS from this adapter is an ADAPTER/BUNDLE PASS ONLY:
+This module never grants an INR result. The only integration into INR predicates
+is the separate XR verifier PROCESS (``xr_verifier_v0.py``), whose report is
+accepted only through its launcher's pid/event binding. The constants
+``inr_external_reconstruction_pass`` and ``fresh_local_inr_pass`` in this result
+are always false.
 
-* It is NOT an INR external reconstruction PASS and NOT a fresh local INR PASS. The
-  result carries ``inr_external_reconstruction_pass: false`` and
-  ``fresh_local_inr_pass: false`` as constants.
-* A disk bundle is checked only for internal consistency and hash binding. In v0
-  nothing provider-signed binds the bundle to the runner it describes, so a
-  fabricated but fully consistent bundle would also pass (the synthetic fixture in
-  test 20 shows exactly that).
-* Runner self-declarations never create PASS. A ``runner_declarations`` object is
-  INFORMATIONAL: it is echoed under ``ignored_runner_declarations`` and never read
-  by any derivation. Any other field outside the strict schemas is REJECTED, and
-  that includes fields named after a derived predicate or a classification
-  (``fresh``, ``non_origin``, ``all_writer_isolation``, ``git_verified``,
-  ``classification`` ...). A manifest that carries one fails its schema, which is
-  FAIL. A raw evidence file that carries one is inadmissible, so every predicate
-  that depends on it stays not established.
-* The supervisor report inside ``raw/event_complete.json`` is the INR-001 r3
-  supervisor result. It is used only to LOWER a result, never to raise one.
-
-The trusted target, profile, origin and tooling digests come only from the committed
-INR configuration, loaded through ``supervisor_inr_v0.configuration()``, which
-checks the schema and the pinned digests. They are never taken from the bundle.
+Runner self-declarations never create PASS. ``runner_declarations`` objects are
+informational: they are echoed and never read. Any other non-schema field is
+rejected, including predicate- or classification-named fields. The INR-001 r3
+supervisor report in ``event_complete.json`` is used only to lower a result here.
+The trusted target, profile, origin and tooling digests come only from the
+committed INR configuration (``supervisor_inr_v0.configuration()``) and are never
+taken from the bundle.
 """
 from __future__ import annotations
 
@@ -47,29 +48,46 @@ if __name__ == "__main__":  # pragma: no cover - CLI only
 
 from docs.inr_001 import supervisor_inr_v0 as sup  # noqa: E402
 from docs.inr_001.schema_check import check  # noqa: E402
+from docs.inr_001.xr import provider_github_v0 as provider_github  # noqa: E402
 
 XR_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = sup.ROOT.parents[1]
 SCHEMA_PATH = XR_ROOT / "schema" / "external_run_manifest_v0.schema.json"
 INR_EVENT_SCHEMA_PATH = sup.ROOT / "schema" / "inr_event_v0.schema.json"
 MANIFEST_NAME = "external_run_manifest.json"
-RESULT_SCHEMA_VERSION = "inr.xr.adapter_result.v0"
+RESULT_SCHEMA_VERSION = "inr.xr.adapter_result.v0.r2"
 
-# The fixed, bounded predicate list (INR-XR-001 section 15). Nothing else is derived.
-PREDICATES = (
-    "runner_identity_established",
-    "fresh_hosted_runner_candidate",
-    "fresh_workspace_established",
-    "independent_acquisition_established",
+# Evidence predicates: bundle-authored evidence present and consistent. Never assurance.
+EVIDENCE_PREDICATES = (
+    "runner_identity_evidence",
+    "fresh_hosted_runner_evidence",
+    "fresh_workspace_evidence",
+    "independent_acquisition_evidence",
     "no_shared_origin_filesystem_evidence",
     "no_shared_mutable_cache_evidence",
-    "python_311_established",
-    "git_identity_established",
-    "protected_tree_isolation_established",
-    "current_event_capture_established",
+    "python_311_evidence",
+    "git_identity_evidence",
+    "protected_tree_isolation_evidence",
+    "current_event_capture_evidence",
 )
-# Adapter-owned preconditions; reported separately from the predicates.
-GATES = ("bundle_integrity", "trusted_reference_binding")
+# Adapter-owned preconditions (structural) and the provider trust anchor gates.
+STRUCTURAL_GATES = ("bundle_integrity", "trusted_reference_binding")
+PROVIDER_GATES = ("provider_provenance", "bundle_run_binding")
+GATES = STRUCTURAL_GATES + PROVIDER_GATES
+# Assurance predicates: evidence predicate(s) AND every gate. Bounded, fixed list.
+ASSURANCE_SOURCES = {
+    "runner_identity_established": ("runner_identity_evidence",),
+    "fresh_hosted_runner_established": ("fresh_hosted_runner_evidence",),
+    "fresh_workspace_established": ("fresh_workspace_evidence",),
+    "independent_acquisition_established": ("independent_acquisition_evidence",),
+    "no_shared_mutable_state_established": ("no_shared_origin_filesystem_evidence",
+                                            "no_shared_mutable_cache_evidence"),
+    "all_writer_isolation_established": ("protected_tree_isolation_evidence",),
+    "python_311_established": ("python_311_evidence",),
+    "git_identity_established": ("git_identity_evidence",),
+    "current_event_capture_established": ("current_event_capture_evidence",),
+}
+ASSURANCE_PREDICATES = tuple(ASSURANCE_SOURCES)
 
 SINGLETON_PATHS = {
     "acquisition_log": "raw/acquisition.log",
@@ -110,20 +128,19 @@ ACQUISITION_FIELDS = ("method", "source", "ref", "head")
 ACQUISITION_METHODS = frozenset({"git-clone", "git-fetch"})
 NETWORK_FS_TYPES = frozenset({"nfs", "nfs4", "cifs", "smb", "smbfs", "smb3", "9p", "fuse.sshfs",
                               "sshfs", "virtiofs", "afs", "glusterfs", "ceph", "drvfs", "vboxsf"})
-PROTECTED_CATEGORIES = ("target_files", "profile_origin_binding", "inputs", "command_inventory",
-                        "capture_configuration", "execution_tree", "git_objects")
-# Protected-tree layout (relative to protected_tree.root): tooling checkout + target clone.
-TOOLING_ENTRIES = {
-    "capture_configuration": ("docs/inr_001/supervisor_inr_v0.py", "docs/inr_001/runtime_probe.py"),
-    "profile_origin_binding": ("docs/inr_001/profiles/psm_001_inr_target_profile_v0.json",
-                               "docs/inr_001/origin/psm_001_origin_reference_set_v0.json"),
-    "inputs": ("docs/inr_001/input_cases.py",),
-    "command_inventory": ("docs/inr_001/profiles/psm_001_inr_target_profile_v0.json",),
-}
-TOOLING_PREFIX = "tooling/"
-TARGET_PREFIX = "target/"
+# Protected inventory categories; each is bound to an ACTUAL runtime path (see runtime_inventory).
+PROTECTED_CATEGORIES = ("target_tree", "target_files", "git_directory", "git_objects", "profile_origin_binding",
+                        "inputs", "command_inventory", "capture_configuration", "execution_tree")
 SUPERVISOR_REL = "docs/inr_001/supervisor_inr_v0.py"
 PROBE_REL = "docs/inr_001/runtime_probe.py"
+PROFILE_REL = "docs/inr_001/profiles/psm_001_inr_target_profile_v0.json"
+ORIGIN_REL = "docs/inr_001/origin/psm_001_origin_reference_set_v0.json"
+INPUTS_REL = "docs/inr_001/input_cases.py"
+TOOLING_FILES = (SUPERVISOR_REL, PROBE_REL, PROFILE_REL, ORIGIN_REL, INPUTS_REL)
+TOOLING_BINDINGS = (("profile_origin_binding", PROFILE_REL), ("profile_origin_binding", ORIGIN_REL),
+                    ("inputs", INPUTS_REL), ("command_inventory", PROFILE_REL),
+                    ("capture_configuration", SUPERVISOR_REL), ("capture_configuration", PROBE_REL))
+STAGE_DIR_PREFIX = "inr-local-"
 
 _COPY_COMMAND = re.compile(
     r"(?:^|[\s;&|(])(?:cp|rsync|robocopy|xcopy|copy|copy-item|scp|ditto|mv|move|move-item|ln|mklink)(?=\s|$)",
@@ -132,14 +149,15 @@ _SHARED_STORE_OPTION = re.compile(r"(?:^|\s)(?:--reference(?:-if-able)?|--shared
 _GIT_ACQUIRE = re.compile(r"(?:^|[\s;&|])git(?:\s.*)?\s(?:clone|fetch)(?=\s|$)")
 _SELF_ASSERTION = re.compile(
     r"(?:^|_)(?:fresh|non_origin|origin|isolation|verified|established|candidate|classification|"
-    r"verdict|assurance|pass|predicates?|derived|trusted|attested)(?:_|$)", re.IGNORECASE)
+    r"verdict|assurance|pass|predicates?|derived|trusted|attested|evidence)(?:_|$)", re.IGNORECASE)
 _DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
 
 NONCLAIMS = (
-    "adapter/bundle result only",
+    "adapter result only; INR predicates are derived only by the XR verifier process",
     "not an INR external reconstruction PASS",
     "not a fresh local INR PASS",
-    "disk bundle verified by internal consistency and hash binding only; no provider-signed attestation",
+    "structural bundle validity is not external assurance",
+    "external assurance requires GitHub Actions provider verification and bundle-to-run binding",
     "runner self-declarations are informational only and never create PASS",
     "not IW admission",
     "not Human Final",
@@ -243,10 +261,7 @@ def trusted_configuration():
         raise ValueError("trusted origin set does not name exactly one repository")
     if {tuple(c["argv"]) for c in profile["command_inventory"]} != {sup.ARGV_TEMPLATE}:
         raise ValueError("trusted profile argv template differs from the supervisor template")
-    tooling = {}
-    for paths in TOOLING_ENTRIES.values():
-        for rel in paths:
-            tooling[rel] = _lf_digest(REPO_ROOT / rel)
+    tooling = {rel: _lf_digest(REPO_ROOT / rel) for rel in TOOLING_FILES}
     return {"target_sha": sup.TARGET_SHA,
             "target_profile_id": profile["target_profile_id"],
             "target_profile_digest": sup.PROFILE_DIGEST,
@@ -300,7 +315,8 @@ def _load_bundle(root, trusted, schema, findings):
         findings.add(gate, "unconfirmed", "external_run_manifest.json missing")
         return None
     try:
-        manifest = _strict_json(manifest_path.read_bytes())
+        manifest_bytes = manifest_path.read_bytes()
+        manifest = _strict_json(manifest_bytes)
     except (OSError, ValueError) as exc:
         findings.add(gate, "fail", f"manifest unparsable: {exc}")
         return None
@@ -386,14 +402,15 @@ def _load_bundle(root, trusted, schema, findings):
         return None
     if not findings.has_issue(gate):
         findings.establish(gate)
-    return manifest, files
+    return manifest, files, sup.digest(manifest_bytes)
 
 
 class _Evidence:
     """Admitted, schema-valid raw evidence (immutable after construction)."""
 
-    def __init__(self, manifest, files, trusted, schema):
+    def __init__(self, manifest, files, bundle_digest, trusted, schema):
         self.manifest = manifest
+        self.bundle_digest = bundle_digest
         self.files = files
         self.trusted = trusted
         self.docs, self.problems, self.ignored = {}, {}, []
@@ -480,7 +497,7 @@ def _derive_trusted_binding(f, ev):
 
 
 def _derive_runner_identity(f, ev):
-    p = "runner_identity_established"
+    p = "runner_identity_evidence"
     ri = ev.need(f, p, "runner_identity")
     if ri is None:
         return
@@ -494,7 +511,7 @@ def _derive_runner_identity(f, ev):
 
 
 def _derive_fresh_runner(f, ev):
-    p = "fresh_hosted_runner_candidate"
+    p = "fresh_hosted_runner_evidence"
     ri = ev.need(f, p, "runner_identity")
     wp = ev.need(f, p, "workspace_provenance")
     if ri is not None:
@@ -522,7 +539,7 @@ def _derive_fresh_runner(f, ev):
 
 
 def _derive_fresh_workspace(f, ev):
-    p = "fresh_workspace_established"
+    p = "fresh_workspace_evidence"
     wp = ev.need(f, p, "workspace_provenance")
     ri = ev.need(f, p, "runner_identity")
     gi = ev.need(f, p, "git_identity")
@@ -572,7 +589,7 @@ def parse_acquisition_log(data):
 
 
 def _derive_acquisition(f, ev):
-    p, t = "independent_acquisition_established", ev.trusted
+    p, t = "independent_acquisition_evidence", ev.trusted
     target = t["target_sha"]
     data = ev.files.get(SINGLETON_PATHS["acquisition_log"])
     fields = commands = None
@@ -671,7 +688,7 @@ def _derive_no_shared_cache(f, ev):
 
 
 def _derive_python(f, ev):
-    p = "python_311_established"
+    p = "python_311_evidence"
     py = ev.need(f, p, "python_identity", level="blocked")
     if py is None:
         return
@@ -701,7 +718,7 @@ def _derive_python(f, ev):
 
 
 def _derive_git(f, ev):
-    p = "git_identity_established"
+    p = "git_identity_evidence"
     gi = ev.need(f, p, "git_identity", level="blocked")
     if gi is None:
         return
@@ -746,61 +763,166 @@ def protected_tree_digest(entries):
     return sup.digest(sup.canonical(rows))
 
 
+def _key(path):
+    normal = _norm(path)
+    return normal.casefold() if _DRIVE.match(normal) else normal
+
+
+def _parent(path):
+    return _norm(path).rpartition("/")[0]
+
+
+def runtime_inventory(ev):
+    """Protected paths derived from the ACTUAL capture/runtime paths (M3).
+
+    Returns ``(expected, problems)``. ``expected`` maps category -> {key: (path,
+    kind, sha256)} and is None when the runtime paths are not admitted. Sources:
+    the supervisor script path (event start), the Git probe repository root and
+    common Git dir (post measurement), every capture record's cwd and argv, and the
+    trusted digests.
+    """
+    t = ev.trusted
+    es, pm = ev.docs.get("event_start"), ev.docs.get("post_measurement")
+    records = [ev.docs.get(("command_result", case["case_id"])) for case in t["cases"]]
+    if es is None or pm is None or any(record is None for record in records):
+        return None, [("unconfirmed", "actual runtime paths not admitted (event start, post measurement "
+                                      "or capture records missing): inventory binding not established")]
+    problems = []
+    supervisor = _norm(es["supervisor_path"])
+    if not _is_absolute(supervisor) or not supervisor.endswith("/" + SUPERVISOR_REL):
+        return None, [("unconfirmed", "supervisor path does not identify an INR tooling checkout")]
+    tooling = supervisor[:-len(SUPERVISOR_REL) - 1]
+    repo, common = _norm(pm["git_probe"]["repository_root"]), _norm(pm["git_probe"]["common_git_dir"])
+    if len({_key(record["cwd"]) for record in records}) != 1:
+        problems.append(("fail", "children ran in different working directories"))
+    cwd = _norm(records[0]["cwd"])
+    stage = _parent(cwd)
+    if not cwd.rpartition("/")[2].startswith(STAGE_DIR_PREFIX) or not stage:
+        problems.append(("fail", "capture working directory is not a supervisor staging directory"))
+    for case, record in zip(t["cases"], records):
+        argv = record["argv"]
+        if len(argv) != len(sup.ARGV_TEMPLATE):
+            continue
+        if _key(argv[4]) != _key(tooling + "/" + PROBE_REL):
+            problems.append(("fail", f"{case['case_id']}: capture probe path outside the protected inventory"))
+        if _key(argv[7]) != _key(repo):
+            problems.append(("fail", f"{case['case_id']}: capture repository path outside the protected inventory"))
+        if _parent(argv[5]) != cwd or _parent(argv[6]) != cwd:
+            problems.append(("fail", f"{case['case_id']}: staged source/input outside the capture working directory"))
+    expected = {category: {} for category in PROTECTED_CATEGORIES}
+
+    def add(category, path, kind, sha256):
+        expected[category][_key(path)] = (_norm(path), kind, sha256)
+
+    add("target_tree", repo, "dir", "")
+    for name, want in t["target_file_digests"].items():
+        add("target_files", repo + "/docs/portfolio_state/" + name, "file", want)
+    add("git_directory", common, "dir", "")
+    add("git_objects", common + "/objects", "dir", "")
+    for category, rel in TOOLING_BINDINGS:
+        add(category, tooling + "/" + rel, "file", t["tooling_digests"][rel])
+    add("execution_tree", stage, "dir", "")
+    return expected, problems
+
+
 def _derive_protected_tree(f, ev):
-    p, t = "protected_tree_isolation_established", ev.trusted
+    p = "protected_tree_isolation_evidence"
     iso = ev.need(f, p, "isolation_checks")
     if iso is None:
         return
-    tree = iso["protected_tree"]
+    tree, wp, gi = iso["protected_tree"], ev.docs.get("workspace_provenance"), ev.docs.get("git_identity")
+    root = tree["root"]
     if iso["execution_principal"]["is_admin"]:
         f.add(p, "unconfirmed", "administrative execution principal can bypass permissions")
     covered = tree["categories_covered"]
     if sorted(covered) != sorted(PROTECTED_CATEGORIES) or len(set(covered)) != len(covered):
-        f.add(p, "unconfirmed", "protected categories not all covered")
+        f.add(p, "unconfirmed", "partial isolation inventory: protected categories not all covered")
+    if wp is None:
+        f.add(p, "unconfirmed", "bounded workspace root not established")
+    elif _key(root) != _key(wp["workspace_path"]):
+        f.add(p, "fail", "protected root is not the bounded workspace root")
     by_category = {}
     for entry in tree["entries"]:
         label = f"{entry['category']}:{entry['path']}"
-        by_category.setdefault(entry["category"], {})[entry["path"]] = entry
-        if _path_problem(entry["path"]):
-            f.add(p, "fail", f"protected entry path not relative to the protected root: {label}")
+        by_category.setdefault(entry["category"], {})[_key(entry["path"])] = entry
+        if not _is_absolute(entry["path"]):
+            f.add(p, "fail", f"protected entry path is not absolute: {label}")
         if entry["symlink"] or entry["reparse_point"]:
-            f.add(p, "fail", f"protected entry is a symlink/junction: {label}")
+            f.add(p, "fail", f"protected entry is a symlink/junction alias: {label}")
         if entry["kind"] == "file" and entry["link_count"] != 1:
-            f.add(p, "fail", f"protected file has extra hard links: {label}")
+            f.add(p, "fail", f"protected file has hard-link aliases: {label}")
         if entry["kind"] == "file" and not entry["sha256"]:
             f.add(p, "unconfirmed", f"protected file digest missing: {label}")
         if entry["writable_by_others"]:
             f.add(p, "fail", f"protected entry writable by another principal: {label}")
-        if entry["writable_by_principal"]:
+        # The stage root must stay principal-writable: the supervisor creates its staging
+        # directory there. Every other protected entry must be read-only.
+        if entry["writable_by_principal"] and entry["category"] != "execution_tree":
             f.add(p, "unconfirmed", f"protected entry writable by the execution principal: {label}")
-    for category in PROTECTED_CATEGORIES:
-        if not by_category.get(category):
-            f.add(p, "unconfirmed", f"no protected entries for {category}")
-    named = [("target_files", TARGET_PREFIX + "docs/portfolio_state/" + name, want)
-             for name, want in sorted(t["target_file_digests"].items())]
-    for category, paths in TOOLING_ENTRIES.items():
-        named.extend((category, TOOLING_PREFIX + rel, t["tooling_digests"][rel]) for rel in paths)
-    for category, rel, want in named:
-        entry = by_category.get(category, {}).get(rel)
-        if entry is None:
-            f.add(p, "unconfirmed", f"protected entry missing: {category}:{rel}")
-        elif entry["kind"] != "file" or entry["sha256"] != want:
-            f.add(p, "fail", f"protected entry differs from the trusted digest: {category}:{rel}")
+    expected, problems = runtime_inventory(ev)
+    for level, message in problems:
+        f.add(p, level, message)
+    parents = {_key(parent["path"]): parent for parent in tree["parent_chain"]}
+    if expected is not None:
+        for category in PROTECTED_CATEGORIES:
+            want, have = expected[category], by_category.get(category, {})
+            for key, (path, kind, sha256) in sorted(want.items()):
+                if not _within(path, root):
+                    f.add(p, "fail", f"protected execution path outside the bounded workspace root: {path}")
+                entry = have.get(key)
+                if entry is None:
+                    if set(have) - set(want):
+                        f.add(p, "fail", f"unrelated path substituted for {category} (actual {path})")
+                    else:
+                        f.add(p, "unconfirmed", f"protected inventory lacks {category}: {path}")
+                elif entry["kind"] != kind or (kind == "file" and entry["sha256"] != sha256):
+                    f.add(p, "fail", f"protected entry differs from the actual/trusted object: {category}:{path}")
+            for key in sorted(set(have) - set(want)):
+                f.add(p, "fail", f"inventory path not used by execution: {category}:{have[key]['path']}")
+        target_root = next(iter(expected["target_tree"].values()))[0]
+        objects = next(iter(expected["git_objects"].values()))[0]
+        if gi is not None and _key(gi["repository_root"]) != _key(target_root):
+            f.add(p, "fail", "acquired repository is not the actual executed target tree")
+        if _key(iso["git_object_store"]["path"]) != _key(objects):
+            f.add(p, "fail", "recorded Git object store is not the actual object store of the executed repository")
+        required = {}
+        for category in PROTECTED_CATEGORIES:
+            for path, _kind, _sha in expected[category].values():
+                current = _parent(path)
+                while current and _within(current, root):
+                    required[_key(current)] = current
+                    if _key(current) == _key(root):
+                        break
+                    current = _parent(current)
+        for key, path in sorted(required.items()):
+            if key not in parents:
+                f.add(p, "unconfirmed", f"partial parent chain: ancestor not recorded: {path}")
+        for key in sorted(set(parents) - set(required)):
+            f.add(p, "fail", f"parent record not on any protected execution path: {parents[key]['path']}")
     for parent in tree["parent_chain"]:
+        if parent["symlink"] or parent["reparse_point"]:
+            f.add(p, "fail", f"protected parent is a symlink/junction alias: {parent['path']}")
         if parent["writable_by_others"]:
             f.add(p, "fail", f"protected parent writable by another principal: {parent['path']}")
         if parent["writable_by_principal"]:
             f.add(p, "unconfirmed", f"writable parent (replacement risk not excluded): {parent['path']}")
+    root_record = parents.get(_key(root))
+    if root_record is None:
+        f.add(p, "unconfirmed", "mount identity of the bounded workspace root not recorded")
+    else:
+        for item in list(tree["entries"]) + list(tree["parent_chain"]):
+            if item["device"] != root_record["device"]:
+                f.add(p, "unconfirmed", f"mount boundary inside the protected tree: {item['path']}")
     for mount in iso["mounts"]:
         network = mount["network"] or mount["fs_type"].lower() in NETWORK_FS_TYPES
-        if mount["writable"] and (mount["shared"] or network) and _within(tree["root"], mount["mount_point"]):
+        if mount["writable"] and (mount["shared"] or network) and (
+                _within(root, mount["mount_point"]) or _within(mount["mount_point"], root)):
             f.add(p, "fail", f"protected tree on a writable shared/network mount: {mount['mount_point']}")
+        elif _within(mount["mount_point"], root) and _key(mount["mount_point"]) != _key(root):
+            f.add(p, "unconfirmed", f"mount point inside the protected tree: {mount['mount_point']}")
     for cache in iso["package_caches"] + iso["build_caches"]:
-        if cache["restored"] and (_within(cache["path"], tree["root"]) or _within(tree["root"], cache["path"])):
+        if cache["restored"] and (_within(cache["path"], root) or _within(root, cache["path"])):
             f.add(p, "fail", f"restored cache overlaps the protected tree: {cache['path']}")
-    gi = ev.docs.get("git_identity")
-    if gi is not None and not _within(gi["repository_root"], tree["root"]):
-        f.add(p, "unconfirmed", "acquired repository not inside the protected tree")
     computed = protected_tree_digest(tree["entries"])
     if tree["freeze_digest"] != computed:
         f.add(p, "fail", "freeze digest does not match the recorded protected entries")
@@ -826,7 +948,7 @@ def _expected_argv(ev, case_id, record):
 
 
 def _derive_event(f, ev, expected_event_id, not_before):
-    p, t, m = "current_event_capture_established", ev.trusted, ev.manifest
+    p, t, m = "current_event_capture_evidence", ev.trusted, ev.manifest
     es = ev.need(f, p, "event_start")
     pm = ev.need(f, p, "post_measurement")
     ec = ev.docs.get("event_complete")
@@ -989,20 +1111,46 @@ def _check_children(f, p, ev, es, lifecycle):
 
 # --- entry point ------------------------------------------------------------------------
 
-def _result(findings, trusted, ignored):
-    derived = findings.result()["derived_result"]
+def combine(statuses):
+    """Conjunctive status: BLOCKED > FAIL > UNCONFIRMED (incl. NOT_ESTABLISHED) > PASS."""
+    statuses = list(statuses)
+    if not statuses:
+        return "UNCONFIRMED"
+    if "BLOCKED" in statuses:
+        return "BLOCKED"
+    if "FAIL" in statuses:
+        return "FAIL"
+    return "PASS" if all(status == "PASS" for status in statuses) else "UNCONFIRMED"
+
+
+def _result(findings, trusted, ignored, *, bundle_digest=None, provider_run=None, bound_event=None,
+            report_predicates=None):
+    gates = {name: findings.status(name) for name in GATES}
+    evidence = {name: findings.status(name) for name in EVIDENCE_PREDICATES}
+    assurance = {name: combine([evidence[source] for source in sources] + list(gates.values()))
+                 for name, sources in ASSURANCE_SOURCES.items()}
+    external = combine(list(assurance.values()) + list(gates.values()))
+    if findings.contradictions and external != "BLOCKED":
+        external = "FAIL"
     t = trusted or {"target_sha": sup.TARGET_SHA, "target_profile_id": "UNAVAILABLE",
                     "target_profile_digest": sup.PROFILE_DIGEST, "origin_reference_set_id": "UNAVAILABLE",
                     "origin_reference_set_digest": sup.ORIGIN_DIGEST}
     return {"schema_version": RESULT_SCHEMA_VERSION,
             "result_kind": "EXTERNAL_BUNDLE_ADAPTER_RESULT",
-            "classification": derived,
-            "classification_scope": "ADAPTER_BUNDLE_ONLY",
-            "adapter_bundle_pass": derived == "PASS",
+            "structural_bundle": "PASS" if gates["bundle_integrity"] == "PASS" else "FAIL",
+            "provider_provenance": combine([gates["provider_provenance"]]),
+            "bundle_run_binding": combine([gates["bundle_run_binding"]]),
+            "external_assurance": external,
+            "external_assurance_pass": external == "PASS",
             "inr_external_reconstruction_pass": False,
             "fresh_local_inr_pass": False,
-            "gates": {name: findings.status(name) for name in GATES},
-            "predicates": {name: findings.status(name) for name in PREDICATES},
+            "gates": gates,
+            "evidence_predicates": evidence,
+            "assurance_predicates": assurance,
+            "bundle_digest": bundle_digest or "",
+            "provider_run": provider_run,
+            "bound_event": bound_event,
+            "supervisor_report_predicates": dict(report_predicates or {}),
             "blocked": findings.collect("blocked"), "fail": findings.collect("fail"),
             "unconfirmed": findings.collect("unconfirmed"),
             "contradictions": list(findings.contradictions),
@@ -1013,14 +1161,54 @@ def _result(findings, trusted, ignored):
             "nonclaims": list(NONCLAIMS)}
 
 
-def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None):
+def _derive_provider(f, ev, provider, expected_head_sha, not_before):
+    es, ec = ev.docs.get("event_start"), ev.docs.get("event_complete")
+    window = (_timestamp(es["started_at"]) if es is not None else None,
+              _timestamp(ec["completed_at"]) if ec is not None else None)
+    verified = provider_github.verify_provider(
+        provider, ev.docs.get("runner_identity"), repository=ev.trusted["repository"],
+        bundle_digest=ev.bundle_digest, expected_head_sha=expected_head_sha, not_before=not_before,
+        event_window=window)
+    for gate, issues in (("provider_provenance", verified["provenance"]), ("bundle_run_binding", verified["binding"])):
+        for level in ("blocked", "fail", "unconfirmed"):
+            for message in issues[level]:
+                f.add(gate, level, message)
+        if verified["run"] is not None:
+            _finish(f, gate)
+    return verified["run"]
+
+
+def _bound_event(ev):
+    es = ev.docs.get("event_start")
+    if es is None:
+        return None
+    return {"inr_event_id": ev.manifest["inr_event_id"], "challenge": es["challenge"],
+            "target_sha": es["target_sha"],
+            "target_profile_digest": es["accepted_target_profile_binding"]["target_profile_digest"],
+            "origin_reference_set_digest": es["accepted_origin_reference_binding"]["origin_reference_set_digest"]}
+
+
+def _report_predicates(ev):
+    ec = ev.docs.get("event_complete")
+    if ec is None:
+        return {}
+    schema = _strict_json(INR_EVENT_SCHEMA_PATH.read_bytes())["properties"]["verification"]
+    if check(ec["supervisor_report"], schema):
+        return {}
+    return dict(ec["supervisor_report"]["predicates"])
+
+
+def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None, expected_head_sha=None,
+                    provider=None):
     """Classify one external-run bundle. Read-only; writes nothing.
 
-    ``expected_event_id`` and ``not_before`` are operator parameters, not evidence.
-    The operator issues the event ID for a run and records when the run was requested.
-    Without them the current-event predicate stays not established.
+    ``expected_event_id``, ``not_before`` and ``expected_head_sha`` are operator
+    parameters, not evidence. ``provider`` is the GitHub provider boundary: the CLI
+    and the XR verifier process always pass ``GitHubProvider.from_environment()``.
+    With ``provider=None`` no provider verification happens and external assurance
+    is never PASS.
     """
-    findings = sup.Findings(required=GATES + PREDICATES, local=())
+    findings = sup.Findings(required=GATES + EVIDENCE_PREDICATES, local=())
     try:
         trusted = trusted_configuration()
         schema = load_schema()
@@ -1033,7 +1221,7 @@ def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None):
     evidence = _Evidence(*loaded, trusted, schema)
     boundary = _timestamp(not_before) if not_before is not None else None
     if not_before is not None and boundary is None:
-        findings.add("current_event_capture_established", "unconfirmed", "operator not-before time invalid")
+        findings.add("current_event_capture_evidence", "unconfirmed", "operator not-before time invalid")
     _derive_trusted_binding(findings, evidence)
     _derive_runner_identity(findings, evidence)
     _derive_fresh_runner(findings, evidence)
@@ -1045,19 +1233,25 @@ def validate_bundle(bundle_dir, *, expected_event_id=None, not_before=None):
     _derive_git(findings, evidence)
     _derive_protected_tree(findings, evidence)
     _derive_event(findings, evidence, expected_event_id, boundary)
-    return _result(findings, trusted, evidence.ignored)
+    provider_run = _derive_provider(findings, evidence, provider, expected_head_sha, boundary)
+    return _result(findings, trusted, evidence.ignored, bundle_digest=evidence.bundle_digest,
+                   provider_run=provider_run, bound_event=_bound_event(evidence),
+                   report_predicates=_report_predicates(evidence))
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="validate_external_run_v0", allow_abbrev=False,
-                                     description="INR-XR-001 adapter: ADAPTER/BUNDLE result only.")
+                                     description="INR-XR-001 adapter report (not an INR result).")
     parser.add_argument("bundle", type=Path)
     parser.add_argument("--expected-event-id", required=True)
     parser.add_argument("--not-before", required=True, help="RFC 3339 UTC time the operator requested the run")
+    parser.add_argument("--expected-head-sha", required=True, help="operator-designated workflow commit")
     args = parser.parse_args(argv)
-    result = validate_bundle(args.bundle, expected_event_id=args.expected_event_id, not_before=args.not_before)
+    result = validate_bundle(args.bundle, expected_event_id=args.expected_event_id, not_before=args.not_before,
+                             expected_head_sha=args.expected_head_sha,
+                             provider=provider_github.GitHubProvider.from_environment())
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0 if result["adapter_bundle_pass"] else 1
+    return 0 if result["external_assurance_pass"] else 1
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI only

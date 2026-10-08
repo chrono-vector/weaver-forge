@@ -3,7 +3,9 @@
 The helper takes three inputs: the event export that the INR-001 r3 supervisor wrote
 on the external runner, the runner observation files, and the target files acquired
 there. It splits the export into the XR raw event files, then writes
-raw/sha256sums.txt and external_run_manifest.json.
+raw/sha256sums.txt and external_run_manifest.json. It prints the bundle digest (SHA-256 of the
+manifest). The workflow must upload the bundle as the GitHub Actions artifact named
+``inr-xr-bundle-<bundle_digest>`` (the R2 bundle-to-run binding).
 
 It derives nothing and asserts nothing. The manifest carries references and hash
 bindings only, and every predicate and classification is derived later by
@@ -25,6 +27,7 @@ if __name__ == "__main__":  # pragma: no cover - CLI only
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from docs.inr_001 import supervisor_inr_v0 as sup  # noqa: E402
+from docs.inr_001.xr import provider_github_v0 as provider_github  # noqa: E402
 from docs.inr_001.xr import validate_external_run_v0 as xr  # noqa: E402
 
 OBSERVATION_FILES = ("acquisition.log", "runner_identity.json", "workspace_provenance.json",
@@ -51,7 +54,7 @@ def role_for(rel):
     raise ValueError("not an XR evidence path: " + rel)
 
 
-def event_files(export, *, started_at, completed_at, supervisor_sha256, event_complete_ns=None):
+def event_files(export, *, started_at, completed_at, supervisor_sha256, supervisor_path, event_complete_ns=None):
     """Split one INR-001 r3 supervisor export into XR raw event files (path -> bytes)."""
     event_id, challenge = export["inr_event_id"], export["challenge"]
     files = {"raw/event_start.json": json_bytes({
@@ -61,7 +64,8 @@ def event_files(export, *, started_at, completed_at, supervisor_sha256, event_co
         "target_sha": export["target_sha"],
         "accepted_target_profile_binding": export["accepted_target_profile_binding"],
         "accepted_origin_reference_binding": export["accepted_origin_reference_binding"],
-        "supervisor": export["supervisor"], "supervisor_sha256": supervisor_sha256})}
+        "supervisor": export["supervisor"], "supervisor_sha256": supervisor_sha256,
+        "supervisor_path": supervisor_path})}
     for record in export["capture_records"]:
         cid = record["case_id"]
         files[xr.PER_CASE_PATHS["stdout"].format(cid)] = base64.b64decode(record["stdout_base64"], validate=True)
@@ -114,7 +118,8 @@ def write_bundle(out_dir, files, *, inr_event_id, bundle_id, runner_declarations
 def collect(export_path, observations, target_repository, out_dir, *, started_at, completed_at, bundle_id):
     export = json.loads(Path(export_path).read_bytes())
     files = event_files(export, started_at=started_at, completed_at=completed_at,
-                        supervisor_sha256=sup.digest(sup.SUPERVISOR.read_bytes()))
+                        supervisor_sha256=sup.digest(sup.SUPERVISOR.read_bytes()),
+                        supervisor_path=str(sup.SUPERVISOR))
     for name in OBSERVATION_FILES:
         files["raw/" + name] = (Path(observations) / name).read_bytes()
     profile = sup.configuration()[0]
@@ -136,7 +141,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     manifest = collect(args.export, args.observations, args.target_repository, args.out,
                        started_at=args.started_at, completed_at=args.completed_at, bundle_id=args.bundle_id)
-    print(json.dumps({"bundle": str(args.out), "evidence_files": len(manifest["evidence_files"])}))
+    bundle_digest = sup.digest((args.out / xr.MANIFEST_NAME).read_bytes())
+    print(json.dumps({"bundle": str(args.out), "evidence_files": len(manifest["evidence_files"]),
+                      "bundle_digest": bundle_digest,
+                      "artifact_name": provider_github.ARTIFACT_PREFIX + bundle_digest}))
     return 0
 
 
