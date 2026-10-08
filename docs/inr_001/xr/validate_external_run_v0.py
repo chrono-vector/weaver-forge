@@ -20,9 +20,14 @@ RESULT MODEL (R2: structural validity is not assurance)
   frozen code/config/input/Git/runtime objects are non-writable and non-owned by the
   execution principal across the execution window, with equal pre/post
   measurements. ``staged_objects`` covers the stage root, cwd, staged validator and
-  case inputs. With the accepted INR supervisor, ``staged_objects`` is always
-  UNCONFIRMED, so ``protected_tree_isolation_evidence`` and
-  ``all_writer_isolation_established`` are never PASS for a real bundle.
+  case inputs. The accepted INR supervisor stages them as the execution principal,
+  so runner flags can never freeze them. INR-AWI-001: ``staged_objects`` can be PASS
+  only from the supervisor's OWN write-exclusion lock record
+  (``post_measurement.measurements.staged_lock``, Windows share-mode handles plus an
+  OWNER RIGHTS read-only DACL, see ``staged_lock_problems``) bound to the actual
+  staged paths, trusted digests, every ancestor up to the volume root and the
+  execution window. Without that record (any other platform, or an older
+  supervisor) it stays UNCONFIRMED.
 * ``assurance_predicates`` (``*_established``) and ``external_assurance``: an
   assurance predicate is PASS only when its evidence predicate(s) PASS AND the
   structural bundle, the trusted reference binding, the provider provenance and the
@@ -152,8 +157,13 @@ OUTSIDE_ROOT_CATEGORIES = ("runtime_executables",)
 OUTPUT_DIR_PURPOSES = ("export", "ledger", "work_dir")
 # Fact about the accepted INR-001 supervisor (tempfile.TemporaryDirectory in --work-dir, staged files
 # written and chmod-ed by the supervisor process, children run with the same principal). It is a code
-# constant, not a switch: no argv, environment or file input changes it.
+# constant, not a switch: no argv, environment or file input changes it. Since INR-AWI-001 the
+# supervisor additionally write-excludes the staged objects for the execution window and records
+# its own observation of that lock; only that record can make ``staged_objects`` PASS.
 ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True
+LOCK_DENIED = re.compile(r"DENIED:(?:5|32)")  # ERROR_ACCESS_DENIED / ERROR_SHARING_VIOLATION
+STAGED_LOCK_ABSENT = ("the accepted INR supervisor creates the staging directory and writes the staged validator and "
+                      "case inputs as the execution principal; no supervisor-observed write-exclusion lock covers them")
 SUPERVISOR_REL = "docs/inr_001/supervisor_inr_v0.py"
 PROBE_REL = "docs/inr_001/runtime_probe.py"
 PROFILE_REL = "docs/inr_001/profiles/psm_001_inr_target_profile_v0.json"
@@ -878,6 +888,128 @@ def runtime_inventory(ev):
     return expected, problems
 
 
+def _lock_ancestors(cwd):
+    """Every ancestor of the staged cwd up to and including the volume root (normalised)."""
+    out, current = [], _parent(cwd)
+    while current:
+        out.append(current)
+        current = _parent(current)
+    return out
+
+
+def _lock_item_problems(item, role, path, sha256):
+    """Problems of one supervisor lock record (staged object or ancestor)."""
+    label = f"{role}:{path}"
+    kind = "ancestor" if role == "ancestor" else ("dir" if role == "execution_cwd" else "file")
+    if not item["held"]:
+        return [("unconfirmed", f"lock handle not held by the supervisor (error {item['open_error']}), "
+                                f"writable or replaceable during execution: {label}")]
+    out = []
+    share, access = item["share_mode"], item["access"]
+    if share & 0x4 or (kind == "file" and share & 0x2):
+        out.append(("unconfirmed", f"lock share mode admits write or delete/rename: {label}"))
+    if not access & (0x1 | 0x20 | 0x80000000):
+        out.append(("unconfirmed", f"lock handle has no data access, so its share mode is not enforced: {label}"))
+    if kind != "ancestor":
+        if item["kind"] != kind:
+            out.append(("fail", f"lock record kind differs from the executed object: {label}"))
+        if not item["dacl_applied"]:
+            out.append(("unconfirmed", f"owner-rights read-only DACL not applied (owner may re-ACL/add/link): {label}"))
+    seen = {}
+    for phase in ("freeze", "post"):
+        seen[phase] = observed = item[phase]
+        if not observed:
+            out.append(("unconfirmed", f"lock not observed by the supervisor at {phase}: {label}"))
+            continue
+        final = observed.get("final_path")
+        if observed.get("reparse_point") is not False or type(final) is not str or _key(final) != _key(path):
+            out.append(("fail", f"symlink/junction alias on a locked path ({phase}): {label}"))
+        if kind == "file" and observed.get("link_count") != 1:
+            out.append(("fail", f"hard-link alias on a locked staged file ({phase}): {label}"))
+        if kind == "file" and observed.get("sha256") != sha256:
+            out.append(("fail", f"locked staged object differs from the trusted digest ({phase}): {label}"))
+        probes = observed.get("probes")
+        if type(probes) is not dict or sorted(probes) != sorted(sup.lock_probes(kind)):
+            out.append(("unconfirmed", f"supervisor write probes incomplete ({phase}): {label}"))
+            continue
+        for name, outcome in sorted(probes.items()):
+            if type(outcome) is not str or LOCK_DENIED.fullmatch(outcome) is None:
+                out.append(("unconfirmed", f"{name} not denied by the lock ({phase}: {outcome}): {label}"))
+    if seen["freeze"] and seen["post"] and any(
+            seen["freeze"].get(k) != seen["post"].get(k) or type(seen["freeze"].get(k)) is not int
+            for k in ("volume_serial", "file_index")):
+        out.append(("fail", f"locked object identity changed between freeze and post (replaced): {label}"))
+    return out
+
+
+def staged_lock_problems(lock, expected, lifecycle):
+    """INR-AWI-001: problems of the supervisor's own write-exclusion record for the staged objects.
+
+    ``lock`` is ``post_measurement.measurements.staged_lock`` (or None), ``expected``
+    the runtime-derived inventory and ``lifecycle`` the supervisor lifecycle. Returns
+    ``[(level, message)]``; an empty list means the supervisor observed every executed
+    staged object (cwd, validator, case inputs) and every ancestor of the cwd up to the
+    volume root write-, delete-, rename- and re-ACL-excluded from freeze until after
+    the post measurement, with trusted digests, no alias and unchanged identity and
+    listing. Runner-reported flags never contribute.
+    """
+    if type(lock) is not dict:
+        return [("unconfirmed", STAGED_LOCK_ABSENT)]
+    if lock["platform"] != "nt" or lock["mechanism"] != sup.STAGED_LOCK_MECHANISM:
+        return [("unconfirmed", f"{STAGED_LOCK_ABSENT} (no supervisor write-exclusion lock on this platform: "
+                                f"{lock['platform']}, mechanism {lock['mechanism']})")]
+    problems = [("unconfirmed", f"supervisor lock problem: {message}") for message in lock["problems"]]
+    if lock["dacl_sddl"] != sup.STAGED_LOCK_DACL:
+        problems.append(("unconfirmed", "supervisor lock DACL is not the owner-rights read-only DACL"))
+    cwd = next(iter(expected["execution_cwd"].values()))[0]
+    if not _DRIVE.match(cwd + "/"):
+        problems.append(("unconfirmed", f"staged cwd is not a local drive path: {cwd}"))
+    have = {}
+    for item in lock["objects"]:
+        if _key(item["path"]) in have:
+            problems.append(("fail", f"duplicate supervisor lock record: {item['path']}"))
+        have[_key(item["path"])] = item
+    names = []
+    for category in ("execution_cwd", "staged_validator", "case_inputs"):
+        for key, (path, _kind, sha256) in sorted(expected[category].items()):
+            if category != "execution_cwd":
+                names.append(path.rpartition("/")[2])
+            item = have.pop(key, None)
+            if item is None:
+                problems.append(("unconfirmed", f"staged {category} not held by the supervisor lock (writable "
+                                                f"during execution): {path}"))
+            elif item["category"] != category:
+                problems.append(("fail", f"supervisor lock record category differs: {category}:{path}"))
+            else:
+                problems += _lock_item_problems(item, category, path, sha256)
+    for item in sorted(have.values(), key=lambda i: i["path"]):
+        problems.append(("fail", f"supervisor lock record not on an executed staged path: {item['path']}"))
+    ancestors = {}
+    for item in lock["ancestors"]:
+        ancestors[_key(item["path"])] = item
+    for path in _lock_ancestors(cwd):
+        item = ancestors.pop(_key(path), None)
+        if item is None:
+            problems.append(("unconfirmed", f"parent replacement not bounded: ancestor not held by the supervisor "
+                                            f"lock: {path}"))
+        else:
+            problems += _lock_item_problems(item, "ancestor", path, "")
+    for item in sorted(ancestors.values(), key=lambda i: i["path"]):
+        problems.append(("fail", f"supervisor lock ancestor not on the staged path: {item['path']}"))
+    names.sort()
+    if lock["cwd_listing_freeze"] != names:
+        problems.append(("fail", "staged directory content at freeze is not exactly the staged objects"))
+    if lock["cwd_listing_post"] != names:
+        problems.append(("fail", "staged directory content changed during execution (entry added or removed)"))
+    stamps = [lifecycle["FREEZE_START"], lock["locked_ns"], lifecycle["COMMAND_EXECUTION_BEGIN"],
+              lifecycle["EXECUTION_COMPLETE"], lock["post_probed_ns"], lifecycle["POST_MEASUREMENT"],
+              lock["released_ns"], lifecycle["CAPTURE_COMPLETE"]]
+    if any(a > b for a, b in zip(stamps, stamps[1:])):
+        problems.append(("unconfirmed", "supervisor lock does not enclose the execution window "
+                                        "(freeze <= execution <= post probe <= post measurement <= release)"))
+    return problems
+
+
 class _Component:
     """Issue ledger for one isolation component (reported; merged into the predicate)."""
 
@@ -1051,10 +1183,14 @@ def _derive_protected_tree(f, ev):
     # --- staged execution objects: stage root, cwd, staged validator, staged case inputs
     staged_entries = [e for e in tree["entries"] if e["category"] in STAGED_CATEGORIES]
     if ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL:
-        staged.add("unconfirmed", "the accepted INR supervisor creates the staging directory and writes the staged "
-                                  "validator and case inputs as the execution principal during the execution "
-                                  "window; these executed objects stay principal-owned and replaceable and cannot "
-                                  "be frozen without changing INR tooling")
+        # Principal-owned staged objects: only the supervisor's own lock record can exclude writers.
+        pm = ev.docs.get("post_measurement")
+        if expected is None or pm is None:
+            staged.add("unconfirmed", STAGED_LOCK_ABSENT + " (actual staged paths not admitted)")
+        else:
+            for level, message in staged_lock_problems(pm["measurements"].get("staged_lock"), expected,
+                                                       pm["lifecycle"]):
+                staged.add(level, message)
         for entry in staged_entries:
             if entry["category"] == "stage_root" and not entry["writable_by_principal"]:
                 staged.add("fail", "stage root observed non-writable: the accepted supervisor could not have staged")

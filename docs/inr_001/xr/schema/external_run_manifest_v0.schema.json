@@ -1204,6 +1204,266 @@
             "python_executable_sha256": {
               "type": "string",
               "pattern": "^[0-9a-f]{64}$"
+            },
+            "staged_lock": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "platform",
+                "mechanism",
+                "dacl_sddl",
+                "objects",
+                "ancestors",
+                "cwd_listing_freeze",
+                "cwd_listing_post",
+                "locked_ns",
+                "post_probed_ns",
+                "released_ns",
+                "problems"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "inr.staged_lock.v0"
+                },
+                "platform": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mechanism": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "dacl_sddl": {
+                  "type": "string"
+                },
+                "objects": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "category",
+                      "kind",
+                      "dacl_applied",
+                      "path",
+                      "access",
+                      "share_mode",
+                      "held",
+                      "open_error",
+                      "freeze",
+                      "post"
+                    ],
+                    "properties": {
+                      "category": {
+                        "enum": [
+                          "execution_cwd",
+                          "staged_validator",
+                          "case_inputs"
+                        ]
+                      },
+                      "kind": {
+                        "enum": [
+                          "dir",
+                          "file"
+                        ]
+                      },
+                      "dacl_applied": {
+                        "type": "boolean"
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "access": {
+                        "type": "integer"
+                      },
+                      "share_mode": {
+                        "type": "integer"
+                      },
+                      "held": {
+                        "type": "boolean"
+                      },
+                      "open_error": {
+                        "type": "integer"
+                      },
+                      "freeze": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "final_path": {
+                            "type": "string"
+                          },
+                          "volume_serial": {
+                            "type": "integer"
+                          },
+                          "file_index": {
+                            "type": "integer"
+                          },
+                          "link_count": {
+                            "type": "integer"
+                          },
+                          "reparse_point": {
+                            "type": "boolean"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^(?:[0-9a-f]{64})?$"
+                          },
+                          "probes": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "post": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "final_path": {
+                            "type": "string"
+                          },
+                          "volume_serial": {
+                            "type": "integer"
+                          },
+                          "file_index": {
+                            "type": "integer"
+                          },
+                          "link_count": {
+                            "type": "integer"
+                          },
+                          "reparse_point": {
+                            "type": "boolean"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^(?:[0-9a-f]{64})?$"
+                          },
+                          "probes": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "ancestors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "access",
+                      "share_mode",
+                      "held",
+                      "open_error",
+                      "freeze",
+                      "post"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "access": {
+                        "type": "integer"
+                      },
+                      "share_mode": {
+                        "type": "integer"
+                      },
+                      "held": {
+                        "type": "boolean"
+                      },
+                      "open_error": {
+                        "type": "integer"
+                      },
+                      "freeze": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "final_path": {
+                            "type": "string"
+                          },
+                          "volume_serial": {
+                            "type": "integer"
+                          },
+                          "file_index": {
+                            "type": "integer"
+                          },
+                          "link_count": {
+                            "type": "integer"
+                          },
+                          "reparse_point": {
+                            "type": "boolean"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^(?:[0-9a-f]{64})?$"
+                          },
+                          "probes": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "post": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "final_path": {
+                            "type": "string"
+                          },
+                          "volume_serial": {
+                            "type": "integer"
+                          },
+                          "file_index": {
+                            "type": "integer"
+                          },
+                          "link_count": {
+                            "type": "integer"
+                          },
+                          "reparse_point": {
+                            "type": "boolean"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^(?:[0-9a-f]{64})?$"
+                          },
+                          "probes": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "cwd_listing_freeze": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "cwd_listing_post": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "locked_ns": {
+                  "type": "integer"
+                },
+                "post_probed_ns": {
+                  "type": "integer"
+                },
+                "released_ns": {
+                  "type": "integer"
+                },
+                "problems": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },

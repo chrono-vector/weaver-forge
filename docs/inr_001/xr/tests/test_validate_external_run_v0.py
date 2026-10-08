@@ -37,6 +37,12 @@ R2 semantic changes to the earlier 20 adversarial tests:
   UNCONFIRMED (it was ADAPTER/BUNDLE PASS in 304de4d).
 * R3: test 3's edit also clears ``post_entries``, and ``execution_tree`` is renamed
   ``stage_root``.
+
+INR-AWI-001: ``AllWriterIsolationTests`` (Windows only) take the REAL supervisor
+staged-object lock on a real staging directory, launch a real reader child and real
+attacker processes of the same principal, and evaluate the supervisor's own lock record
+with the adapter (section 9 tests 1-10). With the accepted supervisor, ``staged_objects``
+is PASS only from that record; synthetic bundles without it stay UNCONFIRMED.
 """
 from __future__ import annotations
 
@@ -53,6 +59,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import warnings
 import zipfile
@@ -65,6 +72,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from docs.inr_001 import supervisor_inr_v0 as sup  # noqa: E402
+from docs.inr_001.input_cases import case_bytes  # noqa: E402
 from docs.inr_001.schema_check import check  # noqa: E402
 from docs.inr_001.xr import collect_bundle_v0 as collect  # noqa: E402
 from docs.inr_001.xr import provider_github_v0 as gh  # noqa: E402
@@ -1375,6 +1383,336 @@ class ProtectedExecutionTests(BundleCase):
         result, actual = self.isolation(parts)
         self.assertEqual(actual, "UNCONFIRMED")
         self.assertIn("protected inventory lacks git_objects: " + ROOT + "/alt/objects", self.messages(result))
+
+
+# --- INR-AWI-001: all-writer isolation of the staged execution objects (real Windows lock) ---
+
+ATTACK_SCRIPT = r'''
+import os, subprocess, sys
+op, path = sys.argv[1], sys.argv[2]
+other = sys.argv[3] if len(sys.argv) > 3 else ""
+try:
+    if op in ("open_write", "append", "truncate", "stream"):
+        try:  # the read-only attribute is the owner's to clear; it is no write exclusion
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+    if op == "open_write":
+        open(path, "r+b").close()
+    elif op == "append":
+        open(path, "ab").close()
+    elif op == "truncate":
+        open(path, "wb").close()
+    elif op == "delete":
+        os.remove(path)
+    elif op == "rename":
+        os.rename(path, other)
+    elif op == "replace":
+        with open(other, "wb") as handle:
+            handle.write(b"print('substituted')\n")
+        os.replace(other, path)
+    elif op == "hardlink":
+        os.link(path, other)
+    elif op == "stream":
+        open(path + ":inrawi", "wb").close()
+    elif op == "reacl":
+        if subprocess.run(["icacls", path, "/grant", "*S-1-3-4:F"], capture_output=True).returncode:
+            raise PermissionError(5, "icacls refused")
+    elif op == "add_child":
+        open(os.path.join(path, "git.exe"), "xb").close()
+    elif op == "write_new":
+        with open(path, "xb") as handle:
+            handle.write(b"evidence\n")
+    else:
+        raise SystemExit("unknown attack " + op)
+    print("SUCCEEDED")
+except OSError as exc:
+    print("BLOCKED:%s" % (getattr(exc, "winerror", None) or exc.errno))
+'''
+CHILD_SCRIPT = "import sys\nfor p in sys.argv[1:]:\n    open(p, 'rb').read()\nprint('READ_OK')\n"
+WIN_PYTHON = "C:/hostedtoolcache/windows/Python/3.11.9/x64/python.exe"
+WIN_GIT = "C:/Program Files/Git/cmd/git.exe"
+
+
+def attempt(op, path, other=None):
+    """A real write/replace attempt by a SEPARATE process of the execution principal."""
+    argv = [sys.executable, "-I", "-S", "-B", "-c", ATTACK_SCRIPT, op, str(path)] + ([str(other)] if other else [])
+    return subprocess.run(argv, capture_output=True, text=True, timeout=60).stdout.strip()
+
+
+def windows_parts(root, stage_root=None):
+    """The synthetic bundle re-rooted at a REAL Windows directory (accepted staging flags)."""
+    parts = valid_parts(accepted_staging=True)
+    pairs = (('"' + PYTHON + '"', '"' + WIN_PYTHON + '"'), ('"' + GIT + '"', '"' + WIN_GIT + '"'),
+             ('"/usr/bin"', '"' + WIN_GIT.rpartition("/")[0] + '"'),
+             (STAGE_ROOT, stage_root or root + "/stage"), (ROOT, root))
+
+    def rewrite(text):
+        for old, new in pairs:
+            text = text.replace(old, new)
+        return text
+    for case in xr.trusted_configuration()["cases"]:
+        out_rel = xr.PER_CASE_PATHS["stdout"].format(case["case_id"])
+        record = parts[xr.PER_CASE_PATHS["command_result"].format(case["case_id"])]
+        parts[out_rel] = rewrite(parts[out_rel].decode("ascii")).encode("ascii")
+        record["stdout_sha256"] = sup.digest(parts[out_rel])
+        if "stdout_base64" in record:
+            record["stdout_base64"] = base64.b64encode(parts[out_rel]).decode("ascii")
+    textual = {rel: value for rel, value in parts.items() if isinstance(value, (dict, list, str))}
+    parts.update(json.loads(rewrite(json.dumps(textual))))
+    return parts
+
+
+@NEEDS_TARGET
+@unittest.skipUnless(os.name == "nt", "the staged-object lock is a Windows mechanism (other platforms: UNCONFIRMED)")
+class AllWriterIsolationTests(BundleCase):
+    """INR-AWI-001 section 9 tests 1-10 with the REAL supervisor lock (``sup._StagedLock``).
+
+    A real staging directory is built exactly as the supervisor stages it (pinned
+    validator bytes, closed case inputs, read-only attribute), the real lock is taken,
+    a real child reads the staged objects, separate attacker PROCESSES of the same
+    principal really attempt writes, the supervisor re-observes the lock and releases it.
+    The resulting record is evaluated by the adapter rule and inside a full bundle
+    (unit-test provider substitute). Only the lock's monotonic timestamps are rebased
+    onto the fixture clock after their real order has been asserted.
+    """
+
+    def stage(self, via_junction=False):
+        self.root = Path(os.path.realpath(self.tmp)) / "inrxr"
+        stage_root = self.root / "stage"
+        (self.root / "out").mkdir(parents=True)
+        stage_root.mkdir()
+        self.stage_root = stage_root
+        if via_junction:
+            import _winapi
+            junction = self.root / "jstage"
+            _winapi.CreateJunction(str(stage_root), str(junction))
+            self.addCleanup(os.rmdir, junction)
+            stage_root = junction
+        self.cwd = stage_root / "inr-local-x1y2z3"
+        self.cwd.mkdir()
+        t = xr.trusted_configuration()
+        targets = dict(target_files())
+        self.validator = self.cwd / xr.VALIDATOR_FILE
+        self.validator.write_bytes(targets[xr.VALIDATOR_FILE])
+        self.inputs = {}
+        for case in t["cases"]:
+            path = self.cwd / (case["case_id"] + ".json")
+            data = case_bytes(case["case_id"], targets[xr.EXAMPLE_FILE])
+            self.assertEqual(sup.digest(data), case["input_digest"])
+            path.write_bytes(data)
+            self.inputs[case["case_id"]] = path
+        for path in (self.validator, *self.inputs.values()):
+            path.chmod(stat.S_IREAD)
+        self.expected = {"execution_cwd": {xr._key(str(self.cwd)): (xr._norm(str(self.cwd)), "dir", "")},
+                         "staged_validator": {}, "case_inputs": {}}
+        self.expected["staged_validator"][xr._key(str(self.validator))] = (
+            xr._norm(str(self.validator)), "file", t["target_file_digests"][xr.VALIDATOR_FILE])
+        for case in t["cases"]:
+            path = self.inputs[case["case_id"]]
+            self.expected["case_inputs"][xr._key(str(path))] = (xr._norm(str(path)), "file", case["input_digest"])
+
+    def locked_run(self, *, skip=(), attacks=(), via_junction=False):
+        """PREPARE -> FREEZE -> EXECUTE (child + attacks) -> POST -> release; returns (record, outcomes)."""
+        if getattr(self, "cwd", None) is None:
+            self.stage(via_junction)
+        staged = [("staged_validator", self.validator)] + [("case_inputs", p) for p in self.inputs.values()]
+        staged = [(c, p) for c, p in staged if p not in skip]
+        lifecycle = {"FREEZE_START": time.monotonic_ns()}
+        lock = sup._StagedLock(self.cwd, staged)
+        try:
+            record = lock.freeze()
+            lifecycle["COMMAND_EXECUTION_BEGIN"] = time.monotonic_ns()
+            child = subprocess.run([sys.executable, "-I", "-S", "-B", "-c", CHILD_SCRIPT, str(self.validator),
+                                    *map(str, self.inputs.values())], cwd=self.cwd, capture_output=True, text=True,
+                                   timeout=60)
+            self.assertEqual((child.returncode, child.stdout.strip()), (0, "READ_OK"), child.stderr)
+            outcomes = [(op, str(path), attempt(op, path, other)) for op, path, other in attacks]
+            lifecycle["EXECUTION_COMPLETE"] = time.monotonic_ns()
+            lock.post()
+            lifecycle["POST_MEASUREMENT"] = time.monotonic_ns()
+        finally:
+            lock.release()
+        lifecycle["CAPTURE_COMPLETE"] = time.monotonic_ns()
+        stamps = [lifecycle["FREEZE_START"], record["locked_ns"], lifecycle["COMMAND_EXECUTION_BEGIN"],
+                  lifecycle["EXECUTION_COMPLETE"], record["post_probed_ns"], lifecycle["POST_MEASUREMENT"],
+                  record["released_ns"], lifecycle["CAPTURE_COMPLETE"]]
+        self.assertEqual(stamps, sorted(stamps), "real lock order")
+        self.real_lifecycle = lifecycle
+        return record, outcomes
+
+    def lock_problems(self, record):
+        return xr.staged_lock_problems(record, self.expected, self.real_lifecycle)
+
+    def bundle_result(self, record, change=None, stage_root=None):
+        """Full bundle (accepted supervisor) whose staged paths are the real ones, with the real record."""
+        parts = windows_parts(self.root.as_posix(), stage_root)
+        pm = parts[RAW["post_measurement"]]
+        record = copy.deepcopy(record)
+        lc = pm["lifecycle"]
+        record["locked_ns"] = lc["FREEZE_START"] + 1
+        record["post_probed_ns"] = lc["EXECUTION_COMPLETE"] + 1
+        record["released_ns"] = lc["POST_MEASUREMENT"] + 1
+        pm["measurements"]["staged_lock"] = record
+        if change is not None:
+            change(parts)
+        sync_post(parts[RAW["isolation_checks"]]["protected_tree"])
+        with accepted_supervisor():
+            return self.validate(self.build(parts))
+
+    def assertAllWriter(self, result, status, needle=None, staged=None):
+        self.assertEqual(result["evidence_predicates"]["protected_tree_isolation_evidence"], status,
+                         self.messages(result))
+        self.assertEqual(result["assurance_predicates"]["all_writer_isolation_established"], status)
+        if needle:
+            self.assertIn(needle, self.messages(result))
+        if staged:
+            self.assertEqual(result["isolation_components"]["staged_objects"], staged, self.messages(result))
+
+    def assertIntact(self):
+        t = xr.trusted_configuration()
+        self.assertEqual(sup.digest(self.validator.read_bytes()), t["target_file_digests"][xr.VALIDATOR_FILE])
+        for case in t["cases"]:
+            self.assertEqual(sup.digest(self.inputs[case["case_id"]].read_bytes()), case["input_digest"])
+        self.assertEqual(sorted(os.listdir(self.cwd)),
+                         sorted([xr.VALIDATOR_FILE] + [p.name for p in self.inputs.values()]))
+
+    def test_awi_01_validator_writable_during_execution_unconfirmed(self):
+        self.stage()
+        validator = self.validator
+        record, outcomes = self.locked_run(skip=(validator,), attacks=[("open_write", validator, None)])
+        self.assertEqual(outcomes[0][2], "SUCCEEDED")  # really writable (opened for write, nothing written)
+        self.assertIn(("unconfirmed", "staged staged_validator not held by the supervisor lock (writable during "
+                                      "execution): " + xr._norm(str(self.validator))), self.lock_problems(record))
+        self.assertAllWriter(self.bundle_result(record), "UNCONFIRMED", "staged staged_validator not held",
+                             "UNCONFIRMED")
+
+    def test_awi_02_case_json_writable_unconfirmed(self):
+        self.stage()
+        case_input = next(iter(self.inputs.values()))
+        record, outcomes = self.locked_run(skip=(case_input,), attacks=[("open_write", case_input, None)])
+        self.assertEqual(outcomes[0][2], "SUCCEEDED")
+        self.assertAllWriter(self.bundle_result(record), "UNCONFIRMED", "staged case_inputs not held", "UNCONFIRMED")
+
+    def test_awi_03_protected_config_writable_unconfirmed(self):
+        record, _ = self.locked_run()
+        self.assertEqual(self.lock_problems(record), [])
+
+        def writable_profile(parts):
+            tree = parts[RAW["isolation_checks"]]["protected_tree"]
+            next(e for e in tree["entries"] if e["category"] == "profile_origin_binding")["writable_by_principal"] = True
+        result = self.bundle_result(record, writable_profile)
+        self.assertAllWriter(result, "UNCONFIRMED", "protected profile_origin_binding writable", "PASS")
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "UNCONFIRMED")
+
+    def test_awi_04_output_dir_writable_outside_protected_tree_acceptable(self):
+        self.stage()
+        export = self.root / "out" / "export.json"
+        record, outcomes = self.locked_run(attacks=[("write_new", export, None)])
+        self.assertEqual(outcomes[0][2], "SUCCEEDED")
+        self.assertEqual(export.read_bytes(), b"evidence\n")
+        result = self.bundle_result(record)
+        self.assertAllWriter(result, "PASS", staged="PASS")
+        outputs = {d["purpose"]: d for d in
+                   windows_parts(self.root.as_posix())[RAW["isolation_checks"]]["protected_tree"]["output_dirs"]}
+        self.assertTrue(xr._within(str(export), outputs["export"]["path"]))
+        self.assertFalse(xr._within(str(export), str(self.cwd)))
+
+    def test_awi_05_protected_validator_write_attempt_denied(self):
+        self.stage()
+        v = self.validator
+        attacks = [("open_write", v, None), ("append", v, None), ("truncate", v, None), ("delete", v, None),
+                   ("rename", v, self.root / "out" / "moved.py"), ("replace", v, self.root / "out" / "evil.py"),
+                   ("hardlink", v, self.root / "out" / "alias.py"), ("stream", v, None), ("reacl", v, None),
+                   ("open_write", v, None)]
+        record, outcomes = self.locked_run(attacks=attacks)
+        for op, path, outcome in outcomes:
+            self.assertRegex(outcome, r"^BLOCKED:(5|13|32)$", (op, path))
+        self.assertIntact()
+        self.assertEqual(self.lock_problems(record), [])
+        self.assertAllWriter(self.bundle_result(record), "PASS", staged="PASS")
+
+    def test_awi_06_protected_case_input_write_attempt_denied(self):
+        self.stage()
+        c = next(iter(self.inputs.values()))
+        attacks = [("open_write", c, None), ("truncate", c, None), ("delete", c, None),
+                   ("rename", c, self.root / "out" / "moved.json"), ("replace", c, self.root / "out" / "evil.json"),
+                   ("hardlink", c, self.root / "out" / "alias.json"), ("reacl", c, None),
+                   ("add_child", self.cwd, None), ("reacl", self.cwd, None)]
+        record, outcomes = self.locked_run(attacks=attacks)
+        for op, path, outcome in outcomes:
+            self.assertRegex(outcome, r"^BLOCKED:(5|13|32)$", (op, path))
+        self.assertIntact()
+        self.assertEqual(self.lock_problems(record), [])
+
+    def test_awi_07_parent_replacement_non_pass(self):
+        self.stage()
+        attacks = [("rename", self.cwd, self.root / "out" / "moved-cwd"),
+                   ("rename", self.stage_root, self.root / "moved-stage"),
+                   ("rename", self.root, self.root.parent / "moved-root")]
+        record, outcomes = self.locked_run(attacks=attacks)
+        for op, path, outcome in outcomes:
+            self.assertRegex(outcome, r"^BLOCKED:(5|32)$", (op, path))
+        self.assertIntact()
+        self.assertEqual(self.lock_problems(record), [])
+        # a stage root that is not held by the supervisor lock: replacement not bounded
+        unbounded = copy.deepcopy(record)
+        unbounded["ancestors"] = [a for a in unbounded["ancestors"]
+                                  if xr._key(a["path"]) != xr._key(str(self.stage_root))]
+        self.assertAllWriter(self.bundle_result(unbounded), "UNCONFIRMED",
+                             "parent replacement not bounded: ancestor not held by the supervisor lock", "UNCONFIRMED")
+        # a writable required parent inside the root (runner-reported): replacement risk
+        def writable_parent(parts):
+            parts[RAW["isolation_checks"]]["protected_tree"]["parent_chain"][0]["writable_by_principal"] = True
+        self.assertAllWriter(self.bundle_result(record, writable_parent), "UNCONFIRMED", "replacement risk")
+
+    def test_awi_08_symlink_junction_substitution_non_pass(self):
+        # A junction cannot be swapped in during the window (test 7: cwd/stage root/root renames are
+        # refused). Executed through a junction in the staged path, the lock records the alias: FAIL.
+        record, _ = self.locked_run(via_junction=True)
+        problems = self.lock_problems(record)
+        self.assertIn("fail", {level for level, _ in problems})
+        self.assertTrue(any("symlink/junction alias on a locked path" in m for _, m in problems), problems)
+        result = self.bundle_result(record, stage_root=self.root.as_posix() + "/jstage")
+        self.assertAllWriter(result, "FAIL", "symlink/junction alias on a locked path", "FAIL")
+
+    def test_awi_09_post_freeze_protected_digest_mismatch_fail(self):
+        record, _ = self.locked_run()
+        changed = copy.deepcopy(record)
+        item = next(o for o in changed["objects"] if o["category"] == "staged_validator")
+        item["post"]["sha256"] = "4" * 64
+        self.assertIn(("fail", "locked staged object differs from the trusted digest (post): staged_validator:"
+                               + xr._norm(str(self.validator))), self.lock_problems(changed))
+        self.assertAllWriter(self.bundle_result(changed), "FAIL", "differs from the trusted digest (post)", "FAIL")
+        replaced = copy.deepcopy(record)
+        next(o for o in replaced["objects"] if o["category"] == "case_inputs")["post"]["file_index"] += 1
+        self.assertAllWriter(self.bundle_result(replaced), "FAIL", "identity changed between freeze and post", "FAIL")
+        grown = copy.deepcopy(record)
+        grown["cwd_listing_post"] = sorted(grown["cwd_listing_post"] + ["git.exe"])
+        self.assertAllWriter(self.bundle_result(grown), "FAIL", "staged directory content changed", "FAIL")
+
+    def test_awi_10_complete_freeze_execution_post_bounded_pass(self):
+        record, _ = self.locked_run()
+        self.assertEqual(record["mechanism"], sup.STAGED_LOCK_MECHANISM)
+        self.assertTrue(all(o["held"] and o["dacl_applied"] for o in record["objects"]))
+        self.assertEqual(len(record["objects"]), 2 + len(self.inputs))
+        self.assertEqual(xr._key(record["ancestors"][-1]["path"]), xr._key(os.path.splitdrive(str(self.cwd))[0]))
+        for item in record["objects"] + record["ancestors"]:
+            for phase in ("freeze", "post"):
+                self.assertTrue(all(v.startswith("DENIED:") for v in item[phase]["probes"].values()), item)
+        self.assertEqual(self.lock_problems(record), [])
+        result = self.bundle_result(record)
+        self.assertAllWriter(result, "PASS", staged="PASS")
+        self.assertEqual(result["isolation_components"],
+                         {"inventory_binding": "PASS", "frozen_tree": "PASS", "staged_objects": "PASS"})
+        self.assertClass(result, "PASS")
+        # the same bundle without the supervisor's lock record stays UNCONFIRMED (no runner flag substitutes)
+        no_lock = self.bundle_result(record, lambda p: p[RAW["post_measurement"]]["measurements"].pop("staged_lock"))
+        self.assertAllWriter(no_lock, "UNCONFIRMED", "no supervisor-observed write-exclusion lock", "UNCONFIRMED")
+        # a record from a platform without the lock stays UNCONFIRMED
+        posix = dict(copy.deepcopy(record), platform="posix", mechanism="none", objects=[], ancestors=[])
+        self.assertAllWriter(self.bundle_result(posix), "UNCONFIRMED", "no supervisor write-exclusion lock on this "
+                                                                       "platform", "UNCONFIRMED")
 
 
 @NEEDS_TARGET

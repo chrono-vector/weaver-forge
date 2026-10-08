@@ -9,9 +9,10 @@ GitHub Actions provider provenance and the bundle-to-run binding, which since R3
 binds the submitted bundle CONTENT to the provider-held artifact CONTENT. In this
 phase that PASS was reached only in unit tests under clearly labelled trust
 substitutes (MOCK_ONLY). Provenance is RUN-LEVEL; job-level provenance is
-NOT_CLAIMED. Under the accepted INR supervisor, `all_writer_isolation_established`
-cannot be PASS (UNCONFIRMED), so a production `external_assurance` PASS is not
-reachable. INR predicates for an external event exist only in the launcher-accepted
+NOT_CLAIMED. INR-AWI-001: `all_writer_isolation_established` can be PASS only when the
+supervisor's own staged-object lock record (Windows execution host) is valid; on any
+other platform it stays UNCONFIRMED, and no real external run has been executed, so
+no production `external_assurance` PASS exists. INR predicates for an external event exist only in the launcher-accepted
 report of the XR verifier PROCESS. Nothing here is an INR PASS, IW admission, Human
 Final or production permission.
 
@@ -32,8 +33,10 @@ step (`provider_github_v0.verify_provider`); local derivation
 classification. Tests live in `tests/test_validate_external_run_v0.py`. `P:` is
 ProviderTests or ProviderTransportTests, `I:` IntegrationTests, `B:`
 IsolationBindingTests, `M1-A`..`M1-I` ArtifactContentTests, `M3-01`..`M3-12`
-ProtectedExecutionTests, `adv_NN` AdversarialTests, and `F:` FocusedTests or
-StaticTests.
+ProtectedExecutionTests, `AWI-01`..`AWI-10` AllWriterIsolationTests (INR-AWI-001,
+Windows, real lock and real attacker processes), `adv_NN` AdversarialTests, and `F:`
+FocusedTests or StaticTests. `INR:awi` is `docs/inr_001/tests/test_staged_lock_awi.py`
+(real supervisor process run).
 
 ## Matrix
 
@@ -59,8 +62,8 @@ StaticTests.
 | 17 | M3: actual execution objects bound to the protected inventory (`inventory_binding`) | protected tree; supervisor path; git probe; capture cwd and argv; python identity | trusted tooling and PSM digests; capture records | steps 8-10 | required set derived from runtime data: execution cwd, stage root, staged validator (argv[5]), case JSON (argv[6]), probe (argv[4]), repository (argv[7]), interpreter (argv[0]), Git executable, target tree/files, Git common dir, object store and alternates, supervisor, profile/origin, inputs, command inventory; exact path/kind/digest; extras and substitutions rejected; work dir = actual stage root | `all_writer_isolation` source | substituted/unrelated path, argv outside cwd, cwd outside root, digest mismatch: FAIL; missing entry: UNCONFIRMED | M3-01..M3-06, M3:runtime_executables_and_alternates_bound, B:b12, B:b13, B:b15, B:b16, B:inventory_rules_extra_and_digest | PASS |
 | 18 | M3: parent chain and mount identity | protected tree parent chain, devices | - | - | every ancestor (up to the bounded root) of every in-root protected path that is not itself an entry; extra parents FAIL; alias/others-writable FAIL; missing UNCONFIRMED; device boundary UNCONFIRMED | same | as stated | M3-07, B:b14, F:protected_tree_rules | PASS (runtime executables outside the root: no chain required) |
 | 19 | M3: frozen protected tree non-writable during execution, output dirs separated (`frozen_tree`) | entries, post_entries, parent chain, output dirs, freeze/post times | - | - | frozen entries and parents neither writable nor owned by the execution principal; post entries equal; freeze/post digests recomputed and equal; freeze/post times enclose the event window; output dirs exactly export/ledger/work_dir, absolute, not overlapping the frozen tree; equal digests alone never suffice | same | writable/owned: UNCONFIRMED; changed/overlap/alias: FAIL | M3-08, M3-09, M3-10, M3-11, M3-12 | PARTIAL: mechanism tested; permissions and ownership are runner-reported |
-| 19a | M3: staged execution objects (stage root, cwd, staged validator, case JSON) non-writable during execution (`staged_objects`) | staged entries | accepted supervisor staging model (code constant) | - | accepted supervisor stages them as the execution principal: always UNCONFIRMED; claims of frozen staged objects: FAIL (contradiction) | same | UNCONFIRMED / FAIL | M3-08, M3-09, M3-12, F:r3_production_constants_and_closed_result_fields | UNCONFIRMED |
-| 19b | All-writer isolation (`all_writer_isolation_established`) | rows 17-19a | provider binding (origin only) | steps 8-10 | conjunction of rows 17, 18, 19 and 19a | `all_writer_isolation` source | at best UNCONFIRMED in production | M3-12 (PASS only under the hypothetical staging substitute) | UNCONFIRMED |
+| 19a | M3/AWI: staged execution objects (cwd, staged validator, case JSON) write-excluded during execution (`staged_objects`) | staged entries; supervisor record `post_measurement.measurements.staged_lock` | accepted supervisor staging model (code constant); supervisor lock constants | - | INR-AWI-001: only the supervisor's own lock record counts: every executed staged object held (share read-only handle, owner-rights read-only DACL), every ancestor of the cwd up to the volume root held without delete sharing, every write/delete/re-ACL probe denied at freeze and post, trusted digests, no alias, unchanged identity and listing, lock enclosing the execution window; runner flags never substitute; claims of non-principal staged objects: FAIL (contradiction) | same | no record / non-Windows / object or ancestor not held / probe granted: UNCONFIRMED; alias, digest or identity change, extra entry: FAIL | AWI-01..AWI-10, INR:awi, M3-08, M3-09, M3-12 | PARTIAL: Windows only; lock observed by the supervisor itself and tested with real attacker processes; record carried in the provider-bound bundle; other platforms UNCONFIRMED |
+| 19b | All-writer isolation (`all_writer_isolation_established`) | rows 17-19a | provider binding (origin only) | steps 8-10 | conjunction of rows 17, 18, 19 and 19a | `all_writer_isolation` source | PASS reachable only on a Windows execution host with rows 17-19 PASS; otherwise UNCONFIRMED | AWI-10 (unit-test provider substitute), M3-12 | PARTIAL: Windows only; no real run executed |
 | 20 | Python 3.11 / Git identity | python identity, git identity, children | provider binding (origin only) | steps 8-10 | CPython 3.11.x; Git ambiguity checks; cross-file consistency | `runtime_identity`, `git_runtime` sources | BLOCKED/FAIL | adv_10, adv_11, F:git_ambiguity_blocked, F:python_implementation_and_inconsistency | PARTIAL: observations runner-reported |
 | 21 | Event/supervisor provenance (`current_event_capture_established`) | event start, capture records, streams, post measurement, event complete | operator event ID and not-before; committed pins | event window inside the claimed job window | INR-001 r3 semantics re-derived; supervisor report negative-only | local INR predicates need this AND the report PASS | replay/stale/contradiction: FAIL; absent: UNCONFIRMED | adv_14, adv_15, adv_19, F:child_replay_argv_and_refusal_drift, F:supervisor_report_is_negative_only | PARTIAL: content bound to the verified run's artifact; content runner-reported |
 | 22 | Freshness against the runner-side INR ledger | - | none | - | bounded by event ID, not-before, provider run time, job window | - | no PASS without operator parameters | adv_19, P:p06 | UNCONFIRMED |
@@ -68,21 +71,22 @@ StaticTests.
 | 24 | Plain JSON or reconstructed results cannot inject INR predicates | forged JSON (argv, bundle, replayed report, env) | process boundary | - | in-process: `IN_PROCESS_NOT_TRUSTED`; bundle-carried result: structural FAIL | launcher rejects pid/kind/event/exit mismatch; supervisor `_assess_external` unchanged | UNCONFIRMED or FAIL, never PASS | I:i11, F:verifier_outside_process_establishes_nothing | PASS |
 | 25 | Self-attestation cannot create PASS | `runner_declarations`, unknown fields | - | provider fields are claims | declarations ignored; predicate-named fields rejected (`*_evidence` included) | - | FAIL/UNCONFIRMED/BLOCKED | adv_01-03, F:declarations_are_informational_only_both_ways, F:raw_predicate_field_makes_evidence_inadmissible | PASS |
 | 26 | Synthetic bundle gives structural PASS and assurance UNCONFIRMED | synthetic bundle | - | none | all evidence PASS | - | assurance UNCONFIRMED | adv_20, P:p01 | PASS |
-| 27 | Accepted INR-001 local tooling unchanged | `docs/inr_001/*` outside `xr/` | - | - | - | none (the integration point is the new XR verifier) | - | existing INR suite (46) | PASS |
+| 27 | Accepted INR-001 local tooling unchanged except the INR-AWI-001 staging freeze | `docs/inr_001/*` outside `xr/` | - | - | supervisor: staged-object lock taken after staging, re-observed before POST_MEASUREMENT, released before cleanup, recorded in `measurements.staged_lock`; PSM, case, result, refusal, Human Final, authority and INR predicate semantics unchanged (`all_writer_isolation` stays UNCONFIRMED locally) | none (the integration point is the XR verifier) | - | existing INR suite (46) + INR:awi (3) | PASS |
 | 28 | Real external run | - | - | - | - | - | not executed | - | UNCONFIRMED |
 
 ## Totals
 
 - PASS: 18 (rows 1-6, 8-10, 15, 17, 18, 23-27)
-- PARTIAL: 9 (rows 11-14, 16, 19-21)
-- UNCONFIRMED: 6 (rows 7, 9a, 19a, 19b, 22, 28)
+- PARTIAL: 11 (rows 11-14, 16, 19, 19a, 19b, 20, 21)
+- UNCONFIRMED: 4 (rows 7, 9a, 22, 28)
 - FAIL: 0
 
-Each assurance PASS in the tests depends on unit-test provider substitutes, and the
-all-writer PASS additionally on a hypothetical staging substitute. Real provider
+Each assurance PASS in the tests depends on unit-test provider substitutes. The
+all-writer PASS of AWI-10 uses the REAL supervisor lock record taken on this Windows
+host (M3-12 still also shows the hypothetical staging substitute). Real provider
 verification and real artifact download (row 7) are UNCONFIRMED, job-level
-provenance is NOT_CLAIMED (row 9a), and all-writer isolation is UNCONFIRMED under
-the accepted supervisor (row 19b), so no real external assurance exists yet.
+provenance is NOT_CLAIMED (row 9a), and all-writer isolation can be PASS only on a
+Windows execution host (row 19b), so no real external assurance exists yet.
 
 ## Recorded deviations
 
@@ -94,6 +98,14 @@ the accepted supervisor (row 19b), so no real external assurance exists yet.
   hypothetical staging substitute; with the accepted supervisor the same complete
   frozen inventory yields `inventory_binding` PASS, `frozen_tree` PASS,
   `staged_objects` UNCONFIRMED.
+- INR-AWI-001: the accepted INR supervisor is reopened ONLY for the staging freeze
+  (lock after staging, observation, release before cleanup, `measurements.staged_lock`).
+  The lock is Windows-only (share-mode handles plus an OWNER RIGHTS DACL); on other
+  platforms the record states that no lock exists and `staged_objects` stays
+  UNCONFIRMED. Same-principal attacks on the supervisor PROCESS itself (debugging,
+  code injection, handle duplication) are outside the filesystem lock and remain part
+  of the declared supervisor trust base. The frozen tree (target, Git object store,
+  tooling, runtime) keeps the R3 model (another principal; runner-reported flags).
 - R3: job-level provenance is NOT_CLAIMED (artifacts are run-scoped).
 - R3: the storage-redirect allowlist (`productionresultssa<N>.blob.core.windows.net`,
   path `/actions-results/`) follows GitHub's documented behaviour; it is not validated

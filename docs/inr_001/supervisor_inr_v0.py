@@ -31,6 +31,22 @@ Non-origin, shared-state absence and all-writer isolation have no supervisor-own
 evidence source in v0 and are always UNCONFIRMED, so the overall INR result cannot
 be PASS in v0. The supervisor's own code, stdlib, OS and local Git installation are
 the declared trust base (no hostile-host resistance in v0).
+
+INR-AWI-001 (staging freeze): after staging and before the first child, the supervisor
+write-excludes the staged execution objects (staging directory = child cwd, staged
+validator, staged case inputs) and holds that lock until after the post measurement
+(``_StagedLock``). On Windows it holds handles opened with share mode FILE_SHARE_READ
+(files) or without FILE_SHARE_DELETE (the staging directory and every ancestor up to
+the volume root), so no principal can open them for write, delete, rename or replace,
+and through those handles it sets a protected OWNER RIGHTS read-only DACL on the staged
+files and directory, so the owner (the execution principal) cannot re-ACL them, add
+entries, or create hard links or alternate streams. It observes the lock itself with
+open-only probes (nothing is written) at freeze and after execution and records the
+result in ``measurements.staged_lock``; the original DACLs are restored before cleanup.
+The record is evidence for the XR adapter's ``staged_objects`` component only. It does
+not change any INR predicate: ``all_writer_isolation`` stays UNCONFIRMED here because
+the rest of the protected tree (target, Git object store, tooling, runtime) is not
+supervisor-locked. Other platforms record that no lock exists.
 """
 from __future__ import annotations
 
@@ -60,6 +76,10 @@ if __name__ == "__main__":  # -I does not put the script directory on sys.path
 from docs.inr_001 import ledger  # noqa: E402
 from docs.inr_001.input_cases import case_bytes  # noqa: E402
 from docs.inr_001.schema_check import check  # noqa: E402
+
+if os.name == "nt":  # the staged-object lock uses Win32 share modes and DACLs (INR-AWI-001)
+    import ctypes  # noqa: E402
+    from ctypes import wintypes  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 SUPERVISOR = Path(__file__).resolve()
@@ -338,6 +358,221 @@ def _record(case_id, command_id, sequence, event_id, challenge, nonce, argv, chi
             "stdout_sha256": digest(stdout), "stderr_sha256": digest(stderr)}
 
 
+# --- INR-AWI-001: write exclusion of the staged execution objects ---------------------
+
+STAGED_LOCK_SCHEMA_VERSION = "inr.staged_lock.v0"
+STAGED_LOCK_MECHANISM = "win32-share-read-handles+owner-rights-read-dacl"
+# Protected DACL applied (through the held handles) to the staged files and the staging
+# directory for the execution window: OWNER RIGHTS (S-1-3-4) read/list/traverse/execute
+# only. OWNER RIGHTS replaces the owner's implicit READ_CONTROL/WRITE_DAC, so the owner
+# (the execution principal) cannot re-ACL, add entries, hard-link or write streams.
+STAGED_LOCK_DACL = "D:P(A;;0x1200a9;;;OW)"
+LOCK_SHARE_FILE = 0x1          # FILE_SHARE_READ only: no write/append/truncate/delete/rename open
+LOCK_SHARE_DIR = 0x1 | 0x2     # no FILE_SHARE_DELETE: the directory cannot be renamed or deleted
+# Open-only probes (an open that succeeds is closed at once; nothing is read or written).
+# Immutable module state (no registries): (kind, ((probe, desired access), ...)).
+LOCK_PROBES = (
+    ("file", (("write", 0x40000000), ("append", 0x4), ("delete", 0x10000), ("write_attributes", 0x100),
+              ("write_dac", 0x40000), ("write_owner", 0x80000))),
+    ("dir", (("add_file", 0x2), ("add_subdirectory", 0x4), ("delete_child", 0x40), ("delete", 0x10000),
+             ("write_dac", 0x40000), ("write_owner", 0x80000))),
+    ("ancestor", (("delete", 0x10000),)),
+)
+# Lock handle access per kind: file GENERIC_READ|READ_CONTROL|WRITE_DAC; dir LIST|TRAVERSE|
+# READ_ATTRIBUTES|SYNCHRONIZE|READ_CONTROL|WRITE_DAC; ancestor LIST|TRAVERSE|READ_ATTRIBUTES|SYNCHRONIZE.
+_LOCK_ACCESS = (("file", 0x80000000 | 0x20000 | 0x40000),
+                ("dir", 0x1 | 0x20 | 0x80 | 0x100000 | 0x20000 | 0x40000),
+                ("ancestor", 0x1 | 0x20 | 0x80 | 0x100000))
+_LOCK_SHARE = (("file", LOCK_SHARE_FILE), ("dir", LOCK_SHARE_DIR), ("ancestor", LOCK_SHARE_DIR))
+
+
+def lock_probes(kind):
+    """Open-only probes ``{name: desired access}`` for a lock record kind (file, dir, ancestor)."""
+    return dict(dict(LOCK_PROBES)[kind])
+
+
+def _ancestors(path):
+    """Every ancestor of ``path`` up to and including the volume root."""
+    out, current = [], os.path.dirname(str(path))
+    while True:
+        out.append(current)
+        parent = os.path.dirname(current)
+        if parent == current:
+            return out
+        current = parent
+
+
+class _Win32:
+    """Minimal kernel32/advapi32 bindings for the staged-object lock (Windows only)."""
+
+    def __init__(self):
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        adv = ctypes.WinDLL("advapi32", use_last_error=True)
+        k32.CreateFileW.restype = wintypes.HANDLE
+        k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                    wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        k32.CloseHandle.argtypes = [wintypes.HANDLE]
+        k32.GetFileInformationByHandle.argtypes = [wintypes.HANDLE, ctypes.c_void_p]
+        k32.GetFinalPathNameByHandleW.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD]
+        k32.GetFinalPathNameByHandleW.restype = wintypes.DWORD
+        k32.LocalFree.argtypes = [ctypes.c_void_p]
+        adv.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [
+            wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+        adv.GetKernelObjectSecurity.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                                                ctypes.POINTER(wintypes.DWORD)]
+        adv.SetKernelObjectSecurity.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p]
+        self.k32, self.adv = k32, adv
+
+    def open(self, path, access, share, directory):
+        """CreateFileW OPEN_EXISTING; never follows a reparse point. Returns (handle, error)."""
+        flags = 0x00200000 | (0x02000000 if directory else 0)  # OPEN_REPARSE_POINT, BACKUP_SEMANTICS (dirs)
+        handle = self.k32.CreateFileW(str(path), access, share, None, 3, flags, None)
+        if handle is None or handle == wintypes.HANDLE(-1).value:
+            return None, ctypes.get_last_error()
+        return handle, 0
+
+    def close(self, handle):
+        self.k32.CloseHandle(handle)
+
+    def probe(self, path, access, directory):
+        """Open-only probe with full sharing: GRANTED or DENIED:<winerror>."""
+        handle, error = self.open(path, access, 0x7, directory)
+        if handle is None:
+            return f"DENIED:{error}"
+        self.close(handle)
+        return "GRANTED"
+
+    def identity(self, handle):
+        class Info(ctypes.Structure):
+            _fields_ = [("attributes", wintypes.DWORD), ("times", wintypes.DWORD * 6),
+                        ("volume", wintypes.DWORD), ("size_high", wintypes.DWORD), ("size_low", wintypes.DWORD),
+                        ("links", wintypes.DWORD), ("index_high", wintypes.DWORD), ("index_low", wintypes.DWORD)]
+        info = Info()
+        if not self.k32.GetFileInformationByHandle(handle, ctypes.byref(info)):
+            raise OSError(ctypes.get_last_error(), "GetFileInformationByHandle failed")
+        buffer = ctypes.create_unicode_buffer(32768)
+        if not self.k32.GetFinalPathNameByHandleW(handle, buffer, 32768, 0):
+            raise OSError(ctypes.get_last_error(), "GetFinalPathNameByHandleW failed")
+        final = buffer.value
+        if final.startswith("\\\\?\\") and not final.startswith("\\\\?\\UNC\\"):
+            final = final[4:]
+        return {"final_path": final, "volume_serial": info.volume,
+                "file_index": (info.index_high << 32) | info.index_low,
+                "link_count": info.links, "reparse_point": bool(info.attributes & 0x400)}
+
+    def get_dacl(self, handle):
+        needed = wintypes.DWORD(0)
+        self.adv.GetKernelObjectSecurity(handle, 4, None, 0, ctypes.byref(needed))
+        buffer = ctypes.create_string_buffer(max(needed.value, 1))
+        if not self.adv.GetKernelObjectSecurity(handle, 4, buffer, needed, ctypes.byref(needed)):
+            raise OSError(ctypes.get_last_error(), "GetKernelObjectSecurity failed")
+        return buffer
+
+    def set_lock_dacl(self, handle):
+        descriptor = ctypes.c_void_p()
+        if not self.adv.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                STAGED_LOCK_DACL, 1, ctypes.byref(descriptor), None):
+            raise OSError(ctypes.get_last_error(), "security descriptor conversion failed")
+        try:
+            if not self.adv.SetKernelObjectSecurity(handle, 4 | 0x80000000, descriptor):  # DACL, PROTECTED
+                raise OSError(ctypes.get_last_error(), "SetKernelObjectSecurity failed")
+        finally:
+            self.k32.LocalFree(descriptor)
+
+    def restore_dacl(self, handle, saved):
+        if not self.adv.SetKernelObjectSecurity(handle, 4 | 0x20000000, saved):  # DACL, UNPROTECTED
+            raise OSError(ctypes.get_last_error(), "SetKernelObjectSecurity (restore) failed")
+
+
+class _StagedLock:
+    """FREEZE -> POST write exclusion of the staged execution objects (INR-AWI-001).
+
+    ``freeze`` takes the lock and records the supervisor's own observation;
+    ``post`` re-observes it after execution while it is still held; ``release``
+    restores the original DACLs and closes the handles (before the staging cleanup).
+    The record is a measurement, not a verdict: the XR adapter derives
+    ``staged_objects`` from it. Failures are recorded, never raised.
+    """
+
+    def __init__(self, stage, staged):
+        self.stage = Path(stage)
+        self.targets = [("execution_cwd", self.stage, "dir")] + [(c, Path(p), "file") for c, p in staged]
+        self.api, self.held, self.saved, self.released = None, [], [], False
+        self.record = {"schema_version": STAGED_LOCK_SCHEMA_VERSION, "platform": os.name, "mechanism": "none",
+                       "dacl_sddl": STAGED_LOCK_DACL, "objects": [], "ancestors": [],
+                       "cwd_listing_freeze": [], "cwd_listing_post": [],
+                       "locked_ns": 0, "post_probed_ns": 0, "released_ns": 0, "problems": []}
+
+    def _observe(self, handle, path, kind):
+        seen = self.api.identity(handle)
+        seen["sha256"] = digest(Path(path).read_bytes()) if kind == "file" else ""
+        seen["probes"] = {name: self.api.probe(path, access, kind != "file")
+                          for name, access in lock_probes(kind).items()}
+        return seen
+
+    def _hold(self, path, kind, extra):
+        access, share = dict(_LOCK_ACCESS)[kind], dict(_LOCK_SHARE)[kind]
+        handle, error = self.api.open(path, access, share, kind != "file")
+        item = dict(extra, path=str(path), access=access, share_mode=share,
+                    held=handle is not None, open_error=error, freeze={}, post={})
+        if handle is None:
+            self.record["problems"].append(f"lock handle not obtained (error {error}): {path}")
+        else:
+            self.held.append((item, handle, path, kind))
+        return item, handle
+
+    def freeze(self):
+        record = self.record
+        if os.name != "nt":
+            record["problems"].append("no supervisor write-exclusion lock on this platform (Windows only in v0)")
+            record["locked_ns"] = time.monotonic_ns()
+            return record
+        try:
+            self.api = _Win32()
+            record["mechanism"] = STAGED_LOCK_MECHANISM
+            for category, path, kind in self.targets:
+                item, handle = self._hold(path, kind, {"category": category, "kind": kind, "dacl_applied": False})
+                record["objects"].append(item)
+                if handle is not None:
+                    self.saved.append((handle, self.api.get_dacl(handle)))
+                    self.api.set_lock_dacl(handle)
+                    item["dacl_applied"] = True
+            for path in _ancestors(self.stage):
+                record["ancestors"].append(self._hold(path, "ancestor", {})[0])
+            for item, handle, path, kind in self.held:
+                item["freeze"] = self._observe(handle, path, kind)
+            record["cwd_listing_freeze"] = sorted(os.listdir(self.stage))
+        except (OSError, ValueError, AttributeError) as exc:
+            record["problems"].append(f"lock not completely established: {exc}")
+        record["locked_ns"] = time.monotonic_ns()
+        return record
+
+    def post(self):
+        """Re-observe the still-held lock after execution (before POST_MEASUREMENT)."""
+        if self.api is not None:
+            try:
+                for item, handle, path, kind in self.held:
+                    item["post"] = self._observe(handle, path, kind)
+                self.record["cwd_listing_post"] = sorted(os.listdir(self.stage))
+            except (OSError, ValueError) as exc:
+                self.record["problems"].append(f"post-execution lock observation incomplete: {exc}")
+        self.record["post_probed_ns"] = time.monotonic_ns()
+
+    def release(self):
+        """Restore the original DACLs, then close every handle (idempotent)."""
+        if self.released:
+            return
+        self.released = True
+        for handle, saved in reversed(self.saved):
+            try:
+                self.api.restore_dacl(handle, saved)
+            except OSError as exc:
+                self.record["problems"].append(f"DACL restore failed: {exc}")
+        for _item, handle, _path, _kind in reversed(self.held):
+            self.api.close(handle)
+        self.record["released_ns"] = time.monotonic_ns()
+
+
 # --- the single supervised execution path -------------------------------------------
 
 def _report(findings, event_id, supervisor_ok, pid):
@@ -400,6 +635,7 @@ def supervise(event_id, repository, *, ledger_path=None, work_dir=None):
         mandatory = [c["case_id"] for c in cases if c.get("mandatory_execution") is True]
         stage_cm = tempfile.TemporaryDirectory(prefix="inr-local-", dir=work_dir) if config_ok else None
         stage = None
+        lock = None
         try:
             if stage_cm is not None:
                 stage = Path(stage_cm.__enter__()).resolve()
@@ -451,6 +687,10 @@ def supervise(event_id, repository, *, ledger_path=None, work_dir=None):
                     lifecycle["FREEZE_START"] = time.monotonic_ns()
                     for path in (source, *inputs.values()):
                         path.chmod(stat.S_IREAD)
+                    # FREEZE (INR-AWI-001): write-exclude the staged objects until after POST
+                    lock = _StagedLock(stage, [("staged_validator", source)]
+                                       + [("case_inputs", inputs[case["case_id"]]) for case in cases])
+                    measurements["staged_lock"] = lock.freeze()
                     source_digest = profile["target_file_digests"]["validate_psm_v0.py"]
                     measurements["source_before_sha256"] = digest(source.read_bytes())
                     measurements["probe_sha256"] = digest(PROBE.read_bytes())
@@ -602,10 +842,13 @@ def supervise(event_id, repository, *, ledger_path=None, work_dir=None):
                         findings.add("git_runtime", "blocked", str(exc))
                     if any(k.upper().startswith("GIT_") for k in os.environ):
                         findings.add("git_runtime", "blocked", "Git environment influence in supervisor")
+                    lock.post()
                     lifecycle["POST_MEASUREMENT"] = time.monotonic_ns()
                 except BlockedError:
                     pass
         finally:
+            if lock is not None:
+                lock.release()
             if stage_cm is not None:
                 stage_cm.__exit__(None, None, None)
         lifecycle["CAPTURE_COMPLETE"] = time.monotonic_ns()

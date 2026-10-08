@@ -19,6 +19,13 @@ the protected inventory, and replaces the principal-writable stage-root allowanc
 a freeze model (section 6.1). Under the accepted INR supervisor's staging layout,
 `all_writer_isolation_established` cannot be PASS and is reported UNCONFIRMED.
 
+INR-AWI-001 reopens the supervisor only for the staging freeze: on Windows it
+write-excludes its staged execution objects for the execution window and records its
+own observation of that lock (`measurements.staged_lock`). `staged_objects`, and so
+`all_writer_isolation_established`, can be PASS only from that record (section 6.1).
+On any other platform the record states that no lock exists and they stay
+UNCONFIRMED.
+
 **Structural validity is not assurance.** A bundle that is internally consistent and
 hash-bound gets `structural_bundle: PASS` only. External assurance additionally
 needs authoritative GitHub Actions metadata, fetched by the verifier itself from
@@ -26,8 +33,9 @@ needs authoritative GitHub Actions metadata, fetched by the verifier itself from
 trusted provider data, assurance is UNCONFIRMED or BLOCKED, never PASS. A synthetic
 but fully consistent bundle (test 20 and section-12 test 1) is structural PASS with
 assurance UNCONFIRMED. Nothing here is an INR PASS, IW admission, Human Final or
-production permission. The accepted INR-001 local tooling (supervisor, launcher,
-probe, profile, origin set) is not changed. A local supervisor run still reports
+production permission. The accepted INR-001 local tooling (launcher, probe, profile,
+origin set) is not changed; the supervisor changed only for the INR-AWI-001 staging
+freeze. A local supervisor run still reports
 `non_origin`, `shared_state_absence` and `all_writer_isolation` as UNCONFIRMED.
 
 ## 1. Trust model
@@ -78,7 +86,7 @@ raw evidence (runner, untrusted claims)
 | `bundle_run_binding` | PASS / UNCONFIRMED / BLOCKED / FAIL | the verified run carries exactly one artifact `inr-xr-bundle-<bundle_digest>` whose downloaded CONTENT equals the submitted bundle under the frozen content rule (section 1.2) |
 | `run_level_provenance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of `provider_provenance` and `bundle_run_binding`; the bundle is bound to the verified workflow RUN |
 | `job_level_provenance` | NOT_CLAIMED (constant) | the producing job is not authenticated (artifacts are run-scoped) |
-| `isolation_components` | PASS / UNCONFIRMED / BLOCKED / FAIL each | `inventory_binding`, `frozen_tree`, `staged_objects` (section 6.1); `staged_objects` is always UNCONFIRMED under the accepted supervisor |
+| `isolation_components` | PASS / UNCONFIRMED / BLOCKED / FAIL each | `inventory_binding`, `frozen_tree`, `staged_objects` (section 6.1); `staged_objects` is PASS only from the supervisor's own Windows lock record (INR-AWI-001), otherwise UNCONFIRMED |
 | `assurance_predicates` (9, `*_established`) | PASS / UNCONFIRMED / BLOCKED / FAIL | evidence predicate(s) AND all four gates (`bundle_integrity`, `trusted_reference_binding`, `provider_provenance`, `bundle_run_binding`) |
 | `external_assurance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of all assurance predicates and gates; precedence BLOCKED > FAIL (including contradictions) > UNCONFIRMED > PASS |
 
@@ -275,7 +283,9 @@ execution used (section 6.1).
      `case_inputs`) are recorded with their actual paths (the supervisor's
      `inr-local-*` directory, `validate_psm_v0.py` and `<case>.json` inside it) and
      HONEST flags: under the accepted supervisor they are created and owned by the
-     execution principal, and they cannot be frozen.
+     execution principal, so runner flags cannot freeze them. Their write exclusion
+     comes only from the supervisor's own lock record (INR-AWI-001, Windows), which
+     the collection helper copies with the export measurements.
    - Compute the freeze digest with the adapter rule over the FROZEN categories only:
      `sha256(canonical(sorted([category, path, kind, sha256] for each frozen entry)))`,
      where `canonical` is
@@ -452,21 +462,50 @@ their conjunction:
      non-writability during the window is required as well.
 3. `staged_objects`
    - With the accepted supervisor (`ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True`, a
-     code constant, not a switch): always UNCONFIRMED. The accepted supervisor
-     creates its `inr-local-*` staging directory with `tempfile` under the work dir,
-     writes the validator and case JSON there, and runs the children in it as the
-     same principal. The executed objects are therefore principal-owned and
-     replaceable during the window, and freezing them would need a change to the
-     accepted INR tooling, which is out of scope. A bundle that claims a
-     non-writable stage root, or staged objects not owned by the execution principal,
-     contradicts that supervisor: FAIL.
-   - The unit tests also exercise a hypothetical staging substitute (constant patched
-     in-process) to show that the conjunction can PASS when every object is frozen.
-     That path is not reachable from production.
+     code constant, not a switch) the supervisor creates its `inr-local-*` staging
+     directory with `tempfile` under the work dir, writes the validator and case JSON
+     there, and runs the children in it as the same principal. Runner flags can
+     therefore never freeze these objects. A bundle that claims a non-writable stage
+     root, or staged objects not owned by the execution principal, contradicts that
+     supervisor: FAIL.
+   - INR-AWI-001 (FREEZE -> EXECUTE -> POST in the supervisor, Windows only): after
+     staging and before the first child, the supervisor opens every staged file with
+     share mode `FILE_SHARE_READ` only and the staging directory plus every ancestor up
+     to the volume root without `FILE_SHARE_DELETE`, and holds the handles until after
+     its post measurement. While they are held no principal, the execution principal
+     included, can open those objects for write, append, truncate, delete, rename or
+     replace, or rename/delete any directory on the path. Through the same handles it
+     sets the protected DACL `D:P(A;;0x1200a9;;;OW)` (OWNER RIGHTS read/execute only)
+     on the staged files and the staging directory, which removes the owner's implicit
+     WRITE_DAC: the owner cannot re-ACL, add entries (for example a `git.exe` that
+     CreateProcess would pick from the cwd), hard-link or write alternate streams. The
+     supervisor observes the lock itself with open-only probes (nothing is read or
+     written) at freeze and again after execution, re-measures identity, link count,
+     digest and the cwd listing, records everything in `measurements.staged_lock`,
+     restores the original DACLs and only then removes the staging directory.
+   - The adapter (`staged_lock_problems`) re-derives the requirement from the actual
+     runtime paths: every executed staged object (cwd, `argv[5]`, each `argv[6]`) and
+     every ancestor of the cwd up to the volume root held with the required share
+     mode; the DACL applied; every probe `DENIED:5` or `DENIED:32` at freeze and post;
+     trusted digests; no reparse point or path difference; link count 1; unchanged
+     volume/file identity; cwd listing exactly the staged files at freeze and post;
+     `FREEZE_START <= locked <= COMMAND_EXECUTION_BEGIN` and `EXECUTION_COMPLETE <=
+     post probe <= POST_MEASUREMENT <= released <= CAPTURE_COMPLETE`. No record, a
+     non-Windows record, an object or ancestor not held, or a probe not denied:
+     UNCONFIRMED. An alias, a digest or identity change, or an added/removed entry:
+     FAIL.
+   - The unit tests also keep the hypothetical staging substitute (constant patched
+     in-process, M3-12). AllWriterIsolationTests use the REAL lock on a real staging
+     directory with real attacker processes.
 
-Consequence: in production, `all_writer_isolation_established` is at best
-UNCONFIRMED. No hostile-host claim is made: privileged or host-level writers are not
-excluded, and the observations remain runner-reported.
+Consequence: `all_writer_isolation_established` can be PASS only for a run on a
+Windows execution host whose frozen tree also satisfies `frozen_tree` (another
+principal; see step 6) and whose supervisor lock record is complete; on other
+platforms it stays UNCONFIRMED. This procedure is written for a Linux runner; a
+Windows runner would need equivalent observations for every step (not specified or
+executed here). No hostile-host claim is made: privileged or host-level writers, and
+same-principal attacks on the supervisor process itself, are not excluded, and the
+frozen-tree observations remain runner-reported.
 
 ### Self-assertion policy (decision)
 
@@ -505,9 +544,11 @@ supervisor exited, and it carries the supervisor report. The adapter requires
   runner-side INR ledger. Staleness is bounded by the operator-issued event ID, the
   not-before time, the provider run creation time and the job window. The operator
   must never reuse an event ID.
-- No all-writer proof: privileged or host-level writers, and writers outside the
-  observed mount table, are not excluded. Under the accepted supervisor the staged
-  execution objects are principal-writable, so all-writer isolation is UNCONFIRMED.
+- No all-writer proof beyond the bounded predicate: privileged or host-level writers,
+  writers outside the observed mount table, and same-principal attacks on the
+  supervisor process itself are not excluded. The staged execution objects are
+  write-excluded only by the supervisor's Windows lock (INR-AWI-001); on other
+  platforms all-writer isolation is UNCONFIRMED.
 - Real artifact download has NOT been executed; the content binding was exercised
   only with unit-test archives (MOCK_ONLY). The storage host allowlist follows
   GitHub's documented behaviour at the time of writing and may need revision.
@@ -522,6 +563,10 @@ supervisor exited, and it carries the supervisor report. The adapter requires
   accepted supervisor stages the executed validator and case JSON as the execution
   principal, `staged_objects` (and so all-writer isolation) stays UNCONFIRMED; the
   accepted INR tooling is not changed to avoid this.
+- INR-AWI-001: the accepted supervisor was reopened only for the staging freeze
+  (staged-object lock, its observation record, release before cleanup). The lock is a
+  Windows mechanism; the Git object store and the rest of the frozen tree keep the R3
+  model (another principal, runner-reported flags).
 - R3: runtime executables (interpreter, Git) are bound by path and digest but lie
   outside the bounded workspace root; their parent chains are not required.
 - R3: job-level provenance is NOT_CLAIMED (artifacts are run-scoped).
