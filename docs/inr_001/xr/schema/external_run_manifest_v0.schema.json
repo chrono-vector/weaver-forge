@@ -1656,6 +1656,7 @@
             "staged_objects": {
               "enum": [
                 "PASS",
+                "PARTIAL",
                 "FAIL",
                 "UNCONFIRMED",
                 "BLOCKED"

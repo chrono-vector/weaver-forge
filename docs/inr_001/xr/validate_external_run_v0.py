@@ -21,13 +21,19 @@ RESULT MODEL (R2: structural validity is not assurance)
   execution principal across the execution window, with equal pre/post
   measurements. ``staged_objects`` covers the stage root, cwd, staged validator and
   case inputs. The accepted INR supervisor stages them as the execution principal,
-  so runner flags can never freeze them. INR-AWI-001: ``staged_objects`` can be PASS
-  only from the supervisor's OWN write-exclusion lock record
-  (``post_measurement.measurements.staged_lock``, Windows share-mode handles plus an
-  OWNER RIGHTS read-only DACL, see ``staged_lock_problems``) bound to the actual
-  staged paths, trusted digests, every ancestor up to the volume root and the
-  execution window. Without that record (any other platform, or an older
-  supervisor) it stays UNCONFIRMED.
+  so runner flags can never freeze them. INR-AWI-001: the supervisor's OWN
+  write-exclusion lock record (``post_measurement.measurements.staged_lock``, Windows
+  share-mode handles plus an OWNER RIGHTS read-only DACL, see
+  ``staged_lock_problems``) bound to the actual staged paths, trusted digests, every
+  ancestor up to the volume root and the execution window is PARTIAL evidence only:
+  a valid record makes ``staged_objects`` PARTIAL (``STAGED_LOCK_PARTIAL_ONLY``),
+  never PASS. Without that record (any other platform, or an older supervisor), or
+  with a broken one, it stays UNCONFIRMED or FAIL.
+  INR-AWI-001 FAIL-CLOSED: ``frozen_tree`` is UNCONFIRMED while any writer surface in
+  ``UNPROTECTED_WRITER_SURFACES`` (a code constant, not a switch) is not
+  independently protected; runner flags never stand in for that protection. In v0
+  no mechanism protects them, so ``protected_tree_isolation_evidence`` and
+  ``all_writer_isolation_established`` are never PASS for a real bundle.
 * ``assurance_predicates`` (``*_established``) and ``external_assurance``: an
   assurance predicate is PASS only when its evidence predicate(s) PASS AND the
   structural bundle, the trusted reference binding, the provider provenance and the
@@ -164,6 +170,29 @@ ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True
 LOCK_DENIED = re.compile(r"DENIED:(?:5|32)")  # ERROR_ACCESS_DENIED / ERROR_SHARING_VIOLATION
 STAGED_LOCK_ABSENT = ("the accepted INR supervisor creates the staging directory and writes the staged validator and "
                       "case inputs as the execution principal; no supervisor-observed write-exclusion lock covers them")
+# INR-AWI-001 fail-closed correction. A valid staged lock is PARTIAL evidence: it covers the staged
+# execution objects only. The writer surfaces below are execution-relevant during the window and no
+# mechanism in v0 protects them independently, so ``frozen_tree`` (and with it
+# ``protected_tree_isolation_evidence`` / ``all_writer_isolation_established``) stays UNCONFIRMED.
+# Code constants, not switches: no argv, environment, bundle or runner flag changes them.
+STAGED_LOCK_PARTIAL_ONLY = "STAGED_LOCK_PARTIAL_ONLY"
+ALL_WRITER_SURFACE_UNPROTECTED = "ALL_WRITER_SURFACE_UNPROTECTED"
+KNOWN_WRITER_SURFACES = (
+    ("GIT_OBJECT_STORE_AND_LOOKUP",
+     "Git object store and lookup-affecting files/config (objects/**, packs, objects/info, HEAD, repository "
+     "config) are read by the child's Git during execution; only top-level runner flags cover them and adding "
+     "objects alone changes lookups"),
+    ("GIT_USER_GLOBAL_CONFIG",
+     "user/global/system Git config is re-read by the child's Git during execution; the execution principal's "
+     "own profile config is principal-writable and not inventoried"),
+    ("RUNTIME_DEPENDENCIES",
+     "Python and Git runtime DLL/stdlib/dependency surfaces are loaded during execution; only the interpreter and "
+     "Git executables are inventoried"),
+    ("HOSTED_WINDOWS_ADMIN_CONTEXT",
+     "the hosted Windows runner executes jobs as an administrator with UAC disabled; privileges bypass handle "
+     "locks and DACLs"),
+)
+UNPROTECTED_WRITER_SURFACES = KNOWN_WRITER_SURFACES
 SUPERVISOR_REL = "docs/inr_001/supervisor_inr_v0.py"
 PROBE_REL = "docs/inr_001/runtime_probe.py"
 PROFILE_REL = "docs/inr_001/profiles/psm_001_inr_target_profile_v0.json"
@@ -1015,6 +1044,7 @@ class _Component:
 
     def __init__(self, name):
         self.name, self.issues = name, {"blocked": [], "fail": [], "unconfirmed": []}
+        self.partial = None  # reason: valid but PARTIAL evidence (never PASS)
 
     def add(self, level, message):
         self.issues[level].append(message)
@@ -1023,7 +1053,7 @@ class _Component:
         for level, status in (("blocked", "BLOCKED"), ("fail", "FAIL"), ("unconfirmed", "UNCONFIRMED")):
             if self.issues[level]:
                 return status
-        return "PASS"
+        return "PARTIAL" if self.partial else "PASS"
 
 
 def _flags_writable(item):
@@ -1124,6 +1154,10 @@ def _derive_protected_tree(f, ev):
             if item["device"] != root_record["device"]:
                 binding.add("unconfirmed", f"mount boundary inside the protected tree: {item['path']}")
     # --- frozen tree: code/config/input/Git/runtime objects non-writable through the execution window
+    # INR-AWI-001 fail-closed: every writer surface without independent protection keeps this component
+    # UNCONFIRMED, whatever the runner flags say (flags never stand in for that protection).
+    for surface, description in UNPROTECTED_WRITER_SURFACES:
+        frozen.add("unconfirmed", f"{ALL_WRITER_SURFACE_UNPROTECTED}:{surface}: {description}")
     if iso["execution_principal"]["is_admin"]:
         frozen.add("unconfirmed", "administrative execution principal can bypass permissions")
     frozen_entries = [e for e in tree["entries"] if e["category"] in FROZEN_CATEGORIES]
@@ -1197,6 +1231,12 @@ def _derive_protected_tree(f, ev):
             elif entry["category"] != "stage_root" and not entry["owner_is_principal"]:
                 staged.add("fail", f"staged object claims non-principal ownership, contradicting the accepted "
                                    f"supervisor: {entry['path']}")
+        if not any(staged.issues.values()):
+            # A valid supervisor lock covers the staged objects only: PARTIAL evidence, never PASS.
+            staged.partial = (f"{STAGED_LOCK_PARTIAL_ONLY}: the supervisor's staged-object lock is valid but covers "
+                              f"only the staged execution objects (stage root, cwd, staged validator, case inputs); "
+                              f"unprotected writer surfaces: "
+                              + ", ".join(surface for surface, _ in KNOWN_WRITER_SURFACES))
     else:
         for entry in staged_entries:
             if _flags_writable(entry):
@@ -1208,6 +1248,8 @@ def _derive_protected_tree(f, ev):
         for level, messages in component.issues.items():
             for message in messages:
                 f.add(p, level, f"[{component.name}] {message}")
+        if component.partial:
+            f.add(p, "unconfirmed", f"[{component.name}] {component.partial}")
     _finish(f, p)
 
 

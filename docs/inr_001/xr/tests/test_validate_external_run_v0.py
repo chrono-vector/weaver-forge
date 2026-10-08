@@ -42,7 +42,16 @@ INR-AWI-001: ``AllWriterIsolationTests`` (Windows only) take the REAL supervisor
 staged-object lock on a real staging directory, launch a real reader child and real
 attacker processes of the same principal, and evaluate the supervisor's own lock record
 with the adapter (section 9 tests 1-10). With the accepted supervisor, ``staged_objects``
-is PASS only from that record; synthetic bundles without it stay UNCONFIRMED.
+is at best PARTIAL from that record; synthetic bundles without it stay UNCONFIRMED.
+
+INR-AWI-001 FAIL-CLOSED: a valid staged lock is PARTIAL evidence only
+(``STAGED_LOCK_PARTIAL_ONLY``) and ``frozen_tree`` stays UNCONFIRMED while
+``xr.UNPROTECTED_WRITER_SURFACES`` lists writer surfaces that nothing protects (all of
+them in v0), so production all-writer isolation is always UNCONFIRMED. One more
+substitute, ``hypothetical_writer_surface_protection()``, patches that constant to an
+empty tuple; ``BundleCase`` applies it by default (like ``hypothetical_staging()``) so
+that the older verdicts still come from the defect they inject. Tests of the production
+rule use ``production_writer_surfaces()`` (AllWriterFailClosedTests, AWI-11, AWI-12).
 """
 from __future__ import annotations
 
@@ -464,6 +473,19 @@ def accepted_supervisor():
     return mock.patch.object(xr, "ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL", True)
 
 
+PRODUCTION_WRITER_SURFACES = xr.UNPROTECTED_WRITER_SURFACES
+
+
+def hypothetical_writer_surface_protection():
+    """UNIT-TEST SUBSTITUTE: every remaining writer surface independently protected (no such mechanism exists)."""
+    return mock.patch.object(xr, "UNPROTECTED_WRITER_SURFACES", ())
+
+
+def production_writer_surfaces():
+    """The production fail-closed rule (INR-AWI-001): the known writer surfaces are unprotected."""
+    return mock.patch.object(xr, "UNPROTECTED_WRITER_SURFACES", PRODUCTION_WRITER_SURFACES)
+
+
 SUBSTITUTE = object()  # sentinel: build the substitute provider from the bundle at validation time
 
 
@@ -475,6 +497,9 @@ class BundleCase(unittest.TestCase):
         staging = hypothetical_staging()
         staging.start()
         self.addCleanup(staging.stop)
+        surfaces = hypothetical_writer_surface_protection()
+        surfaces.start()
+        self.addCleanup(surfaces.stop)
 
     def build(self, parts=None, *, declarations=None, event_id=EVENT_ID, edit=None):
         parts = valid_parts() if parts is None else parts
@@ -1602,7 +1627,7 @@ class AllWriterIsolationTests(BundleCase):
             tree = parts[RAW["isolation_checks"]]["protected_tree"]
             next(e for e in tree["entries"] if e["category"] == "profile_origin_binding")["writable_by_principal"] = True
         result = self.bundle_result(record, writable_profile)
-        self.assertAllWriter(result, "UNCONFIRMED", "protected profile_origin_binding writable", "PASS")
+        self.assertAllWriter(result, "UNCONFIRMED", "protected profile_origin_binding writable", "PARTIAL")
         self.assertEqual(result["isolation_components"]["frozen_tree"], "UNCONFIRMED")
 
     def test_awi_04_output_dir_writable_outside_protected_tree_acceptable(self):
@@ -1612,7 +1637,11 @@ class AllWriterIsolationTests(BundleCase):
         self.assertEqual(outcomes[0][2], "SUCCEEDED")
         self.assertEqual(export.read_bytes(), b"evidence\n")
         result = self.bundle_result(record)
-        self.assertAllWriter(result, "PASS", staged="PASS")
+        # the writable output dir costs nothing: frozen tree and binding stay PASS (under the surface
+        # substitute); only the PARTIAL staged lock keeps the predicate below PASS (fail-closed)
+        self.assertAllWriter(result, "UNCONFIRMED", xr.STAGED_LOCK_PARTIAL_ONLY, staged="PARTIAL")
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "PASS")
+        self.assertEqual(result["isolation_components"]["inventory_binding"], "PASS")
         outputs = {d["purpose"]: d for d in
                    windows_parts(self.root.as_posix())[RAW["isolation_checks"]]["protected_tree"]["output_dirs"]}
         self.assertTrue(xr._within(str(export), outputs["export"]["path"]))
@@ -1630,7 +1659,7 @@ class AllWriterIsolationTests(BundleCase):
             self.assertRegex(outcome, r"^BLOCKED:(5|13|32)$", (op, path))
         self.assertIntact()
         self.assertEqual(self.lock_problems(record), [])
-        self.assertAllWriter(self.bundle_result(record), "PASS", staged="PASS")
+        self.assertAllWriter(self.bundle_result(record), "UNCONFIRMED", xr.STAGED_LOCK_PARTIAL_ONLY, staged="PARTIAL")
 
     def test_awi_06_protected_case_input_write_attempt_denied(self):
         self.stage()
@@ -1691,7 +1720,7 @@ class AllWriterIsolationTests(BundleCase):
         grown["cwd_listing_post"] = sorted(grown["cwd_listing_post"] + ["git.exe"])
         self.assertAllWriter(self.bundle_result(grown), "FAIL", "staged directory content changed", "FAIL")
 
-    def test_awi_10_complete_freeze_execution_post_bounded_pass(self):
+    def test_awi_10_complete_freeze_execution_post_staged_lock_partial_only(self):
         record, _ = self.locked_run()
         self.assertEqual(record["mechanism"], sup.STAGED_LOCK_MECHANISM)
         self.assertTrue(all(o["held"] and o["dacl_applied"] for o in record["objects"]))
@@ -1701,11 +1730,21 @@ class AllWriterIsolationTests(BundleCase):
             for phase in ("freeze", "post"):
                 self.assertTrue(all(v.startswith("DENIED:") for v in item[phase]["probes"].values()), item)
         self.assertEqual(self.lock_problems(record), [])
+        # Fail-closed: the complete, valid lock is PARTIAL evidence. Even with every other writer
+        # surface hypothetically protected (BundleCase substitute) it does not promote all-writer.
         result = self.bundle_result(record)
-        self.assertAllWriter(result, "PASS", staged="PASS")
+        self.assertAllWriter(result, "UNCONFIRMED", xr.STAGED_LOCK_PARTIAL_ONLY, staged="PARTIAL")
         self.assertEqual(result["isolation_components"],
-                         {"inventory_binding": "PASS", "frozen_tree": "PASS", "staged_objects": "PASS"})
-        self.assertClass(result, "PASS")
+                         {"inventory_binding": "PASS", "frozen_tree": "PASS", "staged_objects": "PARTIAL"})
+        self.assertClass(result, "UNCONFIRMED")
+        self.assertEqual({k for k, v in result["assurance_predicates"].items() if v != "PASS"},
+                         {"all_writer_isolation_established"})
+        # production rule: the known writer surfaces are unprotected as well
+        with production_writer_surfaces():
+            result = self.bundle_result(record)
+        self.assertAllWriter(result, "UNCONFIRMED", xr.STAGED_LOCK_PARTIAL_ONLY, staged="PARTIAL")
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "UNCONFIRMED")
+        self.assertClass(result, "UNCONFIRMED")
         # the same bundle without the supervisor's lock record stays UNCONFIRMED (no runner flag substitutes)
         no_lock = self.bundle_result(record, lambda p: p[RAW["post_measurement"]]["measurements"].pop("staged_lock"))
         self.assertAllWriter(no_lock, "UNCONFIRMED", "no supervisor-observed write-exclusion lock", "UNCONFIRMED")
@@ -1713,6 +1752,167 @@ class AllWriterIsolationTests(BundleCase):
         posix = dict(copy.deepcopy(record), platform="posix", mechanism="none", objects=[], ancestors=[])
         self.assertAllWriter(self.bundle_result(posix), "UNCONFIRMED", "no supervisor write-exclusion lock on this "
                                                                        "platform", "UNCONFIRMED")
+
+    def test_awi_11_valid_lock_and_all_runner_flags_protected_still_unconfirmed(self):
+        """Production rule: valid REAL lock + every runner flag claiming protection => UNCONFIRMED."""
+        record, _ = self.locked_run()
+        self.assertEqual(self.lock_problems(record), [])
+        tree = windows_parts(self.root.as_posix())[RAW["isolation_checks"]]["protected_tree"]
+        frozen = [e for e in tree["entries"] if e["category"] in xr.FROZEN_CATEGORIES] + tree["parent_chain"]
+        self.assertFalse(any(e["writable_by_principal"] or e["owner_is_principal"] or e["writable_by_others"]
+                             for e in frozen))
+        with production_writer_surfaces():
+            result = self.bundle_result(record)
+        self.assertAllWriter(result, "UNCONFIRMED", xr.STAGED_LOCK_PARTIAL_ONLY, staged="PARTIAL")
+        self.assertEqual(result["isolation_components"],
+                         {"inventory_binding": "PASS", "frozen_tree": "UNCONFIRMED", "staged_objects": "PARTIAL"})
+        messages = self.messages(result)
+        for surface, _ in xr.KNOWN_WRITER_SURFACES:
+            self.assertIn(f"{xr.ALL_WRITER_SURFACE_UNPROTECTED}:{surface}: ", messages)
+            self.assertIn(surface, next(m for m in result["unconfirmed"] if xr.STAGED_LOCK_PARTIAL_ONLY in m))
+        self.assertClass(result, "UNCONFIRMED", provider_provenance="PASS", bundle_run_binding="PASS")
+        self.assertFalse(result["external_assurance_pass"])
+        self.assertEqual({k for k, v in result["assurance_predicates"].items() if v != "PASS"},
+                         {"all_writer_isolation_established"})
+
+    def test_awi_12_missing_or_broken_lock_non_pass(self):
+        """Production rule: no or broken lock => staged objects not even PARTIAL, overall never PASS."""
+        record, _ = self.locked_run()
+        not_held = copy.deepcopy(record)
+        next(o for o in not_held["objects"] if o["category"] == "staged_validator").update(held=False, open_error=32)
+        granted = copy.deepcopy(record)
+        next(o for o in granted["objects"] if o["category"] == "case_inputs")["post"]["probes"]["write"] = "GRANTED"
+        changed = copy.deepcopy(record)
+        next(o for o in changed["objects"] if o["category"] == "staged_validator")["post"]["sha256"] = "4" * 64
+        cases = (("missing", lambda p: p[RAW["post_measurement"]]["measurements"].pop("staged_lock"), "UNCONFIRMED",
+                  "no supervisor-observed write-exclusion lock"),
+                 ("not_held", not_held, "UNCONFIRMED", "lock handle not held by the supervisor"),
+                 ("granted", granted, "UNCONFIRMED", "not denied"),
+                 ("digest", changed, "FAIL", "differs from the trusted digest (post)"))
+        for name, broken, status, needle in cases:
+            with self.subTest(name), production_writer_surfaces():
+                result = (self.bundle_result(record, broken) if callable(broken) else self.bundle_result(broken))
+                self.assertAllWriter(result, "FAIL" if status == "FAIL" else "UNCONFIRMED", needle, status)
+                self.assertNotIn(xr.STAGED_LOCK_PARTIAL_ONLY, self.messages(result))
+                self.assertNotEqual(result["external_assurance"], "PASS")
+
+
+@NEEDS_TARGET
+class AllWriterFailClosedTests(BundleCase):
+    """INR-AWI-001 fail-closed correction under the PRODUCTION writer-surface rule (any platform)."""
+
+    def setUp(self):
+        super().setUp()
+        production = production_writer_surfaces()
+        production.start()
+        self.addCleanup(production.stop)
+
+    def isolation(self, parts=None, provider=SUBSTITUTE):
+        parts = valid_parts() if parts is None else parts
+        sync_post(parts[RAW["isolation_checks"]]["protected_tree"])
+        return self.validate(self.build(parts), provider=provider)
+
+    def test_fc_01_known_unprotected_surfaces_are_the_production_rule(self):
+        self.assertEqual([surface for surface, _ in xr.KNOWN_WRITER_SURFACES],
+                         ["GIT_OBJECT_STORE_AND_LOOKUP", "GIT_USER_GLOBAL_CONFIG", "RUNTIME_DEPENDENCIES",
+                          "HOSTED_WINDOWS_ADMIN_CONTEXT"])
+        self.assertIs(PRODUCTION_WRITER_SURFACES, xr.KNOWN_WRITER_SURFACES)
+        self.assertIs(xr.UNPROTECTED_WRITER_SURFACES, xr.KNOWN_WRITER_SURFACES)
+        self.assertTrue(all(type(d) is str and d for _, d in xr.KNOWN_WRITER_SURFACES))
+
+    def test_fc_02_all_runner_flags_protected_still_unconfirmed(self):
+        parts = valid_parts()
+        iso = parts[RAW["isolation_checks"]]
+        tree = iso["protected_tree"]
+        for item in tree["entries"] + tree["parent_chain"]:
+            item.update(writable_by_principal=False, owner_is_principal=False, writable_by_others=False)
+        iso["execution_principal"]["is_admin"] = False
+        result = self.isolation(parts)
+        self.assertEqual(result["evidence_predicates"]["protected_tree_isolation_evidence"], "UNCONFIRMED")
+        self.assertEqual(result["assurance_predicates"]["all_writer_isolation_established"], "UNCONFIRMED")
+        self.assertEqual(result["isolation_components"],
+                         {"inventory_binding": "PASS", "frozen_tree": "UNCONFIRMED", "staged_objects": "PASS"})
+        unconfirmed = [m for m in result["unconfirmed"] if "protected_tree_isolation_evidence" in m]
+        self.assertEqual(len(unconfirmed), len(xr.KNOWN_WRITER_SURFACES), unconfirmed)
+        for surface, _ in xr.KNOWN_WRITER_SURFACES:
+            self.assertTrue(any(f"[frozen_tree] {xr.ALL_WRITER_SURFACE_UNPROTECTED}:{surface}: " in m
+                                for m in unconfirmed), surface)
+        self.assertClass(result, "UNCONFIRMED", provider_provenance="PASS", bundle_run_binding="PASS",
+                         structural_bundle="PASS")
+        self.assertEqual({k for k, v in result["evidence_predicates"].items() if v != "PASS"},
+                         {"protected_tree_isolation_evidence"})
+        self.assertEqual({k for k, v in result["assurance_predicates"].items() if v != "PASS"},
+                         {"all_writer_isolation_established"})
+
+    def test_fc_03_each_known_surface_alone_unconfirmed(self):
+        for surface, description in xr.KNOWN_WRITER_SURFACES:
+            with self.subTest(surface), mock.patch.object(xr, "UNPROTECTED_WRITER_SURFACES", ((surface, description),)):
+                result = self.isolation()
+                self.assertEqual(result["evidence_predicates"]["protected_tree_isolation_evidence"], "UNCONFIRMED")
+                self.assertEqual(result["assurance_predicates"]["all_writer_isolation_established"], "UNCONFIRMED")
+                self.assertEqual(result["isolation_components"]["frozen_tree"], "UNCONFIRMED")
+                self.assertIn(f"{xr.ALL_WRITER_SURFACE_UNPROTECTED}:{surface}: {description}", self.messages(result))
+                for other, _ in xr.KNOWN_WRITER_SURFACES:
+                    if other != surface:
+                        self.assertNotIn(f"{xr.ALL_WRITER_SURFACE_UNPROTECTED}:{other}:", self.messages(result))
+                self.assertClass(result, "UNCONFIRMED")
+        # control: only the surface rule separates this bundle from the unit-test PASS
+        with hypothetical_writer_surface_protection():
+            self.assertClass(self.isolation(), "PASS")
+
+    def test_fc_04_runner_flags_never_stand_in_and_defects_keep_precedence(self):
+        def writable(parts):
+            tree = parts[RAW["isolation_checks"]]["protected_tree"]
+            next(e for e in tree["entries"] if e["category"] == "git_objects")["writable_by_principal"] = True
+        parts = valid_parts()
+        writable(parts)
+        result = self.isolation(parts)
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "UNCONFIRMED")
+        self.assertIn("protected git_objects writable", self.messages(result))
+        self.assertIn(xr.ALL_WRITER_SURFACE_UNPROTECTED + ":GIT_OBJECT_STORE_AND_LOOKUP", self.messages(result))
+        parts = valid_parts()
+        parts[RAW["isolation_checks"]]["protected_tree"]["post_entries"][0]["sha256"] = "4" * 64
+        result = self.validate(self.build(parts))
+        self.assertEqual(result["evidence_predicates"]["protected_tree_isolation_evidence"], "FAIL")
+        self.assertEqual(result["isolation_components"]["frozen_tree"], "FAIL")
+        # accepted supervisor without any lock record: staged UNCONFIRMED, never PARTIAL or PASS
+        with accepted_supervisor():
+            result = self.isolation(valid_parts(accepted_staging=True))
+        self.assertEqual(result["isolation_components"]["staged_objects"], "UNCONFIRMED")
+        self.assertEqual(result["assurance_predicates"]["all_writer_isolation_established"], "UNCONFIRMED")
+        self.assertNotIn(xr.STAGED_LOCK_PARTIAL_ONLY, self.messages(result))
+
+    def test_fc_05_external_and_inr_results_cannot_pass(self):
+        bundle = self.build(valid_parts())
+        result = self.validate(bundle)
+        self.assertEqual(result["external_assurance"], "UNCONFIRMED")
+        self.assertFalse(result["external_assurance_pass"])
+        with trusted_process_substitute():
+            report = verifier.verify_external_event(bundle, EVENT_ID, NOT_BEFORE, HEAD_SHA,
+                                                    substitute_provider(bundle))
+        self.assertEqual(report["result_kind"], verifier.TRUSTED_KIND)
+        self.assertNotEqual(report["derived_result"], "PASS")
+        self.assertFalse(report["pass_allowed"])
+        self.assertEqual(report["predicates"]["all_writer_isolation"], "UNCONFIRMED")
+
+    def test_fc_06_partial_is_never_pass(self):
+        component = xr._Component("staged_objects")
+        component.partial = xr.STAGED_LOCK_PARTIAL_ONLY
+        self.assertEqual(component.status(), "PARTIAL")
+        component.add("unconfirmed", "x")
+        self.assertEqual(component.status(), "UNCONFIRMED")
+        self.assertEqual(xr.combine(["PARTIAL"]), "UNCONFIRMED")
+        self.assertEqual(xr.combine(["PASS", "PARTIAL"]), "UNCONFIRMED")
+        props = xr.load_schema()["$defs"]["adapter_result"]["properties"]["isolation_components"]["properties"]
+        self.assertIn("PARTIAL", props["staged_objects"]["enum"])
+        self.assertNotIn("PARTIAL", props["frozen_tree"]["enum"])
+        self.assertNotIn("PARTIAL", props["inventory_binding"]["enum"])
+        for name in ("evidence_predicates", "assurance_predicates"):
+            enum = xr.load_schema()["$defs"]["adapter_result"]["properties"][name]
+            self.assertNotIn("PARTIAL", json.dumps(enum))
+        source = Path(xr.__file__).read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"^UNPROTECTED_WRITER_SURFACES = (.*)$", source, re.M), ["KNOWN_WRITER_SURFACES"])
+        self.assertEqual(len(re.findall(r"UNPROTECTED_WRITER_SURFACES\s*=", source)), 1)
 
 
 @NEEDS_TARGET

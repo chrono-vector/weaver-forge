@@ -21,10 +21,16 @@ a freeze model (section 6.1). Under the accepted INR supervisor's staging layout
 
 INR-AWI-001 reopens the supervisor only for the staging freeze: on Windows it
 write-excludes its staged execution objects for the execution window and records its
-own observation of that lock (`measurements.staged_lock`). `staged_objects`, and so
-`all_writer_isolation_established`, can be PASS only from that record (section 6.1).
-On any other platform the record states that no lock exists and they stay
-UNCONFIRMED.
+own observation of that lock (`measurements.staged_lock`). That record is PARTIAL
+evidence only: a valid record makes `staged_objects` PARTIAL
+(`STAGED_LOCK_PARTIAL_ONLY`), never PASS. INR-AWI-001 fail-closed: `frozen_tree`, and
+so `all_writer_isolation_established`, stays UNCONFIRMED while these writer surfaces
+are not independently protected, and no mechanism protects them in v0 (section 6.1):
+the Git object store and lookup-affecting files/config; user/global Git config
+re-read during child execution; Python/Git runtime DLL and dependency surfaces; the
+hosted Windows administrator execution context. All-writer isolation is therefore
+UNCONFIRMED on every platform; on Linux/macOS the lock record also states that no lock
+exists.
 
 **Structural validity is not assurance.** A bundle that is internally consistent and
 hash-bound gets `structural_bundle: PASS` only. External assurance additionally
@@ -86,7 +92,7 @@ raw evidence (runner, untrusted claims)
 | `bundle_run_binding` | PASS / UNCONFIRMED / BLOCKED / FAIL | the verified run carries exactly one artifact `inr-xr-bundle-<bundle_digest>` whose downloaded CONTENT equals the submitted bundle under the frozen content rule (section 1.2) |
 | `run_level_provenance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of `provider_provenance` and `bundle_run_binding`; the bundle is bound to the verified workflow RUN |
 | `job_level_provenance` | NOT_CLAIMED (constant) | the producing job is not authenticated (artifacts are run-scoped) |
-| `isolation_components` | PASS / UNCONFIRMED / BLOCKED / FAIL each | `inventory_binding`, `frozen_tree`, `staged_objects` (section 6.1); `staged_objects` is PASS only from the supervisor's own Windows lock record (INR-AWI-001), otherwise UNCONFIRMED |
+| `isolation_components` | PASS / UNCONFIRMED / BLOCKED / FAIL each (`staged_objects` also PARTIAL) | `inventory_binding`, `frozen_tree`, `staged_objects` (section 6.1); a valid supervisor Windows lock record (INR-AWI-001) gives at most PARTIAL, otherwise UNCONFIRMED/FAIL; `frozen_tree` is UNCONFIRMED while writer surfaces are unprotected (always in v0) |
 | `assurance_predicates` (9, `*_established`) | PASS / UNCONFIRMED / BLOCKED / FAIL | evidence predicate(s) AND all four gates (`bundle_integrity`, `trusted_reference_binding`, `provider_provenance`, `bundle_run_binding`) |
 | `external_assurance` | PASS / UNCONFIRMED / BLOCKED / FAIL | conjunction of all assurance predicates and gates; precedence BLOCKED > FAIL (including contradictions) > UNCONFIRMED > PASS |
 
@@ -460,6 +466,19 @@ their conjunction:
      output directories not exactly `export`, `ledger` and `work_dir`.
    - Equal pre/post digests alone never establish this component (TOCTOU boundary);
      non-writability during the window is required as well.
+   - INR-AWI-001 fail-closed: one UNCONFIRMED issue
+     `ALL_WRITER_SURFACE_UNPROTECTED:<surface>` for every writer surface in
+     `UNPROTECTED_WRITER_SURFACES` (a code constant, not a switch), whatever the runner
+     flags say: `GIT_OBJECT_STORE_AND_LOOKUP` (objects/**, packs, objects/info, HEAD and
+     repository config are read by the child's Git; only the top-level `.git` and
+     `.git/objects` flags are recorded, and adding objects alone changes lookups),
+     `GIT_USER_GLOBAL_CONFIG` (re-read by every child Git invocation; the execution
+     principal's own profile config is principal-writable), `RUNTIME_DEPENDENCIES`
+     (Python stdlib/DLLs and Git DLLs are loaded during execution; only the two
+     executables are inventoried), `HOSTED_WINDOWS_ADMIN_CONTEXT` (GitHub-hosted
+     Windows jobs run as an administrator with UAC disabled; privileges bypass handle
+     locks and DACLs). No mechanism protects them in v0, so this component is always
+     UNCONFIRMED in production (FAIL and BLOCKED keep precedence).
 3. `staged_objects`
    - With the accepted supervisor (`ACCEPTED_SUPERVISOR_STAGES_AS_PRINCIPAL = True`, a
      code constant, not a switch) the supervisor creates its `inr-local-*` staging
@@ -483,6 +502,11 @@ their conjunction:
      written) at freeze and again after execution, re-measures identity, link count,
      digest and the cwd listing, records everything in `measurements.staged_lock`,
      restores the original DACLs and only then removes the staging directory.
+   - The record is PARTIAL evidence: it covers the staged objects only. A valid record
+     (no problem below) makes `staged_objects` PARTIAL and adds the UNCONFIRMED reason
+     `STAGED_LOCK_PARTIAL_ONLY` (listing the four writer surfaces above) to the
+     predicate, so it never promotes `staged_objects`, `frozen_tree` or all-writer
+     isolation to PASS.
    - The adapter (`staged_lock_problems`) re-derives the requirement from the actual
      runtime paths: every executed staged object (cwd, `argv[5]`, each `argv[6]`) and
      every ancestor of the cwd up to the volume root held with the required share
@@ -494,18 +518,18 @@ their conjunction:
      non-Windows record, an object or ancestor not held, or a probe not denied:
      UNCONFIRMED. An alias, a digest or identity change, or an added/removed entry:
      FAIL.
-   - The unit tests also keep the hypothetical staging substitute (constant patched
-     in-process, M3-12). AllWriterIsolationTests use the REAL lock on a real staging
-     directory with real attacker processes.
+   - The unit tests also keep the hypothetical staging substitute and a hypothetical
+     writer-surface substitute (constants patched in-process, M3-12). AllWriterIsolationTests
+     use the REAL lock on a real staging directory with real attacker processes;
+     AllWriterFailClosedTests, AWI-11 and AWI-12 test the production rule.
 
-Consequence: `all_writer_isolation_established` can be PASS only for a run on a
-Windows execution host whose frozen tree also satisfies `frozen_tree` (another
-principal; see step 6) and whose supervisor lock record is complete; on other
-platforms it stays UNCONFIRMED. This procedure is written for a Linux runner; a
-Windows runner would need equivalent observations for every step (not specified or
-executed here). No hostile-host claim is made: privileged or host-level writers, and
-same-principal attacks on the supervisor process itself, are not excluded, and the
-frozen-tree observations remain runner-reported.
+Consequence (INR-AWI-001 fail-closed): `all_writer_isolation_established` is
+UNCONFIRMED in v0 on every platform. On Windows the supervisor lock is PARTIAL
+evidence and the four writer surfaces above are unprotected; on Linux/macOS there is
+also no lock. The external result therefore cannot be PASS. This procedure is written
+for a Linux runner and FIRST_RUNNER_MODEL is unchanged. No hostile-host claim is made:
+privileged or host-level writers, and same-principal attacks on the supervisor process
+itself, are not excluded, and the frozen-tree observations remain runner-reported.
 
 ### Self-assertion policy (decision)
 
@@ -547,8 +571,11 @@ supervisor exited, and it carries the supervisor report. The adapter requires
 - No all-writer proof beyond the bounded predicate: privileged or host-level writers,
   writers outside the observed mount table, and same-principal attacks on the
   supervisor process itself are not excluded. The staged execution objects are
-  write-excluded only by the supervisor's Windows lock (INR-AWI-001); on other
-  platforms all-writer isolation is UNCONFIRMED.
+  write-excluded only by the supervisor's Windows lock (INR-AWI-001), which is PARTIAL
+  evidence; the Git object store and lookup-affecting files/config, user/global Git
+  config, Python/Git runtime dependencies and the hosted Windows administrator context
+  are not protected, so all-writer isolation is UNCONFIRMED on every platform
+  (Linux/macOS included).
 - Real artifact download has NOT been executed; the content binding was exercised
   only with unit-test archives (MOCK_ONLY). The storage host allowlist follows
   GitHub's documented behaviour at the time of writing and may need revision.
@@ -567,6 +594,11 @@ supervisor exited, and it carries the supervisor report. The adapter requires
   (staged-object lock, its observation record, release before cleanup). The lock is a
   Windows mechanism; the Git object store and the rest of the frozen tree keep the R3
   model (another principal, runner-reported flags).
+- INR-AWI-001 fail-closed correction: the staged lock is PARTIAL evidence
+  (`STAGED_LOCK_PARTIAL_ONLY`) and `frozen_tree` is UNCONFIRMED for each unprotected
+  writer surface (`UNPROTECTED_WRITER_SURFACES`), so all-writer isolation is
+  UNCONFIRMED in v0. The result schema's `staged_objects` gains the value PARTIAL.
+  The supervisor, the lock and FIRST_RUNNER_MODEL are unchanged.
 - R3: runtime executables (interpreter, Git) are bound by path and digest but lie
   outside the bounded workspace root; their parent chains are not required.
 - R3: job-level provenance is NOT_CLAIMED (artifacts are run-scoped).
