@@ -15,14 +15,22 @@ This procedure is for a future materially non-origin run. Local tests of INR too
 9. Start trusted capture. Capture must itself launch each target process and directly capture stdout/stderr/exit status.
 10. Execute every required profile case in frozen order.
 11. Preserve every command result with event ID, challenge, sequence, command ID, stdout/stderr hashes, return code, and process provenance.
-12. Complete post-execution measurement and EVENT_COMPLETE.
-13. Steps 2-12 are performed by the fused local entry point only:
-    `python -m docs.inr_001.capture_inr_v0 --event-id ID --repository REPO --out EXPORT.json [--ledger PATH]`.
-    It reserves the event/challenge in the persistent ledger, launches every child itself and verifies the
-    live evidence in the same process. `python -m docs.inr_001.validate_inr_v0 EXPORT.json [--ledger PATH]`
-    only re-checks an export (schema + ledger) and can never yield PASS.
-14. Classify according to the live verifier result. In v0, non-origin, shared-state absence and all-writer
+12. Complete post-execution measurement and CAPTURE_COMPLETE.
+13. Steps 2-12 are performed only by the trusted supervisor process (r3):
+    `python -m docs.inr_001.capture_inr_v0 --event-id ID --repository REPO --out EXPORT.json [--ledger PATH] [--work-dir DIR]`
+    launches `python -I -S -B <worktree>/docs/inr_001/supervisor_inr_v0.py` with these non-trust parameters
+    only and relays its report after checking that the report is bound to the launched process (pid, event ID,
+    exit status). The operator may also start the supervisor directly with the same interpreter flags and
+    arguments. The supervisor reserves the event/challenge in the persistent ledger, launches every child
+    itself, derives the result in the same execution and writes the export. It accepts no evidence, snapshot,
+    capture record or report from argv, stdin, environment or files.
+    `python -m docs.inr_001.validate_inr_v0 EXPORT.json [--ledger PATH]` only re-checks a disk export
+    (INFORMATIONAL_RECHECK: schema, ledger, stream digests) and can never yield PASS.
+    The ledger must live in an independently protected location. Its head record catches truncation of the
+    ledger alone, but deleting the ledger and its head together cannot be detected locally (not tamper evidence).
+14. Classify according to the supervisor report only. In v0, non-origin, shared-state absence and all-writer
     isolation are always UNCONFIRMED, so the overall result cannot be PASS. Do not claim IW acceptance,
-    Human Final, or production permission.
+    Human Final, or production permission. The profile does not claim that PSM rejects a positive
+    production-permission assertion.
 
 Nonclaims: this procedure is not an implementation proof, not an INR PASS, not IW admission, and not production authorization.

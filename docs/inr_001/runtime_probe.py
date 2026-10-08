@@ -1,8 +1,9 @@
 """Trusted child-side probe for the one pinned PSM source, not a plugin loader.
 
-Launched by trusted_capture._launch as ``python -I -S -B runtime_probe.py SOURCE
-INPUT REPOSITORY``. It reports raw observations only; it does not classify. The
-verifier derives the classification and compares the exact refusal messages.
+Launched by the trusted supervisor process (supervisor_inr_v0) as
+``python -I -S -B runtime_probe.py SOURCE INPUT REPOSITORY``. It reports raw
+observations only; it does not classify. The supervisor derives the classification
+and compares the exact refusal messages.
 """
 from __future__ import annotations
 

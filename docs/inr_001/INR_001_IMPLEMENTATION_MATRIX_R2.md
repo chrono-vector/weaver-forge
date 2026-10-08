@@ -1,5 +1,12 @@
 # INR-001 Implementation Matrix (r2 candidate)
 
+> **SUPERSEDED (r3).** This r2 matrix (commit 1ce1651) is kept as a historical record.
+> Independent Codex review found two material issues in r2: (A) a synthetic trust
+> mint through mutable closure state, with an empty `_Findings().result()` returning
+> PASS; (B) the overclaiming profile case `PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE`.
+> The current record is `INR_001_IMPLEMENTATION_MATRIX_R3.md`; see also
+> `INR_001_PROFILE_REFREEZE_R3.md` and `INR_001_CANDIDATE_SUPERSESSION.md`.
+
 Status: IMPLEMENTER RECORD — not independently reviewed. Supersedes the C2 matrix
 (`INR_001_IMPLEMENTATION_MATRIX.md`, withdrawn `18 / 18 PASS` claim); see
 `INR_001_CANDIDATE_SUPERSESSION.md`.

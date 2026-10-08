@@ -1,9 +1,23 @@
-"""Persistent append-only INR event/challenge ledger (JSONL, sha256 hash chain).
+"""Persistent INR event/challenge ledger (JSONL, sha256 hash chain, head record).
 
 Each line is one entry; ``entry_sha256`` is plain SHA-256 over the canonical JSON
 of the entry without that field, and ``prev_entry_sha256`` chains to the previous
 line ("0" * 64 for the first). Entries are only ever appended. A broken chain,
 an unknown entry kind or a malformed line makes the ledger unusable (fail closed).
+
+r3 head record (cheap fail-closed improvement, no redesign): after every append the
+ledger writes ``<ledger>.head`` = {"seq", "entry_sha256"} of the newest entry. On
+every read the recorded head entry must still be present at its sequence number, so
+truncating/replacing the ledger below the head, or deleting the ledger while the
+head remains, fails closed; a non-empty ledger without a head record (including an
+r2 ledger) is refused.
+
+LIMITATION (documented, not hidden): integrity assumes protected persistent
+history. A writer that deletes or rewrites BOTH the ledger and its head record (or
+the whole ledger directory) produces a state indistinguishable from a fresh ledger.
+Truncation/deletion is therefore outside the local freshness guarantee unless the
+ledger location is independently protected. This is a local replay guard; it is NOT
+strong append-only tamper evidence (no external anchoring, no signatures).
 
 The default location is outside any repository worktree so capture runs do not
 dirty the tree. Tests and callers may pass an explicit path.
@@ -50,9 +64,31 @@ def resolve_path(path=None):
     return resolved
 
 
+def head_path(path):
+    return Path(str(path) + ".head")
+
+
+def _read_head(path):
+    head = head_path(path)
+    if not head.exists():
+        return None
+    try:
+        value = json.loads(head.read_bytes().decode("utf-8"))
+    except (UnicodeError, ValueError):
+        raise LedgerError("malformed ledger head record") from None
+    if (type(value) is not dict or set(value) != {"seq", "entry_sha256"}
+            or type(value["seq"]) is not int or value["seq"] < 1
+            or type(value["entry_sha256"]) is not str):
+        raise LedgerError("malformed ledger head record")
+    return value
+
+
 def read_entries(path):
     path = Path(path)
+    head = _read_head(path)
     if not path.exists():
+        if head is not None:
+            raise LedgerError("ledger deleted while its head record remains")
         return []
     entries, previous = [], GENESIS
     for number, line in enumerate(path.read_bytes().split(b"\n"), 1):
@@ -68,6 +104,11 @@ def read_entries(path):
             raise LedgerError(f"ledger hash chain broken at line {number}")
         entries.append(entry)
         previous = entry["entry_sha256"]
+    if entries and head is None:
+        raise LedgerError("ledger head record missing (truncation/replacement cannot be excluded)")
+    if head is not None and (len(entries) < head["seq"]
+                             or entries[head["seq"] - 1]["entry_sha256"] != head["entry_sha256"]):
+        raise LedgerError("ledger truncated or replaced below its recorded head")
     return entries
 
 
@@ -104,6 +145,12 @@ def _append(path, entries, kind, event_id, challenge, detail):
         handle.write(_canonical(entry) + b"\n")
         handle.flush()
         os.fsync(handle.fileno())
+    head, temporary = head_path(path), Path(str(path) + ".head.tmp")
+    with open(temporary, "wb") as handle:
+        handle.write(_canonical({"seq": entry["seq"], "entry_sha256": entry["entry_sha256"]}))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, head)
     return entry
 
 

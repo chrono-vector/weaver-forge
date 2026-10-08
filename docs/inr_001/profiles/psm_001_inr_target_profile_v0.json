@@ -139,10 +139,26 @@
         "{input}",
         "{repository}"
       ],
-      "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
-      "command_id": "CMD_PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
+      "case_id": "PSM_NEG_HUMAN_FINAL_INFERENCE",
+      "command_id": "CMD_PSM_NEG_HUMAN_FINAL_INFERENCE",
       "required": true,
       "sequence": 9
+    },
+    {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
+      "case_id": "PSM_REQUIRED_PRODUCTION_NONCLAIM",
+      "command_id": "CMD_PSM_REQUIRED_PRODUCTION_NONCLAIM",
+      "required": true,
+      "sequence": 10
     },
     {
       "argv": [
@@ -158,13 +174,14 @@
       "case_id": "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
       "command_id": "CMD_PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
       "required": true,
-      "sequence": 10
+      "sequence": 11
     }
   ],
   "nonclaims": [
     "profile is not authority",
     "profile is not IW admission",
-    "profile is not Human Final"
+    "profile is not Human Final",
+    "profile does not claim that the pinned validator rejects a positive production-permission assertion"
   ],
   "profile_purpose": "PSM-001 validator bounded property",
   "python_policy": {
@@ -298,16 +315,29 @@
       "accepted_return_codes": [
         2
       ],
-      "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
+      "case_id": "PSM_NEG_HUMAN_FINAL_INFERENCE",
       "expected_classification": "FAIL",
       "expected_errors": [
-        "source_records[1] does not resolve to an accepted Human Final record",
-        "required nonclaims are missing: does_not_create_human_final, does_not_grant_production_permission"
+        "source_records[1] does not resolve to an accepted Human Final record"
       ],
-      "input_digest": "fee9f7b995b89288533d643b30d9d50c519193ccae1412997be608e4608b88cb",
-      "intended_refusal": "validate_psm_v0.py Human Final acceptance rule (_HUMAN_ACCEPTANCE) plus required nonclaims rule (does_not_create_human_final, does_not_grant_production_permission)",
+      "input_digest": "91aa664cea7cfecc47f0034c01c7f7f25eec1b32c31e663131e4b5d72eebe771",
+      "intended_refusal": "validate_psm_v0.py _resolve_source Human Final acceptance rule: a source record with record_kind human_final whose content at the declared commit does not match _HUMAN_ACCEPTANCE is refused",
       "mandatory_execution": true,
-      "required_property": "Human Final / production inference refused by its dedicated rules"
+      "required_property": "Human Final is not inferred from a non-Human-Final source: a source record declared record_kind human_final without a HUMAN_REVIEW_ACCEPTED decision in its pinned content is refused (exact errors)"
+    },
+    {
+      "accepted_return_codes": [
+        2
+      ],
+      "case_id": "PSM_REQUIRED_PRODUCTION_NONCLAIM",
+      "expected_classification": "FAIL",
+      "expected_errors": [
+        "required nonclaims are missing: does_not_grant_production_permission"
+      ],
+      "input_digest": "9ec5a07d5d8b69bffcc4d7437b1a968236f3f0bdb77cba01408085ba4c9f15ca",
+      "intended_refusal": "validate_psm_v0.py required nonclaims rule (_REQUIRED_NONCLAIMS contains does_not_grant_production_permission)",
+      "mandatory_execution": true,
+      "required_property": "a record omitting the required nonclaim does_not_grant_production_permission is refused (exact errors)"
     },
     {
       "accepted_return_codes": [
@@ -333,7 +363,7 @@
     "test_validate_psm_v0.py": "53f4902ba463f83b5c60ca9f0d1db1d43bbb13b18a3b6cd75e5d497019cfbb7c",
     "validate_psm_v0.py": "a2aff1e655fa8925238cd661e9009f5461149a3c572be25d1e346c55b90bb51e"
   },
-  "target_profile_digest": "bae309aa9a8f04f64990359d75f1e262945b8bf68149229f1a3023de207dc4ca",
+  "target_profile_digest": "25fa116108c8014904b52302e8f5f583d332bf5de72583551494119b863ae4bb",
   "target_profile_id": "INR_TARGET_PROFILE_PSM_001_V0",
   "target_sha": "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b"
 }

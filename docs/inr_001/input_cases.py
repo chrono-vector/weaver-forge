@@ -9,8 +9,9 @@ from __future__ import annotations
 import copy
 import json
 
-HUMAN_FINAL_PRODUCTION_NONCLAIMS = ("does_not_create_human_final",
-                                    "does_not_grant_production_permission")
+# The only production-related rule in the pinned validator is the required-nonclaims
+# rule (_REQUIRED_NONCLAIMS); it has no rule rejecting a positive production grant.
+PRODUCTION_NONCLAIM = "does_not_grant_production_permission"
 
 
 def case_value(case_id, accepted_bytes):
@@ -31,13 +32,16 @@ def case_value(case_id, accepted_bytes):
         value["assumptions"][0]["status"] = "PASS"
     elif case_id == "PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE":
         value["replayability"]["independent_reproduction"] = "ESTABLISHED"
-    elif case_id == "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE":
-        # Infer Human Final from a non-Human-Final (verification) source record and
-        # drop the Human Final / production-permission nonclaims. Both are refused by
-        # dedicated rules in the pinned validator; no top-level key is added.
+    elif case_id == "PSM_NEG_HUMAN_FINAL_INFERENCE":
+        # Declare the SEIC verification source record as Human Final. Its content at
+        # the declared commit has no HUMAN_REVIEW_ACCEPTED decision, so the pinned
+        # _HUMAN_ACCEPTANCE source rule refuses it. Nonclaims are left intact so this
+        # case tests that single rule only.
         value["source_records"][1]["record_kind"] = "human_final"
-        value["nonclaims"] = [item for item in value["nonclaims"]
-                              if item not in HUMAN_FINAL_PRODUCTION_NONCLAIMS]
+    elif case_id == "PSM_REQUIRED_PRODUCTION_NONCLAIM":
+        # Omit exactly the required production-permission nonclaim; refused by the
+        # pinned required-nonclaims rule. This is NOT a positive production grant.
+        value["nonclaims"] = [item for item in value["nonclaims"] if item != PRODUCTION_NONCLAIM]
     else:
         raise ValueError("unknown closed case")
     if set(value) != set(json.loads(accepted_bytes)):

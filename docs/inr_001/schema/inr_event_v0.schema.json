@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "INR Event v0 (r2 local capture export; never PASS-capable on its own)",
+  "title": "INR Event v0 (r3 supervisor export; a disk record is never PASS-capable on its own)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,18 +11,17 @@
     "accepted_origin_reference_binding",
     "challenge",
     "ledger_reservation_entry_sha256",
+    "supervisor",
     "lifecycle",
     "git_probe",
     "measurements",
     "capture_records",
-    "blocked_reasons",
-    "failure_reasons",
     "verification",
     "nonclaims"
   ],
   "properties": {
     "schema_version": {
-      "const": "inr.event.v0.r2"
+      "const": "inr.event.v0.r3"
     },
     "inr_event_id": {
       "type": "string",
@@ -74,6 +73,46 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
+    "supervisor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pid",
+        "executable",
+        "python_version",
+        "isolated",
+        "no_site",
+        "dont_write_bytecode",
+        "is_supervisor_process"
+      ],
+      "properties": {
+        "pid": {
+          "type": "integer"
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_version": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "isolated": {
+          "type": "integer"
+        },
+        "no_site": {
+          "type": "integer"
+        },
+        "dont_write_bytecode": {
+          "type": "boolean"
+        },
+        "is_supervisor_process": {
+          "type": "boolean"
+        }
+      }
+    },
     "lifecycle": {
       "type": "object",
       "additionalProperties": false,
@@ -107,9 +146,6 @@
           "type": "integer"
         },
         "CAPTURE_COMPLETE": {
-          "type": "integer"
-        },
-        "EVENT_COMPLETE": {
           "type": "integer"
         }
       }
@@ -229,35 +265,41 @@
         }
       }
     },
-    "blocked_reasons": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "failure_reasons": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "verification": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "schema_version",
+        "result_kind",
+        "event_id",
+        "supervisor_pid",
         "derived_result",
         "pass_allowed",
         "local_controls_result",
-        "components",
+        "predicates",
+        "not_established",
         "blocked",
         "fail",
         "unconfirmed",
+        "contradictions",
         "nonclaims"
       ],
       "properties": {
         "schema_version": {
-          "const": "inr.verifier.result.v0.r2"
+          "const": "inr.supervisor.result.v0.r3"
+        },
+        "result_kind": {
+          "enum": [
+            "FRESH_SUPERVISOR_RUN",
+            "IN_PROCESS_NOT_TRUSTED"
+          ]
+        },
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supervisor_pid": {
+          "type": "integer"
         },
         "derived_result": {
           "enum": [
@@ -278,17 +320,21 @@
             "BLOCKED"
           ]
         },
-        "components": {
+        "predicates": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "trusted_configuration",
-            "challenge_ledger",
+            "supervisor_process",
+            "profile_pinned",
+            "event_challenge",
             "git_runtime",
-            "acquisition",
-            "python_policy",
-            "child_execution_binding",
-            "argv_binding",
+            "target_identity",
+            "runtime_identity",
+            "child_launched",
+            "child_provenance",
+            "argv_exact",
+            "capture_complete",
+            "mandatory_cases_executed",
             "module_identity",
             "refusal_semantics",
             "non_origin",
@@ -296,20 +342,31 @@
             "all_writer_isolation"
           ],
           "properties": {
-            "trusted_configuration": {
+            "supervisor_process": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
-            "challenge_ledger": {
+            "profile_pinned": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "event_challenge": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "git_runtime": {
@@ -317,39 +374,71 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
-            "acquisition": {
+            "target_identity": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
-            "python_policy": {
+            "runtime_identity": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
-            "child_execution_binding": {
+            "child_launched": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
-            "argv_binding": {
+            "child_provenance": {
               "enum": [
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "argv_exact": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "capture_complete": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "mandatory_cases_executed": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "module_identity": {
@@ -357,7 +446,8 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "refusal_semantics": {
@@ -365,7 +455,8 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "non_origin": {
@@ -373,7 +464,8 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "shared_state_absence": {
@@ -381,7 +473,8 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             },
             "all_writer_isolation": {
@@ -389,9 +482,16 @@
                 "PASS",
                 "FAIL",
                 "UNCONFIRMED",
-                "BLOCKED"
+                "BLOCKED",
+                "NOT_ESTABLISHED"
               ]
             }
+          }
+        },
+        "not_established": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "blocked": {
@@ -407,6 +507,12 @@
           }
         },
         "unconfirmed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contradictions": {
           "type": "array",
           "items": {
             "type": "string"
