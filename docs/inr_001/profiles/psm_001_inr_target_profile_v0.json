@@ -1,60 +1,160 @@
 {
   "command_inventory": [
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_POSITIVE_ACCEPTED_RECORD",
       "command_id": "CMD_PSM_POSITIVE_ACCEPTED_RECORD",
       "required": true,
       "sequence": 1
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
       "command_id": "CMD_PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
       "required": true,
       "sequence": 2
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_SOURCE_BINDING_MISMATCH",
       "command_id": "CMD_PSM_NEG_SOURCE_BINDING_MISMATCH",
       "required": true,
       "sequence": 3
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_BLOCKER_DEBT_REMOVAL",
       "command_id": "CMD_PSM_NEG_BLOCKER_DEBT_REMOVAL",
       "required": true,
       "sequence": 4
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_COUNTEREXAMPLE_DELETION",
       "command_id": "CMD_PSM_NEG_COUNTEREXAMPLE_DELETION",
       "required": true,
       "sequence": 5
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_HISTORY_COLLAPSE",
       "command_id": "CMD_PSM_NEG_HISTORY_COLLAPSE",
       "required": true,
       "sequence": 6
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_UNKNOWN_CLAIM_CLASS",
       "command_id": "CMD_PSM_NEG_UNKNOWN_CLAIM_CLASS",
       "required": true,
       "sequence": 7
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
       "command_id": "CMD_PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
       "required": true,
       "sequence": 8
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
       "command_id": "CMD_PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
       "required": true,
       "sequence": 9
     },
     {
+      "argv": [
+        "{python}",
+        "-I",
+        "-S",
+        "-B",
+        "{probe}",
+        "{source}",
+        "{input}",
+        "{repository}"
+      ],
       "case_id": "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
       "command_id": "CMD_PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
       "required": true,
@@ -68,6 +168,12 @@
   ],
   "profile_purpose": "PSM-001 validator bounded property",
   "python_policy": {
+    "child_interpreter_flags": [
+      "-I",
+      "-S",
+      "-B"
+    ],
+    "site": "DISABLED",
     "sitecustomize": "PROHIBITED",
     "source_backed_import_required": true,
     "stale_pyc": "PROHIBITED",
@@ -82,112 +188,152 @@
       ],
       "case_id": "PSM_POSITIVE_ACCEPTED_RECORD",
       "expected_classification": "PASS",
-      "input_digest": "111fabd210f40775e4ea8536a1f76935c68771a7a3d643849b541c330a57be8f",
+      "expected_errors": [],
+      "input_digest": "50d050e08284360a9e9bf28246ac17b624b0d803a62b55ec17ca63d834909ef3",
+      "intended_refusal": "none: accepted record must validate with no errors",
       "mandatory_execution": true,
       "required_property": "accepted record validates"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_UNSUPPORTED_STRONGER_EARNED",
       "expected_classification": "FAIL",
-      "input_digest": "f41860cbc0ea25a69eaa4364b16577b99a568f05b89d87a6e977e346736dab45",
+      "expected_errors": [
+        "earned[0] description does not match source claim ref: seic-001:closed-bounded-v0"
+      ],
+      "input_digest": "fb68295324ceb88a2a2546eaeb8a8c591dec8c52453f4c7254949ad779c3d6f1",
+      "intended_refusal": "validate_psm_v0.py earned claim-binding description rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_SOURCE_BINDING_MISMATCH",
       "expected_classification": "FAIL",
-      "input_digest": "4083c52ff5d91cc559b921d22494db861d1d009186907fe5bb3e85ab6ec14731",
+      "expected_errors": [
+        "source_records[0] path is missing at the declared commit",
+        "earned[0] source claim ref has no matching accepted source identity: seic-001:closed-bounded-v0"
+      ],
+      "input_digest": "841716f2bf7249850fc810d0f1c7e951346282a3d6733c2ce0ed071f9d00ac45",
+      "intended_refusal": "validate_psm_v0.py _resolve_source path-at-commit rule plus claim-binding source identity rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_BLOCKER_DEBT_REMOVAL",
       "expected_classification": "FAIL",
-      "input_digest": "b71f892cfff70c78470b1c87d41179b19c10f1fcea2e937a3355ce155901e5f1",
+      "expected_errors": [
+        "NotYetEarned claim independent-reproduction references missing debt: debt-independent-reproduction"
+      ],
+      "input_digest": "4558970f881c47536297e9b3b0835f475b326ec6627dd75e713c9b3ea34076c2",
+      "intended_refusal": "validate_psm_v0.py NotYetEarned blocking-debt reference rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_COUNTEREXAMPLE_DELETION",
       "expected_classification": "FAIL",
-      "input_digest": "0f3abfc38ebcbcad6546914b81c4d77c66ebffd1da33cfd29145ba6dc445fab2",
+      "expected_errors": [
+        "required counterexample is missing: seic-indirect-attribute-reach"
+      ],
+      "input_digest": "2c74323e9b61a8702456a460c7ff744538b7e480026381ccb4e3d20ed6207fcf",
+      "intended_refusal": "validate_psm_v0.py required counterexample binding rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_HISTORY_COLLAPSE",
       "expected_classification": "FAIL",
-      "input_digest": "d820dbc639717e3ef80345109b1a819c1e5602a5bc222f8dfe38425d93156796",
+      "expected_errors": [
+        "counterexamples[0] must preserve FAIL/remediation/PASS and at least two sources",
+        "required counterexample history changed: seic-indirect-attribute-reach"
+      ],
+      "input_digest": "b4d81c59a1996ed67e79f6a8a137eca2dc86d7be18ad15a17deb517d21c57ccc",
+      "intended_refusal": "validate_psm_v0.py REMEDIATED history preservation rule plus required counterexample history binding",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_UNKNOWN_CLAIM_CLASS",
       "expected_classification": "FAIL",
-      "input_digest": "f45fefb57544bd88689f02c5eb9ee1c182c49e8e13dc389ffa56991bb3633ee6",
+      "expected_errors": [
+        "assumptions[0].status is not in the closed v0 set; UNKNOWN is not PASS"
+      ],
+      "input_digest": "f474d3777070255b3ea063708404c268c63215667e31e102a89bf64b622b1437",
+      "intended_refusal": "validate_psm_v0.py closed assumption status rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_INDEPENDENT_REPRODUCTION_INFERENCE",
       "expected_classification": "FAIL",
-      "input_digest": "2d2c8d0c2a58e5b4bfcc8f9e91c22f065c8c1439d0ffa435adca0ba844478e4f",
+      "expected_errors": [
+        "replayability cannot establish independent reproduction"
+      ],
+      "input_digest": "3df800f340801285026435fbbd3f2f5ea0c1942a575789224dc0bb8e83f7c3bd",
+      "intended_refusal": "validate_psm_v0.py replayability independent_reproduction rule",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE",
       "expected_classification": "FAIL",
-      "input_digest": "6f434a856e836f65f2a1557d6df167e168e3058f33a9b70ca96a5fec09fa0a6f",
+      "expected_errors": [
+        "source_records[1] does not resolve to an accepted Human Final record",
+        "required nonclaims are missing: does_not_create_human_final, does_not_grant_production_permission"
+      ],
+      "input_digest": "fee9f7b995b89288533d643b30d9d50c519193ccae1412997be608e4608b88cb",
+      "intended_refusal": "validate_psm_v0.py Human Final acceptance rule (_HUMAN_ACCEPTANCE) plus required nonclaims rule (does_not_create_human_final, does_not_grant_production_permission)",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "Human Final / production inference refused by its dedicated rules"
     },
     {
       "accepted_return_codes": [
-        1,
         2
       ],
       "case_id": "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT",
       "expected_classification": "FAIL",
-      "input_digest": "85bcad8eefee9a78a03b8884ca9ca8901f89939cdab777518f999c4a2712a0b9",
+      "expected_errors": [
+        "'utf-8' codec can't decode byte 0xff in position 21: invalid start byte"
+      ],
+      "input_digest": "77dbaba821c719b27254ce9b60db42ac38537b987af18937aa9eb222efa95704",
+      "intended_refusal": "validate_psm_v0.py load_record strict UTF-8 decoding",
       "mandatory_execution": true,
-      "required_property": "negative control refuses/fails as frozen"
+      "required_property": "negative control refused by its intended rule (exact errors)"
     }
   ],
   "schema_version": "inr.target_profile.v0",
-  "target_profile_digest": "2e2e75e246694fdd4d39d52bf3d5f6f65642dcbb3ef4621f258aed7724537634",
+  "target_file_digests": {
+    "__init__.py": "4541d8a67c43b8649cb72901e3e0bfe358872385dc182cdd09c25bb31346f6af",
+    "portfolio_state_v0.example.json": "8e349c90a06a5c61942287321d996486d49485893627c3ab6614159f1dff5e5a",
+    "schema/portfolio_state_metadata_v0.schema.json": "f674b3479368ad4b85e524cae2d47657adc4d80a8aa6a3e5ee998cf192c66b8b",
+    "test_mutations.py": "8888949cad2d6e3624106664cd9e94e7b8f1a331e38b2baca3a86548e5c3b302",
+    "test_validate_psm_v0.py": "53f4902ba463f83b5c60ca9f0d1db1d43bbb13b18a3b6cd75e5d497019cfbb7c",
+    "validate_psm_v0.py": "a2aff1e655fa8925238cd661e9009f5461149a3c572be25d1e346c55b90bb51e"
+  },
+  "target_profile_digest": "bae309aa9a8f04f64990359d75f1e262945b8bf68149229f1a3023de207dc4ca",
   "target_profile_id": "INR_TARGET_PROFILE_PSM_001_V0",
   "target_sha": "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b"
 }

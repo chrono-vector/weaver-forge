@@ -3,16 +3,142 @@
   "title": "INR Target Profile v0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "target_profile_id", "target_profile_digest", "target_sha", "required_cases", "command_inventory", "python_policy", "nonclaims"],
+  "required": [
+    "schema_version",
+    "target_profile_id",
+    "target_profile_digest",
+    "target_sha",
+    "required_cases",
+    "command_inventory",
+    "python_policy",
+    "target_file_digests",
+    "nonclaims"
+  ],
   "properties": {
-    "schema_version": {"const": "inr.target_profile.v0"},
-    "target_profile_id": {"type": "string"},
-    "target_profile_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "target_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "profile_purpose": {"type": "string"},
-    "python_policy": {"type": "object"},
-    "required_cases": {"type": "array", "minItems": 1, "items": {"type": "object"}},
-    "command_inventory": {"type": "array", "minItems": 1, "items": {"type": "object"}},
-    "nonclaims": {"type": "array", "items": {"type": "string"}}
+    "schema_version": {
+      "const": "inr.target_profile.v0"
+    },
+    "target_profile_id": {
+      "type": "string"
+    },
+    "target_profile_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "target_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "profile_purpose": {
+      "type": "string"
+    },
+    "python_policy": {
+      "type": "object"
+    },
+    "required_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "accepted_return_codes",
+          "expected_classification",
+          "expected_errors",
+          "intended_refusal",
+          "input_digest",
+          "mandatory_execution",
+          "required_property"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "accepted_return_codes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "integer"
+            }
+          },
+          "expected_classification": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "expected_errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "intended_refusal": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "mandatory_execution": {
+            "const": true
+          },
+          "required_property": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "command_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "argv",
+          "case_id",
+          "command_id",
+          "required",
+          "sequence"
+        ],
+        "properties": {
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "const": true
+          },
+          "sequence": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "target_file_digests": {
+      "type": "object"
+    },
+    "nonclaims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   }
 }

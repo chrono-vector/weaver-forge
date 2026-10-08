@@ -1,3 +1,9 @@
+> **SUPERSEDED - FAILED / NOT CLOSED.** This matrix belongs to implementation candidate
+> `99418b4ff852e9938d785725b49eef124fa841c3`, which failed independent targeted review
+> (finding M1: self-attested verifier; a synthetic event reached PASS). Its `18 / 18 PASS`
+> claim is withdrawn. It is kept unmodified below as the historical record. Current state:
+> `INR_001_CANDIDATE_SUPERSESSION.md` and `INR_001_IMPLEMENTATION_MATRIX_R2.md`.
+
 # INR-001 Implementation Closure Matrix
 
 Failed candidate preserved: `c0747cc2b206ddd84aee2c04265813541cb21c7e`

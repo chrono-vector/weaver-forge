@@ -1,79 +1,440 @@
+"""INR-001 v0 regression tests (r2).
+
+The 99418b4 pattern (a synthetic, hand-written event asserted to PASS) is removed.
+No test here constructs PASS-capable evidence; every adversarial path must end in
+a non-PASS result, and the only evidence objects are minted by real child launches.
+Live tests read the local repository through the pinned Git only (read-only Git
+commands) and write the ledger and staging files to a temporary directory.
+"""
 from __future__ import annotations
-import importlib.util, json, subprocess, sys, tempfile, unittest
+
+import base64
+import copy
+import inspect
+import json
+import os
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]
-spec=importlib.util.spec_from_file_location('validate_inr_v0', ROOT/'validate_inr_v0.py')
-mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)  # type: ignore[union-attr]
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import types
+import unittest
+from unittest import mock
+import weakref
 
-def write_capture(base, event_id, command_id, challenge, rc, out=b'ok', err=b''):
-    sp=base/(command_id+'.stdout'); ep=base/(command_id+'.stderr'); sp.write_bytes(out); ep.write_bytes(err)
-    return {'schema_version':'inr.capture_record.v0','event_id':event_id,'command_id':command_id,'run_challenge_id':'CHID','run_challenge_value':challenge,'target_process_launched':True,'pid_observed_by_capture':True,'command':['python','case'], 'start_time_ns':10,'end_time_ns':11,'return_code':rc,'stdout_ref':sp.name,'stderr_ref':ep.name,'stdout_sha256':mod._digest_bytes(out),'stderr_sha256':mod._digest_bytes(err)}
+REPO = Path(__file__).resolve().parents[3]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
-def valid_event(base: Path):
-    p=mod.load_profile(); eid='EV1'; ch='challenge-current'; records=[]; results=[]
-    for i,c in enumerate(p['required_cases'],1):
-        cmd='CMD_'+c['case_id']; rc=c['accepted_return_codes'][0]
-        records.append(write_capture(base,eid,cmd,ch,rc))
-        results.append({'event_id':eid,'challenge_value':ch,'case_id':c['case_id'],'command_id':cmd,'sequence':i,'expected_from_profile':True,'observed_classification':c['expected_classification'],'return_code':rc,'stdout_sha256':records[-1]['stdout_sha256'],'stderr_sha256':records[-1]['stderr_sha256'],'input_digest':c['input_digest'],'mandatory_execution':True})
-    return {'schema_version':'inr.event.v0','inr_event_id':eid,'target_sha':mod.TARGET_SHA,'accepted_target_profile_binding':{'target_profile_id':mod.TRUSTED_PROFILE_ID,'target_profile_digest':mod.TRUSTED_PROFILE_DIGEST},'accepted_origin_reference_binding':{'origin_reference_set_id':mod.TRUSTED_ORIGIN_SET_ID,'origin_reference_set_digest':mod.TRUSTED_ORIGIN_SET_DIGEST},'trusted_challenge_record':{'generated_by':'capture_inr_v0','generated_before_target_execution':True,'bound_event_id':eid,'bound_target_sha':mod.TARGET_SHA,'bound_profile_digest':mod.TRUSTED_PROFILE_DIGEST,'bound_origin_reference_set_digest':mod.TRUSTED_ORIGIN_SET_DIGEST,'single_use':True,'run_challenge_value':ch},'lifecycle':{'EVENT_START':1,'BINDINGS_RECORDED':2,'ENVIRONMENT_RECORDED':3,'ACQUISITION_VERIFIED':4,'FREEZE_START':5,'COMMAND_EXECUTION_BEGIN':6,'EXECUTION_COMPLETE':7,'POST_MEASUREMENT':8,'CAPTURE_COMPLETE':9,'EVENT_COMPLETE':10},'byte_identity_evidence':{'measured_by':'capture_inr_v0','distribution_sha256':'a'*64,'executed_sha256':'b'*64,'post_execution_sha256':'b'*64},'module_execution_evidence':{'runtime_probe':'capture_import_probe','fresh_interpreter':True,'target_preloaded_before_import':False,'sitecustomize':'ABSENT','usercustomize':'ABSENT','bytecode_policy':'SOURCE_BACKED_NO_STALE_PYC','loader_policy':'STANDARD_SOURCE_LOADER','source_digest':'c'*64,'executed_source_digest':'c'*64,'resolved_origin':'/x/validate_psm_v0.py','measured_path':'/x/validate_psm_v0.py'},'git_runtime_evidence':{'measured_by':'capture_inr_v0','resolved_git':'/usr/bin/git','git_version':'git version x','repository_path':'/repo','repository_head':mod.TARGET_SHA,'required_objects_available':True,'git_dir':'','git_work_tree':'','replace_refs':[],'alternates':[],'path_resolution_verified':True},'protected_set_isolation_evidence':{'measured_by':'capture_inr_v0','all_writer_isolation_evidence':'ESTABLISHED','tree_read_only':True,'shared_writable_aliases':[],'writable_parent_paths':[],'symlink_or_junction_paths':[],'hardlink_aliases':[],'network_or_shared_paths':[]},'non_origin_evidence':{'runner_class':'FRESH_HOSTED_RUNNER','origin_host_is_execution_host':False,'source_independently_acquired':True,'evidence_generated_on_runner':True,'origin_reference_prefrozen':True,'shared_mutable_state_evidence':[],'workspace_provenance':'FRESH_NON_ORIGIN_WORKSPACE','origin_worktree_copied':False},'capture_records':records,'case_result_bindings':results,'extra_command_records':[],'repair_detection_evidence':{'repair_detected':False},'final_result':'PASS'}
+from docs.inr_001 import input_cases, ledger  # noqa: E402
+from docs.inr_001 import trusted_capture as tc  # noqa: E402
+from docs.inr_001 import validate_inr_v0 as verifier  # noqa: E402
+from docs.inr_001.schema_check import check  # noqa: E402
 
-def verdict(ev, base, used=None): return mod.validate_event(ev, evidence_base=base, used_challenges=used)
-def assert_not_pass(t, ev, base, used=None):
-    r=verdict(ev,base,used); t.assertFalse(r['pass_allowed'], r); t.assertNotEqual(r['derived_result'],'PASS')
+HF = "PSM_NEG_HUMAN_FINAL_PRODUCTION_INFERENCE"
+# Never created: read-only lookups of a missing ledger see an empty ledger.
+_ABSENT_LEDGER = Path(tempfile.gettempdir()) / "inr001_impl_absent" / "ledger.jsonl"
+EXTERNAL = ("non_origin", "shared_state_absence", "all_writer_isolation")
 
-class INRVerifierTests(unittest.TestCase):
-    def with_event(self):
-        td=tempfile.TemporaryDirectory(); base=Path(td.name); return td,base,valid_event(base)
-    def test_valid_synthetic_event_passes_predicate(self):
-        td,b,e=self.with_event(); self.assertTrue(verdict(e,b)['pass_allowed']); td.cleanup()
-    def test_001_none_identity_missing(self): td,b,e=self.with_event(); e['module_execution_evidence'].pop('source_digest'); e['module_execution_evidence'].pop('executed_source_digest'); assert_not_pass(self,e,b); td.cleanup()
-    def test_001_matching_fake_digests_not_capture_measured(self): td,b,e=self.with_event(); e['byte_identity_evidence']['measured_by']='executor'; assert_not_pass(self,e,b); td.cleanup()
-    def test_002_hash_a_execute_b(self): td,b,e=self.with_event(); e['module_execution_evidence']['resolved_origin']='/x/B.py'; assert_not_pass(self,e,b); td.cleanup()
-    def test_002_preload_alternate_module(self): td,b,e=self.with_event(); e['module_execution_evidence']['target_preloaded_before_import']=True; assert_not_pass(self,e,b); td.cleanup()
-    def test_002_alter_import_path_loader(self): td,b,e=self.with_event(); e['module_execution_evidence']['loader_policy']='CUSTOM'; assert_not_pass(self,e,b); td.cleanup()
-    def test_003_fake_git_path(self): td,b,e=self.with_event(); e['git_runtime_evidence']['path_resolution_verified']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_003_git_dir_redirect(self): td,b,e=self.with_event(); e['git_runtime_evidence']['git_dir']='/tmp/evil'; assert_not_pass(self,e,b); td.cleanup()
-    def test_003_git_work_tree_redirect(self): td,b,e=self.with_event(); e['git_runtime_evidence']['git_work_tree']='/tmp/evil'; assert_not_pass(self,e,b); td.cleanup()
-    def test_003_replace_ref(self): td,b,e=self.with_event(); e['git_runtime_evidence']['replace_refs']=['abc']; assert_not_pass(self,e,b); td.cleanup()
-    def test_003_alternate_object_store(self): td,b,e=self.with_event(); e['git_runtime_evidence']['alternates']=['/evil']; assert_not_pass(self,e,b); td.cleanup()
-    def test_004_toctou_swap(self): td,b,e=self.with_event(); e['byte_identity_evidence']['post_execution_sha256']='x'*64; assert_not_pass(self,e,b); td.cleanup()
-    def test_005_omitted_control(self): td,b,e=self.with_event(); e['case_result_bindings']=e['case_result_bindings'][:-1]; assert_not_pass(self,e,b); td.cleanup()
-    def test_006_self_claim_non_origin_not_enough(self): td,b,e=self.with_event(); e['non_origin_evidence']={'is_non_origin':True}; assert_not_pass(self,e,b); td.cleanup()
-    def test_007_reconstructed_logs_missing_file(self): td,b,e=self.with_event(); Path(b/e['capture_records'][0]['stdout_ref']).unlink(); assert_not_pass(self,e,b); td.cleanup()
-    def test_008_sitecustomize_injection(self): td,b,e=self.with_event(); e['module_execution_evidence']['sitecustomize']='PRESENT'; assert_not_pass(self,e,b); td.cleanup()
-    def test_008_pyc_only_execution(self): td,b,e=self.with_event(); e['module_execution_evidence']['bytecode_policy']='PYC_ONLY'; assert_not_pass(self,e,b); td.cleanup()
-    def test_009_writable_parent(self): td,b,e=self.with_event(); e['protected_set_isolation_evidence']['writable_parent_paths']=['/x']; assert_not_pass(self,e,b); td.cleanup()
-    def test_009_symlink_swap(self): td,b,e=self.with_event(); e['protected_set_isolation_evidence']['symlink_or_junction_paths']=['/x']; assert_not_pass(self,e,b); td.cleanup()
-    def test_010_required_case_optional(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['mandatory_execution']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_011_same_host_container(self): td,b,e=self.with_event(); e['non_origin_evidence']['runner_class']='SAME_HOST_CONTAINER'; assert_not_pass(self,e,b); td.cleanup()
-    def test_012_other_writer_mutation(self): td,b,e=self.with_event(); e['protected_set_isolation_evidence']['all_writer_isolation_evidence']='UNKNOWN'; assert_not_pass(self,e,b); td.cleanup()
-    def test_013_weaker_profile(self): td,b,e=self.with_event(); e['accepted_target_profile_binding']['target_profile_digest']='0'*64; assert_not_pass(self,e,b); td.cleanup()
-    def test_014_shared_mutable_state(self): td,b,e=self.with_event(); e['non_origin_evidence']['shared_mutable_state_evidence']=['cache']; assert_not_pass(self,e,b); td.cleanup()
-    def test_015_posthoc_origin_choice(self): td,b,e=self.with_event(); e['non_origin_evidence']['origin_reference_prefrozen']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_016_cross_event_replay(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['event_id']='OLD'; assert_not_pass(self,e,b); td.cleanup()
-    def test_017_wrong_origin_set(self): td,b,e=self.with_event(); e['accepted_origin_reference_binding']['origin_reference_set_id']='ALT'; assert_not_pass(self,e,b); td.cleanup()
-    def test_018_wrapper_without_child(self): td,b,e=self.with_event(); e['capture_records'][0]['target_process_launched']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_reversed_lifecycle(self): td,b,e=self.with_event(); e['lifecycle']['EVENT_COMPLETE']=0; assert_not_pass(self,e,b); td.cleanup()
-    def test_challenge_reuse_registry(self): td,b,e=self.with_event(); assert_not_pass(self,e,b,{e['trusted_challenge_record']['run_challenge_value']}); td.cleanup()
-    def test_same_challenge_new_event_id(self): td,b,e=self.with_event(); e['inr_event_id']='EV2'; assert_not_pass(self,e,b); td.cleanup()
-    def test_two_events_sharing_challenge(self): td,b,e=self.with_event(); used={e['trusted_challenge_record']['run_challenge_value']}; assert_not_pass(self,e,b,used); td.cleanup()
-    def test_challenge_inserted_after_execution(self): td,b,e=self.with_event(); e['trusted_challenge_record']['generated_before_target_execution']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_renamed_command_id(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['command_id']='RENAMED'; assert_not_pass(self,e,b); td.cleanup()
-    def test_reversed_sequence(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['sequence']=2; assert_not_pass(self,e,b); td.cleanup()
-    def test_wrong_input_digest(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['input_digest']='0'*64; assert_not_pass(self,e,b); td.cleanup()
-    def test_unknown_case_present(self): td,b,e=self.with_event(); e['case_result_bindings'].append(dict(e['case_result_bindings'][0],case_id='UNKNOWN',command_id='CMD_UNKNOWN',sequence=11)); assert_not_pass(self,e,b); td.cleanup()
-    def test_extra_state_changing_command(self): td,b,e=self.with_event(); e['extra_command_records']=[{'command_id':'EXTRA','state_changing':True}]; assert_not_pass(self,e,b); td.cleanup()
-    def test_executor_modified_expectation(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['expected_from_profile']=False; assert_not_pass(self,e,b); td.cleanup()
-    def test_event_says_pass_but_blocked_git(self): td,b,e=self.with_event(); e['git_runtime_evidence']['resolved_git']=''; e['final_result']='PASS'; r=verdict(e,b); self.assertFalse(r['pass_allowed']); self.assertEqual(r['derived_result'],'BLOCKED'); td.cleanup()
-    def test_event_says_fail_but_code_derives_pass(self): td,b,e=self.with_event(); e['final_result']='FAIL'; r=verdict(e,b); self.assertTrue(r['pass_allowed']); self.assertEqual(r['derived_result'],'PASS'); td.cleanup()
-    def test_extra_blocked_case_present(self): td,b,e=self.with_event(); e['case_result_bindings'][0]['prior_failed_or_blocked_rerun']=True; assert_not_pass(self,e,b); td.cleanup()
-    def test_required_evidence_missing(self): td,b,e=self.with_event(); e.pop('module_execution_evidence'); assert_not_pass(self,e,b); td.cleanup()
-    def test_capture_runner_launches_process(self):
-        with tempfile.TemporaryDirectory() as td:
-            cmd=[sys.executable,str(ROOT/'capture_inr_v0.py'),'--event-id','EV-CAP','--command-id','CMD','--out-dir',td,sys.executable,'-c','print(123)']
-            cp=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-            self.assertEqual(cp.returncode,0,cp.stderr)
-            rec=json.loads((Path(td)/'CMD.capture.json').read_text())
-            self.assertTrue(rec['target_process_launched'])
-            self.assertEqual(rec['stdout_sha256'], mod._digest_bytes((Path(td)/'CMD.stdout').read_bytes()))
-if __name__=='__main__': unittest.main()
+
+def _rmtree(path):
+    def onexc(func, target, _exc):
+        os.chmod(target, stat.S_IWRITE)
+        func(target)
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=onexc)
+    else:  # pragma: no cover
+        shutil.rmtree(path, onerror=lambda f, p, e: onexc(f, p, e))
+
+
+def _tempdir():
+    return Path(tempfile.mkdtemp(prefix="inr001_impl_t_"))
+
+
+def _live_available():
+    try:
+        tc.probe_git(REPO)
+        return True
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+
+LIVE = _live_available()
+
+
+def _profile():
+    return tc.configuration()[0]
+
+
+def _spec(case_id):
+    return next(c for c in _profile()["required_cases"] if c["case_id"] == case_id)
+
+
+def _not_pass(test, result):
+    test.assertFalse(result["pass_allowed"], result)
+    test.assertNotEqual(result["derived_result"], "PASS", result)
+
+
+def _record(export, case_id):
+    return next(r for r in export["capture_records"] if r["case_id"] == case_id)
+
+
+def _report(record):
+    return json.loads(base64.b64decode(record["stdout_base64"]))
+
+
+@unittest.skipUnless(LIVE, "pinned Git / target repository unavailable")
+class LiveCaptureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = _tempdir()
+        cls.ledger = cls.tmp / "ledger.jsonl"
+        fake_claims = {"INR_IS_NON_ORIGIN": "true", "IS_NON_ORIGIN": "PASS",
+                       "INR_ALL_WRITER_ISOLATION": "ESTABLISHED", "INR_SHARED_STATE": "NONE"}
+        with mock.patch.dict(os.environ, fake_claims):
+            cls.result, cls.export = tc._run_and_verify(REPO, "EV-LIVE-1", ledger_path=cls.ledger,
+                                                        work_dir=cls.tmp)
+
+    @classmethod
+    def tearDownClass(cls):
+        _rmtree(cls.tmp)
+
+    def run_event(self, event_id):
+        return tc._run_and_verify(REPO, event_id, ledger_path=self.ledger, work_dir=self.tmp)
+
+    def test_real_child_execution_binds_evidence(self):
+        components = self.result["components"]
+        for name in ("trusted_configuration", "challenge_ledger", "git_runtime",
+                     "child_execution_binding", "argv_binding", "module_identity",
+                     "refusal_semantics"):
+            self.assertEqual(components[name], "PASS", (name, self.result))
+        self.assertEqual(len(self.export["capture_records"]), 10)
+        for record in self.export["capture_records"]:
+            self.assertGreater(record["child_pid"], 0)
+            self.assertEqual(record["argv"], record["popen_args"])
+            self.assertEqual(record["argv"][1:4], ["-I", "-S", "-B"])
+            self.assertEqual(record["env_git"], [["GIT_NO_REPLACE_OBJECTS", "1"]])
+        _not_pass(self, self.result)  # v0: external assurance is always UNCONFIRMED
+
+    def test_fake_is_non_origin_is_ignored(self):
+        # setUpClass ran with INR_IS_NON_ORIGIN/IS_NON_ORIGIN asserted in the environment
+        self.assertEqual(self.result["components"]["non_origin"], "UNCONFIRMED")
+        self.assertEqual(inspect.signature(verifier._assess_non_origin).parameters, {})
+        forged = copy.deepcopy(self.export)
+        forged["is_non_origin"] = True
+        forged["non_origin_evidence"] = {"runner_class": "FRESH_HOSTED_RUNNER"}
+        _not_pass(self, verifier.recheck_export(forged, ledger_path=self.ledger))
+
+    def test_fake_all_writer_isolation_is_ignored(self):
+        self.assertEqual(self.result["components"]["all_writer_isolation"], "UNCONFIRMED")
+        self.assertEqual(self.result["components"]["shared_state_absence"], "UNCONFIRMED")
+        self.assertEqual(inspect.signature(verifier._assess_all_writer_isolation).parameters, {})
+        forged = copy.deepcopy(self.export)
+        forged["verification"]["components"]["all_writer_isolation"] = "PASS"
+        forged["verification"]["components"]["non_origin"] = "PASS"
+        forged["verification"]["derived_result"] = "PASS"
+        forged["verification"]["pass_allowed"] = True
+        result = verifier.recheck_export(forged, ledger_path=self.ledger)
+        _not_pass(self, result)
+        self.assertEqual(result["derived_result"], "FAIL")
+
+    def test_human_final_case_hits_intended_refusal(self):
+        record = _record(self.export, HF)
+        self.assertEqual(record["return_code"], 2)
+        self.assertEqual(_report(record)["errors"], [
+            "source_records[1] does not resolve to an accepted Human Final record",
+            "required nonclaims are missing: does_not_create_human_final, "
+            "does_not_grant_production_permission"])
+        self.assertEqual(_report(record)["errors"], _spec(HF)["expected_errors"])
+
+    def test_every_negative_control_hits_its_exact_refusal(self):
+        for spec in _profile()["required_cases"]:
+            self.assertEqual(_report(_record(self.export, spec["case_id"]))["errors"],
+                             spec["expected_errors"], spec["case_id"])
+
+    def test_valid_new_schema_event_passes_schema(self):
+        self.assertEqual(check(self.export, verifier.load_schema()), [])
+        result = verifier.recheck_export(self.export, ledger_path=self.ledger)
+        self.assertFalse(any(m.startswith(("schema:", "ledger: export")) for m in result["fail"]), result)
+        _not_pass(self, result)  # disk exports are never PASS-capable
+
+    def test_challenge_reuse_event_id_rejected(self):
+        result, export = self.run_event("EV-LIVE-1")
+        self.assertIsNone(export)
+        self.assertEqual(result["components"]["challenge_ledger"], "FAIL")
+        _not_pass(self, result)
+        kinds = [e["kind"] for e in ledger.read_entries(self.ledger) if e["event_id"] == "EV-LIVE-1"]
+        self.assertIn("REJECTED", kinds)
+
+    def test_challenge_reuse_same_challenge_rejected(self):
+        with mock.patch.object(tc.secrets, "token_hex", return_value=self.export["challenge"]):
+            result, export = self.run_event("EV-CHALLENGE-REUSE")
+        self.assertIsNone(export)
+        self.assertEqual(result["components"]["challenge_ledger"], "FAIL")
+        _not_pass(self, result)
+
+    def test_historical_output_replay_rejected(self):
+        historical = {r["case_id"]: base64.b64decode(r["stdout_base64"])
+                      for r in self.export["capture_records"]}
+        real = subprocess.Popen.communicate
+        probe = str(tc.PROBE.resolve())
+
+        def replaying(popen, *args, **kwargs):
+            out, err = real(popen, *args, **kwargs)
+            argv = list(popen.args) if isinstance(popen.args, (list, tuple)) else []
+            if probe in argv:
+                return historical[Path(argv[-2]).stem], err
+            return out, err
+
+        with mock.patch.object(subprocess.Popen, "communicate", replaying):
+            result, export = self.run_event("EV-REPLAY")
+        self.assertEqual(result["components"]["child_execution_binding"], "FAIL", result)
+        self.assertTrue(any("replay" in m for m in result["fail"]), result)
+        _not_pass(self, result)
+
+    def test_argv_mismatch_rejected(self):
+        original = tc._capture_argv
+
+        def drop_site_flag(command, values):
+            return [part for part in original(command, values) if part != "-S"]
+
+        with mock.patch.object(tc, "_capture_argv", drop_site_flag):
+            result, export = self.run_event("EV-ARGV")
+        self.assertEqual(result["components"]["argv_binding"], "FAIL", result)
+        _not_pass(self, result)
+
+    def test_no_child_process_rejected(self):
+        real_popen = subprocess.Popen
+        probe = str(tc.PROBE.resolve())
+        canned = _record(self.export, "PSM_POSITIVE_ACCEPTED_RECORD")
+
+        class NoChildPopen(real_popen):
+            def __init__(self, args, **kwargs):
+                if probe in list(args):
+                    self._child_created = False
+                    self.args, self.pid, self.returncode = args, 4242, 0
+                    self.stdout = self.stderr = self.stdin = None
+                    return
+                super().__init__(args, **kwargs)
+
+            def communicate(self, *a, **k):
+                if self.pid == 4242:
+                    return base64.b64decode(canned["stdout_base64"]), b""
+                return super().communicate(*a, **k)
+
+        with mock.patch.object(subprocess, "Popen", NoChildPopen):
+            result, export = self.run_event("EV-NO-CHILD")
+        self.assertEqual(export["capture_records"], [])
+        self.assertNotEqual(result["components"]["child_execution_binding"], "PASS")
+        self.assertTrue(any("not a real subprocess.Popen" in m for m in result["blocked"]), result)
+        _not_pass(self, result)
+
+    def test_synthetic_snapshot_injection_rejected(self):
+        self.assertFalse(hasattr(tc, "_SESSIONS"))
+        self.assertFalse(hasattr(tc, "consume"))
+        # A synthetic session built from the real export (plain records, real values).
+        session = {"event_id": "EV-LIVE-1", "challenge": self.export["challenge"],
+                   "ledger_path": str(self.ledger),
+                   "ledger_reservation_entry_sha256": self.export["ledger_reservation_entry_sha256"],
+                   "lifecycle": dict(self.export["lifecycle"]), "git": dict(self.export["git_probe"]),
+                   "measurements": dict(self.export["measurements"]),
+                   "evidence": copy.deepcopy(self.export["capture_records"]),
+                   "blocked_reasons": [], "failure_reasons": [], "stage": self.tmp}
+        result = verifier._verify_live(session)
+        self.assertNotEqual(result["components"]["child_execution_binding"], "PASS")
+        self.assertEqual(result["components"]["challenge_ledger"], "FAIL")  # already completed
+        _not_pass(self, result)
+        # A schema-valid export relabelled as a new event is not in the ledger.
+        relabelled = copy.deepcopy(self.export)
+        relabelled["inr_event_id"] = "EV-SYNTHETIC"
+        result = verifier.recheck_export(relabelled, ledger_path=self.ledger)
+        self.assertEqual(result["derived_result"], "FAIL")
+        _not_pass(self, result)
+
+    def test_forged_capture_record_rejected(self):
+        real = self.export["capture_records"][0]
+        fields = dict(real, argv=tuple(real["argv"]), popen_args=tuple(real["popen_args"]),
+                      env_git=(("GIT_NO_REPLACE_OBJECTS", "1"),),
+                      env_python=(("PYTHONDONTWRITEBYTECODE", "1"),),
+                      stdout=base64.b64decode(real["stdout_base64"]), stderr=b"")
+        forged = object.__new__(tc._Evidence)
+        object.__setattr__(forged, "_fields", types.MappingProxyType(fields))
+        self.assertFalse(tc._take_evidence(forged))
+        session = {"event_id": "EV-FORGED", "challenge": real["challenge"], "ledger_path": str(self.ledger),
+                   "ledger_reservation_entry_sha256": "0" * 64, "lifecycle": dict(self.export["lifecycle"]),
+                   "git": dict(self.export["git_probe"]), "measurements": dict(self.export["measurements"]),
+                   "evidence": [forged], "blocked_reasons": [], "failure_reasons": [], "stage": self.tmp}
+        result = verifier._verify_live(session)
+        self.assertNotEqual(result["components"]["child_execution_binding"], "PASS")
+        _not_pass(self, result)
+
+
+class EvidenceObjectTests(unittest.TestCase):
+    def test_no_module_global_writable_registry(self):
+        for module in (tc, verifier, ledger):
+            for name, value in vars(module).items():
+                if name.startswith("__"):
+                    continue
+                self.assertNotIsInstance(value, (dict, set, list, weakref.WeakKeyDictionary),
+                                         f"{module.__name__}.{name}")
+
+    def test_evidence_cannot_be_constructed_directly(self):
+        with self.assertRaises(TypeError):
+            tc._Evidence()
+
+    def test_evidence_is_single_use_frozen_and_tamper_evident(self):
+        tmp = _tempdir()
+        try:
+            env = dict(os.environ)
+            make = lambda: tc._launch([sys.executable, "-c", "print('x')"], env=env, cwd=tmp,
+                                      case_id="X", command_id="CMD_X", sequence=1,
+                                      event_id="EV-X", challenge="0" * 64)
+            evidence = make()
+            self.assertGreater(evidence.child_pid, 0)
+            with self.assertRaises(AttributeError):
+                evidence.return_code = 0
+            self.assertTrue(tc._take_evidence(evidence))
+            self.assertFalse(tc._take_evidence(evidence))  # single use
+            tampered = make()
+            fields = dict(object.__getattribute__(tampered, "_fields"), stdout=b"forged")
+            object.__setattr__(tampered, "_fields", types.MappingProxyType(fields))
+            self.assertFalse(tc._take_evidence(tampered))
+        finally:
+            _rmtree(tmp)
+
+    def test_no_child_evidence_is_not_pass(self):
+        result = verifier._verify_live({"event_id": "EV-EMPTY", "challenge": "0" * 64,
+                                        "ledger_path": str(_ABSENT_LEDGER), "evidence": [],
+                                        "lifecycle": {}})
+        self.assertNotEqual(result["components"]["child_execution_binding"], "PASS")
+        _not_pass(self, result)
+
+
+class RefusalSemanticsTests(unittest.TestCase):
+    def test_profile_binds_exact_refusals(self):
+        for spec in _profile()["required_cases"]:
+            if spec["expected_classification"] == "PASS":
+                self.assertEqual(spec["expected_errors"], [])
+            else:
+                self.assertTrue(spec["expected_errors"], spec["case_id"])
+                self.assertTrue(spec["intended_refusal"])
+
+    def test_wrong_reason_rejection_is_not_an_expected_refusal(self):
+        for spec in _profile()["required_cases"]:
+            if spec["expected_classification"] == "FAIL":
+                self.assertTrue(verifier._refusal_findings(spec, ["some unrelated error"]))
+                self.assertTrue(verifier._refusal_findings(spec, []))
+            else:
+                self.assertTrue(verifier._refusal_findings(spec, ["any error"]))
+            self.assertEqual(verifier._refusal_findings(spec, list(spec["expected_errors"])), [])
+
+    @unittest.skipUnless(LIVE, "pinned Git / target repository unavailable")
+    def test_old_top_level_human_final_input_is_wrong_reason(self):
+        """Real pinned validator on the pre-r2 HUMAN_FINAL input refuses for the wrong reason."""
+        executable = tc.DEFAULT_GIT.resolve()
+        source = tc._git(executable, REPO, "show", tc.TARGET_SHA + ":docs/portfolio_state/validate_psm_v0.py")
+        accepted = tc._git(executable, REPO, "show",
+                           tc.TARGET_SHA + ":docs/portfolio_state/portfolio_state_v0.example.json")
+        value = json.loads(accepted)
+        value["human_final"], value["production_permission"] = "INFERRED", "GRANTED"
+        tmp = _tempdir()
+        try:
+            (tmp / "validate_psm_v0.py").write_bytes(source)
+            (tmp / "old.json").write_bytes(json.dumps(value).encode())
+            env = tc._child_environment(executable)
+            cp = subprocess.run([sys.executable, "-I", "-S", "-B", str(tc.PROBE), str(tmp / "validate_psm_v0.py"),
+                                 str(tmp / "old.json"), str(REPO)], cwd=tmp, env=env,
+                                capture_output=True, check=False, timeout=300)
+            errors = json.loads(cp.stdout)["errors"]
+        finally:
+            _rmtree(tmp)
+        self.assertEqual(cp.returncode, 2)  # rc=2 alone must not count
+        self.assertEqual(errors, ["top-level fields do not match the closed PSM-v0 schema"])
+        self.assertTrue(verifier._refusal_findings(_spec(HF), errors))
+
+    @unittest.skipUnless(LIVE, "pinned Git / target repository unavailable")
+    def test_closed_inputs_keep_top_level_key_set(self):
+        raw = tc._git(tc.DEFAULT_GIT.resolve(), REPO, "show",
+                      tc.TARGET_SHA + ":docs/portfolio_state/portfolio_state_v0.example.json")
+        for spec in _profile()["required_cases"]:
+            if spec["case_id"] == "PSM_NEG_MUTATED_ARCHIVE_OR_INPUT":
+                continue
+            self.assertEqual(set(input_cases.case_value(spec["case_id"], raw)), set(json.loads(raw)))
+            self.assertEqual(tc.digest(input_cases.case_bytes(spec["case_id"], raw)), spec["input_digest"])
+
+
+class SchemaTests(unittest.TestCase):
+    def test_stale_99418b4_event_fails(self):
+        stale = {"schema_version": "inr.event.v0", "inr_event_id": "EV1", "target_sha": tc.TARGET_SHA,
+                 "trusted_challenge_record": {"generated_by": "capture_inr_v0", "single_use": True},
+                 "byte_identity_evidence": {"measured_by": "capture_inr_v0"},
+                 "module_execution_evidence": {}, "git_runtime_evidence": {"path_resolution_verified": True},
+                 "protected_set_isolation_evidence": {"all_writer_isolation_evidence": "ESTABLISHED"},
+                 "non_origin_evidence": {"runner_class": "FRESH_HOSTED_RUNNER"},
+                 "capture_records": [], "case_result_bindings": [], "final_result": "PASS"}
+        result = verifier.recheck_export(stale, ledger_path=_ABSENT_LEDGER)
+        self.assertEqual(result["derived_result"], "FAIL")
+        self.assertTrue(any(m.startswith("schema:") for m in result["fail"]))
+        _not_pass(self, result)
+
+    def test_stale_codex_intermediate_event_fails(self):
+        stale = {"schema_version": "inr.event.v0", "inr_event_id": "EV2", "target_sha": tc.TARGET_SHA,
+                 "challenge": "a" * 64, "trusted_evidence_ref": "b" * 64, "lifecycle": {},
+                 "capture_records": [], "measurements": {}, "git_probe": {}, "assurance_gaps": [],
+                 "blocked_reasons": [], "failure_reasons": [], "final_result": "PASS"}
+        result = verifier.recheck_export(stale, ledger_path=_ABSENT_LEDGER)
+        self.assertEqual(result["derived_result"], "FAIL")
+        _not_pass(self, result)
+
+    def test_profile_origin_conform_and_digest_is_pinned(self):
+        profile, origin = tc.configuration()
+        raw = json.loads((tc.ROOT / "profiles/psm_001_inr_target_profile_v0.json").read_bytes())
+        body = {k: v for k, v in raw.items() if k != "target_profile_digest"}
+        self.assertEqual(tc.digest(tc.canonical(body)), tc.PROFILE_DIGEST)
+        self.assertEqual(raw["target_profile_digest"], tc.PROFILE_DIGEST)
+        self.assertEqual({tuple(c["argv"]) for c in profile["command_inventory"]}, {verifier.ARGV_TEMPLATE})
+
+
+class LedgerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = _tempdir()
+        self.path = self.tmp / "ledger.jsonl"
+
+    def tearDown(self):
+        _rmtree(self.tmp)
+
+    def test_reserve_complete_and_replay(self):
+        first = ledger.reserve(self.path, "E1", "c1")
+        ledger.complete(self.path, "E1", "c1", {"derived_result": "UNCONFIRMED"})
+        with self.assertRaises(ledger.LedgerError):
+            ledger.reserve(self.path, "E1", "c2")
+        with self.assertRaises(ledger.LedgerError):
+            ledger.reserve(self.path, "E2", "c1")
+        with self.assertRaises(ledger.LedgerError):
+            ledger.complete(self.path, "E1", "c1", {})
+        entries = ledger.read_entries(self.path)
+        self.assertEqual([e["kind"] for e in entries], ["RESERVED", "COMPLETED", "REJECTED", "REJECTED"])
+        self.assertEqual(entries[1]["prev_entry_sha256"], first["entry_sha256"])
+
+    def test_tampered_ledger_fails_closed(self):
+        ledger.reserve(self.path, "E1", "c1")
+        ledger.reserve(self.path, "E2", "c2")
+        lines = self.path.read_bytes().split(b"\n")
+        lines[0] = lines[0].replace(b"E1", b"E9")
+        self.path.write_bytes(b"\n".join(lines))
+        with self.assertRaises(ledger.LedgerError):
+            ledger.read_entries(self.path)
+        with self.assertRaises(ledger.LedgerError):
+            ledger.reserve(self.path, "E3", "c3")
+
+    def test_ledger_location_is_outside_worktree(self):
+        with self.assertRaises(ledger.LedgerError):
+            ledger.resolve_path(tc.ROOT / "ledger.jsonl")
+        default = ledger.resolve_path(None)
+        self.assertNotIn(REPO.resolve(), default.parents)
+
+
+if __name__ == "__main__":
+    unittest.main()

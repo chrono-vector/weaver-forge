@@ -1,195 +1,347 @@
-"""INR-001 v0 verifier (remediated candidate).
+"""Fail-closed INR-001 v0 verifier.
 
-Security rule: executor-controlled event values are not trusted facts.  PASS is
-code-derived only from trusted frozen configuration plus capture/evidence records
-that are internally checked.  This verifier is INR-local tooling only; it does
-not claim non-origin reconstruction PASS, IW acceptance, Human Final, or
-production permission.
+* ``_verify_live(session)`` is the verifier half of the fused path in
+  trusted_capture._run_and_verify. It derives every PASS-relevant fact itself
+  (trusted configuration, re-measurement, independently derived argv, exact
+  refusal messages) and accepts child evidence only as evidence objects minted by
+  trusted_capture._launch, each consumable exactly once.
+* ``recheck_export(export)`` re-checks a JSON export loaded from disk (schema and
+  ledger consistency). It can never return PASS: disk data is not live evidence.
+* Non-origin, shared-state absence and all-writer isolation are verifier-owned and
+  take no input at all; v0 has no objective evidence source for them, so they are
+  always UNCONFIRMED and the overall INR result can never be PASS in v0.
 """
 from __future__ import annotations
 
-import hashlib, json, os, sys
+import base64
+import json
+import os
 from pathlib import Path
-from typing import Any
+import sys
 
-TARGET_SHA = "c5e1cfa2fb52874fe9c97e0eade6a120c12cb27b"
-TRUSTED_PROFILE_ID = "INR_TARGET_PROFILE_PSM_001_V0"
-TRUSTED_PROFILE_DIGEST = "2e2e75e246694fdd4d39d52bf3d5f6f65642dcbb3ef4621f258aed7724537634"
-TRUSTED_ORIGIN_SET_ID = "INR_ORIGIN_SET_PSM_001_V0"
-TRUSTED_ORIGIN_SET_DIGEST = "8512b8a1954673be69e0ab0c9486935eff07e4d91cecdcec6f0a4b50694c8a03"
-RESULTS = {"PASS", "FAIL", "UNCONFIRMED", "BLOCKED"}
-QUALIFYING_RUNNERS = {"SEPARATE_PHYSICAL_MACHINE", "FRESH_HOSTED_RUNNER"}
+from . import ledger
+from . import trusted_capture as producer
+from .schema_check import check
+
+TARGET_SHA = producer.TARGET_SHA
 ROOT = Path(__file__).resolve().parent
-PROFILE_PATH = ROOT / "profiles" / "psm_001_inr_target_profile_v0.json"
-ORIGIN_PATH = ROOT / "origin" / "psm_001_origin_reference_set_v0.json"
+RESULTS = ("PASS", "FAIL", "UNCONFIRMED", "BLOCKED")
+LIFECYCLE = ("EVENT_START", "BINDINGS_RECORDED", "ENVIRONMENT_RECORDED",
+             "ACQUISITION_VERIFIED", "FREEZE_START", "COMMAND_EXECUTION_BEGIN",
+             "EXECUTION_COMPLETE", "POST_MEASUREMENT", "CAPTURE_COMPLETE", "EVENT_COMPLETE")
+# Verifier-owned argv template; the profile template must equal it, and the actual
+# Popen argv must equal this template formatted with verifier-derived values.
+ARGV_TEMPLATE = ("{python}", "-I", "-S", "-B", "{probe}", "{source}", "{input}", "{repository}")
+LOCAL_COMPONENTS = ("trusted_configuration", "challenge_ledger", "git_runtime", "acquisition",
+                    "python_policy", "child_execution_binding", "argv_binding",
+                    "module_identity", "refusal_semantics")
+EXTERNAL_COMPONENTS = ("non_origin", "shared_state_absence", "all_writer_isolation")
+NONCLAIMS = ("not a non-origin reconstruction", "not independent reproduction",
+             "not IW admission", "not Human Final", "not production permission")
 
-class INRValidationError(ValueError): pass
 
-def _canon(x: Any) -> bytes:
-    return json.dumps(x, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+def load_schema():
+    return json.loads((ROOT / "schema/inr_event_v0.schema.json").read_bytes())
 
-def _digest_bytes(b: bytes) -> str: return hashlib.sha256(b).hexdigest()
-def _digest_without(obj: dict[str, Any], *keys: str) -> str:
-    return _digest_bytes(_canon({k:v for k,v in obj.items() if k not in keys}))
-def _load(path: str | Path) -> Any: return json.loads(Path(path).read_text(encoding="utf-8"))
-def load_profile() -> dict[str, Any]: return _load(PROFILE_PATH)
-def load_origin() -> dict[str, Any]: return _load(ORIGIN_PATH)
 
-def verify_profile(profile: dict[str, Any]) -> list[str]:
-    e=[]
-    if profile.get("target_sha") != TARGET_SHA: e.append("profile target mismatch")
-    if profile.get("target_profile_id") != TRUSTED_PROFILE_ID: e.append("unknown profile id")
-    if profile.get("target_profile_digest") != TRUSTED_PROFILE_DIGEST: e.append("profile digest field mismatch")
-    if _digest_without(profile,"target_profile_digest") != TRUSTED_PROFILE_DIGEST: e.append("profile digest mismatch")
-    cases=profile.get("required_cases", [])
-    ids=[c.get("case_id") for c in cases]
-    if len(ids)!=10 or len(set(ids))!=10: e.append("required case inventory invalid")
-    cmd_ids=[c.get("command_id") for c in profile.get("command_inventory", [])]
-    if len(cmd_ids)!=10 or len(set(cmd_ids))!=10: e.append("command inventory invalid")
-    if any(c.get("mandatory_execution") is not True for c in cases): e.append("required case optionalized")
-    return e
+def _precedence(blocked, fail, unconfirmed):
+    return "BLOCKED" if blocked else "FAIL" if fail else "UNCONFIRMED" if unconfirmed else "PASS"
 
-def verify_origin(origin: dict[str, Any]) -> list[str]:
-    e=[]
-    if origin.get("target_sha") != TARGET_SHA: e.append("origin target mismatch")
-    if origin.get("origin_reference_set_id") != TRUSTED_ORIGIN_SET_ID: e.append("unknown origin set")
-    if origin.get("origin_reference_set_digest") != TRUSTED_ORIGIN_SET_DIGEST: e.append("origin digest field mismatch")
-    if _digest_without(origin,"origin_reference_set_digest") != TRUSTED_ORIGIN_SET_DIGEST: e.append("origin digest mismatch")
-    if not origin.get("origins"): e.append("origin coverage missing")
-    return e
 
-def _read_evidence_file(base: Path, ref: str) -> bytes | None:
-    if not isinstance(ref, str) or not ref: return None
-    p = Path(ref)
-    if not p.is_absolute(): p = base / p
+# --- verifier-owned external assurance (no inputs, by construction) ------------
+
+def _assess_non_origin():
+    return "UNCONFIRMED", "non-origin: no verifier-owned objective non-origin evidence source in v0"
+
+
+def _assess_shared_state_absence():
+    return "UNCONFIRMED", "shared state: no verifier-owned evidence that no shared writable origin state exists"
+
+
+def _assess_all_writer_isolation():
+    return "UNCONFIRMED", "isolation: read-only staging does not establish all-writer immutability"
+
+
+class _Findings:
+    def __init__(self):
+        self.items = {name: {"blocked": [], "fail": [], "unconfirmed": []}
+                      for name in LOCAL_COMPONENTS + EXTERNAL_COMPONENTS}
+
+    def add(self, component, level, message):
+        self.items[component][level].append(f"{component}: {message}")
+
+    def status(self, component):
+        f = self.items[component]
+        return _precedence(f["blocked"], f["fail"], f["unconfirmed"])
+
+    def result(self, schema_version="inr.verifier.result.v0.r2"):
+        collect = lambda names, level: [m for n in names for m in self.items[n][level]]
+        names = LOCAL_COMPONENTS + EXTERNAL_COMPONENTS
+        blocked, fail, unconfirmed = (collect(names, lvl) for lvl in ("blocked", "fail", "unconfirmed"))
+        derived = _precedence(blocked, fail, unconfirmed)
+        local = _precedence(*(collect(LOCAL_COMPONENTS, lvl) for lvl in ("blocked", "fail", "unconfirmed")))
+        return {"schema_version": schema_version, "derived_result": derived,
+                "pass_allowed": derived == "PASS", "local_controls_result": local,
+                "components": {n: self.status(n) for n in names},
+                "blocked": blocked, "fail": fail, "unconfirmed": unconfirmed,
+                "nonclaims": list(NONCLAIMS)}
+
+
+def _external(findings):
+    for component, assess in (("non_origin", _assess_non_origin),
+                              ("shared_state_absence", _assess_shared_state_absence),
+                              ("all_writer_isolation", _assess_all_writer_isolation)):
+        status, message = assess()
+        if status != "PASS":
+            findings.add(component, "unconfirmed", message)
+
+
+def _rejected_result(reason):
+    findings = _Findings()
+    findings.add("challenge_ledger", "fail", reason)
+    for name in LOCAL_COMPONENTS:
+        if name != "challenge_ledger":
+            findings.add(name, "unconfirmed", "not executed: event rejected before execution")
+    _external(findings)
+    return findings.result()
+
+
+def _sha(path):
+    return producer.digest(Path(path).read_bytes())
+
+
+def _same_path(a, b):
+    return a is not None and b is not None and os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
+def _refusal_findings(spec, errors):
+    """Exact refusal semantics: the child's error list must equal the frozen list."""
+    problems = []
+    if type(errors) is not list or any(type(e) is not str for e in errors):
+        return ["child error list missing/malformed"]
+    derived = "PASS" if not errors else "FAIL"
+    if derived != spec["expected_classification"]:
+        problems.append(f"{spec['case_id']}: derived classification {derived} != {spec['expected_classification']}")
+    if errors != spec["expected_errors"]:
+        problems.append(f"{spec['case_id']}: refusal reason differs from the frozen intended refusal")
+    return problems
+
+
+def _verify_live(session):
+    findings = _Findings()
+    _external(findings)
+    # 1. trusted configuration (verifier loads it itself; session copies are ignored)
     try:
-        rp = p.resolve()
-        # Keep evidence under supplied base when relative. Absolute is allowed for
-        # captured external events but must exist.
-        return rp.read_bytes()
-    except OSError:
-        return None
+        profile, origin = producer.configuration()
+    except (OSError, ValueError) as exc:
+        findings.add("trusted_configuration", "blocked", str(exc))
+        return findings.result()
+    templates = {tuple(c["argv"]) for c in profile["command_inventory"]}
+    if templates != {ARGV_TEMPLATE}:
+        findings.add("trusted_configuration", "fail", "profile argv template differs from verifier template")
+    lifecycle = session.get("lifecycle", {})
+    # 2. ledger: reservation must exist, belong to this challenge and still be open
+    try:
+        reserved, completed = ledger.lookup(ledger.resolve_path(session.get("ledger_path")),
+                                            session.get("event_id"))
+    except (ledger.LedgerError, OSError, TypeError) as exc:
+        reserved, completed = None, None
+        findings.add("challenge_ledger", "fail", str(exc))
+    if (reserved is None or reserved["challenge"] != session.get("challenge")
+            or reserved["entry_sha256"] != session.get("ledger_reservation_entry_sha256")):
+        findings.add("challenge_ledger", "fail", "no matching ledger reservation for event/challenge")
+    if completed is not None:
+        findings.add("challenge_ledger", "fail", "event already completed; verification replay refused")
+    for reason in session.get("blocked_reasons", []):
+        findings.add("acquisition", "blocked", "capture blocked: " + reason)
+    for reason in session.get("failure_reasons", []):
+        findings.add("module_identity", "fail", "capture measured: " + reason)
+    # 3. Git runtime: re-measure the pinned executable
+    git = session.get("git") or {}
+    if not git:
+        findings.add("git_runtime", "blocked", "Git runtime not measured")
+    else:
+        try:
+            pinned = producer.DEFAULT_GIT.resolve(strict=True)
+            if not _same_path(git.get("executable"), str(pinned)) or _sha(pinned) != git.get("executable_sha256"):
+                findings.add("git_runtime", "fail", "Git executable differs from measured pinned Git")
+        except OSError as exc:
+            findings.add("git_runtime", "blocked", str(exc))
+        if any(k.upper().startswith("GIT_") for k in os.environ):
+            findings.add("git_runtime", "blocked", "Git environment influence in verifier")
+        # 4. acquisition
+        if git.get("head") != TARGET_SHA:
+            findings.add("acquisition", "blocked", "acquisition repository HEAD is not TARGET_SHA")
+    if session.get("measurements", {}).get("distribution_files") != profile["target_file_digests"]:
+        findings.add("acquisition", "unconfirmed", "distribution file digests not established")
+    # 5. Python policy (supervisor + every child)
+    if sys.version_info[:2] != (3, 11):
+        findings.add("python_policy", "blocked", "supervisor Python is not frozen 3.11.x")
+    # lifecycle ordering
+    if any(type(lifecycle.get(k)) is not int for k in LIFECYCLE):
+        findings.add("child_execution_binding", "unconfirmed", "incomplete lifecycle")
+    elif any(lifecycle[a] > lifecycle[b] for a, b in zip(LIFECYCLE, LIFECYCLE[1:])):
+        findings.add("child_execution_binding", "fail", "reversed lifecycle")
+    # 6. verifier-derived trusted values
+    stage = session.get("stage")
+    source_digest = profile["target_file_digests"]["validate_psm_v0.py"]
+    trusted = None
+    if stage is None or not git:
+        findings.add("argv_binding", "unconfirmed", "no staged execution to bind")
+    else:
+        stage = Path(stage)
+        trusted = {"python": str(Path(sys.executable).resolve()), "probe": str((ROOT / "runtime_probe.py").resolve()),
+                   "source": str((stage / "validate_psm_v0.py").resolve()), "repository": str(Path(git["repository_root"]))}
+        try:
+            if _sha(trusted["source"]) != source_digest:
+                findings.add("module_identity", "fail", "staged source re-measurement mismatch")
+            if _sha(trusted["probe"]) != session.get("measurements", {}).get("probe_sha256"):
+                findings.add("module_identity", "fail", "probe re-measurement mismatch")
+        except OSError as exc:
+            findings.add("module_identity", "unconfirmed", "re-measurement unavailable: " + str(exc))
+    for key in ("source_before_sha256", "source_after_sha256"):
+        if session.get("measurements", {}).get(key) != source_digest:
+            findings.add("module_identity", "unconfirmed", key + " not established")
+    # 7. per-case child evidence
+    evidence = list(session.get("evidence", []))
+    cases, commands = profile["required_cases"], profile["command_inventory"]
+    if len(evidence) != len(cases):
+        findings.add("child_execution_binding", "unconfirmed", "incomplete/extraneous child evidence set")
+    for index, item in enumerate(evidence):
+        if not producer._take_evidence(item):
+            findings.add("child_execution_binding", "unconfirmed",
+                         f"record {index + 1}: evidence not minted by the live launch path or already consumed")
+            continue
+        if index >= len(cases):
+            findings.add("child_execution_binding", "fail", "unknown/extra child execution")
+            continue
+        spec, command = cases[index], commands[index]
+        cid = spec["case_id"]
+        if (item.case_id != cid or command["case_id"] != cid or item.command_id != command["command_id"]
+                or item.sequence != command["sequence"] or item.sequence != index + 1):
+            findings.add("child_execution_binding", "fail", f"{cid}: case/command/order mismatch")
+        if item.event_id != session.get("event_id") or item.challenge != session.get("challenge"):
+            findings.add("child_execution_binding", "fail", f"{cid}: launch not bound to current event/challenge")
+        begin, done = lifecycle.get("COMMAND_EXECUTION_BEGIN"), lifecycle.get("EXECUTION_COMPLETE")
+        if type(begin) is not int or type(done) is not int or not begin <= item.start_ns <= item.end_ns <= done:
+            findings.add("child_execution_binding", "fail", f"{cid}: execution outside current event window")
+        if item.return_code not in spec["accepted_return_codes"]:
+            findings.add("refusal_semantics", "fail", f"{cid}: unexpected return code {item.return_code}")
+        # argv: verifier-derived expectation vs the argv actually passed to Popen
+        if trusted is not None:
+            values = dict(trusted, input=str((stage / (cid + ".json")).resolve()))
+            expected = tuple(part.format_map(values) for part in ARGV_TEMPLATE)
+            if tuple(item.argv) != expected or tuple(item.popen_args) != expected:
+                findings.add("argv_binding", "fail", f"{cid}: executed argv differs from verifier-derived argv")
+            if not _same_path(item.cwd, str(stage)):
+                findings.add("argv_binding", "fail", f"{cid}: child cwd is not the staging directory")
+            if not _same_path(item.env_path, str(Path(git["executable"]).parent)):
+                findings.add("argv_binding", "fail", f"{cid}: child PATH is not the pinned Git directory only")
+            if tuple(item.env_git) != (("GIT_NO_REPLACE_OBJECTS", "1"),):
+                findings.add("argv_binding", "fail", f"{cid}: child Git environment not exactly GIT_NO_REPLACE_OBJECTS=1")
+            if tuple(item.env_python) != (("PYTHONDONTWRITEBYTECODE", "1"),):
+                findings.add("argv_binding", "fail", f"{cid}: child Python environment not exactly PYTHONDONTWRITEBYTECODE=1")
+            try:
+                if _sha(values["input"]) != spec["input_digest"]:
+                    findings.add("module_identity", "fail", f"{cid}: staged input re-measurement mismatch")
+            except OSError as exc:
+                findings.add("module_identity", "unconfirmed", f"{cid}: input re-measurement unavailable: {exc}")
+        # child report
+        try:
+            report = json.loads(item.stdout.decode("ascii"))
+            identity, errors = report["identity"], report["errors"]
+            if type(identity) is not dict:
+                raise ValueError
+        except (KeyError, TypeError, UnicodeError, ValueError):
+            findings.add("child_execution_binding", "unconfirmed", f"{cid}: child runtime report missing")
+            continue
+        if (report.get("event_id") != session.get("event_id") or report.get("challenge") != session.get("challenge")
+                or report.get("case_id") != cid or report.get("case_nonce") != item.case_nonce):
+            findings.add("child_execution_binding", "fail", f"{cid}: child output not produced by this launch (replay)")
+        if ((item.return_code == 0) != (errors == [])) or item.return_code not in (0, 2):
+            findings.add("refusal_semantics", "fail", f"{cid}: return code contradicts child errors")
+        for problem in _refusal_findings(spec, errors):
+            findings.add("refusal_semantics", "fail", problem)
+        checks = (
+            ("source_sha256", source_digest), ("post_source_sha256", source_digest),
+            ("input_sha256", spec["input_digest"]), ("target_preloaded", False),
+            ("site_loaded", False), ("sitecustomize_loaded", False), ("usercustomize_loaded", False),
+            ("isolated", 1), ("no_site", 1), ("dont_write_bytecode", True),
+            ("git_shadowing", []), ("git_environment", [["GIT_NO_REPLACE_OBJECTS", "1"]]))
+        for key, want in checks:
+            if identity.get(key) != want or type(identity.get(key)) is not type(want):
+                findings.add("module_identity", "fail", f"{cid}: child identity {key} mismatch")
+        if trusted is not None:
+            if not _same_path(identity.get("source_path"), trusted["source"]):
+                findings.add("module_identity", "fail", f"{cid}: executed source path mismatch")
+            if not _same_path(identity.get("python_executable"), trusted["python"]):
+                findings.add("module_identity", "fail", f"{cid}: child interpreter mismatch")
+            if not _same_path(identity.get("git_which"), git.get("executable")):
+                findings.add("git_runtime", "fail", f"{cid}: child resolves a Git other than the measured one")
+        version = identity.get("python_version")
+        if type(version) is not list or version[:2] != [3, 11]:
+            findings.add("python_policy", "blocked", f"{cid}: child runtime outside frozen Python 3.11.x")
+    return findings.result()
 
-def _capture_record_ok(rec: dict[str, Any], event_id: str, challenge: str, base: Path) -> list[str]:
-    e=[]
-    if rec.get("schema_version") != "inr.capture_record.v0": e.append("bad capture schema")
-    if rec.get("event_id") != event_id: e.append("capture event mismatch")
-    if rec.get("run_challenge_value") != challenge: e.append("capture challenge mismatch")
-    if rec.get("target_process_launched") is not True: e.append("capture did not launch target")
-    if rec.get("pid_observed_by_capture") is not True: e.append("child process provenance absent")
-    if not isinstance(rec.get("command"), list) or not rec.get("command"): e.append("capture command absent")
-    if not isinstance(rec.get("return_code"), int): e.append("capture return code absent")
-    if not (isinstance(rec.get("start_time_ns"), int) and isinstance(rec.get("end_time_ns"), int) and rec["start_time_ns"] <= rec["end_time_ns"]): e.append("capture time invalid")
-    for stream in ("stdout", "stderr"):
-        data=_read_evidence_file(base, rec.get(stream+"_ref"))
-        if data is None: e.append(stream+" evidence missing")
-        elif _digest_bytes(data) != rec.get(stream+"_sha256"): e.append(stream+" evidence hash mismatch")
-    return e
 
-def validate_event(event: dict[str, Any], profile: dict[str, Any] | None=None, origin: dict[str, Any] | None=None, evidence_base: str | Path | None=None, used_challenges: set[str] | None=None) -> dict[str, Any]:
-    profile=profile or load_profile(); origin=origin or load_origin(); errors=[]; blocked=[]; fail=[]; unconfirmed=[]
-    errors += verify_profile(profile); errors += verify_origin(origin)
-    base=Path(evidence_base or event.get("evidence_base") or ".")
-    event_id=event.get("inr_event_id")
-    if event.get("schema_version") != "inr.event.v0": unconfirmed.append("bad schema_version")
-    if event.get("target_sha") != TARGET_SHA: unconfirmed.append("target sha mismatch")
-    b=event.get("accepted_target_profile_binding", {})
-    if b.get("target_profile_id")!=TRUSTED_PROFILE_ID or b.get("target_profile_digest")!=TRUSTED_PROFILE_DIGEST: unconfirmed.append("trusted profile binding mismatch")
-    ob=event.get("accepted_origin_reference_binding", {})
-    if ob.get("origin_reference_set_id")!=TRUSTED_ORIGIN_SET_ID or ob.get("origin_reference_set_digest")!=TRUSTED_ORIGIN_SET_DIGEST: unconfirmed.append("trusted origin binding mismatch")
+def recheck_export(export, *, ledger_path=None):
+    """Re-check a disk export. Never PASS: disk data is not live trusted evidence."""
+    fail, blocked = [], []
+    unconfirmed = ["recheck: a JSON export is not live trusted evidence and can never yield PASS"]
+    problems = check(export, load_schema())
+    if problems:
+        fail.extend("schema: " + p for p in problems)
+    else:
+        try:
+            reserved, completed = ledger.lookup(ledger.resolve_path(ledger_path), export["inr_event_id"])
+        except (ledger.LedgerError, OSError) as exc:
+            reserved, completed = None, None
+            fail.append("ledger: " + str(exc))
+        if (reserved is None or completed is None
+                or reserved["challenge"] != export["challenge"]
+                or completed["challenge"] != export["challenge"]
+                or reserved["entry_sha256"] != export["ledger_reservation_entry_sha256"]
+                or completed["detail"].get("export_sha256") != producer.digest(producer.canonical(export))):
+            fail.append("ledger: export not recorded in the ledger or altered after capture")
+        else:
+            recorded = completed["detail"].get("derived_result")
+            if recorded == "BLOCKED":
+                blocked.append("ledger: recorded live result was BLOCKED")
+            elif recorded == "FAIL":
+                fail.append("ledger: recorded live result was FAIL")
+        for record in export["capture_records"]:
+            for stream in ("stdout", "stderr"):
+                try:
+                    raw = base64.b64decode(record[stream + "_base64"], validate=True)
+                except ValueError:
+                    fail.append("recheck: invalid stream encoding")
+                    continue
+                if producer.digest(raw) != record[stream + "_sha256"]:
+                    fail.append("recheck: stream changed after capture")
+    derived = _precedence(blocked, fail, unconfirmed)
+    return {"schema_version": "inr.verifier.recheck.v0.r2", "derived_result": derived,
+            "pass_allowed": False, "blocked": blocked, "fail": fail, "unconfirmed": unconfirmed,
+            "nonclaims": list(NONCLAIMS)}
 
-    # Challenge must be capture-owned, current, single-use, not merely an event flag.
-    ch=event.get("trusted_challenge_record", {})
-    challenge=ch.get("run_challenge_value")
-    if not (ch.get("generated_by") == "capture_inr_v0" and ch.get("generated_before_target_execution") is True and ch.get("bound_event_id") == event_id and ch.get("bound_target_sha") == TARGET_SHA and ch.get("bound_profile_digest") == TRUSTED_PROFILE_DIGEST and ch.get("bound_origin_reference_set_digest") == TRUSTED_ORIGIN_SET_DIGEST and ch.get("single_use") is True):
-        unconfirmed.append("trusted challenge binding invalid")
-    if used_challenges is not None and challenge in used_challenges: fail.append("challenge reuse")
 
-    lc=event.get("lifecycle", {})
-    order=["EVENT_START","BINDINGS_RECORDED","ENVIRONMENT_RECORDED","ACQUISITION_VERIFIED","FREEZE_START","COMMAND_EXECUTION_BEGIN","EXECUTION_COMPLETE","POST_MEASUREMENT","CAPTURE_COMPLETE","EVENT_COMPLETE"]
-    times=[]
-    for k in order:
-        v=lc.get(k)
-        if not isinstance(v, int): unconfirmed.append(f"missing lifecycle {k}")
-        else: times.append(v)
-    if len(times)==len(order) and times != sorted(times): fail.append("lifecycle order invalid")
+def main(argv=None):
+    args = sys.argv[1:] if argv is None else argv
+    ledger_path = None
+    if len(args) == 3 and args[1] == "--ledger":
+        ledger_path = args[2]
+    elif len(args) != 1:
+        print("usage: python -m docs.inr_001.validate_inr_v0 EXPORT.json [--ledger PATH]", file=sys.stderr)
+        return 2
+    try:
+        export = json.loads(Path(args[0]).read_bytes())
+        result = recheck_export(export, ledger_path=ledger_path)
+    except (OSError, UnicodeError, ValueError) as exc:
+        result = {"schema_version": "inr.verifier.recheck.v0.r2", "derived_result": "FAIL",
+                  "pass_allowed": False, "blocked": [], "fail": [str(exc)], "unconfirmed": [],
+                  "nonclaims": list(NONCLAIMS)}
+    print(json.dumps(result, sort_keys=True, indent=2))
+    return 1
 
-    bi=event.get("byte_identity_evidence", {})
-    for k in ("distribution_sha256","executed_sha256","post_execution_sha256"):
-        if not bi.get(k): unconfirmed.append("byte identity missing "+k)
-    if bi.get("post_execution_sha256") and bi.get("executed_sha256") and bi.get("post_execution_sha256") != bi.get("executed_sha256"): fail.append("executed bytes changed")
-    if bi.get("measured_by") != "capture_inr_v0": unconfirmed.append("byte identity not capture-measured")
 
-    im=event.get("module_execution_evidence", {})
-    if not (im.get("fresh_interpreter") is True and im.get("target_preloaded_before_import") is False and im.get("sitecustomize") == "ABSENT" and im.get("usercustomize") == "ABSENT" and im.get("bytecode_policy") == "SOURCE_BACKED_NO_STALE_PYC" and im.get("loader_policy") == "STANDARD_SOURCE_LOADER" and im.get("source_digest") and im.get("source_digest") == im.get("executed_source_digest") and im.get("resolved_origin") and im.get("resolved_origin") == im.get("measured_path") and im.get("runtime_probe") == "capture_import_probe"):
-        unconfirmed.append("module execution chain unproven")
-
-    git=event.get("git_runtime_evidence", {})
-    if not (git.get("measured_by") == "capture_inr_v0" and git.get("resolved_git") and git.get("git_version") and git.get("repository_path") and git.get("repository_head") == TARGET_SHA and git.get("required_objects_available") is True and git.get("git_dir") in (None, "") and git.get("git_work_tree") in (None, "") and git.get("replace_refs") == [] and git.get("alternates") == [] and git.get("path_resolution_verified") is True):
-        blocked.append("git runtime identity unavailable")
-
-    iso=event.get("protected_set_isolation_evidence", {})
-    if not (iso.get("measured_by") == "capture_inr_v0" and iso.get("all_writer_isolation_evidence") == "ESTABLISHED" and iso.get("tree_read_only") is True and iso.get("shared_writable_aliases") == [] and iso.get("writable_parent_paths") == [] and iso.get("symlink_or_junction_paths") == [] and iso.get("hardlink_aliases") == [] and iso.get("network_or_shared_paths") == []):
-        unconfirmed.append("protected set isolation insufficient")
-
-    no=event.get("non_origin_evidence", {})
-    if no.get("runner_class") not in {"SEPARATE_PHYSICAL_MACHINE","FRESH_HOSTED_RUNNER"}: unconfirmed.append("runner class not qualifying")
-    if not (no.get("origin_host_is_execution_host") is False and no.get("source_independently_acquired") is True and no.get("evidence_generated_on_runner") is True and no.get("origin_reference_prefrozen") is True and no.get("shared_mutable_state_evidence") == [] and no.get("workspace_provenance") == "FRESH_NON_ORIGIN_WORKSPACE" and no.get("origin_worktree_copied") is False):
-        unconfirmed.append("non-origin evidence insufficient")
-
-    # Capture records are the trusted execution source.
-    records=event.get("capture_records", [])
-    if not isinstance(records, list) or not records: unconfirmed.append("capture records missing")
-    for rec in records:
-        unconfirmed += _capture_record_ok(rec, event_id, challenge, base)
-    rec_by_cmd={r.get("command_id"):r for r in records if isinstance(r, dict)}
-    if len(rec_by_cmd) != len(records): fail.append("duplicate capture command_id")
-
-    prof_cases={c["case_id"]:c for c in profile["required_cases"]}
-    profile_cmd={c["case_id"]:c["command_id"] for c in profile["command_inventory"]}
-    bindings=event.get("case_result_bindings", [])
-    seen_cases={}; seq=[]; seen_cmd=set()
-    for r in bindings:
-        cid=r.get("case_id"); cmd=r.get("command_id"); seq.append(r.get("sequence"))
-        if cid in seen_cases: fail.append("duplicate case result")
-        seen_cases[cid]=r
-        if cmd in seen_cmd: fail.append("duplicate command result")
-        seen_cmd.add(cmd)
-        if r.get("expected_from_profile") is not True: fail.append("executor-defined expectation")
-        if r.get("event_id") != event_id or r.get("challenge_value") != challenge: fail.append("case result replay/cross-event")
-        cap=rec_by_cmd.get(cmd)
-        if not cap: unconfirmed.append("missing capture for command "+str(cmd)); continue
-        if r.get("return_code") != cap.get("return_code"): fail.append("return code not from capture")
-        if r.get("stdout_sha256") != cap.get("stdout_sha256") or r.get("stderr_sha256") != cap.get("stderr_sha256"): fail.append("stream hash not from capture")
-    if sorted(seq) != list(range(1,len(seq)+1)): fail.append("command sequence invalid")
-    for cid, spec in prof_cases.items():
-        r=seen_cases.get(cid); expected_cmd=profile_cmd.get(cid)
-        if not r: unconfirmed.append("missing required case "+cid); continue
-        if r.get("command_id") != expected_cmd: fail.append("renamed command id")
-        if r.get("observed_classification") != spec.get("expected_classification"): fail.append("case expectation mismatch "+cid)
-        if r.get("return_code") not in spec.get("accepted_return_codes", []): fail.append("return code mismatch "+cid)
-        if r.get("input_digest") != spec.get("input_digest"): fail.append("input digest mismatch "+cid)
-        if r.get("mandatory_execution") is not True: fail.append("case optionalized "+cid)
-    for x in event.get("extra_command_records", []) or []:
-        if x.get("state_changing") is True: fail.append("state-changing extra command")
-    rep=event.get("repair_detection_evidence", {})
-    if rep.get("repair_detected") is True or rep.get("target_digest_change") is True or rep.get("environment_change") is True or rep.get("input_change") is True: fail.append("repair/mutation detected")
-    if any(r.get("prior_failed_or_blocked_rerun") for r in bindings): fail.append("rerun laundering")
-
-    # Code-owned result precedence. Event final_result is informational only.
-    all_errors=errors+blocked+fail+unconfirmed
-    if blocked: derived="BLOCKED"
-    elif fail: derived="FAIL"
-    elif unconfirmed or errors: derived="UNCONFIRMED"
-    else: derived="PASS"
-    pass_allowed = derived == "PASS"
-    return {"schema_version":"inr.verifier.result.v0","derived_result":derived,"pass_allowed":pass_allowed,"errors":all_errors,"blocked":blocked,"fail":fail,"unconfirmed":unconfirmed,"event_claimed_final_result":event.get("final_result"),"nonclaims":["INR local verifier PASS is not IW acceptance","INR local verifier PASS is not Human Final","INR local verifier PASS is not production permission"]}
-
-def main(argv: list[str]) -> int:
-    if len(argv)!=2:
-        print("usage: validate_inr_v0.py EVENT.json", file=sys.stderr); return 2
-    event_path=Path(argv[1])
-    res=validate_event(_load(event_path), evidence_base=event_path.parent)
-    print(json.dumps(res, indent=2, sort_keys=True))
-    return 0 if res["pass_allowed"] else 1
-if __name__ == "__main__": raise SystemExit(main(sys.argv))
+if __name__ == "__main__":
+    raise SystemExit(main())
