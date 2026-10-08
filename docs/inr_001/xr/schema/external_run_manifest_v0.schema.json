@@ -1,0 +1,1389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "INR-XR-001 External Run Manifest v0",
+  "description": "Top level: the runner-written manifest (evidence references and hash bindings only). $defs.raw_*: raw evidence data files. $defs.adapter_result: adapter-derived predicates and final classification (adapter output only; never accepted as input). Checked with the code-owned vocabulary of docs/inr_001/schema_check.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "inr_event_id",
+    "target_sha",
+    "accepted_target_profile_reference",
+    "accepted_origin_reference",
+    "evidence_files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "inr.xr.external_run_manifest.v0"
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inr_event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "accepted_target_profile_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_profile_id",
+        "target_profile_digest"
+      ],
+      "properties": {
+        "target_profile_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_profile_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "accepted_origin_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origin_reference_set_id",
+        "origin_reference_set_digest"
+      ],
+      "properties": {
+        "origin_reference_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin_reference_set_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "evidence_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "acquisition_log",
+              "runner_identity",
+              "workspace_provenance",
+              "isolation_checks",
+              "python_identity",
+              "git_identity",
+              "event_start",
+              "command_result",
+              "stdout",
+              "stderr",
+              "post_measurement",
+              "event_complete",
+              "sha256sums",
+              "target_file"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "runner_declarations": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "raw_runner_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "provider",
+        "runner_environment",
+        "repository",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "job_id",
+        "runner_name",
+        "runner_os",
+        "runner_arch",
+        "image_os",
+        "image_version",
+        "boot_time",
+        "job_started_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.runner_identity.v0"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runner_environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workflow_run_id": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "workflow_run_attempt": {
+          "type": "integer"
+        },
+        "job_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runner_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runner_os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runner_arch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boot_time": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "job_started_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "runner_declarations": {
+          "type": "object"
+        }
+      }
+    },
+    "raw_workspace_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "workspace_path",
+        "workspace_created_at",
+        "initial_listing",
+        "acquisition_started_at",
+        "acquisition_completed_at",
+        "inherited_writable_paths",
+        "cache_restore_events",
+        "prior_job_artifacts"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.workspace_provenance.v0"
+        },
+        "workspace_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workspace_created_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "initial_listing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acquisition_started_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "acquisition_completed_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "inherited_writable_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cache_restore_events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prior_job_artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runner_declarations": {
+          "type": "object"
+        }
+      }
+    },
+    "raw_isolation_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "execution_principal",
+        "mounts",
+        "package_caches",
+        "build_caches",
+        "git_object_store",
+        "origin_snapshot_restored",
+        "protected_tree"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.isolation_checks.v0"
+        },
+        "execution_principal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user",
+            "uid",
+            "is_admin"
+          ],
+          "properties": {
+            "user": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uid": {
+              "type": "string",
+              "minLength": 1
+            },
+            "is_admin": {
+              "type": "boolean"
+            }
+          }
+        },
+        "mounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mount_point",
+              "source",
+              "fs_type",
+              "writable",
+              "shared",
+              "network"
+            ],
+            "properties": {
+              "mount_point": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fs_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "writable": {
+                "type": "boolean"
+              },
+              "shared": {
+                "type": "boolean"
+              },
+              "network": {
+                "type": "boolean"
+              }
+            }
+          },
+          "minItems": 1
+        },
+        "package_caches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "restored",
+              "shared"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "restored": {
+                "type": "boolean"
+              },
+              "shared": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "build_caches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "restored",
+              "shared"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "restored": {
+                "type": "boolean"
+              },
+              "shared": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "git_object_store": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "shared",
+            "alternates"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared": {
+              "type": "boolean"
+            },
+            "alternates": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "origin_snapshot_restored": {
+          "type": "boolean"
+        },
+        "protected_tree": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "root",
+            "categories_covered",
+            "entries",
+            "parent_chain",
+            "freeze_digest",
+            "post_execution_digest"
+          ],
+          "properties": {
+            "root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "categories_covered": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "target_files",
+                  "profile_origin_binding",
+                  "inputs",
+                  "command_inventory",
+                  "capture_configuration",
+                  "execution_tree",
+                  "git_objects"
+                ]
+              }
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "path",
+                  "kind",
+                  "sha256",
+                  "writable_by_principal",
+                  "writable_by_others",
+                  "symlink",
+                  "reparse_point",
+                  "link_count"
+                ],
+                "properties": {
+                  "category": {
+                    "enum": [
+                      "target_files",
+                      "profile_origin_binding",
+                      "inputs",
+                      "command_inventory",
+                      "capture_configuration",
+                      "execution_tree",
+                      "git_objects"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "enum": [
+                      "file",
+                      "dir"
+                    ]
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^([0-9a-f]{64})?$"
+                  },
+                  "writable_by_principal": {
+                    "type": "boolean"
+                  },
+                  "writable_by_others": {
+                    "type": "boolean"
+                  },
+                  "symlink": {
+                    "type": "boolean"
+                  },
+                  "reparse_point": {
+                    "type": "boolean"
+                  },
+                  "link_count": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "minItems": 1
+            },
+            "parent_chain": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "writable_by_principal",
+                  "writable_by_others"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "writable_by_principal": {
+                    "type": "boolean"
+                  },
+                  "writable_by_others": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "minItems": 1
+            },
+            "freeze_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "post_execution_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "runner_declarations": {
+          "type": "object"
+        }
+      }
+    },
+    "raw_python_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "version",
+        "version_string",
+        "implementation",
+        "executable",
+        "executable_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.python_identity.v0"
+        },
+        "version": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 3
+        },
+        "version_string": {
+          "type": "string",
+          "minLength": 1
+        },
+        "implementation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executable_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "runner_declarations": {
+          "type": "object"
+        }
+      }
+    },
+    "raw_git_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "executable",
+        "executable_sha256",
+        "which_git",
+        "version",
+        "environment",
+        "repository_root",
+        "dot_git_kind",
+        "remote_url",
+        "head",
+        "required_objects",
+        "replace_refs",
+        "alternates",
+        "grafts",
+        "shallow",
+        "worktree_status",
+        "config_keys"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.git_identity.v0"
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executable_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "which_git": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          }
+        },
+        "repository_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dot_git_kind": {
+          "enum": [
+            "directory",
+            "file"
+          ]
+        },
+        "remote_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "required_objects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object",
+              "type",
+              "present"
+            ],
+            "properties": {
+              "object": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "present": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "replace_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grafts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "shallow": {
+          "type": "boolean"
+        },
+        "worktree_status": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "config_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runner_declarations": {
+          "type": "object"
+        }
+      }
+    },
+    "raw_event_start": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "inr_event_id",
+        "challenge",
+        "ledger_reservation_entry_sha256",
+        "started_at",
+        "event_start_ns",
+        "target_sha",
+        "accepted_target_profile_binding",
+        "accepted_origin_reference_binding",
+        "supervisor",
+        "supervisor_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.event_start.v0"
+        },
+        "inr_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "ledger_reservation_entry_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "started_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "event_start_ns": {
+          "type": "integer"
+        },
+        "target_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "accepted_target_profile_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_profile_id",
+            "target_profile_digest"
+          ],
+          "properties": {
+            "target_profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_profile_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "accepted_origin_reference_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "origin_reference_set_id",
+            "origin_reference_set_digest"
+          ],
+          "properties": {
+            "origin_reference_set_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "origin_reference_set_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "supervisor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pid",
+            "executable",
+            "python_version",
+            "isolated",
+            "no_site",
+            "dont_write_bytecode",
+            "is_supervisor_process"
+          ],
+          "properties": {
+            "pid": {
+              "type": "integer"
+            },
+            "executable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "python_version": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 3
+            },
+            "isolated": {
+              "type": "integer"
+            },
+            "no_site": {
+              "type": "integer"
+            },
+            "dont_write_bytecode": {
+              "type": "boolean"
+            },
+            "is_supervisor_process": {
+              "type": "boolean"
+            }
+          }
+        },
+        "supervisor_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "raw_command_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "case_id",
+        "command_id",
+        "sequence",
+        "event_id",
+        "challenge",
+        "case_nonce",
+        "argv",
+        "popen_args",
+        "cwd",
+        "env_path",
+        "env_git",
+        "child_pid",
+        "return_code",
+        "start_ns",
+        "end_ns",
+        "stdout_sha256",
+        "stderr_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.command_result.v0"
+        },
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "command_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer"
+        },
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "popen_args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string",
+          "minLength": 1
+        },
+        "env_path": {
+          "type": "string"
+        },
+        "env_git": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          }
+        },
+        "child_pid": {
+          "type": "integer"
+        },
+        "return_code": {
+          "type": "integer"
+        },
+        "start_ns": {
+          "type": "integer"
+        },
+        "end_ns": {
+          "type": "integer"
+        },
+        "stdout_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "stderr_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "raw_post_measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "inr_event_id",
+        "challenge",
+        "lifecycle",
+        "measurements",
+        "git_probe"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.post_measurement.v0"
+        },
+        "inr_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "EVENT_START",
+            "BINDINGS_RECORDED",
+            "ENVIRONMENT_RECORDED",
+            "ACQUISITION_VERIFIED",
+            "FREEZE_START",
+            "COMMAND_EXECUTION_BEGIN",
+            "EXECUTION_COMPLETE",
+            "POST_MEASUREMENT",
+            "CAPTURE_COMPLETE"
+          ],
+          "properties": {
+            "EVENT_START": {
+              "type": "integer"
+            },
+            "BINDINGS_RECORDED": {
+              "type": "integer"
+            },
+            "ENVIRONMENT_RECORDED": {
+              "type": "integer"
+            },
+            "ACQUISITION_VERIFIED": {
+              "type": "integer"
+            },
+            "FREEZE_START": {
+              "type": "integer"
+            },
+            "COMMAND_EXECUTION_BEGIN": {
+              "type": "integer"
+            },
+            "EXECUTION_COMPLETE": {
+              "type": "integer"
+            },
+            "POST_MEASUREMENT": {
+              "type": "integer"
+            },
+            "CAPTURE_COMPLETE": {
+              "type": "integer"
+            }
+          }
+        },
+        "measurements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "distribution_files",
+            "source_before_sha256",
+            "source_after_sha256",
+            "probe_sha256",
+            "python_executable_sha256"
+          ],
+          "properties": {
+            "distribution_files": {
+              "type": "object"
+            },
+            "source_before_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "source_after_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "probe_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "python_executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "git_probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "executable",
+            "executable_sha256",
+            "version",
+            "repository_root",
+            "head",
+            "common_git_dir",
+            "config_keys",
+            "required_objects"
+          ],
+          "properties": {
+            "executable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository_root": {
+              "type": "string",
+              "minLength": 1
+            },
+            "head": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "common_git_dir": {
+              "type": "string",
+              "minLength": 1
+            },
+            "config_keys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required_objects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "raw_event_complete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "inr_event_id",
+        "challenge",
+        "completed_at",
+        "event_complete_ns",
+        "supervisor_report"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.raw.event_complete.v0"
+        },
+        "inr_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "completed_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "event_complete_ns": {
+          "type": "integer"
+        },
+        "supervisor_report": {
+          "type": "object"
+        }
+      }
+    },
+    "adapter_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "result_kind",
+        "classification",
+        "classification_scope",
+        "adapter_bundle_pass",
+        "inr_external_reconstruction_pass",
+        "fresh_local_inr_pass",
+        "gates",
+        "predicates",
+        "blocked",
+        "fail",
+        "unconfirmed",
+        "contradictions",
+        "ignored_runner_declarations",
+        "trusted_configuration",
+        "nonclaims"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "inr.xr.adapter_result.v0"
+        },
+        "result_kind": {
+          "const": "EXTERNAL_BUNDLE_ADAPTER_RESULT"
+        },
+        "classification": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNCONFIRMED",
+            "BLOCKED"
+          ]
+        },
+        "classification_scope": {
+          "const": "ADAPTER_BUNDLE_ONLY"
+        },
+        "adapter_bundle_pass": {
+          "type": "boolean"
+        },
+        "inr_external_reconstruction_pass": {
+          "const": false
+        },
+        "fresh_local_inr_pass": {
+          "const": false
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bundle_integrity",
+            "trusted_reference_binding"
+          ],
+          "properties": {
+            "bundle_integrity": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "trusted_reference_binding": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            }
+          }
+        },
+        "predicates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runner_identity_established",
+            "fresh_hosted_runner_candidate",
+            "fresh_workspace_established",
+            "independent_acquisition_established",
+            "no_shared_origin_filesystem_evidence",
+            "no_shared_mutable_cache_evidence",
+            "python_311_established",
+            "git_identity_established",
+            "protected_tree_isolation_established",
+            "current_event_capture_established"
+          ],
+          "properties": {
+            "runner_identity_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "fresh_hosted_runner_candidate": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "fresh_workspace_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "independent_acquisition_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "no_shared_origin_filesystem_evidence": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "no_shared_mutable_cache_evidence": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "python_311_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "git_identity_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "protected_tree_isolation_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            },
+            "current_event_capture_established": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "UNCONFIRMED",
+                "BLOCKED",
+                "NOT_ESTABLISHED"
+              ]
+            }
+          }
+        },
+        "blocked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fail": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unconfirmed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contradictions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignored_runner_declarations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trusted_configuration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_sha",
+            "target_profile_id",
+            "target_profile_digest",
+            "origin_reference_set_id",
+            "origin_reference_set_digest"
+          ],
+          "properties": {
+            "target_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "target_profile_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_profile_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "origin_reference_set_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "origin_reference_set_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "nonclaims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}
