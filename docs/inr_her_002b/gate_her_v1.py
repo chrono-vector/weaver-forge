@@ -232,8 +232,8 @@ def _assess_phase2a(produced: object) -> dict:
         return _rejected(
             "HER_CHECK_INVENTORY_REJECTED",
             "REJECTED",
-            status if valid_status else "BLOCKED",
-            reason if valid_reason else "HER_CHECK_INVENTORY_REJECTED",
+            "BLOCKED",
+            "HER_CHECK_INVENTORY_REJECTED",
         )
     if not valid_status:
         return _rejected("HER_PHASE2A_PASS_FORBIDDEN", "ACCEPTED", "BLOCKED", "HER_PHASE2A_PASS_FORBIDDEN")
@@ -242,8 +242,8 @@ def _assess_phase2a(produced: object) -> dict:
         return _rejected(
             "HER_PHASE2A_RESULT_REJECTED",
             "ACCEPTED",
-            status if valid_status else "BLOCKED",
-            reason if valid_reason else "HER_PHASE2A_RESULT_REJECTED",
+            "BLOCKED",
+            "HER_PHASE2A_RESULT_REJECTED",
         )
     try:
         plain = _plain_phase2a(produced)

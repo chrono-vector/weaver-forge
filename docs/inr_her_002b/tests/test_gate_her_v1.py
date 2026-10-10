@@ -530,6 +530,93 @@ class Phase2BR3Tests(Phase2BCommon):
                     evaluate_phase2b(synthetic_event(), _quiet())
 
 
+class Phase2BR4Tests(Phase2BCommon):
+    def test_r4_rejected_inventory_does_not_copy_untrusted_fields(self) -> None:
+        leaked = ("ISOLATION_PASS", "FULL_INR_PASS", "PASS", "HASH_AGREEMENT_ONLY", "R4-ARBITRARY-SENTINEL")
+        for reason in leaked:
+            for status in ("FAIL", "BLOCKED", "UNCONFIRMED", "PASS"):
+                mutated = _phase2a_copy()
+                mutated["checks"] = mutated["checks"][:-1]
+                mutated["overall_status"] = status
+                mutated["overall_reason"] = reason
+                with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+                    result = evaluate_phase2b(synthetic_event(), _quiet())
+                self.assert_blocked(result, "HER_CHECK_INVENTORY_REJECTED")
+                self.assertEqual("REJECTED", result["n4_inventory"])
+                self.assertEqual("BLOCKED", result["phase2a_overall_status"])
+                self.assertEqual("HER_CHECK_INVENTORY_REJECTED", result["phase2a_overall_reason"])
+                self.assertEqual([], result["phase2a_checks"])
+                self.assertNotIn(reason, json.dumps(result))
+
+    def test_r4_rejected_schema_does_not_copy_untrusted_fields(self) -> None:
+        for reason in ("ISOLATION_PASS", "FULL_INR_PASS", "PASS", "HASH_AGREEMENT_ONLY", "R4-SCHEMA-SENTINEL"):
+            mutated = _phase2a_copy()
+            mutated["pins"]["python_pin_status"] = "RATIFIED"
+            mutated["overall_status"] = "FAIL"
+            mutated["overall_reason"] = reason
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+                result = evaluate_phase2b(synthetic_event(), _quiet())
+            self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("ACCEPTED", result["n4_inventory"])
+            self.assertEqual("BLOCKED", result["phase2a_overall_status"])
+            self.assertEqual("HER_PHASE2A_RESULT_REJECTED", result["phase2a_overall_reason"])
+            self.assertEqual([], result["phase2a_checks"])
+            self.assertNotIn(reason, json.dumps(result))
+            self.assertNotIn("FAIL", json.dumps(result["phase2a_overall_status"]))
+
+    def test_r4_hostile_nested_key_does_not_copy_phase2a_reason(self) -> None:
+        mutated = _phase2a_copy()
+        mutated["overall_status"] = "UNCONFIRMED"
+        mutated["overall_reason"] = "FULL_INR_PASS"
+        _collide(mutated["pins"], "python_pin_status", ValueError, "R4-HOSTILE-VALUE")
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+        self.assertEqual("ACCEPTED", result["n4_inventory"])
+        self.assertEqual("BLOCKED", result["phase2a_overall_status"])
+        self.assertEqual("HER_PHASE2A_RESULT_REJECTED", result["phase2a_overall_reason"])
+        encoded = json.dumps(result)
+        self.assertNotIn("FULL_INR_PASS", encoded)
+        self.assertNotIn("UNCONFIRMED", result["phase2a_overall_status"])
+        self.assertNotIn("UNCONFIRMED", result["phase2a_overall_reason"])
+        self.assertNotIn("R4-HOSTILE-VALUE", encoded)
+        self.assertNotIn("R3-BOOM", encoded)
+
+    def test_r4_invalid_status_reason_combination_is_not_copied(self) -> None:
+        mutated = _phase2a_copy()
+        mutated["overall_status"] = "UNCONFIRMED"
+        mutated["overall_reason"] = "ISOLATION_PASS"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_CONTRADICTION")
+        self.assertEqual("BLOCKED", result["phase2a_overall_status"])
+        self.assertEqual("HER_PHASE2A_RESULT_CONTRADICTION", result["phase2a_overall_reason"])
+        self.assertNotIn("ISOLATION_PASS", json.dumps(result))
+        self.assertNotIn("UNCONFIRMED", result["phase2a_overall_status"])
+        self.assertNotIn("UNCONFIRMED", result["phase2a_overall_reason"])
+
+    def test_r4_accepted_phase2a_result_is_unchanged(self) -> None:
+        event = synthetic_event()
+        observation = _quiet()
+        expected = evaluate_phase2a(event, observation)
+        result = evaluate_phase2b(event, observation)
+        self.assertEqual(expected["overall_status"], result["overall_status"])
+        self.assertEqual(expected["overall_reason"], result["overall_reason"])
+        self.assertEqual(expected["overall_status"], result["phase2a_overall_status"])
+        self.assertEqual(expected["overall_reason"], result["phase2a_overall_reason"])
+        self.assertEqual(expected["checks"], result["phase2a_checks"])
+        self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r4_seal_failure_still_propagates(self) -> None:
+        with mock.patch(
+            "docs.inr_her_002b.gate_her_v1.phase2b_inventory_errors",
+            return_value=("malformed",),
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                evaluate_phase2b(synthetic_event(), _quiet())
+        self.assertIn("phase 2B check inventory drifted", str(caught.exception))
+
+
 class Phase2BPreservationTests(unittest.TestCase):
     def test_accepted_phase1_phase2a_and_r3_bytes_are_unchanged(self) -> None:
         completed = subprocess.run(
