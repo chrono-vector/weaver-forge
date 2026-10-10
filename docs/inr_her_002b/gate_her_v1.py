@@ -130,9 +130,11 @@ def phase2b_inventory_errors(checks: object) -> tuple[str, ...]:
 def evaluate_phase2b(document: object = None, observation: object = None, freshness: object = None) -> dict:
     """Return a structured non-PASS verdict.
 
-    Unhashable or unsupported privileges and claimed_status values never reach
-    Phase 2A. A Phase 2A check list that is missing, repeated, unexpected, or
-    malformed is discarded even when the Phase 2A schema accepts it.
+    Unhashable, hostile, or unsupported privileges and claimed_status values
+    never reach Phase 2A. A Phase 2A check list that is missing, repeated,
+    unexpected, or malformed is discarded even when the Phase 2A schema accepts it.
+    Exception raised by an untrusted key comparison becomes a BLOCKED result.
+    BaseException does not.
     """
     privileges_state, claimed_state, rejection = _classify_n3(observation)
     if rejection:
@@ -186,6 +188,17 @@ def _classify_n3(observation: object) -> tuple[str, str, str]:
         return "ACCEPTED", "ACCEPTED", ""
     if type(observation) is not dict:
         return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED"
+    try:
+        return _classify_observation_dict(observation)
+    except Exception:
+        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED"
+
+
+def _classify_observation_dict(observation: dict) -> tuple[str, str, str]:
+    """Classify one exact dict. Callers catch Exception from its key probes."""
+    for key in observation:
+        if type(key) is not str:
+            return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED"
     privileges_state = "ACCEPTED"
     claimed_state = "ACCEPTED"
     if "privileges" in observation:
@@ -206,11 +219,16 @@ def _classify_n3(observation: object) -> tuple[str, str, str]:
 def _assess_phase2a(produced: object) -> dict:
     if type(produced) is not dict:
         return _rejected("HER_PHASE2A_RESULT_REJECTED", "REJECTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
-    status = produced.get("overall_status")
-    reason = produced.get("overall_reason")
+    try:
+        status = produced.get("overall_status")
+        reason = produced.get("overall_reason")
+        checks = produced.get("checks")
+        inventory = phase2a_inventory_errors(checks)
+    except Exception:
+        return _rejected("HER_PHASE2A_RESULT_REJECTED", "REJECTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
     valid_status = type(status) is str and status in _PHASE2A_STATUSES
     valid_reason = type(reason) is str and bool(reason)
-    if phase2a_inventory_errors(produced.get("checks")):
+    if inventory:
         return _rejected(
             "HER_CHECK_INVENTORY_REJECTED",
             "REJECTED",
@@ -227,7 +245,13 @@ def _assess_phase2a(produced: object) -> dict:
             status if valid_status else "BLOCKED",
             reason if valid_reason else "HER_PHASE2A_RESULT_REJECTED",
         )
-    if _phase2a_contradiction(produced):
+    try:
+        plain = _plain_phase2a(produced)
+    except Exception:
+        return _rejected("HER_PHASE2A_RESULT_REJECTED", "ACCEPTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
+    if plain is None:
+        return _rejected("HER_PHASE2A_RESULT_REJECTED", "ACCEPTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
+    if _phase2a_contradiction(plain):
         return _rejected(
             "HER_PHASE2A_RESULT_CONTRADICTION",
             "ACCEPTED",
@@ -235,24 +259,60 @@ def _assess_phase2a(produced: object) -> dict:
             "HER_PHASE2A_RESULT_CONTRADICTION",
         )
     return {
-        "overall_status": status,
-        "overall_reason": reason,
+        "overall_status": plain["overall_status"],
+        "overall_reason": plain["overall_reason"],
         "n4": "ACCEPTED",
-        "phase2a_status": status,
-        "phase2a_reason": reason,
-        "checks": [
-            {"check_id": item["check_id"], "status": item["status"], "reason": item["reason"]}
-            for item in produced["checks"]
-        ],
+        "phase2a_status": plain["overall_status"],
+        "phase2a_reason": plain["overall_reason"],
+        "checks": plain["checks"],
     }
 
 
 def _phase2a_schema_errors(produced: dict) -> list[str] | None:
-    """Return schema errors. None means schema_check raised on a malformed value."""
+    """Return schema errors. None means schema_check raised Exception on the value."""
     try:
         return schema_check(produced, PHASE2A_RESULT_SCHEMA)
-    except TypeError:
+    except Exception:
         return None
+
+
+def _plain_text(value: object) -> str | None:
+    if type(value) is not str or not value:
+        return None
+    return value
+
+
+def _plain_phase2a(produced: dict) -> dict | None:
+    """Copy the fields the rank reads. Lookups can raise on a hostile key."""
+    checks = []
+    for item in produced["checks"]:
+        if type(item) is not dict:
+            return None
+        copied = {
+            "check_id": _plain_text(item.get("check_id")),
+            "status": _plain_text(item.get("status")),
+            "reason": _plain_text(item.get("reason")),
+        }
+        if None in copied.values():
+            return None
+        checks.append({
+            "check_id": copied["check_id"],
+            "status": copied["status"],
+            "reason": copied["reason"],
+        })
+    overall_status = _plain_text(produced.get("overall_status"))
+    overall_reason = _plain_text(produced.get("overall_reason"))
+    phase1_status = _plain_text(produced.get("phase1_overall_status"))
+    phase1_reason = _plain_text(produced.get("phase1_overall_reason"))
+    if None in (overall_status, overall_reason, phase1_status, phase1_reason):
+        return None
+    return {
+        "checks": checks,
+        "overall_status": overall_status,
+        "overall_reason": overall_reason,
+        "phase1_overall_status": phase1_status,
+        "phase1_overall_reason": phase1_reason,
+    }
 
 
 def _phase2a_contradiction(produced: dict) -> bool:

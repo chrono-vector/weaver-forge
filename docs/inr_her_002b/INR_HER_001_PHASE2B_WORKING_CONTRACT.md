@@ -16,7 +16,7 @@ Accepted Phase 1, Phase 2A, r3, and AWI files stay byte-for-byte with that Human
 
 ## Five separate layers
 
-Structured BLOCKED outcomes are objects returned by `evaluate_phase2b`. `overall_status` is FAIL, BLOCKED, or UNCONFIRMED. The function does not raise for invalid privileges, invalid claimed_status, a non-dict observation, or a malformed Phase 2A result. It does not emit PASS.
+Structured BLOCKED outcomes are objects returned by `evaluate_phase2b`. `overall_status` is FAIL, BLOCKED, or UNCONFIRMED. The function does not raise for invalid privileges, invalid claimed_status, a non-dict observation, a hostile observation key, or a malformed Phase 2A result. It does not emit PASS.
 
 Schema-level validation is `schema_check` over the closed vocabulary in `docs/inr_001/schema_check.py`: type, const, enum, properties, required, additionalProperties, items, minItems, minLength, and pattern. That vocabulary has no `uniqueItems` and no `maxItems`. `assert_schema_contract` rejects those keywords. A Phase 2A or Phase 2B checks array can repeat a legal entry and still pass schema validation.
 
@@ -36,6 +36,8 @@ Supported `claimed_status` is an exact `str`, including the Phase 2A pass-claim 
 
 `observation is None` is the supported omitted observation. Any other non-dict is rejected and is not replaced with `{}`.
 
+An exact dict is supported only when every key is an exact `str`. A non-string key is rejected by `type` before any key comparison, including when that key's hash collides with `privileges` or `claimed_status`. If a later probe of that dict raises `Exception`, including `TypeError`, `ValueError`, or `RecursionError`, the same rejection is returned. `BaseException`, including `KeyboardInterrupt` and `SystemExit`, is not caught. This classification happens before `evaluate_phase2a`.
+
 Rejection reasons, in priority order, are `HER_OBSERVATION_INPUT_REJECTED`, `HER_PRIVILEGE_INPUT_REJECTED`, and `HER_CLAIMED_STATUS_INPUT_REJECTED`. The result does not echo the rejected value. `phase2a_delegated` is false.
 
 Supported inputs are passed through. Their overall status and reason remain the Phase 2A result. That preservation is not an isolation PASS.
@@ -46,11 +48,25 @@ After a supported call returns, Phase 2B applies the runtime inventory rule to `
 
 - `HER_CHECK_INVENTORY_REJECTED`: the check list is missing, repeated, unexpected, reordered, or malformed. `n4_inventory` is `REJECTED`. The list is not copied.
 - `HER_PHASE2A_PASS_FORBIDDEN`: the check list matches the runtime inventory and `overall_status` is outside FAIL, BLOCKED, and UNCONFIRMED. `n4_inventory` stays `ACCEPTED`. The result is still BLOCKED, and no PASS status is stored.
-- `HER_PHASE2A_RESULT_REJECTED`: the check list matches and schema validation fails, or `schema_check` raises TypeError on a malformed value such as a non-string object key. That TypeError is caught only around the Phase 2A schema call. It is not a blanket around Phase 2B. `n4_inventory` stays `ACCEPTED` when the check list itself matched. The rejected value is not copied.
+- `HER_PHASE2A_RESULT_REJECTED`: the returned object is not a usable Phase 2A result. Reading `overall_status`, `overall_reason`, or `checks`, or running the runtime inventory, can raise `Exception` when a key hash collides and `__eq__` raises `TypeError`, `ValueError`, or `RecursionError`. That probe is caught and `n4_inventory` is `REJECTED` because the check list was not confirmed. After the check list matches, `schema_check` and the copy of rank fields are a second probe. `Exception` there, including the same three types and a non-string key that makes `schema_check` raise, becomes this reason with `n4_inventory` `ACCEPTED`. These catches are not a blanket around Phase 2B. `BaseException`, including `KeyboardInterrupt` and `SystemExit`, is not caught. The rejected value is not copied.
 - `HER_PHASE2A_RESULT_CONTRADICTION`: the result is schema-valid and its check list matches the runtime inventory, but it cannot be an accepted Phase 2A ranking. Each check status and reason must be a pair emitted by that check in `preflight_her_v1.py`. `phase1_overall_status` `NOT_DELEGATED` requires reason `NOT_DELEGATED` and adds no ranking contribution. Any other Phase 1 status contributes its reason. Overall status and reason must then equal the accepted Phase 2A priority rule, including an unknown reason sorting ahead of known reasons inside one status. `PASS`, `HASH_AGREEMENT_ONLY`, `FRESH`, `ISOLATION_PASS`, and `FULL_INR_PASS` are not result reasons. `n4_inventory` stays `ACCEPTED`. The forged reason is not copied.
 - `HER_PHASE2A_UNSTRUCTURED_ERROR`: Phase 2A raised. The exception text is not copied. `n4_inventory` is `NOT_RUN`.
 
 `ACCEPTED` on `n4_inventory` means only that the check list matched the runtime inventory. It does not mean the schema guarantees uniqueness, and it does not mean isolation.
+
+## Exception boundary
+
+`evaluate_phase2b` catches `Exception` in three places, and nowhere else:
+
+- N3 classification of an exact observation dict, after the `None` and non-dict checks.
+- The first read of a returned Phase 2A object: `overall_status`, `overall_reason`, `checks`, and the runtime inventory.
+- `schema_check` of that object, and the copy of the fields the rank reads, only after the inventory matched.
+
+The rank and contradiction rules then run on that copy. Those rules are outside the catch. `_seal` is outside the catch: an internally invalid Phase 2B result still raises `RuntimeError`. The existing `Exception` boundary around `evaluate_phase2a` is unchanged and still returns `HER_PHASE2A_UNSTRUCTURED_ERROR`. Accepted `schema_check` is not edited.
+
+`MemoryError` and other ordinary `Exception` values raised by those probes become the structured BLOCKED result for that probe. They are not distinguished from a hostile key. `KeyboardInterrupt`, `SystemExit`, and any other `BaseException` still propagate.
+
+A non-string observation key is rejected by `type` before its methods run. A key that does not raise during these probes is not otherwise sanitized. This boundary does not limit CPU or memory use, and it does not change the accepted Phase 1 direct-entry `TypeError`.
 
 ## Inherited limits
 

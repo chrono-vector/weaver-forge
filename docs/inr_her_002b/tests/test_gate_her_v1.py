@@ -414,6 +414,122 @@ class Phase2BRepairTests(Phase2BCommon):
         self.assertNotEqual("PASS", result["overall_status"])
 
 
+class _CollidingKey:
+    """Dict key whose hash collides with a string and whose equality can raise."""
+
+    def __init__(self, target: str, exc: type[BaseException]) -> None:
+        self._target = target
+        self._exc = exc
+        self.armed = False
+
+    def __hash__(self) -> int:
+        return hash(self._target)
+
+    def __eq__(self, other: object) -> bool:
+        if self.armed:
+            raise self._exc("R3-BOOM")
+        return False
+
+
+def _collide(mapping: dict, target: str, exc: type[BaseException], sentinel: str) -> None:
+    key = _CollidingKey(target, exc)
+    mapping[key] = sentinel
+    key.armed = True
+
+
+class Phase2BR3Tests(Phase2BCommon):
+    def test_r3_m1_top_level_colliding_keys_are_structured(self) -> None:
+        for exc in (TypeError, ValueError, RecursionError):
+            only = {}
+            _collide(only, "overall_status", exc, "R3-TOP-ONLY")
+            alongside = _phase2a_copy()
+            _collide(alongside, "overall_status", exc, "R3-TOP-ALONGSIDE")
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=only):
+                only_result = evaluate_phase2b(synthetic_event(), _quiet())
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=alongside):
+                alongside_result = evaluate_phase2b(synthetic_event(), _quiet())
+            self.assert_blocked(only_result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("REJECTED", only_result["n4_inventory"])
+            self.assert_blocked(alongside_result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("ACCEPTED", alongside_result["n4_inventory"])
+            for result in (only_result, alongside_result):
+                encoded = json.dumps(result)
+                self.assertNotIn("R3-TOP", encoded)
+                self.assertNotIn("R3-BOOM", encoded)
+                self.assertEqual([], result["phase2a_checks"])
+                self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r3_m1_nested_colliding_keys_are_structured(self) -> None:
+        for exc in (TypeError, ValueError, RecursionError):
+            pins = _phase2a_copy()
+            _collide(pins["pins"], "python_pin_status", exc, "R3-PINS")
+            checks = _phase2a_copy()
+            _collide(checks["checks"][0], "check_id", exc, "R3-CHECK")
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=pins):
+                pin_result = evaluate_phase2b(synthetic_event(), _quiet())
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=checks):
+                check_result = evaluate_phase2b(synthetic_event(), _quiet())
+            self.assert_blocked(pin_result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("ACCEPTED", pin_result["n4_inventory"])
+            self.assert_blocked(check_result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("REJECTED", check_result["n4_inventory"])
+            for result, sentinel in ((pin_result, "R3-PINS"), (check_result, "R3-CHECK")):
+                encoded = json.dumps(result)
+                self.assertNotIn(sentinel, encoded)
+                self.assertNotIn("R3-BOOM", encoded)
+                self.assertEqual([], result["phase2a_checks"])
+                self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r3_m2_observation_colliding_keys_are_rejected_before_delegation(self) -> None:
+        cases = []
+        for exc in (TypeError, ValueError, RecursionError):
+            privileges_only = _quiet()
+            del privileges_only["privileges"]
+            _collide(privileges_only, "privileges", exc, "R3-OBS-PRIV")
+            claimed = _quiet()
+            _collide(claimed, "claimed_status", exc, "R3-OBS-CLAIM")
+            alongside = _quiet()
+            _collide(alongside, "privileges", exc, "R3-OBS-BOTH")
+            cases.extend((privileges_only, claimed, alongside))
+        for observation in cases:
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a") as gate:
+                gate.side_effect = AssertionError("phase2a delegated")
+                result = evaluate_phase2b(synthetic_event(), observation)
+            self.assertFalse(gate.called)
+            self.assert_blocked(result, "HER_OBSERVATION_INPUT_REJECTED")
+            self.assert_not_delegated(result)
+            self.assertEqual("REJECTED", result["n3_privileges"])
+            self.assertEqual("REJECTED", result["n3_claimed_status"])
+            encoded = json.dumps(result)
+            self.assertNotIn("R3-OBS", encoded)
+            self.assertNotIn("R3-BOOM", encoded)
+            self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r3_json_shaped_input_stays_compatible(self) -> None:
+        event = synthetic_event()
+        observation = _quiet()
+        expected = evaluate_phase2a(event, observation)
+        direct = evaluate_phase2b(event, observation)
+        forged = json.loads(json.dumps(expected))
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=forged):
+            replayed = evaluate_phase2b(event, json.loads(json.dumps(observation)))
+        for result in (direct, replayed):
+            self.assertEqual(expected["overall_status"], result["overall_status"])
+            self.assertEqual(expected["overall_reason"], result["overall_reason"])
+            self.assertEqual(expected["checks"], result["phase2a_checks"])
+            self.assertNotEqual("PASS", result["overall_status"])
+            self.assertTrue(result["phase2a_delegated"])
+            self.assertEqual("ACCEPTED", result["n4_inventory"])
+
+    def test_r3_base_exceptions_still_propagate(self) -> None:
+        for exc in (SystemExit, KeyboardInterrupt):
+            forged = {}
+            _collide(forged, "overall_status", exc, "R3-BASE")
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=forged):
+                with self.assertRaises(exc):
+                    evaluate_phase2b(synthetic_event(), _quiet())
+
+
 class Phase2BPreservationTests(unittest.TestCase):
     def test_accepted_phase1_phase2a_and_r3_bytes_are_unchanged(self) -> None:
         completed = subprocess.run(
