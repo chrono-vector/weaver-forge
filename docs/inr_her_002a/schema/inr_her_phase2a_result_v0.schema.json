@@ -1,0 +1,106 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "overall_status",
+    "overall_reason",
+    "checks",
+    "pins",
+    "nonclaims",
+    "n1_source_edited",
+    "n1_phase1_edit",
+    "phase1_overall_status",
+    "phase1_overall_reason",
+    "freshness_procedure",
+    "pin_procedure"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.her.phase2a.result.v0"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["FAIL", "BLOCKED", "UNCONFIRMED"]
+    },
+    "overall_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "reason"],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "enum": [
+              "schema_version",
+              "platform",
+              "cpython_identity",
+              "cpython_pin",
+              "mingit_identity",
+              "mingit_pin",
+              "privileges",
+              "git_execution_path",
+              "git_config",
+              "event_freshness",
+              "claim_boundary"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["FAIL", "BLOCKED", "UNCONFIRMED"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python_pin_status", "git_pin_status", "python_sha256", "git_sha256"],
+      "properties": {
+        "python_pin_status": {"type": "string", "const": "PIN_PENDING"},
+        "git_pin_status": {"type": "string", "const": "UNRATIFIED"},
+        "python_sha256": {"type": "null", "const": null},
+        "git_sha256": {"type": "null", "const": null}
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 12,
+      "items": {"type": "string", "minLength": 1},
+      "const": [
+        "phase1_source_edited",
+        "restricted_token_isolation",
+        "job_containment",
+        "event_freshness",
+        "independent_external_witness",
+        "full_inr_pass",
+        "human_final",
+        "production_authority",
+        "external_run",
+        "python_3_11_9_sha256_ratified",
+        "mingit_digest_ratified",
+        "privileged_windows_tests_executed"
+      ]
+    },
+    "n1_source_edited": {"type": "boolean", "const": false},
+    "n1_phase1_edit": {"type": "string", "const": "STOPPED"},
+    "phase1_overall_status": {
+      "type": "string",
+      "enum": ["NOT_DELEGATED", "FAIL", "BLOCKED", "UNCONFIRMED"]
+    },
+    "phase1_overall_reason": {"type": "string", "minLength": 1},
+    "freshness_procedure": {"type": "string", "const": "N2_EXTERNAL_BINDING_UNEXECUTED"},
+    "pin_procedure": {"type": "string", "const": "AUTHENTICATED_SHA256_UNEXECUTED"}
+  }
+}
