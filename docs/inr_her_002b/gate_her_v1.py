@@ -1,9 +1,11 @@
 """Phase 2B gate for privileges, claimed_status, and check inventory.
 
-Supported Phase 2A inputs are delegated unchanged. Invalid privilege and
-claimed_status inputs are refused here, before that delegation. Check-list
-uniqueness is a runtime invariant. Schema validation does not establish it.
-This module does not edit accepted files, create a token or Job, or emit PASS.
+Supported Phase 2A inputs are delegated from an owned mapping snapshot.
+Invalid privilege and claimed_status inputs are refused here, before that
+delegation. A returned Phase 2A object is copied once into owned plain data.
+Later checks read that copy. Check-list uniqueness is a runtime invariant.
+Schema validation does not establish it. This module does not edit accepted
+files, create a token or Job, or emit PASS.
 """
 
 from __future__ import annotations
@@ -96,6 +98,19 @@ _EMITTED_PAIRS = {
     }),
 }
 _PROBLEM_ORDER = ("not_list", "malformed", "repeated", "missing", "unexpected", "status", "reason")
+_MISSING = object()
+_PHASE2A_STRING_FIELDS = (
+    "schema_version",
+    "overall_status",
+    "overall_reason",
+    "n1_phase1_edit",
+    "phase1_overall_status",
+    "phase1_overall_reason",
+    "freshness_procedure",
+    "pin_procedure",
+)
+_PIN_STRING_FIELDS = ("python_pin_status", "git_pin_status")
+_PIN_NULL_FIELDS = ("python_sha256", "git_sha256")
 NONCLAIMS = (
     "phase1_source_edited",
     "restricted_token_isolation",
@@ -131,12 +146,13 @@ def evaluate_phase2b(document: object = None, observation: object = None, freshn
     """Return a structured non-PASS verdict.
 
     Unhashable, hostile, or unsupported privileges and claimed_status values
-    never reach Phase 2A. A Phase 2A check list that is missing, repeated,
-    unexpected, or malformed is discarded even when the Phase 2A schema accepts it.
-    Exception raised by an untrusted key comparison becomes a BLOCKED result.
-    BaseException does not.
+    never reach Phase 2A. The observation mapping is snapshotted before
+    delegation. A Phase 2A check list that is missing, repeated, unexpected,
+    or malformed is discarded even when the Phase 2A schema accepts it.
+    Inventory, schema checks, and output use one owned plain snapshot of the
+    Phase 2A result. BaseException is not caught.
     """
-    privileges_state, claimed_state, rejection = _classify_n3(observation)
+    privileges_state, claimed_state, rejection, delegated_observation = _classify_n3(observation)
     if rejection:
         return _seal(_result(
             overall_status="BLOCKED",
@@ -152,7 +168,7 @@ def evaluate_phase2b(document: object = None, observation: object = None, freshn
             delegation_reason="HER_PHASE2A_NOT_DELEGATED",
         ))
     try:
-        produced = evaluate_phase2a(document, observation, freshness)
+        produced = evaluate_phase2a(document, delegated_observation, freshness)
     except Exception:
         return _seal(_result(
             overall_status="BLOCKED",
@@ -183,15 +199,40 @@ def evaluate_phase2b(document: object = None, observation: object = None, freshn
     ))
 
 
-def _classify_n3(observation: object) -> tuple[str, str, str]:
+def _classify_n3(observation: object) -> tuple[str, str, str, dict | None]:
+    """Classify privileges from an owned mapping. The fourth value is delegated."""
     if observation is None:
-        return "ACCEPTED", "ACCEPTED", ""
+        return "ACCEPTED", "ACCEPTED", "", None
     if type(observation) is not dict:
-        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED"
+        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED", None
     try:
-        return _classify_observation_dict(observation)
+        copied = _snapshot_observation(observation)
     except Exception:
-        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED"
+        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED", None
+    if copied is None:
+        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED", None
+    try:
+        privileges_state, claimed_state, rejection = _classify_observation_dict(copied)
+    except Exception:
+        return "REJECTED", "REJECTED", "HER_OBSERVATION_INPUT_REJECTED", None
+    if rejection:
+        return privileges_state, claimed_state, rejection, None
+    return privileges_state, claimed_state, "", copied
+
+
+def _snapshot_observation(observation: dict) -> dict | None:
+    """Copy an exact dict by items. Caller values stay as they are.
+
+    A non-string key is rejected here, before any key comparison. The new
+    mapping is what Phase 2A receives, so a later write to the caller's dict
+    is not visible. Value objects are not deep-copied.
+    """
+    copied = {}
+    for key, value in observation.items():
+        if type(key) is not str:
+            return None
+        copied[key] = value
+    return copied
 
 
 def _classify_observation_dict(observation: dict) -> tuple[str, str, str]:
@@ -220,37 +261,37 @@ def _assess_phase2a(produced: object) -> dict:
     if type(produced) is not dict:
         return _rejected("HER_PHASE2A_RESULT_REJECTED", "REJECTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
     try:
-        status = produced.get("overall_status")
-        reason = produced.get("overall_reason")
-        checks = produced.get("checks")
-        inventory = phase2a_inventory_errors(checks)
+        snap = _snapshot_phase2a(produced)
     except Exception:
         return _rejected("HER_PHASE2A_RESULT_REJECTED", "REJECTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
-    valid_status = type(status) is str and status in _PHASE2A_STATUSES
-    valid_reason = type(reason) is str and bool(reason)
-    if inventory:
+    if snap["unconfirmed"]:
+        return _rejected("HER_PHASE2A_RESULT_REJECTED", "REJECTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
+    if snap["checks_kind"] != "plain" or phase2a_inventory_errors(snap["checks"]):
         return _rejected(
             "HER_CHECK_INVENTORY_REJECTED",
             "REJECTED",
             "BLOCKED",
             "HER_CHECK_INVENTORY_REJECTED",
         )
-    if not valid_status:
+    if snap["status"] not in _PHASE2A_STATUSES:
         return _rejected("HER_PHASE2A_PASS_FORBIDDEN", "ACCEPTED", "BLOCKED", "HER_PHASE2A_PASS_FORBIDDEN")
-    schema_errors = _phase2a_schema_errors(produced)
-    if schema_errors is None or schema_errors or not valid_reason:
+    plain = snap["plain"]
+    reason = "" if plain is None else plain.get("overall_reason")
+    if snap["unsupported"] or plain is None or type(reason) is not str or not reason:
         return _rejected(
             "HER_PHASE2A_RESULT_REJECTED",
             "ACCEPTED",
             "BLOCKED",
             "HER_PHASE2A_RESULT_REJECTED",
         )
-    try:
-        plain = _plain_phase2a(produced)
-    except Exception:
-        return _rejected("HER_PHASE2A_RESULT_REJECTED", "ACCEPTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
-    if plain is None:
-        return _rejected("HER_PHASE2A_RESULT_REJECTED", "ACCEPTED", "BLOCKED", "HER_PHASE2A_RESULT_REJECTED")
+    schema_errors = _phase2a_schema_errors(plain)
+    if schema_errors is None or schema_errors:
+        return _rejected(
+            "HER_PHASE2A_RESULT_REJECTED",
+            "ACCEPTED",
+            "BLOCKED",
+            "HER_PHASE2A_RESULT_REJECTED",
+        )
     if _phase2a_contradiction(plain):
         return _rejected(
             "HER_PHASE2A_RESULT_CONTRADICTION",
@@ -268,51 +309,127 @@ def _assess_phase2a(produced: object) -> dict:
     }
 
 
+def _snapshot_phase2a(produced: dict) -> dict:
+    """Read the untrusted result once into owned plain values.
+
+    This is the only read of that object. Keys are accepted only when
+    type(key) is str. The walk does not call a caller-defined equality or
+    hash method, and it does not follow a value whose type is not the schema
+    leaf. Dict and list copies are new objects. Strings, booleans, and None
+    are immutable and may be reused.
+    """
+    fields: dict[str, object] = {}
+    unsupported_top = False
+    for key, value in produced.items():
+        if type(key) is not str:
+            unsupported_top = True
+            continue
+        fields[key] = value
+    status = fields.get("overall_status")
+    checks_kind, checks = _snapshot_checks(fields.get("checks", _MISSING))
+    plain, unsupported_nested = _snapshot_phase2a_body(fields, checks)
+    unconfirmed = unsupported_top and checks_kind == "absent"
+    return {
+        "unconfirmed": unconfirmed,
+        "checks_kind": checks_kind,
+        "checks": checks,
+        "status": status if type(status) is str else "",
+        "unsupported": unsupported_top or unsupported_nested or plain is None,
+        "plain": None if unsupported_top or unsupported_nested else plain,
+    }
+
+
+def _snapshot_checks(value: object) -> tuple[str, list]:
+    if value is _MISSING:
+        return "absent", []
+    if type(value) is not list:
+        return "not_list", []
+    plain = []
+    for item in list(value):
+        if type(item) is not dict:
+            plain.append({"check_id": None, "status": None, "reason": None})
+            continue
+        copied: dict[str, str | None] = {}
+        for key, field in item.items():
+            if type(key) is not str:
+                return "unsupported", []
+            copied[key] = field if type(field) is str else None
+        plain.append(copied)
+    return "plain", plain
+
+
+def _snapshot_phase2a_body(fields: dict[str, object], checks: list) -> tuple[dict | None, bool]:
+    plain: dict[str, object] = {"checks": checks}
+    unsupported = False
+    for key, value in fields.items():
+        if key == "checks":
+            continue
+        if key in _PHASE2A_STRING_FIELDS:
+            if type(value) is str:
+                plain[key] = value
+            continue
+        if key == "n1_source_edited":
+            if type(value) is bool:
+                plain[key] = value
+            continue
+        if key == "pins":
+            pins, bad = _snapshot_pins(value)
+            if bad:
+                unsupported = True
+            elif pins is not None:
+                plain["pins"] = pins
+            continue
+        if key == "nonclaims":
+            copied, bad = _snapshot_string_list(value)
+            if bad:
+                unsupported = True
+            elif copied is not None:
+                plain["nonclaims"] = copied
+            continue
+        if type(value) is str:
+            plain[key] = value
+        else:
+            unsupported = True
+    if unsupported:
+        return None, True
+    return plain, False
+
+
+def _snapshot_pins(value: object) -> tuple[dict | None, bool]:
+    if type(value) is not dict:
+        return None, False
+    plain: dict[str, object] = {}
+    for key, item in value.items():
+        if type(key) is not str:
+            return None, True
+        if key in _PIN_NULL_FIELDS and item is None:
+            plain[key] = None
+        elif key in _PIN_STRING_FIELDS and type(item) is str:
+            plain[key] = item
+        elif type(item) is str:
+            plain[key] = item
+        else:
+            return None, True
+    return plain, False
+
+
+def _snapshot_string_list(value: object) -> tuple[list[str] | None, bool]:
+    if type(value) is not list:
+        return None, False
+    copied = []
+    for item in list(value):
+        if type(item) is not str or not item:
+            return None, True
+        copied.append(item)
+    return copied, False
+
+
 def _phase2a_schema_errors(produced: dict) -> list[str] | None:
-    """Return schema errors. None means schema_check raised Exception on the value."""
+    """Return schema errors. None means schema_check raised Exception on the snapshot."""
     try:
         return schema_check(produced, PHASE2A_RESULT_SCHEMA)
     except Exception:
         return None
-
-
-def _plain_text(value: object) -> str | None:
-    if type(value) is not str or not value:
-        return None
-    return value
-
-
-def _plain_phase2a(produced: dict) -> dict | None:
-    """Copy the fields the rank reads. Lookups can raise on a hostile key."""
-    checks = []
-    for item in produced["checks"]:
-        if type(item) is not dict:
-            return None
-        copied = {
-            "check_id": _plain_text(item.get("check_id")),
-            "status": _plain_text(item.get("status")),
-            "reason": _plain_text(item.get("reason")),
-        }
-        if None in copied.values():
-            return None
-        checks.append({
-            "check_id": copied["check_id"],
-            "status": copied["status"],
-            "reason": copied["reason"],
-        })
-    overall_status = _plain_text(produced.get("overall_status"))
-    overall_reason = _plain_text(produced.get("overall_reason"))
-    phase1_status = _plain_text(produced.get("phase1_overall_status"))
-    phase1_reason = _plain_text(produced.get("phase1_overall_reason"))
-    if None in (overall_status, overall_reason, phase1_status, phase1_reason):
-        return None
-    return {
-        "checks": checks,
-        "overall_status": overall_status,
-        "overall_reason": overall_reason,
-        "phase1_overall_status": phase1_status,
-        "phase1_overall_reason": phase1_reason,
-    }
 
 
 def _phase2a_contradiction(produced: dict) -> bool:

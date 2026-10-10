@@ -471,7 +471,7 @@ class Phase2BR3Tests(Phase2BCommon):
                 check_result = evaluate_phase2b(synthetic_event(), _quiet())
             self.assert_blocked(pin_result, "HER_PHASE2A_RESULT_REJECTED")
             self.assertEqual("ACCEPTED", pin_result["n4_inventory"])
-            self.assert_blocked(check_result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assert_blocked(check_result, "HER_CHECK_INVENTORY_REJECTED")
             self.assertEqual("REJECTED", check_result["n4_inventory"])
             for result, sentinel in ((pin_result, "R3-PINS"), (check_result, "R3-CHECK")):
                 encoded = json.dumps(result)
@@ -523,11 +523,27 @@ class Phase2BR3Tests(Phase2BCommon):
 
     def test_r3_base_exceptions_still_propagate(self) -> None:
         for exc in (SystemExit, KeyboardInterrupt):
-            forged = {}
-            _collide(forged, "overall_status", exc, "R3-BASE")
-            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=forged):
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", side_effect=exc):
                 with self.assertRaises(exc):
                     evaluate_phase2b(synthetic_event(), _quiet())
+
+            class _CountingKey:
+                calls = 0
+
+                def __hash__(self) -> int:
+                    return hash("overall_status")
+
+                def __eq__(self, other: object) -> bool:
+                    type(self).calls += 1
+                    raise exc("R3-BASE")
+
+            forged = {_CountingKey(): "R3-BASE"}
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=forged):
+                result = evaluate_phase2b(synthetic_event(), _quiet())
+            self.assertEqual(0, _CountingKey.calls)
+            self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("REJECTED", result["n4_inventory"])
+            self.assertNotIn("R3-BASE", json.dumps(result))
 
 
 class Phase2BR4Tests(Phase2BCommon):
@@ -608,6 +624,187 @@ class Phase2BR4Tests(Phase2BCommon):
         self.assertNotEqual("PASS", result["overall_status"])
 
     def test_r4_seal_failure_still_propagates(self) -> None:
+        with mock.patch(
+            "docs.inr_her_002b.gate_her_v1.phase2b_inventory_errors",
+            return_value=("malformed",),
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                evaluate_phase2b(synthetic_event(), _quiet())
+        self.assertIn("phase 2B check inventory drifted", str(caught.exception))
+
+
+class _MutatingKey:
+    """Non-raising key. Equality rewrites the check list on a chosen call."""
+
+    def __init__(self, checks: list, mutate_on: int) -> None:
+        self._checks = checks
+        self._mutate_on = mutate_on
+        self.calls = 0
+
+    def __hash__(self) -> int:
+        return hash("checks")
+
+    def __eq__(self, other: object) -> bool:
+        self.calls += 1
+        if self.calls == self._mutate_on:
+            original = [dict(item) for item in self._checks]
+            self._checks.clear()
+            self._checks.extend(reversed(original))
+            self._checks.append(dict(original[0]))
+            self._checks.append(dict(original[1]))
+            return other == "checks"
+        return False
+
+
+class _PlatformMutator:
+    """Value equality rewrites the caller's observation mapping."""
+
+    def __init__(self, observation: dict) -> None:
+        self._observation = observation
+        self.calls = 0
+
+    def __eq__(self, other: object) -> bool:
+        self.calls += 1
+        self._observation["privileges"] = "ENABLED"
+        self._observation["claimed_status"] = "NM2-SECRET"
+        return other == "WINDOWS_X64"
+
+
+class Phase2BR5Tests(Phase2BCommon):
+    def test_r5_m1_mutation_during_comparison_is_not_published(self) -> None:
+        produced = _phase2a_copy()
+        key = _MutatingKey(produced["checks"], 2)
+        produced[key] = produced["checks"]
+        calls_after_insert = key.calls
+        before = [item["check_id"] for item in produced["checks"]]
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=produced):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        published = [item["check_id"] for item in result["phase2a_checks"]]
+        self.assertGreater(calls_after_insert, 0)
+        self.assertEqual(calls_after_insert, key.calls)
+        self.assertEqual(before, [item["check_id"] for item in produced["checks"]])
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+        self.assertEqual("ACCEPTED", result["n4_inventory"])
+        self.assertEqual([], published)
+        self.assertEqual("BLOCKED", result["phase2a_overall_status"])
+        self.assertEqual("HER_PHASE2A_RESULT_REJECTED", result["phase2a_overall_reason"])
+        self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r5_duplicate_reordered_and_appended_checks_stay_rejected(self) -> None:
+        produced = _phase2a_copy()
+        original = [dict(item) for item in produced["checks"]]
+        produced["checks"] = list(reversed(original))
+        produced["checks"].append(dict(original[0]))
+        produced["checks"].append(dict(original[0]))
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=produced):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_CHECK_INVENTORY_REJECTED")
+        self.assertEqual("REJECTED", result["n4_inventory"])
+        self.assertEqual([], result["phase2a_checks"])
+        self.assertEqual((), phase2a_inventory_errors(original))
+
+    def test_r5_hostile_nested_key_and_value_are_not_copied(self) -> None:
+        keyed = _phase2a_copy()
+        _collide(keyed["pins"], "python_pin_status", ValueError, "R5-NESTED-KEY")
+        valued = _phase2a_copy()
+
+        class _Secret:
+            def __eq__(self, other: object) -> bool:
+                return other == "PIN_PENDING"
+
+        valued["pins"]["python_pin_status"] = _Secret()
+        valued["overall_reason"] = "R5-NESTED-VALUE"
+        for produced, sentinel in ((keyed, "R5-NESTED-KEY"), (valued, "R5-NESTED-VALUE")):
+            with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=produced):
+                result = evaluate_phase2b(synthetic_event(), _quiet())
+            self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+            self.assertEqual("ACCEPTED", result["n4_inventory"])
+            self.assertEqual([], result["phase2a_checks"])
+            encoded = json.dumps(result)
+            self.assertNotIn(sentinel, encoded)
+            self.assertNotIn("R3-BOOM", encoded)
+            self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r5_malformed_and_cyclic_inputs_are_blocked(self) -> None:
+        cyclic_checks = _phase2a_copy()
+        cyclic_checks["checks"].append(cyclic_checks["checks"])
+        cyclic_pins = _phase2a_copy()
+        cyclic_pins["pins"]["python_pin_status"] = cyclic_pins["pins"]
+        cyclic_value = _phase2a_copy()
+        cyclic_value["checks"][0]["reason"] = cyclic_value
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=cyclic_checks):
+            checks_result = evaluate_phase2b(synthetic_event(), _quiet())
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=cyclic_pins):
+            pins_result = evaluate_phase2b(synthetic_event(), _quiet())
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=cyclic_value):
+            value_result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(checks_result, "HER_CHECK_INVENTORY_REJECTED")
+        self.assertEqual([], checks_result["phase2a_checks"])
+        self.assert_blocked(pins_result, "HER_PHASE2A_RESULT_REJECTED")
+        self.assertEqual("ACCEPTED", pins_result["n4_inventory"])
+        self.assertEqual([], pins_result["phase2a_checks"])
+        self.assert_blocked(value_result, "HER_CHECK_INVENTORY_REJECTED")
+        self.assertEqual([], value_result["phase2a_checks"])
+        self.assertNotEqual("PASS", pins_result["overall_status"])
+
+    def test_r5_legitimate_phase2a_output_is_preserved(self) -> None:
+        event = synthetic_event()
+        observation = _quiet()
+        expected = evaluate_phase2a(event, observation)
+        result = evaluate_phase2b(event, observation)
+        self.assertEqual(expected["overall_status"], result["overall_status"])
+        self.assertEqual(expected["overall_reason"], result["overall_reason"])
+        self.assertEqual(expected["checks"], result["phase2a_checks"])
+        self.assertEqual("ACCEPTED", result["n4_inventory"])
+        self.assertNotEqual("PASS", result["overall_status"])
+        self.assertIsNot(result["phase2a_checks"], expected["checks"])
+        self.assertIsNot(result["phase2a_checks"][0], expected["checks"][0])
+
+    def test_r5_supported_observation_stays_compatible(self) -> None:
+        event = synthetic_event()
+        observation = _quiet(privileges="ENABLED", claimed_status="no")
+        expected = evaluate_phase2a(event, observation)
+        result = evaluate_phase2b(event, observation)
+        self.assertEqual(expected["overall_status"], result["overall_status"])
+        self.assertEqual(expected["overall_reason"], result["overall_reason"])
+        self.assertEqual(expected["checks"], result["phase2a_checks"])
+        self.assertEqual("ACCEPTED", result["n3_privileges"])
+        self.assertEqual("ACCEPTED", result["n3_claimed_status"])
+        self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r5_nm2_observation_mapping_is_snapshotted_before_delegation(self) -> None:
+        observation = _quiet(privileges="ABSENT")
+        observation["platform"] = _PlatformMutator(observation)
+        result = evaluate_phase2b(synthetic_event(), observation)
+        privileges = [item for item in result["phase2a_checks"] if item["check_id"] == "privileges"]
+        claim = [item for item in result["phase2a_checks"] if item["check_id"] == "claim_boundary"]
+        self.assertEqual("ENABLED", observation["privileges"])
+        self.assertEqual("NM2-SECRET", observation["claimed_status"])
+        self.assertEqual(1, len(privileges))
+        self.assertEqual("HER_TOKEN_PRIVILEGE_UNAVAILABLE", privileges[0]["reason"])
+        self.assertEqual("HER_NO_PASS_CLAIM", claim[0]["reason"])
+        self.assertNotIn("NM2-SECRET", json.dumps(result))
+        self.assertEqual("ACCEPTED", result["n3_privileges"])
+        self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_r5_output_is_not_aliased_to_the_phase2a_result(self) -> None:
+        produced = _phase2a_copy()
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=produced):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assertIsNot(result["phase2a_checks"], produced["checks"])
+        self.assertIsNot(result["phase2a_checks"][0], produced["checks"][0])
+        saved = json.loads(json.dumps(result["phase2a_checks"]))
+        produced["checks"].clear()
+        produced["checks"].append({"check_id": "schema_version", "status": "PASS", "reason": "FULL_INR_PASS"})
+        produced["overall_reason"] = "ISOLATION_PASS"
+        self.assertEqual(saved, result["phase2a_checks"])
+        self.assertNotIn("FULL_INR_PASS", json.dumps(result))
+        self.assertNotIn("ISOLATION_PASS", json.dumps(result))
+        result["phase2a_checks"][0]["reason"] = "R5-OUTPUT-MUTATION"
+        self.assertNotEqual("R5-OUTPUT-MUTATION", produced["checks"][0]["reason"] if produced["checks"] else "")
+        self.assertNotIn("R5-OUTPUT-MUTATION", json.dumps(produced))
+
+    def test_r5_seal_failure_still_propagates(self) -> None:
         with mock.patch(
             "docs.inr_her_002b.gate_her_v1.phase2b_inventory_errors",
             return_value=("malformed",),
