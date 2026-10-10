@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "evidence_origin",
+    "child_sid",
+    "child_integrity_claim",
+    "child_in_job",
+    "job_observation",
+    "breakaway_requested",
+    "git_config_self_test",
+    "git_ownership_observation",
+    "uses_live_checkout_git",
+    "config_outside_closure",
+    "provider_metadata_as_isolation",
+    "requests_supervisor_edit",
+    "writers_outside_t",
+    "independent_external_witness"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.supervisor.result.v0.r4"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_origin": {
+      "type": "string",
+      "enum": ["CURRENT_EVENT", "HISTORICAL_R3", "RUNNER_FLAG", "FORGED"]
+    },
+    "child_sid": {
+      "type": "string"
+    },
+    "child_integrity_claim": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "LOW_IL", "OTHER"]
+    },
+    "child_in_job": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "INSIDE", "OUTSIDE"]
+    },
+    "job_observation": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "BREAKAWAY", "CLAIMED_CONTAINED"]
+    },
+    "breakaway_requested": {
+      "type": "boolean"
+    },
+    "git_config_self_test": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "FAILED", "CLAIMED_PASS"]
+    },
+    "git_ownership_observation": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "FAILED", "CLAIMED_PASS"]
+    },
+    "uses_live_checkout_git": {
+      "type": "boolean"
+    },
+    "config_outside_closure": {
+      "type": "boolean"
+    },
+    "provider_metadata_as_isolation": {
+      "type": "boolean"
+    },
+    "requests_supervisor_edit": {
+      "type": "boolean"
+    },
+    "writers_outside_t": {
+      "type": "string",
+      "const": "UNCONFIRMED"
+    },
+    "independent_external_witness": {
+      "type": "string",
+      "const": "NOT_CLAIMED"
+    },
+    "acl_observation": {
+      "type": "string",
+      "enum": ["UNVERIFIED", "OMITTED", "CLAIMED_DENY", "CLAIMED_GRANT"]
+    }
+  }
+}

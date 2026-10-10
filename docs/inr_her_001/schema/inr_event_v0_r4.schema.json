@@ -1,0 +1,72 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "accepted_r3_head",
+    "source_head",
+    "host_class",
+    "runner_flags",
+    "trust_base_digest",
+    "python_pin_status",
+    "python_pin_sha256",
+    "git_pin_status",
+    "git_pin_sha256",
+    "supervisor_result",
+    "surface_records"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.event.v0.r4"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "accepted_r3_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "host_class": {
+      "type": "string",
+      "enum": ["WINDOWS_X64", "OTHER"]
+    },
+    "runner_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "trust_base_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "python_pin_status": {
+      "type": "string",
+      "const": "PIN_PENDING"
+    },
+    "python_pin_sha256": {
+      "type": "null"
+    },
+    "git_pin_status": {
+      "type": "string",
+      "const": "UNRATIFIED"
+    },
+    "git_pin_sha256": {
+      "type": "null"
+    },
+    "supervisor_result": {},
+    "surface_records": {
+      "type": "array",
+      "items": {}
+    }
+  }
+}

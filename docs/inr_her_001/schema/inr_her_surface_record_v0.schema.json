@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "surface_role",
+    "evidence_origin",
+    "freeze_sha256",
+    "post_sha256",
+    "listing_sha256",
+    "u_write_denied",
+    "extra_entries",
+    "reparse_escape"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.her.surface_record.v0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "surface_role": {
+      "type": "string",
+      "enum": [
+        "execution_cwd",
+        "staged_validator",
+        "case_inputs",
+        "probe",
+        "interpreter_tree",
+        "git_runtime_tree",
+        "git_snapshot",
+        "git_config_closure",
+        "ledger"
+      ]
+    },
+    "evidence_origin": {
+      "type": "string",
+      "enum": ["CURRENT_EVENT", "HISTORICAL_R3", "RUNNER_FLAG", "FORGED"]
+    },
+    "freeze_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "post_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "listing_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "u_write_denied": {
+      "type": "boolean"
+    },
+    "extra_entries": {
+      "type": "boolean"
+    },
+    "reparse_escape": {
+      "type": "boolean"
+    },
+    "planted_runtime": {
+      "type": "boolean"
+    }
+  }
+}

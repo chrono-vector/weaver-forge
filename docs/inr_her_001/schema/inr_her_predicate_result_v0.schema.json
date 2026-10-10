@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "phase1_ceiling",
+    "privileged_tests",
+    "nonclaims",
+    "predicates",
+    "overall_status",
+    "overall_reason"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.her.predicate_result.v0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase1_ceiling": {
+      "type": "string",
+      "const": "ISOLATION_PASS_UNAVAILABLE"
+    },
+    "privileged_tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "job", "acl", "git_ownership"],
+      "properties": {
+        "token": {"type": "string", "const": "UNVERIFIED"},
+        "job": {"type": "string", "const": "UNVERIFIED"},
+        "acl": {"type": "string", "const": "UNVERIFIED"},
+        "git_ownership": {"type": "string", "const": "UNVERIFIED"}
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 10,
+      "items": {"type": "string", "minLength": 1},
+      "const": [
+        "literal_all_writer_isolation",
+        "writers_outside_t_measured",
+        "independent_external_witness",
+        "full_inr_pass",
+        "human_final",
+        "production_authority",
+        "external_run",
+        "python_3_11_9_sha256_ratified",
+        "mingit_digest_ratified",
+        "privileged_windows_tests_executed"
+      ]
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["predicate_id", "status", "reason"],
+        "properties": {
+          "predicate_id": {
+            "type": "string",
+            "enum": [
+              "her_surface_hash_agreement",
+              "her_u_vs_p",
+              "her_child_contained",
+              "her_git_snapshot_sole_source",
+              "her_git_config_closed",
+              "her_runtime_pinned",
+              "her_git_pin",
+              "writers_outside_t_excluded",
+              "independent_external_witness",
+              "all_writer_isolation_bounded_v1"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PASS", "FAIL", "BLOCKED", "UNCONFIRMED"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "BLOCKED", "UNCONFIRMED"]
+    },
+    "overall_reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
