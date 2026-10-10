@@ -1,0 +1,140 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "overall_status",
+    "overall_reason",
+    "checks",
+    "phase2a_delegated",
+    "phase2a_overall_status",
+    "phase2a_overall_reason",
+    "phase2a_checks",
+    "n3_privileges",
+    "n3_claimed_status",
+    "n4_inventory",
+    "inventory_authority",
+    "schema_uniqueness",
+    "isolation_evidence",
+    "full_inr_ready",
+    "human_final",
+    "n1_phase1_edit",
+    "n2_binding",
+    "nonclaims"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "inr.her.phase2b.result.v0"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["FAIL", "BLOCKED", "UNCONFIRMED"]
+    },
+    "overall_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "reason"],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "enum": [
+              "n3_privileges",
+              "n3_claimed_status",
+              "n4_check_inventory",
+              "phase2a_delegation",
+              "isolation_boundary"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["FAIL", "BLOCKED", "UNCONFIRMED"]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "phase2a_delegated": {"type": "boolean"},
+    "phase2a_overall_status": {
+      "type": "string",
+      "enum": ["NOT_DELEGATED", "FAIL", "BLOCKED", "UNCONFIRMED"]
+    },
+    "phase2a_overall_reason": {"type": "string", "minLength": 1},
+    "phase2a_checks": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "reason"],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "enum": [
+              "schema_version",
+              "platform",
+              "cpython_identity",
+              "cpython_pin",
+              "mingit_identity",
+              "mingit_pin",
+              "privileges",
+              "git_execution_path",
+              "git_config",
+              "event_freshness",
+              "claim_boundary"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["FAIL", "BLOCKED", "UNCONFIRMED"]
+          },
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "n3_privileges": {"type": "string", "enum": ["ACCEPTED", "REJECTED"]},
+    "n3_claimed_status": {"type": "string", "enum": ["ACCEPTED", "REJECTED"]},
+    "n4_inventory": {"type": "string", "enum": ["ACCEPTED", "REJECTED", "NOT_RUN"]},
+    "inventory_authority": {"type": "string", "const": "RUNTIME"},
+    "schema_uniqueness": {"type": "string", "const": "NOT_ESTABLISHED"},
+    "isolation_evidence": {"type": "string", "const": "NOT_ESTABLISHED"},
+    "full_inr_ready": {"type": "boolean", "const": false},
+    "human_final": {"type": "boolean", "const": false},
+    "n1_phase1_edit": {"type": "string", "const": "STOPPED"},
+    "n2_binding": {"type": "string", "const": "UNEXECUTED"},
+    "nonclaims": {
+      "type": "array",
+      "minItems": 17,
+      "items": {"type": "string", "minLength": 1},
+      "const": [
+        "phase1_source_edited",
+        "restricted_token_isolation",
+        "job_containment",
+        "event_freshness",
+        "independent_external_witness",
+        "full_inr_pass",
+        "human_final",
+        "production_authority",
+        "external_run",
+        "python_3_11_9_sha256_ratified",
+        "mingit_digest_ratified",
+        "privileged_windows_tests_executed",
+        "n1_phase1_typeerror_fixed",
+        "n2_freshness_binding",
+        "schema_only_check_uniqueness",
+        "isolation_evidence",
+        "accepted_history_reopened"
+      ]
+    }
+  }
+}
