@@ -17,7 +17,7 @@ RATIFIED_DISTRIBUTION_SHA256 = "da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0d
 EXCLUDED_SNAPSHOT_SHA256 = "ab2543fea7eebdc8476b63af2ff8acec10fce72fc9f72a40c9123df94c6ac1ae"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ROLES = frozenset({"execution_image", "dependency", "other"})
-_FORBIDDEN_IMAGE_DIGESTS = frozenset({
+_FORBIDDEN_MEMBER_DIGESTS = frozenset({
     RATIFIED_DISTRIBUTION_SHA256,
     EXCLUDED_SNAPSHOT_SHA256,
 })
@@ -153,7 +153,7 @@ def _members(value: object, *, manifest: bool) -> list[tuple[str, str, str]] | t
             return ("BLOCKED", "HER_BINDING_INPUT_REJECTED", True)
         if manifest and not _role_fits(relative, role):
             return ("BLOCKED", "HER_BINDING_INPUT_REJECTED", True)
-        if manifest and role == "execution_image" and digest in _FORBIDDEN_IMAGE_DIGESTS:
+        if manifest and digest in _FORBIDDEN_MEMBER_DIGESTS:
             return ("BLOCKED", "HER_GIT_DIGEST_ROLE_MISMATCH", True)
         folded = relative.casefold()
         if folded in seen:
@@ -230,9 +230,11 @@ def _environment_matches(value: object, candidate: tuple[str, tuple[str, ...]]) 
     git_items = [(key.upper(), item) for key, item in value.items() if key.upper().startswith("GIT_")]
     if git_items != [("GIT_NO_REPLACE_OBJECTS", "1")]:
         return False
-    path = next((item for key, item in value.items() if key.upper() == "PATH"), None)
+    path_items = [item for key, item in value.items() if key.upper() == "PATH"]
+    if len(path_items) != 1:
+        return False
     parent = (candidate[0], candidate[1][:-1])
-    return _one_path(path, parent)
+    return _one_path(path_items[0], parent)
 
 
 def _one_path(value: object, parent: tuple[str, tuple[str, ...]]) -> bool:

@@ -145,6 +145,28 @@ class ExecutionBindingV0Tests(unittest.TestCase):
         self.assertEqual("HER_GIT_DIGEST_ROLE_MISMATCH", result["overall_reason"])
         self.assertClosed(result)
 
+    def test_forbidden_digests_are_refused_for_every_manifest_role(self) -> None:
+        cases = (
+            (DIST, 1, "execution_image"),
+            (SNAP, 1, "execution_image"),
+            (DIST, 2, "dependency"),
+            (SNAP, 2, "dependency"),
+            (DIST, 3, "other"),
+            (SNAP, 3, "other"),
+        )
+        for digest, index, role in cases:
+            with self.subTest(role=role, digest=digest[:8]):
+                document = _valid()
+                self.assertEqual(role, document["manifest"][index]["role"])
+                document["manifest"][index]["sha256"] = digest
+                document["observed"][index]["sha256"] = digest
+                result = evaluate_execution_binding(document)
+                self.assertEqual("BLOCKED", result["overall_status"])
+                self.assertEqual("HER_GIT_DIGEST_ROLE_MISMATCH", result["overall_reason"])
+                self.assertEqual("REFUSED", result["binding_result"])
+                self.assertNotEqual("TREE_MATCH_UNPINNED", result["binding_result"])
+                self.assertClosed(result)
+
     def test_path_outside_root_is_unexpected_source(self) -> None:
         document = _valid()
         document["candidate_path"] = "C:/Program Files/Git/cmd/git.exe"
@@ -323,6 +345,60 @@ class ExecutionBindingV0Tests(unittest.TestCase):
         result = evaluate_execution_binding(document)
         self.assertEqual("HER_GIT_PATH_CONTROL_REFUSED", result["overall_reason"])
         self.assertClosed(result)
+
+    def test_duplicate_path_keys_are_refused_in_both_orders(self) -> None:
+        pairs = (
+            ("PATH", "Path"),
+            ("Path", "PATH"),
+            ("PATH", "path"),
+            ("path", "PATH"),
+            ("Path", "path"),
+            ("path", "Path"),
+        )
+        for first, second in pairs:
+            with self.subTest(first=first, second=second):
+                document = _valid()
+                document["environment"] = {
+                    first: TREE + "/mingw64/bin",
+                    second: TREE + "/mingw64/bin",
+                    "GIT_NO_REPLACE_OBJECTS": "1",
+                }
+                result = evaluate_execution_binding(document)
+                self.assertEqual("BLOCKED", result["overall_status"])
+                self.assertEqual("HER_GIT_PATH_CONTROL_REFUSED", result["overall_reason"])
+                self.assertEqual("REFUSED", result["binding_result"])
+                self.assertClosed(result)
+
+    def test_all_three_path_spellings_are_refused(self) -> None:
+        document = _valid()
+        document["environment"] = {
+            "PATH": TREE + "/mingw64/bin",
+            "Path": TREE + "/mingw64/bin",
+            "path": TREE + "/cmd",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+        }
+        result = evaluate_execution_binding(document)
+        self.assertEqual("HER_GIT_PATH_CONTROL_REFUSED", result["overall_reason"])
+        self.assertClosed(result)
+
+    def test_missing_path_key_is_refused(self) -> None:
+        document = _valid()
+        del document["environment"]["PATH"]
+        result = evaluate_execution_binding(document)
+        self.assertEqual("HER_GIT_PATH_CONTROL_REFUSED", result["overall_reason"])
+        self.assertClosed(result)
+
+    def test_one_path_key_in_any_case_stays_unpinned(self) -> None:
+        for name in ("PATH", "Path", "path"):
+            with self.subTest(name=name):
+                document = _valid()
+                value = document["environment"].pop("PATH")
+                document["environment"][name] = value
+                result = evaluate_execution_binding(document)
+                self.assertEqual("TREE_MATCH_UNPINNED", result["binding_result"])
+                self.assertEqual("BLOCKED", result["overall_status"])
+                self.assertEqual("HER_GIT_PIN_UNRATIFIED", result["overall_reason"])
+                self.assertClosed(result)
 
     def test_missing_git_no_replace_objects_is_refused(self) -> None:
         document = _valid()
