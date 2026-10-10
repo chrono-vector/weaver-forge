@@ -15,7 +15,9 @@ from docs.inr_001.schema_check import check as schema_check
 from docs.inr_her_001.validate_her_v1 import assert_schema_contract
 from docs.inr_her_002a.preflight_her_v1 import (
     CHECK_IDS as PHASE2A_CHECK_IDS,
+    PRIORITY as PHASE2A_PRIORITY,
     RESULT_SCHEMA as PHASE2A_RESULT_SCHEMA,
+    _PASS_CLAIMS,
     evaluate_phase2a,
 )
 
@@ -38,6 +40,61 @@ SUPPORTED_PRIVILEGES = frozenset({
 })
 _CHECK_KEYS = frozenset({"check_id", "status", "reason"})
 _PHASE2A_STATUSES = frozenset({"FAIL", "BLOCKED", "UNCONFIRMED"})
+_EMITTED_PAIRS = {
+    "schema_version": frozenset({
+        ("BLOCKED", "HER_EVENT_ABSENT"),
+        ("BLOCKED", "HER_SCHEMA_REJECTED"),
+        ("BLOCKED", "HER_SCHEMA_VERSION"),
+        ("UNCONFIRMED", "HER_SCHEMA_VERSION_HASHABLE"),
+    }),
+    "platform": frozenset({
+        ("UNCONFIRMED", "HER_PLATFORM_OBSERVED"),
+        ("BLOCKED", "HER_PLATFORM_UNSUPPORTED"),
+    }),
+    "cpython_identity": frozenset({
+        ("BLOCKED", "HER_RUNTIME_ABSENT"),
+        ("BLOCKED", "HER_PYTHON_IDENTITY_MISMATCH"),
+        ("UNCONFIRMED", "HER_PYTHON_IDENTITY_OBSERVED"),
+    }),
+    "cpython_pin": frozenset({
+        ("FAIL", "HER_CONTRADICTION"),
+        ("BLOCKED", "HER_PYTHON_PIN_PENDING"),
+    }),
+    "mingit_identity": frozenset({
+        ("BLOCKED", "HER_GIT_RUNTIME_ABSENT"),
+        ("UNCONFIRMED", "HER_GIT_IDENTITY_OBSERVED"),
+    }),
+    "mingit_pin": frozenset({
+        ("FAIL", "HER_CONTRADICTION"),
+        ("BLOCKED", "HER_GIT_PIN_UNRATIFIED"),
+    }),
+    "privileges": frozenset({
+        ("UNCONFIRMED", "HER_PRIVILEGE_OBSERVATION_UNAVAILABLE"),
+        ("BLOCKED", "HER_PRIVILEGED_OBSERVATION_UNVERIFIED"),
+        ("BLOCKED", "HER_TOKEN_PRIVILEGE_UNAVAILABLE"),
+    }),
+    "git_execution_path": frozenset({
+        ("BLOCKED", "HER_GIT_RUNTIME_ABSENT"),
+        ("BLOCKED", "HER_GIT_PIN_UNRATIFIED"),
+        ("BLOCKED", "HER_GIT_SOURCE_NOT_SNAPSHOT"),
+    }),
+    "git_config": frozenset({
+        ("BLOCKED", "HER_GIT_CONFIG_UNCLOSED"),
+        ("BLOCKED", "HER_GIT_CONFIG_UNVERIFIED"),
+    }),
+    "event_freshness": frozenset({
+        ("FAIL", "HER_CONTRADICTION"),
+        ("FAIL", "HER_EVENT_REPLAY_UNAUTHENTICATED"),
+        ("FAIL", "HER_EVENT_RELABEL_NOT_FRESH"),
+        ("FAIL", "HER_SUBSTITUTED_HEAD_NOT_FRESH"),
+        ("BLOCKED", "HER_FRESHNESS_UNPROVEN"),
+        ("BLOCKED", "HER_EVENT_ABSENT"),
+    }),
+    "claim_boundary": frozenset({
+        ("FAIL", "HER_CONTRADICTION"),
+        ("UNCONFIRMED", "HER_NO_PASS_CLAIM"),
+    }),
+}
 _PROBLEM_ORDER = ("not_list", "malformed", "repeated", "missing", "unexpected", "status", "reason")
 NONCLAIMS = (
     "phase1_source_edited",
@@ -162,12 +219,20 @@ def _assess_phase2a(produced: object) -> dict:
         )
     if not valid_status:
         return _rejected("HER_PHASE2A_PASS_FORBIDDEN", "ACCEPTED", "BLOCKED", "HER_PHASE2A_PASS_FORBIDDEN")
-    if schema_check(produced, PHASE2A_RESULT_SCHEMA) or not valid_reason:
+    schema_errors = _phase2a_schema_errors(produced)
+    if schema_errors is None or schema_errors or not valid_reason:
         return _rejected(
             "HER_PHASE2A_RESULT_REJECTED",
             "ACCEPTED",
-            status,
+            status if valid_status else "BLOCKED",
             reason if valid_reason else "HER_PHASE2A_RESULT_REJECTED",
+        )
+    if _phase2a_contradiction(produced):
+        return _rejected(
+            "HER_PHASE2A_RESULT_CONTRADICTION",
+            "ACCEPTED",
+            "BLOCKED",
+            "HER_PHASE2A_RESULT_CONTRADICTION",
         )
     return {
         "overall_status": status,
@@ -180,6 +245,63 @@ def _assess_phase2a(produced: object) -> dict:
             for item in produced["checks"]
         ],
     }
+
+
+def _phase2a_schema_errors(produced: dict) -> list[str] | None:
+    """Return schema errors. None means schema_check raised on a malformed value."""
+    try:
+        return schema_check(produced, PHASE2A_RESULT_SCHEMA)
+    except TypeError:
+        return None
+
+
+def _phase2a_contradiction(produced: dict) -> bool:
+    """True when a schema-valid result cannot be a Phase 2A ranking."""
+    for item in produced["checks"]:
+        pair = (item["status"], item["reason"])
+        if pair not in _EMITTED_PAIRS.get(item["check_id"], ()):
+            return True
+        if item["reason"] in _PASS_CLAIMS:
+            return True
+    phase1_status = produced["phase1_overall_status"]
+    phase1_reason = produced["phase1_overall_reason"]
+    if phase1_reason in _PASS_CLAIMS or produced["overall_reason"] in _PASS_CLAIMS:
+        return True
+    if phase1_status == "NOT_DELEGATED":
+        contribution = None
+        if phase1_reason != "NOT_DELEGATED":
+            return True
+    else:
+        contribution = {"status": phase1_status, "reason": phase1_reason}
+    expected_status, expected_reason = _rank_phase2a(produced["checks"], contribution)
+    return produced["overall_status"] != expected_status or produced["overall_reason"] != expected_reason
+
+
+def _rank_phase2a(checks: list, contribution: dict | None) -> tuple[str, str]:
+    """Same order and priority rule as accepted Phase 2A `_rank`."""
+    pool = [{"status": item["status"], "reason": item["reason"]} for item in checks]
+    if contribution is not None:
+        pool.append(contribution)
+    grouped: dict[str, list[tuple[str, int]]] = {"FAIL": [], "BLOCKED": [], "UNCONFIRMED": []}
+    for index, item in enumerate(pool):
+        status = item["status"]
+        if status not in grouped:
+            return "BLOCKED", "HER_PHASE2A_PASS_FORBIDDEN"
+        grouped[status].append((item["reason"], index))
+    for status in ("FAIL", "BLOCKED", "UNCONFIRMED"):
+        if grouped[status]:
+            reason, _index = sorted(grouped[status], key=_reason_order)[0]
+            return status, reason
+    return "BLOCKED", "HER_PHASE2A_PASS_FORBIDDEN"
+
+
+def _reason_order(item: tuple[str, int]) -> tuple[int, int]:
+    reason, index = item
+    try:
+        rank = PHASE2A_PRIORITY.index(reason)
+    except ValueError:
+        rank = -1
+    return (rank, index)
 
 
 def _rejected(overall_reason: str, n4: str, phase2a_status: str, phase2a_reason: str) -> dict:

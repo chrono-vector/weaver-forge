@@ -337,6 +337,83 @@ class Phase2BCompatibilityTests(Phase2BCommon):
         self.assertEqual("UNEXECUTED", result["n2_binding"])
 
 
+class Phase2BRepairTests(Phase2BCommon):
+    def test_m1_top_level_non_string_key_is_structured(self) -> None:
+        mutated = _phase2a_copy()
+        mutated[1] = "M1-TOP-SENTINEL"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_REJECTED")
+        self.assertTrue(result["phase2a_delegated"])
+        self.assertEqual("ACCEPTED", result["n4_inventory"])
+        self.assertEqual([], result["phase2a_checks"])
+        self.assertNotIn("M1-TOP-SENTINEL", json.dumps(result))
+
+    def test_m1_nested_non_string_keys_are_structured(self) -> None:
+        pins = _phase2a_copy()
+        pins["pins"][None] = "M1-PINS-SENTINEL"
+        checks = _phase2a_copy()
+        checks["checks"][0][b"extra"] = "M1-CHECK-SENTINEL"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=pins):
+            pin_result = evaluate_phase2b(synthetic_event(), _quiet())
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=checks):
+            check_result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(pin_result, "HER_PHASE2A_RESULT_REJECTED")
+        self.assertEqual([], pin_result["phase2a_checks"])
+        self.assertNotIn("M1-PINS-SENTINEL", json.dumps(pin_result))
+        self.assert_blocked(check_result, "HER_CHECK_INVENTORY_REJECTED")
+        self.assertEqual("REJECTED", check_result["n4_inventory"])
+        self.assertNotIn("M1-CHECK-SENTINEL", json.dumps(check_result))
+        self.assertNotEqual("PASS", pin_result["overall_status"])
+        self.assertNotEqual("PASS", check_result["overall_status"])
+
+    def test_nm1_fail_check_cannot_carry_unconfirmed_overall(self) -> None:
+        mutated = _phase2a_copy()
+        mutated["checks"][10]["status"] = "FAIL"
+        mutated["checks"][10]["reason"] = "HER_CONTRADICTION"
+        mutated["overall_status"] = "UNCONFIRMED"
+        mutated["overall_reason"] = "HER_NO_PASS_CLAIM"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_CONTRADICTION")
+        self.assertEqual("ACCEPTED", result["n4_inventory"])
+        self.assertEqual([], result["phase2a_checks"])
+
+    def test_nm1_pass_like_reason_is_not_rank_consistent_acceptance(self) -> None:
+        mutated = _phase2a_copy()
+        mutated["phase1_overall_status"] = "BLOCKED"
+        mutated["phase1_overall_reason"] = "HASH_AGREEMENT_ONLY"
+        mutated["overall_status"] = "BLOCKED"
+        mutated["overall_reason"] = "HASH_AGREEMENT_ONLY"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_CONTRADICTION")
+        self.assertNotIn("HASH_AGREEMENT_ONLY", json.dumps(result))
+        self.assertNotEqual("PASS", result["overall_status"])
+
+    def test_nm1_impossible_check_pair_is_rejected(self) -> None:
+        mutated = _phase2a_copy()
+        mutated["checks"][3]["status"] = "UNCONFIRMED"
+        mutated["checks"][3]["reason"] = "HER_PYTHON_PIN_PENDING"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=mutated):
+            result = evaluate_phase2b(synthetic_event(), _quiet())
+        self.assert_blocked(result, "HER_PHASE2A_RESULT_CONTRADICTION")
+        self.assertEqual([], result["phase2a_checks"])
+
+    def test_nm1_legal_nonwinning_check_edit_stays_compatible(self) -> None:
+        event = synthetic_event()
+        observation = _quiet()
+        expected = evaluate_phase2a(event, observation)
+        forged = json.loads(json.dumps(expected))
+        forged["checks"][8]["reason"] = "HER_GIT_CONFIG_UNCLOSED"
+        with mock.patch("docs.inr_her_002b.gate_her_v1.evaluate_phase2a", return_value=forged):
+            result = evaluate_phase2b(event, observation)
+        self.assertEqual(forged["overall_status"], result["overall_status"])
+        self.assertEqual(forged["overall_reason"], result["overall_reason"])
+        self.assertEqual(forged["checks"], result["phase2a_checks"])
+        self.assertNotEqual("PASS", result["overall_status"])
+
+
 class Phase2BPreservationTests(unittest.TestCase):
     def test_accepted_phase1_phase2a_and_r3_bytes_are_unchanged(self) -> None:
         completed = subprocess.run(
