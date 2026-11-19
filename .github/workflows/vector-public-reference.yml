@@ -1,0 +1,98 @@
+name: External Verification - VECTOR Public Reference v0
+
+on:
+  push:
+    branches: [development/independent-verification-v2]
+    paths:
+      - .github/workflows/vector-public-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-vector:
+    name: Pinned public VECTOR synthetic regression only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout sanitized public VECTOR reference at immutable commit
+        uses: actions/checkout@v5
+        with:
+          repository: chrono-vector/vector-core
+          ref: d0db1d8bfa38ae4d54f54ae3153f98f87ab2f776
+          persist-credentials: false
+          path: vector-public
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Run documented public VECTOR tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C vector-public rev-parse HEAD)" = "d0db1d8bfa38ae4d54f54ae3153f98f87ab2f776"
+          printf 'public_source_commit=%s\n' "d0db1d8bfa38ae4d54f54ae3153f98f87ab2f776" | tee vector-run-metadata.txt
+          python -m pip install --disable-pip-version-check -r vector-public/requirements-dev.txt
+          cd vector-public
+          python -m pytest -q --junitxml="$GITHUB_WORKSPACE/vector-public-pytest.xml" 2>&1 | tee "$GITHUB_WORKSPACE/vector-public-test-output.txt"
+          cd "$GITHUB_WORKSPACE"
+          test -s vector-public-pytest.xml
+          grep -Eq '[0-9]+ passed' vector-public-test-output.txt
+          echo 'VECTOR_PUBLIC_SYNTHETIC_TESTS=PASS (public reference only; no execution authority)'
+      - name: Retain scoped output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vector-public-reference-output
+          path: |
+            vector-public-pytest.xml
+            vector-public-test-output.txt
+            vector-run-metadata.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  archive-vector-evidence:
+    name: Archive public VECTOR job log and SHA-256 evidence
+    needs: verify-public-vector
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Collect finished job, artifact, metadata and hashes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_OUTCOME: ${{ needs.verify-public-vector.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'run=%s\nworkflow_sha=%s\nsource_repo=chrono-vector/vector-core\nsource_commit=d0db1d8bfa38ae4d54f54ae3153f98f87ab2f776\nverification_outcome=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "$VERIFICATION_OUTCOME" > evidence/RUN_METADATA.txt
+          job_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Pinned public VECTOR synthetic regression only") | .id' | head -n 1)
+          test -n "$job_id"
+          curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$job_id/logs" -o evidence/vector-public-job.log
+          test -s evidence/vector-public-job.log
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name=="vector-public-reference-output" and .expired==false) | .id' | head -n 1)
+          if [ -n "$artifact_id" ]; then
+            curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" -o evidence/vector-public-output.zip
+            unzip -t evidence/vector-public-output.zip
+          else
+            printf 'MISSING_ARTIFACT: vector-public-reference-output\n' > evidence/ARTIFACT_MISSING.txt
+          fi
+          (cd evidence && sha256sum RUN_METADATA.txt vector-public-job.log > SHA256SUMS.txt)
+          if [ -f evidence/vector-public-output.zip ]; then (cd evidence && sha256sum vector-public-output.zip >> SHA256SUMS.txt); fi
+          if [ -f evidence/ARTIFACT_MISSING.txt ]; then (cd evidence && sha256sum ARTIFACT_MISSING.txt >> SHA256SUMS.txt); fi
+          (cd evidence && sha256sum --check SHA256SUMS.txt)
+          cat evidence/RUN_METADATA.txt
+          cat evidence/SHA256SUMS.txt
+      - name: Store temporary evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: vector-public-reference-run-evidence
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: warn
