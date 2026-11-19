@@ -1,0 +1,142 @@
+name: External Verification - ZBA Reset Compatibility 0.1
+
+on:
+  push:
+    branches: [development/independent-verification-v2]
+    paths:
+      - .github/workflows/zba-reset-compatibility.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-reset-algebra:
+    name: Replay pinned reset finite cases and independent small oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout frozen public source
+        uses: actions/checkout@v5
+        with:
+          repository: ResearchForumOnline/research
+          ref: 60c343237cbf17ee3ec2969c009ec026840d618e
+          path: source
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Run 496-case and 248-case bounded source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source
+          test "$(git rev-parse HEAD)" = "60c343237cbf17ee3ec2969c009ec026840d618e"
+          sha256sum artifacts/zba-reset-compatibility-0.1/verify_reset_algebra.py
+          cd artifacts/zba-reset-compatibility-0.1
+          python verify_reset_algebra.py --output "$GITHUB_WORKSPACE/zba-reset-results.json" > "$GITHUB_WORKSPACE/zba-reset-stdout.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["GITHUB_WORKSPACE"])
+          out=json.loads((root/"zba-reset-stdout.json").read_text())
+          assert out["status"]=="passed",out
+          assert out["exhaustive_validator_cases"]==496,out
+          assert out["synthesis_cases"]==248,out
+          data=json.loads((root/"zba-reset-results.json").read_text())
+          assert data["status"]=="passed" and len(data["exhaustive_small_cases"])==5,data
+          assert [x["states"] for x in data["exhaustive_small_cases"]]==[4,5,6,7,8]
+          assert data["zba_fiber"]["states"]==36
+          assert "NOT exhaustive" in data["zba_fiber"]["distribution_method"]
+          print("ZBA_RESET_REPLAY=PASS finite_cases=496 synthesis_cases=248 fiber=36(formula_only)")
+          PY
+      - name: Additional independently written small-domain oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd source/artifacts/zba-reset-compatibility-0.1
+          python - <<'PY'
+          import itertools
+          from verify_reset_algebra import finite_case
+          # Standalone composition/closure for the fixed n=4 mirror, not calling
+          # the author's inspect(), predicted_size(), closure(), or compose().
+          n=4
+          mirror=(0,1,3,2)
+          identity=tuple(range(n))
+          def follow(f,g):
+              return tuple(f[g[k]] for k in range(n))
+          independent={}
+          for v in itertools.product((0,1),repeat=n):
+              reset=tuple(v[k] for k in range(n))
+              known={identity,mirror,reset}
+              while True:
+                  newer={follow(a,b) for a in known for b in known}
+                  if newer.issubset(known):
+                      break
+                  known.update(newer)
+              independent[len(known)]=independent.get(len(known),0)+1
+          expected=finite_case(4)["monoid_sizes_observed"]
+          assert independent==expected,(independent,expected)
+          assert sum(independent.values())==16
+          # Negative control: deliberately altered expected histogram must fail.
+          bad=expected.copy()
+          bad[3]+=1
+          assert independent!=bad
+          print("ZBA_RESET_INDEPENDENT_ORACLE=PASS n=4 validators=16 histogram_matches; mutated_histogram_rejected")
+          PY
+      - name: Upload bounded source replay artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zba-reset-compatibility-output
+          path: |
+            zba-reset-stdout.json
+            zba-reset-results.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  archive-reset-evidence:
+    name: Capture reset job log, artifacts and SHA-256 manifest
+    needs: replay-reset-algebra
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Capture completed replay job
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_OUTCOME: ${{ needs.replay-reset-algebra.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'run=%s\nsha=%s\nsource_repo=ResearchForumOnline/research\nsource_commit=60c343237cbf17ee3ec2969c009ec026840d618e\nreplay_job_outcome=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "$REPLAY_OUTCOME" > evidence/RUN_METADATA.txt
+          job_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Replay pinned reset finite cases and independent small oracle") | .id' | head -n 1)
+          test -n "$job_id"
+          curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$job_id/logs" -o evidence/zba-reset-job.log
+          test -s evidence/zba-reset-job.log
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name=="zba-reset-compatibility-output" and .expired==false) | .id' | head -n 1)
+          if [ -n "$artifact_id" ]; then
+            curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" -o evidence/zba-reset-output.zip
+            unzip -t evidence/zba-reset-output.zip
+          else
+            echo 'MISSING_ARTIFACT: zba-reset-compatibility-output' > evidence/ARTIFACT_MISSING.txt
+          fi
+          (cd evidence && sha256sum RUN_METADATA.txt zba-reset-job.log > SHA256SUMS.txt)
+          if [ -f evidence/zba-reset-output.zip ]; then (cd evidence && sha256sum zba-reset-output.zip >> SHA256SUMS.txt); fi
+          if [ -f evidence/ARTIFACT_MISSING.txt ]; then (cd evidence && sha256sum ARTIFACT_MISSING.txt >> SHA256SUMS.txt); fi
+          (cd evidence && sha256sum --check SHA256SUMS.txt)
+          cat evidence/RUN_METADATA.txt
+          cat evidence/SHA256SUMS.txt
+      - name: Retain temporary evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zba-reset-compatibility-run-evidence
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: warn
