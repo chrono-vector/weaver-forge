@@ -1,0 +1,8 @@
+inputs=/home/runner/work/weaver-forge/weaver-forge/asin-source/artifacts/ledger-789-replay/ledger-789.json
+rows=789
+tip=7ff43e4de6bb8cd1fa68c9514af4876741a1aa203377cc4fbec40c179aabefcb
+expected_tip=7ff43e4de6bb8cd1fa68c9514af4876741a1aa203377cc4fbec40c179aabefcb
+expected_height=789
+result=PASS
+label=SELF-CHECK
+note=This pass is a self-check, not an independent verification.
