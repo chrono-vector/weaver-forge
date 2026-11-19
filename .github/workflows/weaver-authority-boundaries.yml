@@ -1,0 +1,102 @@
+name: Verification - Weaver Audit Authority Boundaries
+
+on:
+  push:
+    branches: [development/independent-verification-v2]
+    paths:
+      - .github/workflows/weaver-authority-boundaries.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-nonpromotion:
+    name: Verify real Weaver audit nonpromotion regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout immutable-context Weaver development branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Run real audit lifecycle boundary and tamper tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest -v audit_lifecycle.tests.test_lifecycle 2>&1 | tee weaver-audit-unittest.txt
+          python - <<'PY'
+          from pathlib import Path
+          txt = Path("weaver-audit-unittest.txt").read_text()
+          assert "OK" in txt and "Ran 16 tests" in txt, txt[-1200:]
+          expected = [
+              "test_human_review_blocks_freeze",
+              "test_T10_stored_pass_edit_rebound_rejected",
+              "test_T11_raw_evidence_semantic_mismatch_rejected",
+              "test_T13_FINAL_DECISION_false_promotion_rebound_rejected",
+              "test_Pi_B1_freeze_oneshot_survives_deleted_package_dir",
+              "test_evidence_tamper_detected",
+              "test_boundary_fail_closed",
+          ]
+          for name in expected:
+              assert name in txt, f"Missing required test: {name}"
+          print("WEAVER_AUDIT_NONPROMOTION=PASS suite=16 boundary_probes=7")
+          PY
+      - name: Save bounded suite output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weaver-audit-nonpromotion-output
+          path: weaver-audit-unittest.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  archive-audit:
+    name: Archive Weaver audit job logs and SHA-256 evidence
+    needs: audit-nonpromotion
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Capture completed audit job and output
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_OUTCOME: ${{ needs.audit-nonpromotion.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'run=%s\nsha=%s\nrepo=%s\naudit_job_outcome=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$JOB_OUTCOME" > evidence/RUN_METADATA.txt
+          job_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Verify real Weaver audit nonpromotion regression") | .id' | head -n 1)
+          test -n "$job_id"
+          curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$job_id/logs" -o evidence/weaver-audit-job.log
+          test -s evidence/weaver-audit-job.log
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name=="weaver-audit-nonpromotion-output" and .expired==false) | .id' | head -n 1)
+          if [ -n "$artifact_id" ]; then
+            curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" -o evidence/weaver-audit-output.zip
+            unzip -t evidence/weaver-audit-output.zip
+          else
+            printf 'MISSING_ARTIFACT: weaver-audit-nonpromotion-output\n' > evidence/ARTIFACT_MISSING.txt
+          fi
+          (cd evidence && sha256sum RUN_METADATA.txt weaver-audit-job.log > SHA256SUMS.txt)
+          if [ -f evidence/weaver-audit-output.zip ]; then (cd evidence && sha256sum weaver-audit-output.zip >> SHA256SUMS.txt); fi
+          if [ -f evidence/ARTIFACT_MISSING.txt ]; then (cd evidence && sha256sum ARTIFACT_MISSING.txt >> SHA256SUMS.txt); fi
+          (cd evidence && sha256sum --check SHA256SUMS.txt)
+          cat evidence/RUN_METADATA.txt
+          cat evidence/SHA256SUMS.txt
+      - name: Upload temporary archive bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: weaver-audit-authority-run-evidence
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: warn
