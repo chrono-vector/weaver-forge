@@ -1,0 +1,35 @@
+name: Independent Verification v2 - Python Baseline
+
+on:
+  push:
+    branches:
+      - development/independent-verification-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-lifecycle:
+    name: Cross-platform Python 3.11 baseline
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run existing audit lifecycle tests
+        run: python -m unittest audit_lifecycle.tests.test_lifecycle
+      - name: Validate existing receipts
+        run: python scripts/validate_receipts.py
+      - name: Check existing receipt coverage
+        run: python scripts/check_receipt_coverage.py
