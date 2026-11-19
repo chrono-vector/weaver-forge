@@ -1,0 +1,63 @@
+name: External Verification - ASIN-HHC Ledger 789
+
+on:
+  push:
+    branches: [development/independent-verification-v2]
+    paths:
+      - .github/workflows/asin-hhc-ledger-789.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independently-replay-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout external frozen source (not main)
+        uses: actions/checkout@v5
+        with:
+          repository: dbottrader/ASIN-HHC-Agent-Mesh
+          ref: a9b0787078dc9db9d33eac272a2c005c165acef4
+          persist-credentials: false
+          path: asin-source
+      - name: Verify pinned source, input bytes, and ledger replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd asin-source
+          test "$(git rev-parse HEAD)" = "a9b0787078dc9db9d33eac272a2c005c165acef4"
+          sha256sum artifacts/ledger-789-replay/ledger-789.json
+          echo '65cd7a56213b5bf6d729168b6ce71fea1d294122f570248db2843b84e8612276  artifacts/ledger-789-replay/ledger-789.json' | sha256sum --check --status
+          python3 artifacts/ledger-789-replay/replay.py | tee ../asin-replay-output.txt
+          grep -q '^rows=789$' ../asin-replay-output.txt
+          grep -q '^tip=7ff43e4de6bb8cd1fa68c9514af4876741a1aa203377cc4fbec40c179aabefcb$' ../asin-replay-output.txt
+          grep -q '^result=PASS$' ../asin-replay-output.txt
+      - name: Independent negative mutation check (in memory, no source edits)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy, importlib.util
+          from pathlib import Path
+          script = Path('asin-source/artifacts/ledger-789-replay/replay.py')
+          spec = importlib.util.spec_from_file_location('asin_ledger_replay', script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          entries = module.load_entries(script.parent / 'ledger-789.json')
+          changed = copy.deepcopy(entries)
+          changed[100]['payload'] = changed[100]['payload'] + 'tampered'
+          ok, errors, tip = module.replay(changed)
+          assert not ok and any('hash mismatch at seq 101' in e for e in errors), errors
+          assert entries[100]['payload'] != changed[100]['payload']
+          print('NEGATIVE_CONTROL=PASS (tamper detected at seq 101)')
+          PY
+      - name: Retain bounded replay output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asin-hhc-ledger-789-replay-output
+          path: asin-replay-output.txt
+          if-no-files-found: warn
+          retention-days: 30
