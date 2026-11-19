@@ -1,0 +1,128 @@
+name: External Verification - ZBA 1.1 Bounded Reference
+
+on:
+  push:
+    branches: [development/independent-verification-v2]
+    paths:
+      - .github/workflows/zba-1-1-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-zba:
+    name: Replay pinned ZBA finite verifier and negative control
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout frozen external research source
+        uses: actions/checkout@v5
+        with:
+          repository: ResearchForumOnline/research
+          ref: c13c6ffe58850216124f9b58fa8185c5c03d7a5d
+          persist-credentials: false
+          path: zba-source
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Replay author reference verifier, record reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd zba-source
+          test "$(git rev-parse HEAD)" = "c13c6ffe58850216124f9b58fa8185c5c03d7a5d"
+          sha256sum artifacts/zba-1.1/property_check.py artifacts/zba-1.1/zba_reference.py
+          cd artifacts/zba-1.1
+          python property_check.py > "$GITHUB_WORKSPACE/zba-reference-stdout.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          results=json.loads(Path("property-check-results.json").read_text())
+          expected={"state_count":144,"mirror_involution_pass":144,
+                    "reset_idempotence_pass":144,"mirror_reset_commutation_pass":144}
+          assert results["properties"]==expected, results["properties"]
+          assert results["positive_chain"]["valid"] is True, results["positive_chain"]
+          assert results["mutation_count"]==14 and results["mutations_detected"]==14, results
+          vectors=json.loads(Path("test-vectors.json").read_text())
+          assert len(vectors["valid_chain"])==6
+          print("ZBA_REPLAY=PASS states=144 mirror=144 reset=144 commute=144 valid_chain=6 mutations=14/14")
+          PY
+          cp property-check-results.json "$GITHUB_WORKSPACE/"
+          cp test-vectors.json "$GITHUB_WORKSPACE/"
+      - name: Additional last-record mutation (independent test case, same verifier)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd zba-source/artifacts/zba-1.1
+          python - <<'PY'
+          import copy
+          from property_check import make_chain
+          from zba_reference import verify_chain
+          original=make_chain()
+          altered=copy.deepcopy(original)
+          altered[-1]["operation"]="unexpected.modified.operation"
+          positive=verify_chain(original)
+          negative=verify_chain(altered)
+          assert positive["valid"] is True, positive
+          assert negative["valid"] is False, negative
+          assert original[-1]["operation"] != altered[-1]["operation"]
+          print("ZBA_EXTRA_NEGATIVE_CONTROL=PASS last-record operation tampering detected")
+          PY
+      - name: Upload bounded reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zba-1-1-reference-output
+          path: |
+            zba-reference-stdout.json
+            property-check-results.json
+            test-vectors.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  archive-zba-evidence:
+    name: Capture ZBA job log, output artifact, and SHA-256 manifest
+    needs: replay-zba
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Archive completed replay job evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_OUTCOME: ${{ needs.replay-zba.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'run=%s\nsha=%s\nsource_repo=%s\nsource_commit=%s\nreplay_job_outcome=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "ResearchForumOnline/research" "c13c6ffe58850216124f9b58fa8185c5c03d7a5d" "$REPLAY_OUTCOME" > evidence/RUN_METADATA.txt
+          job_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Replay pinned ZBA finite verifier and negative control") | .id' | head -n 1)
+          test -n "$job_id"
+          curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$job_id/logs" -o evidence/zba-replay-job.log
+          test -s evidence/zba-replay-job.log
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name=="zba-1-1-reference-output" and .expired==false) | .id' | head -n 1)
+          if [ -n "$artifact_id" ]; then
+            curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" -o evidence/zba-1-1-reference-output.zip
+            unzip -t evidence/zba-1-1-reference-output.zip
+          else
+            printf 'MISSING_ARTIFACT: zba-1-1-reference-output\n' > evidence/ARTIFACT_MISSING.txt
+          fi
+          (cd evidence && sha256sum RUN_METADATA.txt zba-replay-job.log > SHA256SUMS.txt)
+          if [ -f evidence/zba-1-1-reference-output.zip ]; then (cd evidence && sha256sum zba-1-1-reference-output.zip >> SHA256SUMS.txt); fi
+          if [ -f evidence/ARTIFACT_MISSING.txt ]; then (cd evidence && sha256sum ARTIFACT_MISSING.txt >> SHA256SUMS.txt); fi
+          (cd evidence && sha256sum --check SHA256SUMS.txt)
+          cat evidence/RUN_METADATA.txt
+          cat evidence/SHA256SUMS.txt
+      - name: Upload temporary run evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: zba-1-1-run-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 90
