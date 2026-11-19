@@ -61,3 +61,47 @@ jobs:
           path: asin-replay-output.txt
           if-no-files-found: warn
           retention-days: 30
+
+  archive-run-evidence:
+    name: Capture previous job log, replay artifact, and SHA-256 manifest
+    needs: independently-replay-ledger
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Collect finished job evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_OUTCOME: ${{ needs.independently-replay-ledger.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'run=%s\nsha=%s\nsource_repo=%s\nsource_commit=%s\nreplay_job_outcome=%s\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" "dbottrader/ASIN-HHC-Agent-Mesh" "a9b0787078dc9db9d33eac272a2c005c165acef4" "$REPLAY_OUTCOME" > evidence/RUN_METADATA.txt
+          job_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="independently-replay-ledger") | .id' | head -n 1)
+          test -n "$job_id"
+          curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$job_id/logs" -o evidence/independently-replay-ledger.log
+          test -s evidence/independently-replay-ledger.log
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name=="asin-hhc-ledger-789-replay-output" and .expired==false) | .id' | head -n 1)
+          if [ -n "$artifact_id" ]; then
+            curl --fail --silent --show-error --location --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" -o evidence/asin-hhc-ledger-789-replay-output.zip
+            unzip -t evidence/asin-hhc-ledger-789-replay-output.zip
+          else
+            printf 'MISSING_ARTIFACT: asin-hhc-ledger-789-replay-output\n' > evidence/ARTIFACT_MISSING.txt
+          fi
+          ( cd evidence && sha256sum independently-replay-ledger.log RUN_METADATA.txt > SHA256SUMS.txt )
+          if [ -f evidence/asin-hhc-ledger-789-replay-output.zip ]; then ( cd evidence && sha256sum asin-hhc-ledger-789-replay-output.zip >> SHA256SUMS.txt ); fi
+          if [ -f evidence/ARTIFACT_MISSING.txt ]; then ( cd evidence && sha256sum ARTIFACT_MISSING.txt >> SHA256SUMS.txt ); fi
+          ( cd evidence && sha256sum --check SHA256SUMS.txt )
+          cat evidence/RUN_METADATA.txt
+          cat evidence/SHA256SUMS.txt
+      - name: Upload temporary original evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: asin-hhc-ledger-789-run-evidence
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 90
