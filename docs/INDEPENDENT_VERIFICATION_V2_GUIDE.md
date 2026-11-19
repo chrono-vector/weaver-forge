@@ -59,9 +59,9 @@ Never convert a code review, screenshot, or a self-reported PASS into independen
 
 ## Not yet implemented in v2
 
-- External repository download, pinning, and source integrity verification.
-- ASIN-HHC Ledger 789 adapter and replay.
-- Zero Boundary Algebra adapter or tests.
+- General-purpose, independently tested external adapter framework. The project-specific ASIN-HHC and ZBA workflows are bounded adapters, not a common qualification engine.
+- ASIN-HHC Ledger 789: a project-specific pinned replay and tamper control **were executed successfully** in Actions run 44471299765. Archived job log, artifact and SHA-256 were checked; details in `external_verifications/asin-hhc/2026-11-19_ledger-789_archive-evidence-004.md`. This is **not** a formal independent witness claim.
+- Zero Boundary Algebra 1.1: `.github/workflows/zba-1-1-reference.yml` was **added** with pinned public source `ResearchForumOnline/research@c13c6ffe58850216124f9b58fa8185c5c03d7a5d`, source reference replay, an additional negative case, and log/artifact collection. **Execution/confirmation is pending** until the exact Actions job and evidence archive are inspected.
 - A full cross-component VECTOR / Job Agent / Integration Harness qualification.
 - Independent human witness attestation or operational authorization.
 
