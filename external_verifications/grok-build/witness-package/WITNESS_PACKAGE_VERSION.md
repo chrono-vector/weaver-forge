@@ -18,6 +18,17 @@
 | Overall | **PARTIAL** / **NOT READY** |
 | Grok Build source commit (upstream pin) | `98c3b2438aa922fbbe6178a5c0a4c48f85edc8ce` |
 
+## Current RC8 and work-area identity clarification
+
+The RC6/RC7 status entries and RC7-oriented banner below are preserved historical wording; they do not describe the current RC8 lifecycle.
+
+- RC6 is an immutable historical **NOT READY** package.
+- RC7 is a later immutable historical **NOT READY** package and is not eligible for Independent Witness handoff.
+- RC8 is the immutable static-audit candidate `1.0.0-rc8` / `grok-build-witness-v1.0.0-rc8` (annotated tag object `8113d952d3b127d32e138dbf804141f5d1dfb26f`, peeled commit `1de4b4d9523711418390f8331c95988523ef4481`, tree `87b40d8a32ca536a4cdba0eee474f6171c62f6bb`). Artifact generation and verification passed, and an advisory technical evaluation was accepted as non-authoritative. [GOV-004](../../../GOV-004_RC8_FORMAL_SOURCE_EVALUATION_CLOSURE_RECORD.md) records the RC8 Formal Source Evaluation under GOV-002/GOV-003 as complete and closed as a governance process, with controlling final disposition **NOT READY**. F-01–F-04 and B-01–B-03 remain **OPEN** and require a Future Candidate; evaluation closure is not technical remediation. This Formal Source Evaluation is distinct from any separate Source Weaver audit procedure; GOV-004 is not used here to assert that such a separate procedure was performed or not performed. Independent Witness handoff is not authorized, reproduction has not been performed, C-014 remains `NOT_STARTED`, and RC9 remains unauthorized.
+- `WT-WF-CANDIDATE-20261126-01` identifies only the bounded work area. It is not a formal Future Candidate ID/name, package version, canonical tag, release, or readiness status. No new package version or tag is assigned here.
+
+This clarification does not establish contract authority, applicability, or new schema, manifest, or validator rules. Existing technical and normative effects remain unchanged.
+
 ## Current status banner
 
 **RC6 FIXED IMMUTABLE — NOT READY — INDEPENDENT WITNESS HANDOFF NOT AUTHORIZED — C-014 NOT_STARTED — NO FINDING CLEAR/CLOSED — NEXT CANDIDATE IDENTITY RC7 (`1.0.0-rc7` / `grok-build-witness-v1.0.0-rc7`) FIXED IN ACTIVE HOST/TEMPLATES — RC7 TAG NOT YET CREATED — NOT READY — NO INDEPENDENT WITNESS REPRODUCTION — NO INDEPENDENT WITNESS PASS**
