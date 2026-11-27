@@ -42,7 +42,35 @@ CONTAINER_SCRIPT = SCRIPTS_DIR / "container_narrow_build.sh"
 TEMPLATE = PACKAGE_DIR / "templates" / "POST_BUILD_INTEGRITY.txt"
 TEMP_PREFIX = "phase3e_test_"
 
+# Active RC6-R3+ contract: explicit independent expectation, not writer-derived.
 EXACT_POST_BUILD_FIELDS = (
+    "evidence_schema_version",
+    "run_id",
+    "status",
+    "outcome",
+    "authoritative_outcome",
+    "source_head_before",
+    "source_head_after",
+    "source_head_unchanged",
+    "source_clean_before",
+    "source_clean_after",
+    "cargo_lock_sha256_before",
+    "cargo_lock_sha256_after",
+    "cargo_lock_unchanged",
+    "cargo_lock_post_matches_expected",
+    "source_or_lock_changed",
+    "artifact_path",
+    "artifact_exists",
+    "docker_exit_code",
+    "failure_stage",
+    "evidence_inventory_complete",
+    "full_integrity_gate_all_four_yes",
+    "full_integrity_gate_note",
+    "post_build_integrity_ok",
+)
+
+# Preserve the historical builder's exact field contract, not active conformity.
+HISTORICAL_POST_BUILD_FIELDS = (
     "evidence_schema_version",
     "status",
     "outcome",
@@ -365,8 +393,11 @@ class Phase3EPostBuildIntegrityTests(unittest.TestCase):
         identity_complete: str = "YES",
         static_complete: str = "YES",
     ) -> list[str]:
+        run_ids = re.findall(r"^RUN_ID=(\S+)$", self._source_prelude(), flags=re.MULTILINE)
+        self.assertEqual(len(run_ids), 1, "expected one explicit synthetic Host RUN_ID")
         return [
             "evidence_schema_version=1",
+            f"run_id={run_ids[0]}",
             "status=OK",
             f"outcome={outcome}",
             f"cargo_started={cargo_started}",
@@ -667,6 +698,12 @@ class Phase3EPostBuildIntegrityTests(unittest.TestCase):
         ]
         self.assertEqual(template_keys, list(EXACT_POST_BUILD_FIELDS))
 
+        # Field-shape assertions only: do not treat worktree fixture bytes as sealed evidence.
+        for fixture in ("rc6-r6-synthetic-preliminary", "rc6-r6-synthetic-final"):
+            post = TESTS_DIR / "fixtures" / fixture / "POST_BUILD_INTEGRITY.txt"
+            self.assertEqual(_post_build_keys(post), list(EXACT_POST_BUILD_FIELDS), fixture)
+
+        # All historical scenarios remain checked against their preserved 21 fields.
         for scenario in fx.ALL_SCENARIOS:
             content = fx.build_scenario(scenario)["POST_BUILD_INTEGRITY.txt"]
             keys = [
@@ -674,7 +711,7 @@ class Phase3EPostBuildIntegrityTests(unittest.TestCase):
                 for line in content.splitlines()
                 if "=" in line and not line.startswith("#")
             ]
-            self.assertEqual(keys, list(EXACT_POST_BUILD_FIELDS), scenario)
+            self.assertEqual(keys, list(HISTORICAL_POST_BUILD_FIELDS), scenario)
 
     def test_17_no_not_applicable_final_status_in_writer_policy(self) -> None:
         body = textwrap.dedent(

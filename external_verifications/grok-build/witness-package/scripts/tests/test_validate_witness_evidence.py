@@ -19,8 +19,12 @@ Nothing here executes Docker/Cargo/Witness scripts.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import hashlib
+import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -38,6 +42,341 @@ import fixtures_lib as fx  # noqa: E402
 HOST_SCRIPT = Path(SCRIPTS) / "run_witness_narrow_build.sh"
 CONTAINER_SCRIPT = Path(SCRIPTS) / "container_narrow_build.sh"
 FIXTURES = Path(HERE) / "fixtures"
+
+# Fixed input identities only; no checkout/filter/fetch or historical builder upgrade.
+_REGRESSION_COMMIT = "319c6dcb92c5152225076b99a465436ba55924b3"
+_REGRESSION_TREES = {
+    "success-artifact-present": "97bc2b000f5cda1566aab656047bdd8e34f08d3c",
+    "build-not-started": "d2022a65e4a092e9056dae0d0d1d6a4867d98488",
+    "cargo-failed": "f532c423d92c20cdf01d5955103a8b6df577a345",
+    "artifact-missing": "761fdb4e47d828717a474907428b3438b5f0177a",
+    "infrastructure-failure": "2147d9b8c585aa991396794d4372855359b593dd",
+    "static-inspection-incomplete": "581a98ff716915d40a70a214027c5205b47acdd6",
+    "image-pull-failure": "9dcb910bf671fcfb869bfef83e3fded8a4d2c6bb",
+    "image-inspect-failure": "a9a4a8f92ff800ae49415c6688e48debea3eff90",
+    "digest-mismatch": "c7d263a6bed273263ea959b81f97f1c1b58f4131",
+    "platform-mismatch": "f6c1bfd1c1303afa7575fbdd8036f0056a11eeca",
+    "rc5-preliminary-success": "2bc64e1f814d7ebf2707f4958ed74061dd04ff5d",
+    "rc5-synthetic-final-success": "6858b3aa87d133664aa3667e570f5ad3a7105920",
+    "rc6-r6-synthetic-final": "670f818ae0ff0efbfb8ab95d206163eba6883252",
+}
+_REGRESSION_MANIFEST = "EVIDENCE_MANIFEST.sha256"
+_REGRESSION_BINDING = "WEAVER_FORGE_FINAL_BINDING.txt"
+
+
+def _regression_git(*args: str, data: bytes | None = None) -> bytes:
+    assert args[0] in {"rev-parse", "ls-tree", "cat-file"}
+    return subprocess.run(
+        ["git", "--no-optional-locks", "-C", str(Path(SCRIPTS).parents[3]), *args],
+        input=data, capture_output=True, check=True, timeout=30,
+    ).stdout
+
+
+def _regression_snapshot(tree: Path) -> dict[str, bytes]:
+    assert not any(p.is_symlink() for p in tree.rglob("*"))
+    return {p.relative_to(tree).as_posix(): p.read_bytes()
+            for p in tree.rglob("*") if p.is_file()}
+
+
+def _regression_hashes(files: dict[str, bytes]) -> dict:
+    return {name: {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+            for name, raw in sorted(files.items())}
+
+
+def _regression_record(name: str, record: dict) -> None:
+    destination = os.environ.get("WF_STAGE2A_ORACLE_DIR")
+    if destination:
+        directory = Path(destination)
+        assert directory.is_dir() and not directory.is_symlink()
+        with (directory / (name + ".json")).open("x", encoding="utf-8", newline="\n") as handle:
+            json.dump(record, handle, indent=2)
+            handle.write("\n")
+
+
+def _check_regression_manifest(tree: Path, payload: dict[str, bytes]) -> None:
+    # Independent source-set/hashlib oracle, not inventory helper enumeration/hash.
+    lines = [hashlib.sha256(payload[n]).hexdigest() + "  ./" + n for n in sorted(payload)]
+    expected = ("\n".join(lines) + "\n").encode("ascii")
+    assert (tree / _REGRESSION_MANIFEST).read_bytes() == expected
+
+
+def _check_regression_binding(tree: Path, template: bytes) -> None:
+    before = template.splitlines(keepends=True)
+    after = (tree / _REGRESSION_BINDING).read_bytes().splitlines(keepends=True)
+    assert len(before) == len(after)
+    digest = hashlib.sha256((tree / _REGRESSION_MANIFEST).read_bytes()).hexdigest()
+    count = 0
+    for old, new in zip(before, after):
+        if old.startswith(b"final_manifest_sha256="):
+            count += 1
+            assert new == b"final_manifest_sha256=" + digest.encode("ascii") + bytes([10])
+        else:
+            assert old == new
+    assert count == 1
+
+
+@contextmanager
+def _pinned_regression_fixture(name: str, *, mode: str = "final-submission", mutable: bool = False):
+    """Bounded Stage 2A acquisition; historical seals stay byte-identical.
+
+    Current rc6-r6 uses the already verified payload -> Manifest -> Binding
+    recipe. This does not generate/upgrade historical facts or source fixtures.
+    """
+    current = name == "rc6-r6-synthetic-final"
+    oid = _REGRESSION_TREES[name]
+    audit = {"recipe": "validator-regression-fixed-blob-v1", "fixture": name,
+             "commit": _REGRESSION_COMMIT, "tree_oid": oid, "mode": mode,
+             "schema": "rc6.5" if current else "rc6.1", "mutable_negative": mutable,
+             "sources": {}, "construction_status": "INCOMPLETE"}
+    with tempfile.TemporaryDirectory(prefix="validator_pinned_") as temporary:
+        tree = Path(temporary)
+        try:
+            assert _regression_git("cat-file", "-t", _REGRESSION_COMMIT).strip() == b"commit"
+            relative = "external_verifications/grok-build/witness-package/scripts/tests/fixtures/" + name
+            assert _regression_git("rev-parse", _REGRESSION_COMMIT + ":" + relative).decode().strip() == oid
+            entries = []
+            folded = set()
+
+            def checked_path(root: Path, relative: str, known: set) -> Path:
+                # Keep Git's exact POSIX spelling: reject, never repair, unsafe input.
+                parts = relative.split("/")
+                assert all(re.fullmatch(r"[A-Za-z0-9_.-]+", part)
+                           and part not in {"", ".", ".."} for part in parts), repr(relative)
+                for part in parts:
+                    assert part == part.rstrip(" .") and part.casefold() != ".git", repr(relative)
+                    assert part.split(".", 1)[0].upper() not in {
+                        "CON", "PRN", "AUX", "NUL", *["COM" + str(i) for i in range(1, 10)],
+                        *["LPT" + str(i) for i in range(1, 10)],
+                    }, repr(relative)
+                assert root.is_dir() and not root.is_symlink()
+                assert not getattr(root, "is_junction", lambda: False)()
+                destination = root.joinpath(*parts)
+                assert destination.relative_to(root).as_posix() == relative, repr(relative)
+                cursor_path = root
+                for index, part in enumerate(parts):
+                    cursor_path = cursor_path / part
+                    assert not cursor_path.is_symlink(), repr(relative)
+                    assert not getattr(cursor_path, "is_junction", lambda: False)(), repr(relative)
+                    if index < len(parts) - 1 and cursor_path.exists():
+                        assert cursor_path.is_dir(), repr(relative)
+                assert destination.resolve().is_relative_to(root.resolve()), repr(relative)
+                assert not destination.exists(), repr(relative)
+                # Track every prefix, not only leaves, for file/dir and case aliases.
+                pending = set()
+                for index in range(len(parts)):
+                    prefix = "/".join(parts[:index + 1])
+                    kind = "file" if index == len(parts) - 1 else "dir"
+                    for prior, prior_kind in known:
+                        if prior.casefold() == prefix.casefold():
+                            assert prior == prefix and prior_kind == kind == "dir", repr(relative)
+                    pending.add((prefix, kind))
+                known.update(pending)
+                return destination
+
+            for item in _regression_git("ls-tree", "-r", "-z", oid).split(bytes([0])):
+                if not item:
+                    continue
+                meta, raw_path = item.split(bytes([9]), 1)
+                permissions, kind, blob = meta.split()
+                assert (permissions, kind) == (b"100644", b"blob")
+                path = raw_path.decode("ascii")
+                checked_path(tree, path, folded)
+                entries.append((path, blob.decode("ascii")))
+            request = ("\n".join(blob for _, blob in entries) + "\n").encode("ascii")
+            stream = _regression_git("cat-file", "--batch", data=request)
+            cursor = 0
+            source = {}
+            for path, blob in entries:
+                end = stream.index(bytes([10]), cursor)
+                header = stream[cursor:end].split()
+                assert header[0].decode("ascii") == blob and header[1] == b"blob"
+                size = int(header[2])
+                raw = stream[end + 1:end + 1 + size]
+                assert stream[end + 1 + size:end + 2 + size] == bytes([10])
+                cursor = end + 2 + size
+                git_header = b"blob " + str(size).encode("ascii") + bytes([0])
+                assert hashlib.sha1(git_header + raw).hexdigest() == blob
+                source[path] = raw
+                audit["sources"][path] = {"blob_oid": blob, **_regression_hashes({path: raw})[path]}
+            assert cursor == len(stream)
+            assert len(source) == (30 if current else 23 if name == "rc5-preliminary-success"
+                                   else 26 if name == "rc5-synthetic-final-success" else 25)
+            excluded = {_REGRESSION_MANIFEST, _REGRESSION_BINDING} if current else {_REGRESSION_MANIFEST}
+            payload = {n: raw for n, raw in source.items() if n not in excluded}
+            for n in ("BOOTSTRAP.txt", "STATIC_ARTIFACT_INSPECTION.txt"):
+                assert bytes([13]) not in payload[n]
+            for n, raw in source.items():
+                if current and n in excluded:
+                    continue
+                destination = checked_path(tree, n, set())
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                # Recheck resolved containment/links after parent creation, before xb.
+                destination = checked_path(tree, n, set())
+                with destination.open("xb") as handle:
+                    handle.write(raw)
+            if current:
+                import evidence_inventory as ei
+                from schema_register_loader import load_active_register
+
+                assert v.SCHEMA_REGISTER_VERSION == "rc6.5"
+                schema_oid = "3db5051448b667d7c40e02f1813da9f622829314"
+                assert _regression_git("rev-parse", _REGRESSION_COMMIT + ":external_verifications/grok-build/witness-package/schemas/canonical_schema_register_rc6.json").decode().strip() == schema_oid
+                assert hashlib.sha256(payload["DEVIATIONS.txt"]).hexdigest() == "dd293b6e000cdbcbc3ba9f2d23f9f2f3b3dd60b55283b48adc1e78139ffaca03"
+                ei.write_evidence_manifest(tree, nested_classes=load_active_register().nested_class_records())
+                digest = hashlib.sha256((tree / _REGRESSION_MANIFEST).read_bytes()).hexdigest()
+                binding, count = re.subn(
+                    b"^final_manifest_sha256=[0-9a-f]{64}$",
+                    b"final_manifest_sha256=" + digest.encode("ascii"),
+                    source[_REGRESSION_BINDING], flags=re.MULTILINE,
+                )
+                assert count == 1
+                with (tree / _REGRESSION_BINDING).open("xb") as handle:
+                    handle.write(binding)
+                _check_regression_binding(tree, source[_REGRESSION_BINDING])
+                audit["schema_blob_oid"] = schema_oid
+            else:
+                assert (tree / _REGRESSION_MANIFEST).read_bytes() == source[_REGRESSION_MANIFEST]
+                audit["original_manifest_unchanged"] = True
+            _check_regression_manifest(tree, payload)
+            sealed = _regression_snapshot(tree)
+            assert set(sealed) == set(source)
+            for n, raw in payload.items():
+                assert sealed[n] == raw == source[n]
+            audit["sealed_files"] = _regression_hashes(sealed)
+            audit["independent_source_set_raw_hash_payload_and_seal_checks"] = True
+            audit["construction_status"] = "PASS"
+            before_times = {n: (tree / n).stat().st_mtime_ns for n in sealed}
+            yield tree
+            if not mutable:
+                assert _regression_snapshot(tree) == sealed, "consumer changed input bytes"
+                assert {n: (tree / n).stat().st_mtime_ns for n in sealed} == before_times
+                audit["consumer_no_write"] = True
+        except BaseException as exc:
+            audit["context_error"] = repr(exc)
+            raise
+        finally:
+            audit["files_at_exit"] = _regression_hashes(_regression_snapshot(tree))
+            _regression_record("regression-fixture-" + tree.name, audit)
+
+
+def _record_tag_causality(base: dict[str, bytes], tree: Path, filename: str,
+                          old: bytes, new: bytes, errors: list[str], allowed: tuple[str, ...]) -> None:
+    audit = {"fixture": tree.name, "mutated_file": filename,
+             "old_field": old.decode().strip(), "new_field": new.decode().strip(),
+             "positive_accepted": True, "errors": errors, "allowed_diagnostics": allowed,
+             "status": "INCOMPLETE"}
+    try:
+        expected = dict(base)
+        assert expected[filename].count(old) == 1
+        expected[filename] = expected[filename].replace(old, new, 1)
+        actual = _regression_snapshot(tree)
+        assert set(actual) == set(base)
+        for n in base:
+            if n not in {_REGRESSION_MANIFEST, _REGRESSION_BINDING}:
+                assert actual[n] == expected[n], n
+        payload = {n: raw for n, raw in expected.items()
+                   if n not in {_REGRESSION_MANIFEST, _REGRESSION_BINDING}}
+        _check_regression_manifest(tree, payload)
+        _check_regression_binding(tree, expected[_REGRESSION_BINDING])
+        # Only these two single-tag mutations have this six-diagnostic contract.
+        rc8 = "grok-build-witness-v1.0.0-rc8"
+        cross_reason = (
+            "cross-file package identity tag mismatch among "
+            "weaver_forge_tag_requested / package_tag / canonical_tag"
+        )
+        cases = {
+            (_REGRESSION_BINDING,
+             b"canonical_tag=grok-build-witness-v1.0.0-rc8\n",
+             b"canonical_tag=grok-build-witness-v1.0.0-rc5\n"): (
+                "WEAVER_FORGE_FINAL_BINDING.txt: canonical_tag != expected tag for "
+                "package_version='1.0.0-rc8' (expected grok-build-witness-v1.0.0-rc8)",
+                (rc8, rc8, "grok-build-witness-v1.0.0-rc5"),
+                [
+                    "WITNESS_VERDICT.md: package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag",
+                    "WEAVER_FORGE_FINAL_BINDING.txt: canonical_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt weaver_forge_tag_requested",
+                    "WEAVER_FORGE_FINAL_BINDING.txt: canonical_tag must equal expected tag for package_version='1.0.0-rc8' (expected grok-build-witness-v1.0.0-rc8, found 'grok-build-witness-v1.0.0-rc5')",
+                ],
+            ),
+            ("WITNESS_VERDICT.md",
+             b"package_tag=grok-build-witness-v1.0.0-rc8\n",
+             b"package_tag=grok-build-witness-v1.0.0-rc4\n"): (
+                "WITNESS_VERDICT.md: package_tag != expected tag for "
+                "package_version='1.0.0-rc8' (expected grok-build-witness-v1.0.0-rc8)",
+                (rc8, "grok-build-witness-v1.0.0-rc4", rc8),
+                [
+                    "WITNESS_VERDICT.md: package_tag must equal expected tag for package_version='1.0.0-rc8' (expected grok-build-witness-v1.0.0-rc8, found 'grok-build-witness-v1.0.0-rc4')",
+                    "WITNESS_VERDICT.md: package_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt weaver_forge_tag_requested",
+                    "WITNESS_VERDICT.md: package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag",
+                ],
+            ),
+        }
+        assert (filename, old, new) in cases, "unapproved tag mutation"
+        identity_reason, expected_tags, tag_errors = cases[(filename, old, new)]
+
+        def causal_fields(files: dict[str, bytes]) -> dict[str, dict[str, str]]:
+            # Independent simple key extraction from the already byte-checked peers.
+            peers = (
+                "WEAVER_FORGE_PACKAGE_IDENTITY.txt", "WITNESS_VERDICT.md", _REGRESSION_BINDING,
+                "SOURCE_IDENTITY.txt", "IMAGE_IDENTITY.txt", "POST_BUILD_INTEGRITY.txt",
+                "WITNESS_STATEMENT.md", "BUILD_EXIT_CODE.txt", "STATIC_ARTIFACT_INSPECTION.txt",
+                "DEVIATIONS.txt",
+            )
+            result = {}
+            for peer in peers:
+                pairs = re.findall(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$",
+                                   files[peer].decode("utf-8"), flags=re.MULTILINE)
+                assert len({key for key, _ in pairs}) == len(pairs), peer
+                result[peer] = dict(pairs)
+            return result
+
+        before_fields, after_fields = causal_fields(base), causal_fields(actual)
+        for fields in (before_fields, after_fields):
+            assert fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]["package_version"] == "1.0.0-rc8"
+            for peer in ("WITNESS_STATEMENT.md", "WITNESS_VERDICT.md", "DEVIATIONS.txt"):
+                assert fields[peer]["final_machine_ceiling"] == "PASS", peer
+            assert fields["WITNESS_VERDICT.md"]["verdict_ceiling"] == "PASS"
+            assert fields["BUILD_EXIT_CODE.txt"]["outcome"] == "CARGO_SUCCEEDED_ARTIFACT_PRESENT"
+            assert fields["STATIC_ARTIFACT_INSPECTION.txt"]["inspection_complete"] == "yes"
+            assert not v.detect_prohibited_violation(fields)
+        for files in (base, actual):
+            assert files["WITNESS_VERDICT.md"].count(b"Witness proposed verdict: PASS\n") == 1
+
+        def tags(fields: dict[str, dict[str, str]]) -> tuple[str, str, str]:
+            return (fields["WEAVER_FORGE_PACKAGE_IDENTITY.txt"]["weaver_forge_tag_requested"],
+                    fields["WITNESS_VERDICT.md"]["package_tag"],
+                    fields[_REGRESSION_BINDING]["canonical_tag"])
+
+        assert tags(before_fields) == (rc8, rc8, rc8)
+        assert tags(after_fields) == expected_tags
+        before_reasons = v.detect_identity_mismatch(before_fields)
+        after_reasons = v.detect_identity_mismatch(after_fields)
+        assert before_reasons == []
+        assert sorted(after_reasons) == sorted([identity_reason, cross_reason]), after_reasons
+        ceilings = []
+        for fields, reasons in ((before_fields, before_reasons), (after_fields, after_reasons)):
+            ceilings.append(v.compute_verdict_ceiling(
+                fields["BUILD_EXIT_CODE.txt"]["outcome"],
+                bool(v.detect_prohibited_violation(fields)), bool(reasons),
+                fields["STATIC_ARTIFACT_INSPECTION.txt"]["inspection_complete"] != "yes",
+                deviation_final_ceiling=fields["DEVIATIONS.txt"]["final_machine_ceiling"],
+            ))
+        assert ceilings == ["PASS", "FAIL"], ceilings
+        ceiling_errors = [
+            "WITNESS_STATEMENT.md: final_machine_ceiling must equal validator-authoritative recomputed ceiling 'FAIL' (found 'PASS')",
+            "WITNESS_VERDICT.md: proposed verdict PASS exceeds the machine-computed verdict ceiling FAIL for this run's evidence — a verdict may never be recorded above its ceiling",
+            "WITNESS_VERDICT.md: final_machine_ceiling must equal validator-authoritative recomputed ceiling 'FAIL' (found 'PASS')",
+        ]
+        assert all(any(token in error for token in allowed) for error in tag_errors)
+        expected_errors = tag_errors + ceiling_errors
+        # Sorted-list equality is multiset equality: duplicates/omissions/extras fail.
+        assert len(errors) == 6 and sorted(errors) == sorted(expected_errors), errors
+        audit.update({"status": "PASS", "only_intended_payload_or_binding_field_plus_seal_changed": True,
+                      "unrelated_errors_absent": True, "negative_files": _regression_hashes(actual),
+                      "identity_reasons_before": before_reasons, "identity_reasons_after": after_reasons,
+                      "machine_ceilings": ceilings, "recorded_PASS_values_unchanged": True,
+                      "expected_diagnostic_multiset": expected_errors, "exact_multiset_matched": True})
+    finally:
+        _regression_record("regression-causality-" + tree.name, audit)
 
 
 # ---------------------------------------------------------------------------
@@ -259,10 +598,10 @@ class GoldenFixtureTests(unittest.TestCase):
     def test_all_committed_fixtures_pass(self):
         for scenario in fx.ALL_SCENARIOS:
             with self.subTest(scenario=scenario):
-                d = FIXTURES / scenario
-                self.assertTrue(d.is_dir(), f"missing committed fixture: {d}")
-                errors = v.validate_dir(d, schema_register_version="rc6.1")
-                self.assertEqual(errors, [], f"{scenario}: {errors}")
+                with _pinned_regression_fixture(scenario) as d:
+                    self.assertTrue(d.is_dir(), f"missing committed fixture: {d}")
+                    errors = v.validate_dir(d, schema_register_version="rc6.1")
+                    self.assertEqual(errors, [], f"{scenario}: {errors}")
 
     def test_all_scenarios_build_and_pass(self):
         for scenario in fx.ALL_SCENARIOS:
@@ -272,14 +611,15 @@ class GoldenFixtureTests(unittest.TestCase):
                 self.assertEqual(errors, [], f"{scenario}: {errors}")
 
     def test_main_entrypoint_returns_zero_on_success_fixture(self):
-        rc = v.main(
-            [
-                str(FIXTURES / "success-artifact-present"),
-                "--schema-register-version",
-                "rc6.1",
-            ]
-        )
-        self.assertEqual(rc, 0)
+        with _pinned_regression_fixture("success-artifact-present") as tree:
+            rc = v.main(
+                [
+                    str(tree),
+                    "--schema-register-version",
+                    "rc6.1",
+                ]
+            )
+            self.assertEqual(rc, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -772,11 +1112,13 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
 
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, srl.ACTIVE_REGISTER_VERSION)
         self.assertEqual(v.SCHEMA_REGISTER_VERSION, "rc6.5")
-        errors = v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1")
-        self.assertEqual(errors, [], errors)
+        with _pinned_regression_fixture("success-artifact-present") as tree:
+            errors = v.validate_dir(tree, schema_register_version="rc6.1")
+            self.assertEqual(errors, [], errors)
         # Historical NOT_REACHED fixtures remain accepted via historical compatibility.
-        errors2 = v.validate_dir(FIXTURES / "image-pull-failure", schema_register_version="rc6.1")
-        self.assertEqual(errors2, [], errors2)
+        with _pinned_regression_fixture("image-pull-failure") as tree:
+            errors2 = v.validate_dir(tree, schema_register_version="rc6.1")
+            self.assertEqual(errors2, [], errors2)
 
     def test_s2_shaped_package_identity_enforced_and_no_write(self):
         import schema_register_loader as srl
@@ -817,10 +1159,11 @@ class Phase4S2CompatibilityNarrowTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_host_preliminary_mode_still_explicit(self):
-        errors = v.validate_dir(
-            FIXTURES / "success-artifact-present",
-            mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
-        self.assertEqual(errors, [], errors)
+        with _pinned_regression_fixture("success-artifact-present", mode=v.MODE_HOST_PRELIMINARY) as tree:
+            errors = v.validate_dir(
+                tree,
+                mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1")
+            self.assertEqual(errors, [], errors)
 
 
 class PackageVersionAwareExpectedTagTests(unittest.TestCase):
@@ -1103,83 +1446,72 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_rc8_final_binding_canonical_tag_mismatch_rejected(self):
-        import shutil
-
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8bind_", dir=HERE))
-        try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            # Active fixture is RC8; break only canonical_tag.
-            binding = (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").read_text(encoding="utf-8")
-            binding = binding.replace(
-                f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC8}",
-                f"canonical_tag={v.PACKAGE_TAG_ACTIVE_RC5}",
-            )
-            (tmp / "WEAVER_FORGE_FINAL_BINDING.txt").write_text(
-                binding, encoding="utf-8", newline="\n"
-            )
-            self._rewrite_manifest_and_seal(tmp)
-            errors = v.validate_dir(tmp)
-            self.assertTrue(
-                any(
-                    "canonical_tag must equal expected tag" in e
-                    or "canonical_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt"
-                    in e
-                    or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag"
-                    in e
-                    for e in errors
-                ),
-                errors,
-            )
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        with _pinned_regression_fixture("rc6-r6-synthetic-final") as positive:
+            self.assertEqual(v.validate_dir(positive), [])
+            base = _regression_snapshot(positive)
+            with _pinned_regression_fixture("rc6-r6-synthetic-final", mutable=True) as tmp:
+                self.assertEqual(_regression_snapshot(tmp), base)
+                old = b"canonical_tag=grok-build-witness-v1.0.0-rc8\n"
+                new = b"canonical_tag=grok-build-witness-v1.0.0-rc5\n"
+                path = tmp / "WEAVER_FORGE_FINAL_BINDING.txt"
+                self.assertEqual(path.read_bytes().count(old), 1)
+                path.write_bytes(path.read_bytes().replace(old, new, 1))
+                self._rewrite_manifest_and_seal(tmp)
+                errors = v.validate_dir(tmp)
+                self.assertTrue(
+                    any(
+                        "canonical_tag must equal expected tag" in e
+                        or "canonical_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt"
+                        in e
+                        or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag"
+                        in e
+                        for e in errors
+                    ),
+                    errors,
+                )
+                _record_tag_causality(base, tmp, path.name, old, new, errors, (
+                    "canonical_tag must equal expected tag",
+                    "canonical_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+                    "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt canonical_tag",
+                ))
+            self.assertEqual(_regression_snapshot(positive), base)
 
     def test_rc8_cross_file_identity_mismatch_rejected(self):
-        import shutil
-
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8xfile_", dir=HERE))
-        try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            # Leave identity+binding at RC8; flip only verdict package_tag.
-            verdict = (tmp / "WITNESS_VERDICT.md").read_text(encoding="utf-8")
-            verdict = verdict.replace(
-                f"package_tag={v.PACKAGE_TAG_ACTIVE_RC8}",
-                f"package_tag={v.PACKAGE_TAG_HISTORICAL_RC4}",
-            )
-            (tmp / "WITNESS_VERDICT.md").write_text(verdict, encoding="utf-8", newline="\n")
-            self._rewrite_manifest_and_seal(tmp)
-            errors = v.validate_dir(tmp)
-            self.assertTrue(
-                any(
-                    "package_tag must equal expected tag" in e
-                    or "package_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt" in e
-                    or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt" in e
-                    for e in errors
-                ),
-                errors,
-            )
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        with _pinned_regression_fixture("rc6-r6-synthetic-final") as positive:
+            self.assertEqual(v.validate_dir(positive), [])
+            base = _regression_snapshot(positive)
+            with _pinned_regression_fixture("rc6-r6-synthetic-final", mutable=True) as tmp:
+                self.assertEqual(_regression_snapshot(tmp), base)
+                old = b"package_tag=grok-build-witness-v1.0.0-rc8\n"
+                new = b"package_tag=grok-build-witness-v1.0.0-rc4\n"
+                path = tmp / "WITNESS_VERDICT.md"
+                self.assertEqual(path.read_bytes().count(old), 1)
+                path.write_bytes(path.read_bytes().replace(old, new, 1))
+                self._rewrite_manifest_and_seal(tmp)
+                errors = v.validate_dir(tmp)
+                self.assertTrue(
+                    any(
+                        "package_tag must equal expected tag" in e
+                        or "package_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt" in e
+                        or "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt" in e
+                        for e in errors
+                    ),
+                    errors,
+                )
+                _record_tag_causality(base, tmp, path.name, old, new, errors, (
+                    "package_tag must equal expected tag",
+                    "package_tag must equal WEAVER_FORGE_PACKAGE_IDENTITY.txt",
+                    "package_tag must equal WEAVER_FORGE_FINAL_BINDING.txt",
+                ))
+            self.assertEqual(_regression_snapshot(positive), base)
 
     def test_rc8_coherent_tuple_with_final_binding_accepted(self):
-        import shutil
-
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8bindok_", dir=HERE))
-        try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            self._rewrite_manifest_and_seal(tmp)
+        with _pinned_regression_fixture("rc6-r6-synthetic-final") as tmp:
             self.assertEqual(v.validate_dir(tmp), [])
             self.assertEqual(
                 v.expected_package_tag_for_version("1.0.0-rc8"),
                 v.PACKAGE_TAG_ACTIVE_RC8,
             )
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_rc8_coherent_tuple_accepted(self):
         base = fx.build_scenario("success-artifact-present")
@@ -1222,42 +1554,28 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_active_rc5_and_historical_rc4_fixtures_pass(self):
-        self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"),
-            [],
-        )
-        self.assertEqual(
-            v.validate_dir(FIXTURES / "rc5-synthetic-final-success", mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"),
-            [],
-        )
-        self.assertEqual(v.validate_dir(FIXTURES / "success-artifact-present", schema_register_version="rc6.1"), [])
-        pkg = (FIXTURES / "rc5-preliminary-success" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC5}", pkg)
-        hist = (FIXTURES / "success-artifact-present" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC4}", hist)
-        # Active synthetic-final trees are sealed to archive-equivalent CRLF bytes
-        # (working-tree LF cannot pass validate_dir against those seals). Identity
-        # and LF-resealed binding are covered here and by RC8 coherent-tuple tests.
-        identity = (FIXTURES / "rc6-r6-synthetic-final" / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("package_version=1.0.0-rc8", identity)
-        self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC8}", identity)
-        import shutil
-
-        src = FIXTURES / "rc6-r6-synthetic-final"
-        tmp = Path(tempfile.mkdtemp(prefix="pv_rc8ae_", dir=HERE))
-        try:
-            shutil.rmtree(tmp)
-            shutil.copytree(src, tmp)
-            self._rewrite_manifest_and_seal(tmp)
-            self.assertEqual(v.validate_dir(tmp), [])
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        with _pinned_regression_fixture("rc5-preliminary-success", mode=v.MODE_HOST_PRELIMINARY) as tree:
+            self.assertEqual(
+                v.validate_dir(tree, mode=v.MODE_HOST_PRELIMINARY, schema_register_version="rc6.1"),
+                [],
+            )
+            pkg = (tree / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
+            self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC5}", pkg)
+        with _pinned_regression_fixture("rc5-synthetic-final-success") as tree:
+            self.assertEqual(
+                v.validate_dir(tree, mode=v.MODE_FINAL_SUBMISSION, schema_register_version="rc6.1"),
+                [],
+            )
+        with _pinned_regression_fixture("success-artifact-present") as tree:
+            self.assertEqual(v.validate_dir(tree, schema_register_version="rc6.1"), [])
+            hist = (tree / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
+            self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_HISTORICAL_RC4}", hist)
+        # Current payload is fixed Git material; only its two derived seal files differ.
+        with _pinned_regression_fixture("rc6-r6-synthetic-final") as tree:
+            identity = (tree / "WEAVER_FORGE_PACKAGE_IDENTITY.txt").read_text(encoding="utf-8")
+            self.assertIn("package_version=1.0.0-rc8", identity)
+            self.assertIn(f"weaver_forge_tag_requested={v.PACKAGE_TAG_ACTIVE_RC8}", identity)
+            self.assertEqual(v.validate_dir(tree), [])
 
 
 if __name__ == "__main__":

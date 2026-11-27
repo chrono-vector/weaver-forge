@@ -269,8 +269,11 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         identity_complete: str | None = None,
         static_complete: str | None = None,
     ) -> list[str]:
+        run_ids = re.findall(r"^RUN_ID=(\S+)$", self._source_prelude(), flags=re.MULTILINE)
+        self.assertEqual(len(run_ids), 1, "expected one explicit synthetic Host RUN_ID")
         lines = [
             "evidence_schema_version=1",
+            f"run_id={run_ids[0]}",
             "status=FAILED",
             f"outcome={outcome}",
             f"cargo_started={cargo_started}",
@@ -560,9 +563,12 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         self.assertIn("EC=1 ERR=missing_cargo_exit_code", cp.stdout)
 
     def test_12_missing_artifact_present_rejected(self) -> None:
+        run_ids = re.findall(r"^RUN_ID=(\S+)$", self._source_prelude(), flags=re.MULTILINE)
+        self.assertEqual(len(run_ids), 1, "expected one explicit synthetic Host RUN_ID")
         self._write_build_exit(
             [
                 "evidence_schema_version=1",
+                f"run_id={run_ids[0]}",
                 "outcome=BUILD_NOT_STARTED",
                 "cargo_started=NO",
                 "cargo_exit_code=NOT_APPLICABLE",
@@ -1535,6 +1541,109 @@ class Phase3DHostOutcomeIngestionTests(unittest.TestCase):
         self.assertEqual(_read_kv(ingestion, "host_source_integrity_status"), "FAILED")
         self.assertEqual(_read_kv(ingestion, "preliminary_success_eligible"), "NO")
         self._assert_no_prohibited()
+
+    def test_51_stage2a_five_outcomes_source_failures_preserve_ownership(self) -> None:
+        """Synthetic Container facts, distinct Docker facts; never run the workflow."""
+        cases = (
+            ("BUILD_NOT_STARTED", "NO", "NOT_APPLICABLE", "NO", None, None, "BUILD_NOT_STARTED"),
+            ("CARGO_FAILED", "YES", "17", "NO", None, None, "FAILED"),
+            ("CARGO_SUCCEEDED_ARTIFACT_MISSING", "YES", "0", "NO", None, None, "COMPLETE"),
+            ("CARGO_SUCCEEDED_ARTIFACT_PRESENT", "YES", "0", "YES", "YES", "YES", "COMPLETE"),
+            ("INFRASTRUCTURE_FAILURE", "YES", "17", "NO", None, None, "INFRASTRUCTURE_FAILURE"),
+        )
+        root = self.evidence
+        root_rel = self.evidence_rel
+        for outcome, started, cargo_exit, present, ident, static, build_status in cases:
+            for head_ok, clean_ok in (("no", "yes"), ("yes", "no")):
+                with self.subTest(outcome=outcome, head_ok=head_ok, clean_ok=clean_ok):
+                    label = outcome + "-" + head_ok + "-" + clean_ok
+                    self.evidence = root / label
+                    self.evidence.mkdir()
+                    self.evidence_rel = root_rel + "/" + label
+                    lines = self._valid_tuple_lines(
+                        outcome, cargo_started=started, cargo_exit=cargo_exit,
+                        artifact_present=present, identity_complete=ident,
+                        static_complete=static, failure_stage="stage2a_observed_failure",
+                    )
+                    lines = ["build_status=" + build_status if line.startswith("build_status=")
+                             else line for line in lines]
+                    path = self._write_build_exit(lines)
+                    before = path.read_bytes()
+                    cp = self._run_sourced(textwrap.dedent(f"""\
+                        DOCKER_EXIT=23
+                        invoke_host_preliminary_validator() {{
+                          printf 'PROHIBITED validator\\n' >> {shlex.quote(self.cmd_log_rel)}
+                          return 99
+                        }}
+                        parse_container_result_tuple
+                        test "$CONTAINER_RESULT_VALID" = YES
+                        enforce_post_docker_source_integrity_boundary {head_ok} {clean_ok}
+                        set +e
+                        evaluate_host_automated_structural_gate
+                        gate_ec=$?
+                        set -e
+                        printf 'GATE_EC=%s GATE=%s\\n' "$gate_ec" "$HOST_VALIDATOR_GATE_OK"
+                        test "$gate_ec" -ne 0
+                        test "$HOST_VALIDATOR_GATE_OK" = no
+                    """))
+                    self.assertEqual(cp.returncode, 0, cp.stdout + cp.stderr)
+                    self.assertIn("GATE_EC=1 GATE=no", cp.stdout)
+                    self.assertEqual(path.read_bytes(), before)
+                    record = self._ingestion()
+                    for key, value in (
+                        ("container_result_valid", "YES"), ("container_outcome", outcome),
+                        ("cargo_exit_code", cargo_exit), ("container_exit_code", "23"),
+                        ("host_source_integrity_status", "FAILED"),
+                        ("post_build_integrity_status", "FAILED"),
+                        ("evidence_completeness_status", "FAILED"),
+                        ("preliminary_success_eligible", "NO"),
+                    ):
+                        self.assertEqual(_read_kv(record, key), value, key)
+                    self.assertEqual(_read_kv(path, "cargo_exit_code"), cargo_exit)
+                    self.assertEqual(_read_kv(self.evidence / "DOCKER_EXIT_CODE.txt", "docker_exit_code"), "23")
+                    for produced in self.workspace.rglob("*"):
+                        if produced.is_file():
+                            self.assertNotIn(b"validator_status=", produced.read_bytes(), str(produced))
+                    self.assertFalse(any(self.workspace.rglob("VALIDATOR_RESULT.txt")))
+                    self._assert_no_prohibited()
+
+    def test_52_stage2a_absent_empty_invalid_results_not_repaired(self) -> None:
+        root = self.evidence
+        root_rel = self.evidence_rel
+        for label, data in (("missing", None), ("empty", b""),
+                            ("invalid", b"outcome=SUCCESS\ncargo_started=YES\ncargo_exit_code=17\n")):
+            for head_ok, clean_ok in (("no", "yes"), ("yes", "no")):
+                with self.subTest(case=label, head_ok=head_ok, clean_ok=clean_ok):
+                    name = label + "-" + head_ok + "-" + clean_ok
+                    self.evidence = root / name
+                    self.evidence.mkdir()
+                    self.evidence_rel = root_rel + "/" + name
+                    path = self.evidence / "BUILD_EXIT_CODE.txt"
+                    if data is not None:
+                        path.write_bytes(data)
+                    cp = self._run_sourced(textwrap.dedent(f"""\
+                        DOCKER_EXIT=23
+                        enforce_post_docker_source_integrity_boundary {head_ok} {clean_ok}
+                        set +e
+                        evaluate_host_automated_structural_gate
+                        gate_ec=$?
+                        set -e
+                        test "$gate_ec" -ne 0
+                        test "$HOST_VALIDATOR_GATE_OK" = no
+                    """))
+                    self.assertEqual(cp.returncode, 0, cp.stdout + cp.stderr)
+                    if data is None:
+                        self.assertFalse(path.exists())
+                    else:
+                        self.assertEqual(path.read_bytes(), data)
+                    self.assertEqual(_read_kv(self._ingestion(), "container_result_valid"), "NO")
+                    self.assertEqual(_read_kv(self._ingestion(), "host_source_integrity_status"), "FAILED")
+                    self.assertEqual(_read_kv(self._ingestion(), "preliminary_success_eligible"), "NO")
+                    for produced in self.workspace.rglob("*"):
+                        if produced.is_file():
+                            self.assertNotIn(b"validator_status=", produced.read_bytes(), str(produced))
+                    self.assertFalse(any(self.workspace.rglob("VALIDATOR_RESULT.txt")))
+                    self._assert_no_prohibited()
 
 
 if __name__ == "__main__":
