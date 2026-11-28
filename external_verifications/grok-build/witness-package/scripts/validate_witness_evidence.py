@@ -239,9 +239,9 @@ OUTCOME_RULES = {
         "cargo_exit_code": "0",
     },
     "INFRASTRUCTURE_FAILURE": {
-        "cargo_started": "NO",
+        "cargo_started": ("YES", "NO"),
         "build_status": "INFRASTRUCTURE_FAILURE",
-        "cargo_exit_code": "NOT_APPLICABLE",
+        "cargo_exit_code": "PRESERVE_CONTAINER_FACTS",
     },
 }
 
@@ -1857,13 +1857,23 @@ def check_build_exit_code(fields: dict[str, str], errors: list[str], outcome: st
     if outcome is None:
         return
     rule = OUTCOME_RULES[outcome]
-    if fields.get("cargo_started") != rule["cargo_started"]:
+    if outcome == "INFRASTRUCTURE_FAILURE":
+        if fields.get("cargo_started") not in rule["cargo_started"]:
+            fail(errors, f"{name}: cargo_started must be YES|NO for outcome {outcome}")
+        if fields.get("failure_stage", "") in ("", "NOT_REACHED", "NOT_STARTED", "NOT_APPLICABLE"):
+            fail(errors, f"{name}: failure_stage must identify the infrastructure failure stage for outcome {outcome}")
+    elif fields.get("cargo_started") != rule["cargo_started"]:
         fail(errors, f"{name}: cargo_started must be {rule['cargo_started']} for outcome {outcome}")
     if fields.get("build_status") != rule["build_status"]:
         fail(errors, f"{name}: build_status must be {rule['build_status']} for outcome {outcome}")
     expected_exit = rule["cargo_exit_code"]
     actual_exit = fields.get("cargo_exit_code", "")
-    if expected_exit == "0":
+    if expected_exit == "PRESERVE_CONTAINER_FACTS":
+        if fields.get("cargo_started") == "NO" and actual_exit != "NOT_APPLICABLE":
+            fail(errors, f"{name}: cargo_exit_code must be exactly 'NOT_APPLICABLE' for outcome {outcome} when cargo_started=NO")
+        elif fields.get("cargo_started") == "YES" and not is_numeric(actual_exit):
+            fail(errors, f"{name}: cargo_exit_code must be numeric for outcome {outcome} when cargo_started=YES")
+    elif expected_exit == "0":
         if actual_exit != "0":
             fail(errors, f"{name}: cargo_exit_code must be '0' for outcome {outcome}")
     elif expected_exit == "NOT_APPLICABLE":

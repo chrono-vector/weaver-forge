@@ -628,6 +628,292 @@ class GoldenFixtureTests(unittest.TestCase):
 
 
 class OutcomeConsistencyTests(unittest.TestCase):
+    @contextmanager
+    def _stage2b_case(self, mode: str, variant: str):
+        """Execution-only infra mutation of the existing pinned Stage 2A recipe.
+
+        No fixture builder upgrade or source-fixture write. Host integrity stays
+        OK: these cases model a Container infrastructure fault, not a Host fault.
+        """
+        from test_phase3f_validator_prerequisites import Phase3FValidatorPrerequisites
+        import evidence_inventory as ei
+        from schema_register_loader import load_active_register
+        import statement_binding as sb
+
+        fixture = Phase3FValidatorPrerequisites()
+        fixture.setUp()
+        tree = None
+        audit = {"test": self.id(), "mode": mode, "variant": variant,
+                 "synthetic_only": True, "status": "INCOMPLETE"}
+        try:
+            tree = fixture._derive_current_fixture(mode)
+            base = _regression_snapshot(tree)
+            self.assertEqual(v.validate_dir(tree, mode=mode), [], "normal base rejected")
+            self.assertEqual(_regression_snapshot(tree), base)
+            audit["normal_base_accepted_no_write"] = True
+
+            def replace_field(filename: str, key: str, value: str) -> None:
+                path = tree / filename
+                raw = path.read_bytes()
+                pattern = rb"^" + key.encode("ascii") + rb"=[^\n]*$"
+                raw, count = re.subn(pattern, (key + "=" + value).encode("ascii"),
+                                     raw, flags=re.MULTILINE)
+                self.assertEqual(count, 1, (filename, key))
+                path.write_bytes(raw)
+
+            if variant != "success":
+                self.assertIn(variant, {"infra-before", "infra-after", "invalid-exit",
+                                       "missing-outcome", "unknown-outcome"})
+                started = "NO" if variant == "infra-before" else "YES"
+                exit_code = "NOT_APPLICABLE" if started == "NO" else "101"
+                for filename, keys in {
+                    "BUILD_EXIT_CODE.txt": ("outcome",),
+                    "DOCKER_EXIT_CODE.txt": ("outcome",),
+                    "BUILD_TIMING.txt": ("outcome",),
+                    "ARTIFACT_IDENTITY.txt": ("outcome",),
+                    "POST_BUILD_INTEGRITY.txt": ("outcome", "authoritative_outcome"),
+                    "HOST_OUTCOME_INGESTION.txt": ("container_outcome",),
+                    _REGRESSION_BINDING: ("authoritative_outcome",),
+                }.items():
+                    for key in keys:
+                        replace_field(filename, key, "INFRASTRUCTURE_FAILURE")
+                for filename in ("BUILD_EXIT_CODE.txt", "BUILD_TIMING.txt"):
+                    replace_field(filename, "cargo_started", started)
+                    replace_field(filename, "cargo_exit_code", exit_code)
+                    replace_field(filename, "status", "FAILED")
+                    replace_field(filename, "failure_stage", "container_infrastructure")
+                replace_field("BUILD_EXIT_CODE.txt", "build_status", "INFRASTRUCTURE_FAILURE")
+                if started == "NO":
+                    for key in ("cargo_started_utc", "cargo_finished_utc", "cargo_elapsed_seconds"):
+                        replace_field("BUILD_TIMING.txt", key, "NOT_APPLICABLE")
+                for key, value in {
+                    "cargo_started": started, "cargo_exit_code": exit_code,
+                    "artifact_present": "NO", "artifact_identity_complete": "NOT_APPLICABLE",
+                    "static_inspection_complete": "NOT_APPLICABLE",
+                }.items():
+                    replace_field("HOST_OUTCOME_INGESTION.txt", key, value)
+                for key in ("applicable", "artifact_present", "static_inspection_complete"):
+                    replace_field("ARTIFACT_IDENTITY.txt", key, "no")
+                for key in ("artifact_path", "artifact_filename", "artifact_size_bytes",
+                            "artifact_sha256", "gnu_build_id"):
+                    replace_field("ARTIFACT_IDENTITY.txt", key, "NOT_APPLICABLE")
+                with (tree / "ARTIFACT_IDENTITY.txt").open("ab") as handle:
+                    handle.write(b"reason=synthetic_container_infrastructure_fault_no_artifact\n")
+                for key, value in {"status": "NOT_APPLICABLE", "outcome": "NOT_APPLICABLE",
+                                   "applicable": "no", "artifact_present": "no",
+                                   "artifact_path": "NOT_APPLICABLE", "inspection_complete": "no",
+                                   "failure_stage": "container_infrastructure",
+                                   "reason": "synthetic_container_infrastructure_fault_no_artifact"}.items():
+                    replace_field("STATIC_ARTIFACT_INSPECTION.txt", key, value)
+                static_fields, parse_errors = v.parse_kv(
+                    (tree / "STATIC_ARTIFACT_INSPECTION.txt").read_text(encoding="utf-8"))
+                self.assertEqual(parse_errors, [])
+                for key in static_fields:
+                    if key.endswith(("_command", "_output", "_exit_code")):
+                        replace_field("STATIC_ARTIFACT_INSPECTION.txt", key, "")
+                replace_field("POST_BUILD_INTEGRITY.txt", "artifact_exists", "no")
+                replace_field("POST_BUILD_INTEGRITY.txt", "artifact_path", "NOT_APPLICABLE")
+                for key in ("artifact_sha256", "artifact_byte_size"):
+                    replace_field(_REGRESSION_BINDING, key, "NOT_APPLICABLE")
+                if mode == "final-submission":
+                    replace_field("WITNESS_STATEMENT.md", "authoritative_outcome", "INFRASTRUCTURE_FAILURE")
+                    replace_field("WITNESS_STATEMENT.md", "artifact_sha256", "NOT_APPLICABLE")
+                    replace_field("WITNESS_STATEMENT.md", "final_machine_ceiling", "INDETERMINATE")
+                    statement, errors = v.parse_kv((tree / "WITNESS_STATEMENT.md").read_text(encoding="utf-8"))
+                    self.assertEqual(errors, [])
+                    identity = sb.compute_statement_identity_sha256(statement)
+                    # Independent ordered literal binding oracle; not sb's field list/hash helper.
+                    keys = ("run_id", "package_identity_ref", "final_binding_ref", "authoritative_outcome",
+                            "artifact_sha256", "evidence_manifest_ref", "deviations_sha256", "deviation_state",
+                            "redactions_index_sha256", "redaction_state", "final_machine_ceiling",
+                            "execution_date_utc", "execution_started_utc", "execution_finished_utc",
+                            "execution_timing_source_file", "execution_timing_source_start_field",
+                            "execution_timing_source_end_field")
+                    independent_identity = hashlib.sha256(
+                        "".join(key + "=" + statement[key] + "\n" for key in keys).encode("utf-8")).hexdigest()
+                    self.assertEqual(identity, independent_identity)
+                    replace_field("WITNESS_STATEMENT.md", "statement_identity_sha256", identity)
+                    for key, value in {"outcome": "INFRASTRUCTURE_FAILURE", "verdict_ceiling": "INDETERMINATE",
+                                       "final_machine_ceiling": "INDETERMINATE", "statement_identity_sha256": identity,
+                                       "witness_statement_sha256": hashlib.sha256(
+                                           (tree / "WITNESS_STATEMENT.md").read_bytes()).hexdigest()}.items():
+                        replace_field("WITNESS_VERDICT.md", key, value)
+                    path = tree / "WITNESS_VERDICT.md"
+                    raw = path.read_bytes()
+                    self.assertEqual(raw.count(b"Witness proposed verdict: PASS\n"), 1)
+                    path.write_bytes(raw.replace(b"Witness proposed verdict: PASS\n",
+                                                 b"Witness proposed verdict: INDETERMINATE\n", 1))
+                    audit["independent_statement_identity_sha256"] = independent_identity
+
+                if variant == "invalid-exit":
+                    replace_field("BUILD_EXIT_CODE.txt", "cargo_exit_code", "NOT_APPLICABLE")
+                elif variant == "missing-outcome":
+                    path = tree / "BUILD_EXIT_CODE.txt"
+                    raw, count = re.subn(rb"^outcome=INFRASTRUCTURE_FAILURE\n", b"", path.read_bytes(), flags=re.MULTILINE)
+                    self.assertEqual(count, 1)
+                    path.write_bytes(raw)
+                elif variant == "unknown-outcome":
+                    replace_field("BUILD_EXIT_CODE.txt", "outcome", "UNKNOWN")
+
+                payload = {n: raw for n, raw in _regression_snapshot(tree).items()
+                           if n not in {_REGRESSION_MANIFEST, _REGRESSION_BINDING}}
+                template = (tree / _REGRESSION_BINDING).read_bytes()
+                ei.write_evidence_manifest(tree, nested_classes=load_active_register().nested_class_records())
+                digest = hashlib.sha256((tree / _REGRESSION_MANIFEST).read_bytes()).hexdigest()
+                binding, count = re.subn(rb"^final_manifest_sha256=[0-9a-f]{64}$",
+                                         b"final_manifest_sha256=" + digest.encode("ascii"),
+                                         template, flags=re.MULTILINE)
+                self.assertEqual(count, 1)
+                (tree / _REGRESSION_BINDING).write_bytes(binding)
+                _check_regression_manifest(tree, payload)
+                _check_regression_binding(tree, template)
+                self.assertEqual(set(_regression_snapshot(tree)), set(base))
+                audit["independent_manifest_and_binding"] = True
+            audit["files_before_consumer"] = _regression_hashes(_regression_snapshot(tree))
+            yield tree, audit
+            audit["status"] = "PASS"
+        finally:
+            if tree is not None:
+                audit["files_after_consumer"] = _regression_hashes(_regression_snapshot(tree))
+                destination = os.environ.get("WF_STAGE2B_CASE_DIR")
+                if destination:
+                    archive = Path(destination) / (self._testMethodName + "-" + tree.name)
+                    archive.mkdir()
+                    for name, raw in _regression_snapshot(tree).items():
+                        target = archive / name
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(raw)
+                    (archive / "case-oracle.json").write_text(
+                        json.dumps(audit, indent=2) + "\n", encoding="utf-8")
+            fixture.tearDown()
+
+    def test_stage2b_infra_tuple_valid_phases(self):
+        cases = []
+        for started, exit_code in (("NO", "NOT_APPLICABLE"), ("YES", "0"), ("YES", "101")):
+            with self.subTest(cargo_started=started, cargo_exit_code=exit_code):
+                fields = {"outcome": "INFRASTRUCTURE_FAILURE", "cargo_started": started,
+                          "cargo_exit_code": exit_code, "build_status": "INFRASTRUCTURE_FAILURE",
+                          "failure_stage": "container_infrastructure", "status": "FAILED"}
+                before = dict(fields)
+                errors = []
+                v.check_build_exit_code(fields, errors, "INFRASTRUCTURE_FAILURE")
+                self.assertEqual(errors, [])
+                self.assertEqual(fields, before)
+                cases.append({"fields": fields, "expected": [], "actual": errors})
+        _regression_record("stage2b-valid-tuples", {"literal_oracle": True, "cases": cases, "status": "PASS"})
+
+    def test_stage2b_infra_tuple_invalid_phases(self):
+        cases = [("NO", "0", "container_infrastructure", "cargo_exit_code must be exactly 'NOT_APPLICABLE' for outcome INFRASTRUCTURE_FAILURE when cargo_started=NO"),
+                 ("YES", "NOT_APPLICABLE", "container_infrastructure", "cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"),
+                 ("YES", "", "container_infrastructure", "cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"),
+                 ("YES", "abc", "container_infrastructure", "cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"),
+                 ("MAYBE", "101", "container_infrastructure", "cargo_started must be YES|NO for outcome INFRASTRUCTURE_FAILURE")]
+        cases += [("YES", "101", stage, "failure_stage must identify the infrastructure failure stage for outcome INFRASTRUCTURE_FAILURE")
+                  for stage in ("", "NOT_REACHED", "NOT_STARTED", "NOT_APPLICABLE")]
+        observed = []
+        for started, exit_code, stage, reason in cases:
+            with self.subTest(cargo_started=started, cargo_exit_code=exit_code, stage=stage):
+                fields = {"outcome": "INFRASTRUCTURE_FAILURE", "cargo_started": started,
+                          "cargo_exit_code": exit_code, "build_status": "INFRASTRUCTURE_FAILURE",
+                          "failure_stage": stage, "status": "FAILED"}
+                before = dict(fields)
+                errors = []
+                v.check_build_exit_code(fields, errors, "INFRASTRUCTURE_FAILURE")
+                expected = ["BUILD_EXIT_CODE.txt: " + reason]
+                self.assertEqual(errors, expected)
+                self.assertEqual(fields, before)
+                observed.append({"fields": fields, "expected": expected, "actual": errors})
+        _regression_record("stage2b-invalid-tuples", {"literal_oracle": True, "cases": observed, "status": "PASS"})
+
+    def test_stage2b_infra_no_inference(self):
+        observed = []
+        for outcome in (None, "", "UNKNOWN", "NOT_REACHED"):
+            with self.subTest(outcome=outcome):
+                raw = "cargo_started=YES\ncargo_exit_code=101\nbuild_status=FAILED\n"
+                if outcome is not None:
+                    raw += "outcome=" + outcome + "\n"
+                fields, parse_errors = v.parse_kv(raw, "BUILD_EXIT_CODE.txt")
+                self.assertEqual(parse_errors, [])
+                before = dict(fields)
+                errors = []
+                self.assertIsNone(v.determine_outcome(fields, errors))
+                self.assertEqual(len(errors), 1)
+                if outcome is None:
+                    expected = "BUILD_EXIT_CODE.txt: explicit 'outcome' field is required (outcome inference from cargo_started/build_status is prohibited)"
+                elif outcome == "":
+                    expected = "BUILD_EXIT_CODE.txt: explicit 'outcome' field is empty (outcome inference is prohibited; fail closed)"
+                else:
+                    expected = (f"BUILD_EXIT_CODE.txt: 'outcome' value {outcome!r} is not an allowed "
+                                "authoritative outcome ['BUILD_NOT_STARTED', 'CARGO_FAILED', 'CARGO_SUCCEEDED_ARTIFACT_MISSING', 'CARGO_SUCCEEDED_ARTIFACT_PRESENT', 'INFRASTRUCTURE_FAILURE'] "
+                                "(unsupported/malformed outcome fails closed; no inference)")
+                self.assertEqual(errors, [expected])
+                self.assertEqual(fields, before)
+                observed.append({"input": raw, "outcome": None, "errors": errors})
+        raw = "cargo_started=YES\ncargo_exit_code=101\noutcome=INFRASTRUCTURE_FAILURE\noutcome=CARGO_FAILED\n"
+        _fields, errors = v.parse_kv(raw, "BUILD_EXIT_CODE.txt")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("duplicate key 'outcome'", errors[0])
+        observed.append({"input": raw, "errors": errors, "success_rejected_at_parse": True})
+        _regression_record("stage2b-no-inference", {"cases": observed, "status": "PASS"})
+
+    def test_stage2b_infra_both_modes(self):
+        for mode in ("host-preliminary", "final-submission"):
+            for variant in ("success", "infra-before", "infra-after", "invalid-exit"):
+                with self.subTest(mode=mode, variant=variant), self._stage2b_case(mode, variant) as (tree, audit):
+                    before = _regression_snapshot(tree)
+                    errors = v.validate_dir(tree, mode=mode)
+                    expected = (["BUILD_EXIT_CODE.txt: cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"]
+                                if variant == "invalid-exit" else [])
+                    self.assertEqual(errors, expected)
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    audit.update({"expected_diagnostics": expected, "actual_diagnostics": errors,
+                                  "exact_diagnostic_multiset": True, "no_write": True})
+
+    def test_stage2b_infra_ceiling_unchanged(self):
+        cases = [("INFRASTRUCTURE_FAILURE", False, False, False, "INDETERMINATE"),
+                 ("INFRASTRUCTURE_FAILURE", False, False, False, "INDETERMINATE"),
+                 ("INFRASTRUCTURE_FAILURE", False, True, False, "FAIL"),
+                 ("INFRASTRUCTURE_FAILURE", True, False, False, "FAIL"),
+                 ("CARGO_FAILED", False, False, False, "FAIL"),
+                 ("CARGO_SUCCEEDED_ARTIFACT_PRESENT", False, False, False, "PASS"),
+                 ("CARGO_SUCCEEDED_ARTIFACT_PRESENT", False, False, True, "PARTIAL")]
+        observed = []
+        for index, (outcome, prohibited, identity, incomplete, expected) in enumerate(cases):
+            with self.subTest(case=index, outcome=outcome):
+                actual = v.compute_verdict_ceiling(outcome, prohibited, identity, incomplete)
+                self.assertEqual(actual, expected)
+                observed.append({"case": index, "outcome": outcome, "prohibited": prohibited,
+                                 "identity_mismatch": identity, "static_incomplete": incomplete,
+                                 "literal_expected": expected, "actual": actual})
+        _regression_record("stage2b-ceiling", {"literal_oracle": True, "cases": observed, "status": "PASS"})
+
+    def test_stage2b_infra_no_write(self):
+        for mode in ("host-preliminary", "final-submission"):
+            for variant in ("success", "infra-before", "infra-after", "invalid-exit", "missing-outcome", "unknown-outcome"):
+                with self.subTest(mode=mode, variant=variant), self._stage2b_case(mode, variant) as (tree, audit):
+                    before = _regression_snapshot(tree)
+                    errors = v.validate_dir(tree, mode=mode)
+                    expected_exit = 1 if variant in {"invalid-exit", "missing-outcome", "unknown-outcome"} else 0
+                    self.assertEqual(bool(errors), bool(expected_exit))
+                    if variant in {"missing-outcome", "unknown-outcome"}:
+                        reason = ("BUILD_EXIT_CODE.txt: explicit 'outcome' field is required" if variant == "missing-outcome"
+                                  else "BUILD_EXIT_CODE.txt: 'outcome' value 'UNKNOWN' is not an allowed")
+                        self.assertTrue(any(e.startswith(reason) for e in errors), errors)
+                    if variant == "invalid-exit":
+                        self.assertEqual(errors, ["BUILD_EXIT_CODE.txt: cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"])
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    argv = [sys.executable, "-B", str(Path(SCRIPTS) / "validate_witness_evidence.py"),
+                            "--" + mode, str(tree)]
+                    cp = subprocess.run(argv, capture_output=True, timeout=30)
+                    self.assertEqual(cp.returncode, expected_exit, (cp.stdout, cp.stderr))
+                    self.assertIn(b"STRUCTURAL VALIDATION: " + (b"FAIL" if expected_exit else b"PASS"), cp.stdout)
+                    self.assertEqual(cp.stderr, b"")
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    self.assertNotIn("VALIDATOR_RESULT.txt", before)
+                    audit.update({"argv": argv, "cli_exit": cp.returncode,
+                                  "stdout": cp.stdout.decode("utf-8"), "stderr": cp.stderr.decode("utf-8"),
+                                  "api_errors": errors, "inventory_and_all_bytes_unchanged": True})
+
     def test_docker_outcome_disagreement_fails(self):
         files = fx.build_scenario("success-artifact-present")
         files["DOCKER_EXIT_CODE.txt"] = files["DOCKER_EXIT_CODE.txt"].replace(
