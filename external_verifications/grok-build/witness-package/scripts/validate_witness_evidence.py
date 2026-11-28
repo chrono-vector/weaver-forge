@@ -3413,13 +3413,35 @@ def validate_dir(
     This is not Independent Witness PASS, not final eligibility, not READY, and
     not rc5 readiness. The validator still writes nothing into evidence.
     """
+    errors, _computed_ceiling = _evaluate_dir(
+        evidence_dir,
+        host_preliminary=host_preliminary,
+        mode=mode,
+        schema_register_version=schema_register_version,
+    )
+    return errors
+
+
+def _evaluate_dir(
+    evidence_dir: Path,
+    *,
+    host_preliminary: bool = False,
+    mode: str | None = None,
+    schema_register_version: str | None = None,
+) -> tuple[list[str], str | None]:
+    """Return all structural diagnostics and the existing internal ceiling.
+
+    None means evaluation ended before ceiling calculation. A computed ceiling
+    is not a complete Contract result; diagnostics remain independently binding.
+    This private boundary does not emit results or modify evidence.
+    """
     errors: list[str] = []
     if not evidence_dir.is_dir():
-        return [f"Not a directory: {evidence_dir}"]
+        return [f"Not a directory: {evidence_dir}"], None
 
     field_register, reg_error = resolve_validation_register(schema_register_version)
     if reg_error is not None or field_register is None:
-        return [reg_error or "schema register resolution failed"]
+        return [reg_error or "schema register resolution failed"], None
 
     selected_mode = resolve_validation_mode(host_preliminary=host_preliminary, mode=mode)
     mode_required = list(required_files_for_mode(selected_mode, field_register))
@@ -3924,7 +3946,7 @@ def validate_dir(
                 f"authority (active authority is {ACTIVE_REGISTER_VERSION!r})",
             )
 
-    return errors
+    return errors, ceiling
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1864,5 +1864,217 @@ class PackageVersionAwareExpectedTagTests(unittest.TestCase):
             self.assertEqual(v.validate_dir(tree), [])
 
 
+class InternalEvaluationBoundaryTests(unittest.TestCase):
+    """Private result boundary only; no new Contract status or output format."""
+
+    def _case(self, mode, variant):
+        return OutcomeConsistencyTests._stage2b_case(self, mode, variant)
+
+    def _evaluate_once(self, tree, mode, expected_ceiling):
+        from unittest import mock
+
+        with mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as ceiling:
+            errors, computed = v._evaluate_dir(tree, mode=mode)
+            self.assertEqual(ceiling.call_count, 1)
+        self.assertEqual(computed, expected_ceiling)
+        return errors, computed
+
+    def test_boundary_01_success_both_modes(self):
+        for mode in ("host-preliminary", "final-submission"):
+            with self.subTest(mode=mode), self._case(mode, "success") as (tree, audit):
+                before = _regression_snapshot(tree)
+                errors, computed = self._evaluate_once(tree, mode, "PASS")
+                self.assertEqual(errors, [])
+                self.assertEqual(v.validate_dir(tree, mode=mode), [])
+                self.assertEqual(_regression_snapshot(tree), before)
+                audit.update({"literal_expected_ceiling": "PASS", "computed_ceiling": computed,
+                              "actual_diagnostics": errors, "no_write": True})
+
+    def test_boundary_02_infra_before_after(self):
+        for mode in ("host-preliminary", "final-submission"):
+            for variant, started, exit_code in (("infra-before", "NO", "NOT_APPLICABLE"),
+                                                ("infra-after", "YES", "101")):
+                with self.subTest(mode=mode, variant=variant), self._case(mode, variant) as (tree, audit):
+                    before = _regression_snapshot(tree)
+                    fields = dict(line.split("=", 1) for line in before["BUILD_EXIT_CODE.txt"].decode().splitlines())
+                    self.assertEqual((fields["cargo_started"], fields["cargo_exit_code"]), (started, exit_code))
+                    errors, computed = self._evaluate_once(tree, mode, "INDETERMINATE")
+                    self.assertEqual(errors, [])
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    audit.update({"literal_expected_ceiling": "INDETERMINATE", "computed_ceiling": computed,
+                                  "actual_diagnostics": errors, "no_write": True})
+
+    def test_boundary_03_late_binding_diagnostics(self):
+        for mode in ("host-preliminary", "final-submission"):
+            with self.subTest(mode=mode), self._case(mode, "success") as (tree, audit):
+                path = tree / _REGRESSION_BINDING
+                raw, count = re.subn(rb"^final_manifest_sha256=[0-9a-f]{64}$",
+                                     b"final_manifest_sha256=" + b"b" * 64,
+                                     path.read_bytes(), flags=re.MULTILINE)
+                self.assertEqual(count, 1)
+                path.write_bytes(raw)
+                before = _regression_snapshot(tree)
+                audit["files_before_consumer"] = _regression_hashes(before)
+                manifest_hash = hashlib.sha256(before[_REGRESSION_MANIFEST]).hexdigest()
+                expected = ["WEAVER_FORGE_FINAL_BINDING.txt: final_manifest_sha256 mismatch "
+                            f"(recomputed={manifest_hash} recorded={'b' * 64})"]
+                if mode == "final-submission":
+                    expected.append("WITNESS_STATEMENT.md: WEAVER_FORGE_FINAL_BINDING.txt "
+                                    "final_manifest_sha256 does not match recomputed EVIDENCE_MANIFEST.sha256 "
+                                    "identity (manifest identity binding)")
+                errors, computed = self._evaluate_once(tree, mode, "PASS")
+                self.assertEqual(sorted(errors), sorted(expected))
+                self.assertEqual(v.validate_dir(tree, mode=mode), errors)
+                self.assertEqual(_regression_snapshot(tree), before)
+                audit.update({"literal_expected_ceiling": "PASS", "computed_ceiling": computed,
+                              "expected_diagnostics": expected, "actual_diagnostics": errors,
+                              "intentional_negative": "excluded binding hash only", "no_write": True})
+
+    def test_boundary_04_outcome_no_inference(self):
+        from unittest import mock
+        import evidence_inventory as ei
+        from schema_register_loader import load_active_register
+
+        cases = ("missing", "empty", "unknown", "duplicate")
+        for mode in ("host-preliminary", "final-submission"):
+            for variant in cases:
+                with self.subTest(mode=mode, variant=variant), self._case(mode, "infra-after") as (tree, audit):
+                    path = tree / "BUILD_EXIT_CODE.txt"
+                    old = b"outcome=INFRASTRUCTURE_FAILURE\n"
+                    raw = path.read_bytes()
+                    self.assertEqual(raw.count(old), 1)
+                    if variant == "missing":
+                        raw = raw.replace(old, b"", 1)
+                        reason = "BUILD_EXIT_CODE.txt: explicit 'outcome' field is required (outcome inference from cargo_started/build_status is prohibited)"
+                    elif variant == "empty":
+                        raw = raw.replace(old, b"outcome=\n", 1)
+                        reason = "BUILD_EXIT_CODE.txt: explicit 'outcome' field is empty (outcome inference is prohibited; fail closed)"
+                    elif variant == "unknown":
+                        raw = raw.replace(old, b"outcome=UNKNOWN\n", 1)
+                        reason = ("BUILD_EXIT_CODE.txt: 'outcome' value 'UNKNOWN' is not an allowed authoritative outcome "
+                                  "['BUILD_NOT_STARTED', 'CARGO_FAILED', 'CARGO_SUCCEEDED_ARTIFACT_MISSING', "
+                                  "'CARGO_SUCCEEDED_ARTIFACT_PRESENT', 'INFRASTRUCTURE_FAILURE'] "
+                                  "(unsupported/malformed outcome fails closed; no inference)")
+                    else:
+                        raw += old
+                        reason = "BUILD_EXIT_CODE.txt: duplicate key 'outcome' (repeated with the same value) is not permitted; each key must be declared exactly once (no last-value-wins)"
+                    path.write_bytes(raw)
+                    payload = {n: data for n, data in _regression_snapshot(tree).items()
+                               if n not in {_REGRESSION_MANIFEST, _REGRESSION_BINDING}}
+                    template = (tree / _REGRESSION_BINDING).read_bytes()
+                    ei.write_evidence_manifest(tree, nested_classes=load_active_register().nested_class_records())
+                    seal = hashlib.sha256((tree / _REGRESSION_MANIFEST).read_bytes()).hexdigest()
+                    binding, count = re.subn(rb"^final_manifest_sha256=[0-9a-f]{64}$",
+                                             b"final_manifest_sha256=" + seal.encode("ascii"),
+                                             template, flags=re.MULTILINE)
+                    self.assertEqual(count, 1)
+                    (tree / _REGRESSION_BINDING).write_bytes(binding)
+                    _check_regression_manifest(tree, payload)
+                    _check_regression_binding(tree, template)
+                    before = _regression_snapshot(tree)
+                    audit["files_before_consumer"] = _regression_hashes(before)
+                    observed = []
+                    original = v.determine_outcome
+
+                    def observe(*args, **kwargs):
+                        result = original(*args, **kwargs)
+                        observed.append(result)
+                        return result
+
+                    with mock.patch.object(v, "determine_outcome", side_effect=observe):
+                        errors, computed = self._evaluate_once(tree, mode, "INDETERMINATE")
+                    self.assertEqual(observed, ["INFRASTRUCTURE_FAILURE" if variant == "duplicate" else None])
+                    self.assertEqual(errors.count(reason), 1, errors)
+                    self.assertEqual(v.validate_dir(tree, mode=mode), errors)
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    audit.update({"literal_expected_ceiling": "INDETERMINATE", "computed_ceiling": computed,
+                                  "target_diagnostic": reason, "actual_diagnostics": errors,
+                                  "observed_outcomes": observed, "intended_mutation": variant,
+                                  "independent_seals": True, "no_write": True})
+
+    def test_boundary_05_early_exit_none(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory(prefix="boundary_early_") as temporary:
+            root = Path(temporary)
+            cases = [(root / "absent", None, [f"Not a directory: {root / 'absent'}"]),
+                     (root, "boundary-unknown", ["unsupported schema_register_version: 'boundary-unknown' "
+                                               "(accepted historical: ['rc5-phase4-s1.1', 'rc5-phase4-s2.1', "
+                                               "'rc6.1', 'rc6.2', 'rc6.3', 'rc6.4'])"]),
+                     (root, "rc6.5", ["schema_register_version='rc6.5' is the active authority; "
+                                      "default validation uses active rc6.5 — do not request it through the historical validation API"])]
+            records = []
+            for mode in ("host-preliminary", "final-submission"):
+                for path, register, expected in cases:
+                    with self.subTest(mode=mode, path=path, register=register):
+                        with mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as calculate:
+                            errors, ceiling = v._evaluate_dir(path, mode=mode, schema_register_version=register)
+                            calculate.assert_not_called()
+                        self.assertEqual(errors, expected)
+                        self.assertIsNone(ceiling)
+                        self.assertEqual(v.validate_dir(path, mode=mode, schema_register_version=register), expected)
+                        self.assertEqual(list(root.iterdir()), [])
+                        records.append({"mode": mode, "register": register, "expected_errors": expected,
+                                        "actual_errors": errors, "computed_ceiling": ceiling, "ceiling_calls": 0})
+            _regression_record("boundary-early-" + root.name, {"status": "PASS", "literal_oracle": True, "cases": records})
+
+    def test_boundary_06_api_cli_no_write_once(self):
+        import inspect
+        import io
+        from contextlib import redirect_stdout
+        from unittest import mock
+
+        signature = inspect.signature(v.validate_dir)
+        self.assertEqual(list(signature.parameters), ["evidence_dir", "host_preliminary", "mode", "schema_register_version"])
+        self.assertEqual(signature.return_annotation, "list[str]")
+        for key, default in (("host_preliminary", False), ("mode", None), ("schema_register_version", None)):
+            self.assertEqual(signature.parameters[key].kind, inspect.Parameter.KEYWORD_ONLY)
+            self.assertEqual(signature.parameters[key].default, default)
+        for mode in ("host-preliminary", "final-submission"):
+            for variant in ("success", "invalid-exit"):
+                with self.subTest(mode=mode, variant=variant), self._case(mode, variant) as (tree, audit):
+                    before = _regression_snapshot(tree)
+                    times = {n: (tree / n).stat().st_mtime_ns for n in before}
+                    expected_errors = ([] if variant == "success" else [
+                        "BUILD_EXIT_CODE.txt: cargo_exit_code must be numeric for outcome INFRASTRUCTURE_FAILURE when cargo_started=YES"])
+                    expected_ceiling = "PASS" if variant == "success" else "INDETERMINATE"
+                    errors, computed = self._evaluate_once(tree, mode, expected_ceiling)
+                    self.assertEqual(errors, expected_errors)
+                    with mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as calculate:
+                        self.assertEqual(v.validate_dir(tree, mode=mode), expected_errors)
+                        self.assertEqual(calculate.call_count, 1)
+                    if expected_errors:
+                        expected_stdout = ("STRUCTURAL VALIDATION: FAIL\n  - " + expected_errors[0] +
+                                           "\n\nStructural FAIL does not prove the run occurred, was independent, or was truthful.\n")
+                    else:
+                        suffix = (" (host-preliminary structural PASS; not final Witness validation; not Independent Witness PASS; not final success eligibility)"
+                                  if mode == "host-preliminary" else
+                                  " (final-submission structural PASS; not Independent Witness PASS; not final eligibility; not READY; not rc5 readiness)")
+                        expected_stdout = "STRUCTURAL VALIDATION: PASS" + suffix + "\nStructural PASS does not prove execution, independence, or truthfulness.\n"
+                    flags = [["--" + mode]]
+                    if mode == "final-submission":
+                        flags.append([])  # Existing default alias.
+                    for flag in flags:
+                        stream = io.StringIO()
+                        with mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as calculate:
+                            with redirect_stdout(stream):
+                                exit_code = v.main([str(tree), *flag])
+                            self.assertEqual(calculate.call_count, 1)
+                        self.assertEqual(exit_code, 1 if expected_errors else 0)
+                        self.assertEqual(stream.getvalue(), expected_stdout)
+                        argv = [sys.executable, "-B", str(Path(SCRIPTS) / "validate_witness_evidence.py"), str(tree), *flag]
+                        cp = subprocess.run(argv, capture_output=True, timeout=30)
+                        self.assertEqual(cp.returncode, exit_code)
+                        self.assertEqual(cp.stdout.decode("utf-8").replace("\r\n", "\n"), expected_stdout)
+                        self.assertEqual(cp.stderr, b"")
+                    self.assertEqual(_regression_snapshot(tree), before)
+                    self.assertEqual({n: (tree / n).stat().st_mtime_ns for n in before}, times)
+                    self.assertNotIn("VALIDATOR_RESULT.txt", before)
+                    audit.update({"literal_expected_ceiling": expected_ceiling, "computed_ceiling": computed,
+                                  "expected_diagnostics": expected_errors, "actual_diagnostics": errors,
+                                  "expected_stdout": expected_stdout, "api_cli_exact_match": True,
+                                  "one_ceiling_call_per_evaluation": True, "no_write": True})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
