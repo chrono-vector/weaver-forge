@@ -648,6 +648,87 @@ class Phase3FValidatorPrerequisites(unittest.TestCase):
     # ------------------------------------------------------------------
     # Boundaries: no-write, no host gating, closed aux still closed
     # ------------------------------------------------------------------
+    def _assert_validator_stdout_not_file_writer(self, src: str) -> None:
+        """Allow only exact T1 marker literals; reject direct filesystem writers.
+
+        This bounded source guard complements, never replaces, byte/mtime tests.
+        It is not a proof about aliases, imported code or every possible path.
+        """
+        import ast
+        import io
+        import tokenize
+
+        permitted = ["WEAVER_FORGE_VALIDATOR_RESULT_BEGIN v1\n",
+                     "\nWEAVER_FORGE_VALIDATOR_RESULT_END v1\n"]
+        markers = []
+        for token in tokenize.generate_tokens(io.StringIO(src).readline):
+            if "VALIDATOR_RESULT" in token.string:
+                self.assertEqual(token.type, tokenize.STRING)
+                value = ast.literal_eval(token.string)
+                self.assertIn(value, permitted)
+                markers.append(value)
+        self.assertCountEqual(markers, permitted)
+        forbidden = {"write_text", "write_bytes", "mkdir", "makedirs", "touch",
+                     "unlink", "remove", "rmdir", "rmtree", "rename", "replace",
+                     "system", "popen", "Popen", "run", "call", "check_call", "check_output"}
+        tree = ast.parse(src)
+        # A bounded local proof, not a general type/dataflow analyser: a name
+        # assigned exactly once to unshadowed builtin set(), never a parameter
+        # or other binding, can only receive in-memory remove operations.
+        builtin_set = not any(
+            (isinstance(n, ast.Name) and n.id == "set" and isinstance(n.ctx, (ast.Store, ast.Del)))
+            or (isinstance(n, ast.arg) and n.arg == "set")
+            or (isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.name == "set")
+            or (isinstance(n, ast.alias) and (n.asname or n.name.split(".")[0]) == "set")
+            or (isinstance(n, ast.Attribute) and n.attr == "set" and isinstance(n.ctx, (ast.Store, ast.Del)))
+            for n in ast.walk(tree))
+        safe_set_removals = set()
+        for function_node in ast.walk(tree):
+            if not builtin_set or not isinstance(function_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            nodes = list(ast.walk(function_node))
+            parameters = {n.arg for n in ast.walk(function_node.args) if isinstance(n, ast.arg)}
+            for assignment in nodes:
+                if not (isinstance(assignment, ast.Assign) and len(assignment.targets) == 1
+                        and isinstance(assignment.targets[0], ast.Name)
+                        and isinstance(assignment.value, ast.Call)
+                        and isinstance(assignment.value.func, ast.Name)
+                        and assignment.value.func.id == "set"):
+                    continue
+                name = assignment.targets[0].id
+                stores = sum(isinstance(n, ast.Name) and n.id == name
+                             and isinstance(n.ctx, (ast.Store, ast.Del)) for n in nodes)
+                ambiguous = any(
+                    (isinstance(n, (ast.Global, ast.Nonlocal)) and name in n.names)
+                    or (isinstance(n, ast.ExceptHandler) and n.name == name)
+                    or (isinstance(n, ast.alias) and (n.asname or n.name.split(".")[0]) == name)
+                    for n in nodes)
+                if stores == 1 and name not in parameters and not ambiguous:
+                    safe_set_removals.update(id(n) for n in nodes if isinstance(n, ast.Call)
+                        and isinstance(n.func, ast.Attribute) and n.func.attr == "remove"
+                        and isinstance(n.func.value, ast.Name) and n.func.value.id == name)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function = node.func
+            if isinstance(function, ast.Attribute):
+                if function.attr != "remove" or id(node) not in safe_set_removals:
+                    self.assertNotIn(function.attr, forbidden)
+                if function.attr in {"write", "writelines"}:
+                    self.assertIn(ast.unparse(function.value), {"sys.stdout", "sys.stderr"})
+                is_open = function.attr == "open"
+                mode_index = 0
+            else:
+                self.assertFalse(isinstance(function, ast.Name) and function.id in {"exec", "eval"})
+                is_open = isinstance(function, ast.Name) and function.id == "open"
+                mode_index = 1
+            if is_open:
+                modes = [keyword.value for keyword in node.keywords if keyword.arg == "mode"]
+                self.assertLessEqual(len(modes), 1)
+                mode = modes[0] if modes else (node.args[mode_index] if len(node.args) > mode_index else ast.Constant("r"))
+                self.assertIsInstance(mode, ast.Constant)
+                self.assertIn(mode.value, {"r", "rb", "rt"})
+
     def test_21_validator_writes_no_evidence(self) -> None:
         tree = self._write_current_success("host-preliminary")
         before = {
@@ -668,13 +749,52 @@ class Phase3FValidatorPrerequisites(unittest.TestCase):
         self.assertIn("writes only to its own stdout/stderr", src)
         self.assertIn("never writes into the", src)
         self.assertIn("evidence directory it is validating", src)
-        self.assertNotIn("VALIDATOR_RESULT", src)
+        self._assert_validator_stdout_not_file_writer(src)
         self.assertIsNone(re.search(r"evidence_dir[^\n]*\.write_", src))
+        # Parse temporary source copies only; never execute injected controls.
+        controls = [("actual-markers", True, src),
+                    ("safe-set-remove", True, src + "\ndef _guard_copy():\n    values = set(['x'])\n    values.remove('x')\n")]
+        writers = ("Path('external-result.txt').write_text('x')",
+                   "Path('external-result.txt').write_bytes(b'x')",
+                   "open('external-result.txt', 'w')",
+                   "Path('external-result.txt').open(mode='a')",
+                   "destination.write('x')", "Path('evidence').mkdir()",
+                   "os.remove('external-result.txt')", "Path('external-result.txt').unlink()",
+                   "unknown.remove('external-result.txt')", 'result_path = "VALIDATOR_RESULT.txt"')
+        controls += [("writer-" + str(i), False, src + "\n" + writer + "\n")
+                     for i, writer in enumerate(writers)]
+        controls += [
+            ("reassigned-set", False, src + "\ndef _guard_copy():\n    values = set()\n    values = Path('external-result.txt')\n    values.remove('x')\n"),
+            ("parameter-receiver", False, src + "\ndef _guard_copy(values):\n    values.remove('x')\n    values = set()\n"),
+            ("shadowed-set", False, src + "\nset = replacement\n")]
+        archive = None
+        if os.environ.get("WF_STAGE2A_ORACLE_DIR"):
+            archive = Path(os.environ["WF_STAGE2A_ORACLE_DIR"]) / "guard-controls"
+            archive.mkdir()
+        records = []
+        with tempfile.TemporaryDirectory(prefix="guard_controls_") as temporary:
+            for name, allowed, candidate in controls:
+                path = Path(temporary) / (name + ".py")
+                path.write_text(candidate, encoding="utf-8", newline="\n")
+                raw = path.read_bytes()
+                if archive is not None:
+                    (archive / path.name).write_bytes(raw)
+                with self.subTest(guard_control=name, expected_allowed=allowed):
+                    if allowed:
+                        self._assert_validator_stdout_not_file_writer(raw.decode("utf-8"))
+                    else:
+                        with self.assertRaises(AssertionError):
+                            self._assert_validator_stdout_not_file_writer(raw.decode("utf-8"))
+                    records.append({"case": name, "expected": "ALLOW" if allowed else "REJECT",
+                                    "observed": "ALLOW" if allowed else "REJECT",
+                                    "sha256": hashlib.sha256(raw).hexdigest(), "parsed_only": True})
+        if archive is not None:
+            (archive / "RESULTS.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
 
     def test_22_host_gating_deferred_from_3f_a_implemented_in_3f_b(self) -> None:
-        # Phase 3F-A historical boundary: validator itself still writes no VALIDATOR_RESULT.
+        # Host owns capture/storage; T1 stdout markers are not result-file writers.
         src = VALIDATOR.read_text(encoding="utf-8")
-        self.assertNotIn("VALIDATOR_RESULT", src)
+        self._assert_validator_stdout_not_file_writer(src)
         self.assertIn("writes only to its own stdout/stderr", src)
         # Current host source after Phase 3F-B: repository validator is invoked in
         # host-preliminary mode and host exit is validator-gated.

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import sys
 from pathlib import Path
@@ -3949,6 +3950,113 @@ def _evaluate_dir(
     return errors, ceiling
 
 
+def _stdout_v1_snapshot(evidence_dir: Path) -> dict:
+    """Read binding bytes only; unavailable identities are never inferred."""
+    script = Path(__file__).resolve()
+    register = script.parent.parent / "schemas" / "canonical_schema_register_rc6.json"
+    peers = (PACKAGE_IDENTITY_NAME, "BUILD_EXIT_CODE.txt", "SOURCE_IDENTITY.txt",
+             "ARTIFACT_IDENTITY.txt", "POST_BUILD_INTEGRITY.txt",
+             HOST_OUTCOME_INGESTION_NAME, FINAL_BINDING_NAME)
+    paths = {name: evidence_dir / name for name in (*peers, MANIFEST_NAME)}
+    paths.update({"validator_script": script, "active_register": register})
+    contents = {}
+    identities = {}
+    for name, path in paths.items():
+        try:
+            if path.is_symlink() or not path.is_file():
+                contents[name] = None
+                identities[name] = ("symlink" if path.is_symlink() else "unavailable", None)
+            else:
+                contents[name] = path.read_bytes()
+                identities[name] = ("regular", hashlib.sha256(contents[name]).hexdigest())
+        except OSError:
+            contents[name] = None
+            identities[name] = ("unavailable", None)
+
+    anchors = []
+    peer_ids = []
+    valid_ids = True
+    for name in peers:
+        raw = contents[name]
+        if raw is None:
+            if name in (PACKAGE_IDENTITY_NAME, "BUILD_EXIT_CODE.txt"):
+                valid_ids = False
+            continue
+        try:
+            fields, diagnostics = parse_kv(raw.decode("utf-8"), name)
+        except UnicodeError:
+            valid_ids = False
+            continue
+        if diagnostics:
+            valid_ids = False
+        if name in (PACKAGE_IDENTITY_NAME, "BUILD_EXIT_CODE.txt"):
+            anchors.append(fields.get("run_id"))
+        for key in ("run_id", "container_run_id"):
+            if key in fields:
+                peer_ids.append(fields[key])
+    run_id = None
+    if (valid_ids and len(anchors) == 2 and anchors[0] == anchors[1]
+            and isinstance(anchors[0], str) and is_safe_token(anchors[0])
+            and all(value == anchors[0] for value in peer_ids)):
+        run_id = anchors[0]
+    binding = {
+        "evidence_dir": str(evidence_dir),
+        "run_id": run_id,
+        "manifest_sha256": identities[MANIFEST_NAME][1],
+        "final_binding_sha256": identities[FINAL_BINDING_NAME][1],
+        "validator_script_sha256": identities["validator_script"][1],
+        "schema_register_version": SCHEMA_REGISTER_VERSION,
+        "schema_register_sha256": identities["active_register"][1],
+    }
+    return {"binding": binding, "identity_files": identities}
+
+
+def _main_stdout_v1(evidence_dir: Path, mode: str, request_id: str) -> int:
+    """Opt-in structural transport, not a complete authoritative result tuple."""
+    before = _stdout_v1_snapshot(evidence_dir)
+    errors, ceiling = _evaluate_dir(evidence_dir, mode=mode)
+    after = _stdout_v1_snapshot(evidence_dir)
+    if before != after:
+        print("Validator result unavailable: binding changed during evaluation", file=sys.stderr)
+        return 2
+    if ceiling is not None and ceiling not in ("PASS", "PARTIAL", "FAIL", "INDETERMINATE"):
+        raise ValueError("invalid internal computed ceiling")
+    if not errors and ceiling is None:
+        raise ValueError("structural PASS without a computed ceiling")
+    binding = before["binding"]
+    result = {
+        "format_version": 1,
+        "result_scope": "structural-evaluation",
+        "mode": mode,
+        "request_id": request_id,
+        "binding_status": "BOUND" if all(value is not None for value in binding.values()) else "UNAVAILABLE",
+        "binding": binding,
+        "structural_status": "FAIL" if errors else "PASS",
+        "error_count": len(errors),
+        "ceiling_state": "NOT_COMPUTED" if ceiling is None else "COMPUTED",
+        "computed_ceiling": ceiling,
+    }
+    # Assemble completely before writing any frame. Exceptions/interruptions in
+    # evaluation emit no frame; interrupted writes cannot produce a complete frame.
+    frame = ("WEAVER_FORGE_VALIDATOR_RESULT_BEGIN v1\n"
+             + json.dumps(result, ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+             + "\nWEAVER_FORGE_VALIDATOR_RESULT_END v1\n")
+    if errors:
+        print("STRUCTURAL VALIDATION: FAIL")
+        for error in errors:
+            print(f"  - {error}")
+        print("\nStructural FAIL does not prove the run occurred, was independent, or was truthful.")
+    else:
+        note = (" (host-preliminary structural PASS; not final Witness validation; not Independent Witness PASS; not final success eligibility)"
+                if mode == MODE_HOST_PRELIMINARY else
+                " (final-submission structural PASS; not Independent Witness PASS; not final eligibility; not READY; not rc5 readiness)")
+        print(f"STRUCTURAL VALIDATION: PASS{note}")
+        print("Structural PASS does not prove execution, independence, or truthfulness.")
+    # A future consumer must also verify process exit; hashes are not signatures.
+    sys.stdout.write(frame)
+    return 1 if errors else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -3994,7 +4102,20 @@ def main(argv: list[str] | None = None) -> int:
             f"{ACTIVE_REGISTER_VERSION}. Active version cannot be requested here."
         ),
     )
+    parser.add_argument("--result-format", choices=("framed-json-v1",), default=None,
+                        help="Opt-in structural-evaluation stdout transport (not Contract result)")
+    parser.add_argument("--result-request-id", default=None,
+                        help="Required with --result-format: 32 lowercase hexadecimal characters")
     args = parser.parse_args(argv)
+    if args.result_format is not None:
+        if args.result_request_id is None or re.fullmatch(r"[0-9a-f]{32}", args.result_request_id) is None:
+            parser.error("--result-format requires --result-request-id with 32 lowercase hex characters")
+        if not (args.host_preliminary or args.final_submission):
+            parser.error("--result-format requires an explicit mode")
+        if args.schema_register_version is not None or SCHEMA_REGISTER_VERSION != "rc6.5":
+            parser.error("--result-format supports only default active rc6.5")
+    elif args.result_request_id is not None:
+        parser.error("--result-request-id requires --result-format")
 
     if args.host_preliminary:
         selected_mode = MODE_HOST_PRELIMINARY
@@ -4002,6 +4123,9 @@ def main(argv: list[str] | None = None) -> int:
         selected_mode = MODE_FINAL_SUBMISSION
     else:
         selected_mode = DEFAULT_MODE_COMPATIBILITY_ALIAS
+
+    if args.result_format is not None:
+        return _main_stdout_v1(args.evidence_dir.resolve(), selected_mode, args.result_request_id)
 
     errors = validate_dir(
         args.evidence_dir.resolve(),

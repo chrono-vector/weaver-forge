@@ -2076,5 +2076,404 @@ class InternalEvaluationBoundaryTests(unittest.TestCase):
                                   "one_ceiling_call_per_evaluation": True, "no_write": True})
 
 
+# T1 consumer oracle is deliberately test-local: no production Host consumer.
+_T1_BEGIN = "WEAVER_FORGE_VALIDATOR_RESULT_BEGIN v1"
+_T1_END = "WEAVER_FORGE_VALIDATOR_RESULT_END v1"
+_T1_REQUEST = "0123456789abcdef0123456789abcdef"
+_T1_KEYS = {"format_version", "result_scope", "mode", "request_id", "binding_status",
+            "binding", "structural_status", "error_count", "ceiling_state", "computed_ceiling"}
+_T1_BINDING_KEYS = {"evidence_dir", "run_id", "manifest_sha256", "final_binding_sha256",
+                    "validator_script_sha256", "schema_register_version", "schema_register_sha256"}
+
+
+def _strict_t1_decode(text, exit_code, expected=None):
+    """Independent strict consumer oracle; never calls a producer helper."""
+    def reject(reason):
+        raise ValueError(reason)
+
+    lines = text.splitlines()
+    markers = [(i, line) for i, line in enumerate(lines)
+               if line.startswith("WEAVER_FORGE_VALIDATOR_RESULT_")]
+    if len(markers) != 2 or markers[0][1] != _T1_BEGIN or markers[1][1] != _T1_END:
+        reject("frame markers")
+    start, end = markers[0][0], markers[1][0]
+    if end != start + 2 or end != len(lines) - 1 or not text.endswith("\n"):
+        reject("frame boundary")
+
+    def unique(pairs):
+        obj = {}
+        for key, value in pairs:
+            if key in obj:
+                reject("duplicate JSON key")
+            obj[key] = value
+        return obj
+
+    def bad_constant(value):
+        reject("nonfinite JSON constant")
+
+    obj = json.loads(lines[start + 1], object_pairs_hook=unique, parse_constant=bad_constant)
+    if type(obj) is not dict or set(obj) != _T1_KEYS:
+        reject("exact fields")
+    if type(obj["format_version"]) is not int or obj["format_version"] != 1:
+        reject("version")
+    if obj["result_scope"] != "structural-evaluation":
+        reject("scope")
+    if type(obj["mode"]) is not str or obj["mode"] not in ("host-preliminary", "final-submission"):
+        reject("mode")
+    if type(obj["request_id"]) is not str or re.fullmatch(r"[0-9a-f]{32}", obj["request_id"]) is None:
+        reject("request")
+    binding = obj["binding"]
+    if type(binding) is not dict or set(binding) != _T1_BINDING_KEYS:
+        reject("binding fields")
+    if type(binding["evidence_dir"]) is not str or not Path(binding["evidence_dir"]).is_absolute():
+        reject("absolute evidence path")
+    if binding["schema_register_version"] != "rc6.5":
+        reject("register version")
+    run = binding["run_id"]
+    if run is not None and (type(run) is not str or re.fullmatch(r"[A-Za-z0-9_.-]+", run) is None or ".." in run):
+        reject("run id")
+    for key in ("manifest_sha256", "final_binding_sha256", "validator_script_sha256", "schema_register_sha256"):
+        value = binding[key]
+        if value is not None and (type(value) is not str or re.fullmatch(r"[0-9a-f]{64}", value) is None):
+            reject("hash")
+    availability = "BOUND" if all(value is not None for value in binding.values()) else "UNAVAILABLE"
+    if obj["binding_status"] != availability:
+        reject("binding availability")
+    count = obj["error_count"]
+    if type(count) is not int or count < 0:
+        reject("error count")
+    status = "FAIL" if count else "PASS"
+    if obj["structural_status"] != status or exit_code != (1 if count else 0):
+        reject("exit structural count")
+    human = [line.split(":", 1)[1].strip().split()[0] for line in lines[:start]
+             if line.startswith("STRUCTURAL VALIDATION:")]
+    if human != [status] or sum(line.startswith("  - ") for line in lines[:start]) != count:
+        reject("human structural count")
+    ceiling = obj["computed_ceiling"]
+    if obj["ceiling_state"] == "NOT_COMPUTED":
+        if ceiling is not None or not count:
+            reject("uncomputed")
+    elif obj["ceiling_state"] == "COMPUTED":
+        if type(ceiling) is not str or ceiling not in ("PASS", "PARTIAL", "FAIL", "INDETERMINATE"):
+            reject("ceiling")
+    else:
+        reject("ceiling state")
+    if expected:
+        for key, value in expected.items():
+            if key == "binding":
+                if any(binding[k] != v_ for k, v_ in value.items()):
+                    reject("binding mismatch")
+            elif obj[key] != value:
+                reject("request or mode mismatch")
+    return obj
+
+
+def _decode_t1(text, exit_code, expected=None):
+    counter = getattr(_decode_t1, "evidence_counter", 0) + 1
+    _decode_t1.evidence_counter = counter
+    record = {"wire": text, "process_exit": exit_code, "expected_binding": expected,
+              "independent_decoder": True}
+    try:
+        result = _strict_t1_decode(text, exit_code, expected)
+    except ValueError as error:
+        record.update({"decoder_result": "REJECT", "reason": str(error)})
+        _regression_record("t1-wire-" + str(counter).zfill(4), record)
+        raise
+    record.update({"decoder_result": "ACCEPT", "decoded": result})
+    _regression_record("t1-wire-" + str(counter).zfill(4), record)
+    return result
+
+
+def _literal_t1():
+    return {"format_version": 1, "result_scope": "structural-evaluation",
+            "mode": "host-preliminary", "request_id": _T1_REQUEST,
+            "binding_status": "BOUND",
+            "binding": {"evidence_dir": str(Path(tempfile.gettempdir()).resolve() / "literal-evidence"),
+                        "run_id": "literal-run", "manifest_sha256": "a" * 64,
+                        "final_binding_sha256": "b" * 64, "validator_script_sha256": "c" * 64,
+                        "schema_register_version": "rc6.5", "schema_register_sha256": "d" * 64},
+            "structural_status": "PASS", "error_count": 0,
+            "ceiling_state": "COMPUTED", "computed_ceiling": "PASS"}
+
+
+def _literal_t1_wire(obj=None):
+    obj = _literal_t1() if obj is None else obj
+    human = "STRUCTURAL VALIDATION: " + obj["structural_status"] + "\n"
+    human += "  - literal diagnostic\n" * obj["error_count"]
+    return human + _T1_BEGIN + "\n" + json.dumps(obj, ensure_ascii=True) + "\n" + _T1_END + "\n"
+
+
+class FramedStdoutV1Tests(unittest.TestCase):
+    def _case(self, mode="host-preliminary", variant="success"):
+        return OutcomeConsistencyTests._stage2b_case(self, mode, variant)
+
+    def _invoke(self, path, mode="host-preliminary", extra=None):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        out, err = io.StringIO(), io.StringIO()
+        args = [str(path), "--" + mode, "--result-format", "framed-json-v1",
+                "--result-request-id", _T1_REQUEST]
+        with redirect_stdout(out), redirect_stderr(err):
+            code = v.main(args + (extra or []))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_t1_01_both_modes_normal_frame(self):
+        for mode in ("host-preliminary", "final-submission"):
+            with self.subTest(mode=mode), self._case(mode) as (tree, audit):
+                before = _regression_snapshot(tree)
+                code, out, err = self._invoke(tree, mode)
+                self.assertEqual((code, err), (0, ""))
+                obj = _decode_t1(out, code, {"request_id": _T1_REQUEST, "mode": mode, "binding_status": "BOUND"})
+                binding = obj["binding"]
+                self.assertEqual(binding["evidence_dir"], str(tree.resolve()))
+                # Explicit known run_id, not a producer-generated expectation.
+                self.assertEqual(binding["run_id"], "run-rc6-r3-schema-synthetic-001")
+                for key, file in (("manifest_sha256", tree / _REGRESSION_MANIFEST),
+                                  ("final_binding_sha256", tree / _REGRESSION_BINDING),
+                                  ("validator_script_sha256", Path(SCRIPTS) / "validate_witness_evidence.py"),
+                                  ("schema_register_sha256", Path(SCRIPTS).parent / "schemas/canonical_schema_register_rc6.json")):
+                    self.assertEqual(binding[key], hashlib.sha256(file.read_bytes()).hexdigest())
+                self.assertEqual((obj["structural_status"], obj["computed_ceiling"]), ("PASS", "PASS"))
+                self.assertEqual(_regression_snapshot(tree), before)
+                audit["t1"] = {"frame": obj, "stdout": out, "stderr": err, "exit": code,
+                               "independent_hashes": True, "no_write": True}
+
+    def test_t1_02_ceiling_four_values_independent(self):
+        from unittest import mock
+        # Literal boundary inputs isolate transport from ceiling computation.
+        with tempfile.TemporaryDirectory(prefix="t1_ceiling_") as temporary:
+            for ceiling in ("PASS", "PARTIAL", "FAIL", "INDETERMINATE"):
+                for errors in ([], ["literal late diagnostic"]):
+                    with self.subTest(ceiling=ceiling, errors=errors), mock.patch.object(v, "_evaluate_dir", return_value=(errors, ceiling)) as evaluate:
+                        code, out, err = self._invoke(Path(temporary))
+                        obj = _decode_t1(out, code)
+                        self.assertEqual(obj["computed_ceiling"], ceiling)
+                        self.assertEqual(obj["structural_status"], "FAIL" if errors else "PASS")
+                        self.assertEqual(obj["error_count"], len(errors))
+                        self.assertEqual(err, "")
+                        evaluate.assert_called_once()
+
+    def test_t1_03_early_exit_null(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory(prefix="t1_early_") as temporary:
+            path = Path(temporary) / "absent"
+            with mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as calc:
+                code, out, err = self._invoke(path)
+                calc.assert_not_called()
+            obj = _decode_t1(out, code)
+            self.assertEqual((code, err, obj["ceiling_state"], obj["computed_ceiling"]), (1, "", "NOT_COMPUTED", None))
+            self.assertEqual(obj["binding_status"], "UNAVAILABLE")
+            self.assertIsNone(obj["binding"]["run_id"])
+            self.assertEqual(list(Path(temporary).iterdir()), [])
+
+    def test_t1_04_late_diagnostics_preserved(self):
+        for mode in ("host-preliminary", "final-submission"):
+            with self.subTest(mode=mode), self._case(mode) as (tree, audit):
+                path = tree / _REGRESSION_BINDING
+                raw, count = re.subn(rb"^final_manifest_sha256=[0-9a-f]{64}$", b"final_manifest_sha256=" + b"b" * 64, path.read_bytes(), flags=re.MULTILINE)
+                self.assertEqual(count, 1)
+                path.write_bytes(raw)
+                expected = ["WEAVER_FORGE_FINAL_BINDING.txt: final_manifest_sha256 mismatch "
+                            f"(recomputed={hashlib.sha256((tree / _REGRESSION_MANIFEST).read_bytes()).hexdigest()} recorded={'b' * 64})"]
+                if mode == "final-submission":
+                    expected.insert(0, "WITNESS_STATEMENT.md: WEAVER_FORGE_FINAL_BINDING.txt final_manifest_sha256 does not match recomputed EVIDENCE_MANIFEST.sha256 identity (manifest identity binding)")
+                before = _regression_snapshot(tree)
+                code, out, err = self._invoke(tree, mode)
+                obj = _decode_t1(out, code)
+                self.assertEqual([line[4:] for line in out.splitlines() if line.startswith("  - ")], expected)
+                self.assertEqual((obj["computed_ceiling"], obj["error_count"], code, err), ("PASS", len(expected), 1, ""))
+                self.assertEqual(_regression_snapshot(tree), before)
+                audit["t1"] = {"frame": obj, "literal_diagnostics": expected, "stdout": out, "exit": code}
+
+    def test_t1_05_markers_escape_exact_types(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory(prefix='t1_quote_') as temporary:
+            path = Path(temporary)
+            snapshot = v._stdout_v1_snapshot(path)
+            escaped_path = str(path.resolve()) + '/quote"-unicode-\u65e5\u672c'
+            snapshot["binding"]["evidence_dir"] = escaped_path
+            # Serialization boundary input, not an invalid Windows filename.
+            with mock.patch.object(v, "_stdout_v1_snapshot", return_value=snapshot), mock.patch.object(v, "_evaluate_dir", return_value=(["literal"], None)):
+                code, out, err = self._invoke(path)
+            obj = _decode_t1(out, code)
+            self.assertEqual(set(obj), _T1_KEYS)
+            self.assertEqual(set(obj["binding"]), _T1_BINDING_KEYS)
+            self.assertEqual(obj["binding"]["evidence_dir"], escaped_path)
+            self.assertIn('\\"', out)
+            self.assertIn('\\u65e5', out)
+            self.assertTrue(out.endswith(_T1_END + "\n"))
+            self.assertEqual(out.count(_T1_BEGIN), 1)
+            self.assertEqual(err, "")
+            self.assertNotIn("validator_status", obj)
+            self.assertNotIn("machine_verdict_ceiling", obj)
+
+    def test_t1_06_version_request_mode_arguments(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        from unittest import mock
+        with tempfile.TemporaryDirectory(prefix="t1_args_") as temporary:
+            valid = [temporary, "--host-preliminary", "--result-format", "framed-json-v1", "--result-request-id", _T1_REQUEST]
+            cases = [[temporary, "--result-format", "framed-json-v1", "--result-request-id", _T1_REQUEST],
+                     [temporary, "--host-preliminary", "--result-request-id", _T1_REQUEST],
+                     [temporary, "--host-preliminary", "--result-format", "framed-json-v1"],
+                     [x if x != "framed-json-v1" else "framed-json-v2" for x in valid],
+                     valid + ["--schema-register-version", "rc6.4"],
+                     valid + ["--schema-register-version", "rc6.5"],
+                     valid + ["--final-submission"]]
+            cases += [valid[:-1] + [bad] for bad in ("A" * 32, "a" * 31, "g" * 32, "", "a" * 33, "a" * 31 + "\n")]
+            for args in cases:
+                with self.subTest(args=args), mock.patch.object(v, "_evaluate_dir") as evaluate:
+                    out, err = io.StringIO(), io.StringIO()
+                    with redirect_stdout(out), redirect_stderr(err), self.assertRaises(SystemExit) as caught:
+                        v.main(args)
+                    self.assertEqual(caught.exception.code, 2)
+                    evaluate.assert_not_called()
+                    self.assertNotIn(_T1_BEGIN, out.getvalue())
+                    self.assertIn("error:", err.getvalue())
+
+    def test_t1_07_missing_duplicate_truncated_frames(self):
+        wire = _literal_t1_wire()
+        self.assertEqual(_decode_t1(wire, 0), _literal_t1())
+        cases = [wire.replace(_T1_BEGIN + "\n", ""), wire.replace(_T1_END + "\n", ""),
+                 wire + wire, wire[:-1], wire + "trailing\n", wire.replace(_T1_BEGIN, _T1_BEGIN + "\n" + _T1_BEGIN),
+                 wire.replace("BEGIN v1", "BEGIN v2"), wire.replace(_T1_END, "WEAVER_FORGE_VALIDATOR_RESULT_END v2")]
+        for text in cases:
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                _decode_t1(text, 0)
+
+    def test_t1_08_json_duplicate_unknown_type_rejection(self):
+        import copy
+        wire = _literal_t1_wire()
+        cases = [wire.replace('"format_version": 1', '"format_version": 1, "format_version": 1'),
+                 wire.replace('"run_id": "literal-run"', '"run_id": "literal-run", "run_id": "literal-run"')]
+        mutations = [("format_version", True), ("format_version", 2), ("format_version", "1"),
+                     ("error_count", True), ("error_count", -1), ("computed_ceiling", 0),
+                     ("request_id", 123), ("result_scope", "contract-result"), ("extra", "unknown"),
+                     ("binding", []), ("mode", "other"), ("binding_status", "OTHER"), ("ceiling_state", "other")]
+        for key, value in mutations:
+            obj = copy.deepcopy(_literal_t1())
+            obj[key] = value
+            # Keep an independently valid human prefix when testing bad types.
+            cases.append(wire[:wire.index(_T1_BEGIN)] + _T1_BEGIN + "\n" + json.dumps(obj) + "\n" + _T1_END + "\n")
+        for key, value in (("manifest_sha256", "BAD"), ("run_id", "../bad"), ("unknown", "x")):
+            obj = _literal_t1()
+            obj["binding"][key] = value
+            cases.append(_literal_t1_wire(obj))
+        for text in cases:
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                _decode_t1(text, 0)
+
+    def test_t1_09_exit_status_count_consistency(self):
+        import copy
+        good = _literal_t1_wire()
+        for code in (1, 2, -9, 130):
+            with self.subTest(code=code), self.assertRaises(ValueError):
+                _decode_t1(good, code)
+        failed = _literal_t1()
+        failed.update(structural_status="FAIL", error_count=1, computed_ceiling="PASS")
+        self.assertEqual(_decode_t1(_literal_t1_wire(failed), 1)["computed_ceiling"], "PASS")
+        for key, value in (("structural_status", "PASS"), ("error_count", 0), ("ceiling_state", "NOT_COMPUTED")):
+            obj = copy.deepcopy(failed)
+            obj[key] = value
+            # Preserve original human FAIL + one diagnostic to isolate contradictions.
+            text = "STRUCTURAL VALIDATION: FAIL\n  - literal diagnostic\n" + _T1_BEGIN + "\n" + json.dumps(obj) + "\n" + _T1_END + "\n"
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                _decode_t1(text, 1)
+
+    def test_t1_10_stale_binding_and_run_noninference(self):
+        wire = _literal_t1_wire()
+        expected_cases = [{"request_id": "f" * 32}, {"mode": "final-submission"}]
+        expected_cases += [{"binding": {key: value}} for key, value in (
+            ("run_id", "other-run"), ("evidence_dir", str(Path(tempfile.gettempdir()).resolve() / "other")),
+            ("manifest_sha256", "e" * 64), ("final_binding_sha256", "e" * 64),
+            ("validator_script_sha256", "e" * 64), ("schema_register_sha256", "e" * 64))]
+        for expected in expected_cases:
+            with self.subTest(expected=expected), self.assertRaises(ValueError):
+                _decode_t1(wire, 0, expected)
+        for variant in ("missing", "duplicate", "peer"):
+            with self.subTest(variant=variant), self._case() as (tree, audit):
+                path = tree / "BUILD_EXIT_CODE.txt"
+                raw = path.read_bytes()
+                line = b"run_id=run-rc6-r3-schema-synthetic-001\n"
+                self.assertEqual(raw.count(line), 1)
+                if variant == "missing":
+                    raw = raw.replace(line, b"")
+                elif variant == "duplicate":
+                    raw += line
+                else:
+                    raw = raw.replace(line, b"run_id=different-run\n")
+                path.write_bytes(raw)
+                code, out, err = self._invoke(tree)
+                obj = _decode_t1(out, code)
+                self.assertEqual(code, 1)
+                self.assertIsNone(obj["binding"]["run_id"])
+                self.assertEqual(obj["binding_status"], "UNAVAILABLE")
+                self.assertEqual(err, "")
+                audit["t1"] = {"variant": variant, "frame": obj, "stdout": out, "exit": code}
+
+    def test_t1_11_changes_exceptions_interrupts(self):
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+        from unittest import mock
+        for filename in (_REGRESSION_MANIFEST, _REGRESSION_BINDING, "BUILD_EXIT_CODE.txt"):
+            with self.subTest(file=filename), self._case() as (tree, audit):
+                def mutate(*args, **kwargs):
+                    with (tree / filename).open("ab") as handle:
+                        handle.write(b"\n# simulated concurrent modification\n")
+                    return [], "PASS"
+                with mock.patch.object(v, "_evaluate_dir", side_effect=mutate):
+                    code, out, err = self._invoke(tree)
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")
+                self.assertIn("binding changed", err)
+                audit["t1"] = {"concurrent_actor_simulated": filename, "exit": code, "no_frame": True}
+        with tempfile.TemporaryDirectory(prefix="t1_interrupt_") as temporary:
+            path = Path(temporary)
+            original = v._stdout_v1_snapshot(path)
+            for key in ("validator_script_sha256", "schema_register_sha256"):
+                import copy
+                changed = copy.deepcopy(original)
+                changed["binding"][key] = "e" * 64
+                with self.subTest(key=key), mock.patch.object(v, "_stdout_v1_snapshot", side_effect=[original, changed]), mock.patch.object(v, "_evaluate_dir", return_value=([], "PASS")):
+                    code, out, err = self._invoke(path)
+                    self.assertEqual((code, out), (2, ""))
+                    self.assertIn("binding changed", err)
+            for exception in (RuntimeError("literal exception"), KeyboardInterrupt()):
+                out, err = io.StringIO(), io.StringIO()
+                with mock.patch.object(v, "_evaluate_dir", side_effect=exception), redirect_stdout(out), redirect_stderr(err), self.assertRaises(type(exception)):
+                    v.main([str(path), "--host-preliminary", "--result-format", "framed-json-v1", "--result-request-id", _T1_REQUEST])
+                self.assertEqual(out.getvalue(), "")
+
+    def test_t1_12_legacy_api_once_no_write(self):
+        import inspect
+        import io
+        from contextlib import redirect_stdout
+        from unittest import mock
+        self.assertEqual(list(inspect.signature(v.validate_dir).parameters), ["evidence_dir", "host_preliminary", "mode", "schema_register_version"])
+        for mode in ("host-preliminary", "final-submission"):
+            with self.subTest(mode=mode), self._case(mode) as (tree, audit):
+                before = _regression_snapshot(tree)
+                mtimes = {n: (tree / n).stat().st_mtime_ns for n in before}
+                legacy = io.StringIO()
+                with redirect_stdout(legacy):
+                    self.assertEqual(v.main([str(tree), "--" + mode]), 0)
+                with mock.patch.object(v, "_evaluate_dir", wraps=v._evaluate_dir) as evaluate, mock.patch.object(v, "compute_verdict_ceiling", wraps=v.compute_verdict_ceiling) as calculate:
+                    code, out, err = self._invoke(tree, mode)
+                    evaluate.assert_called_once()
+                    calculate.assert_called_once()
+                self.assertEqual(out[:out.index(_T1_BEGIN)], legacy.getvalue())
+                self.assertEqual((code, err), (0, ""))
+                self.assertEqual(v.validate_dir(tree, mode=mode), [])
+                cp = subprocess.run([sys.executable, "-B", str(Path(SCRIPTS) / "validate_witness_evidence.py"), str(tree), "--" + mode, "--result-format", "framed-json-v1", "--result-request-id", _T1_REQUEST], capture_output=True, timeout=30)
+                self.assertEqual(cp.returncode, 0)
+                self.assertEqual(cp.stderr, b"")
+                self.assertEqual(_decode_t1(cp.stdout.decode("utf-8"), 0), _decode_t1(out, code))
+                self.assertEqual(_regression_snapshot(tree), before)
+                self.assertEqual({n: (tree / n).stat().st_mtime_ns for n in before}, mtimes)
+                audit["t1"] = {"one_evaluation": True, "one_ceiling_calculation": True,
+                               "legacy_stdout_identical": True, "API_unchanged": True,
+                               "subprocess_stdout": cp.stdout.decode("utf-8"), "no_write": True}
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
