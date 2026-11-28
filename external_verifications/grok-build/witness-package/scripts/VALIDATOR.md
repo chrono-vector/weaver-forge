@@ -76,7 +76,7 @@ repair the explicit outcome.
 | `CARGO_FAILED` | Cargo started and exited non-zero |
 | `CARGO_SUCCEEDED_ARTIFACT_MISSING` | Cargo exited `0` but the expected artifact was not found |
 | `CARGO_SUCCEEDED_ARTIFACT_PRESENT` | Cargo exited `0` and the artifact was found and inspected |
-| `INFRASTRUCTURE_FAILURE` | An environment/infrastructure fault (not a cargo/bootstrap failure) prevented the build |
+| `INFRASTRUCTURE_FAILURE` | An environment/infrastructure fault prevented a trustworthy build result, before or after Cargo started |
 
 `outcome=` must also be present and **identical** in `DOCKER_EXIT_CODE.txt`,
 `BUILD_TIMING.txt`, and `WITNESS_VERDICT.md`; a mismatch against
@@ -99,6 +99,18 @@ fields (see `FILE_REQUIRED_FIELDS` in the validator).
 `cargo_exit_code` uses the literal sentinel `NOT_APPLICABLE` (exact,
 case-sensitive) whenever cargo never started — there is no `N/A` alias.
 This matches `container_narrow_build.sh`'s `write_outcome_evidence` exactly.
+
+For `INFRASTRUCTURE_FAILURE`, the limited Stage 2B build-exit tuple check
+follows the Outcome Contract's `YES_OR_NO` / `PRESERVE_CONTAINER_FACTS` rule:
+`cargo_started=NO` requires `cargo_exit_code=NOT_APPLICABLE`;
+`cargo_started=YES` requires the recorded numeric Cargo exit (zero or nonzero).
+`failure_stage` must identify the infrastructure failure; empty, `NOT_REACHED`,
+`NOT_STARTED`, and `NOT_APPLICABLE` are rejected. The validator rejects
+contradictions without rewriting Container facts or inferring an outcome.
+The other four outcome rules and ceiling computation are unchanged. This
+slice does not establish full infrastructure artifact/timing compliance,
+Validator-result transport, or a ceiling value for generic Host failures.
+No Contract, Schema, result artifact, or Host ownership rule is changed.
 
 When an artifact is absent (`artifact_present=no`), `ARTIFACT_IDENTITY.txt`
 and `STATIC_ARTIFACT_INSPECTION.txt` both require a non-empty `reason=`
